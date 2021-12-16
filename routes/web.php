@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PagesController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 
@@ -16,8 +17,6 @@ use Illuminate\Support\Facades\Auth;
 |
 */
 
-$otentikasi = ['admin', 'master'];
-
 Route::get('/', [AuthController::class, 'index']);
 Route::post('/', [AuthController::class, 'login'])->name('login');
 
@@ -29,6 +28,8 @@ Route::middleware('auth')->group(function(){
   Route::group(['middleware' => 'otentikasi:master,admin'], function(){
       Route::get('/user/admin', [PagesController::class, 'user'])->name('user-admin');
       Route::get('/user/user', [PagesController::class, 'user'])->name('user-user');
+      Route::delete('/user/destroy/{id}', [UserController::class, 'destroy'])->name('user-destroy');
+      Route::post('/user/store', [UserController::class, 'store'])->name('user-store');
   });
   
   Route::get('/logout', [AuthController::class, 'logout'])->name('logout');

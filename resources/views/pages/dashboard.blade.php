@@ -27,7 +27,7 @@
     <div class="col-lg-4 {{ $loop->iteration >= 2 ? 'mt-3 mt-lg-0' : '' }}">
       <div class="card text-center">
         <div class="card-body">
-          <h1>{{ $role->user->count() }}</h1>
+          <h1>{{ $role->users->count() }}</h1>
         </div>
         <div class="card-footer">
           <h5>Bilangan {{ ucfirst($role->name) }}</h5>

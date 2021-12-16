@@ -1,0 +1,30 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use App\Models\User;
+use Illuminate\Support\Facades\Hash;
+
+class UserController extends Controller
+{
+    public function store(Request $request){
+        $checkNoKad = User::where('no_kad', $request->no_kad)->first();
+        $checkEmail = User::where('email', $request->email)->first();
+        if(!$checkNoKad){
+            if(!$checkEmail){
+                $request['password'] = Hash::make($request->password);
+                User::create($request->all());
+                return back()->with('success', 'Successfully added user');
+            }
+            return back()->with('error', 'Email already user');
+        }else{
+            return back()->with('error', 'No Kad already used');
+        }
+    }
+
+    public function destroy($id){
+        User::findOrFail($id)->delete();
+        return back()->with('success', 'User deleted successfully');
+    }
+}

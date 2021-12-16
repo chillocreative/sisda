@@ -6,6 +6,7 @@ use App\Models\Role;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 class PagesController extends Controller
 {
@@ -15,6 +16,17 @@ class PagesController extends Controller
     }
 
     public function user(){
-        return view('pages.user');
+        if(Route::is('user-master')){
+            $role = Role::where('name', 'master')->first();
+            $title = 'User Master';
+        }elseif(Route::is('user-admin')){
+            $role = Role::where('name', 'admin')->first();
+            $title = 'User Admin';
+        }elseif(Route::is('user-user')){
+            $role = Role::where('name', 'user')->first();
+            $title = 'User';
+        }
+
+        return view('pages.user', compact('role', 'title'));
     }
 }

@@ -31,7 +31,7 @@
 
     <div class="d-flex align-items-center vh-100 bg-info">
       <div class="container">
-        <div class="login text-center">
+        <div class="login text-center mb-5">
           <h1>Sistem Data Pengundi</h1>
           @if(session('error'))
             <div class="row justify-content-center mt-5">
