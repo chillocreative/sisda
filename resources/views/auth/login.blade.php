@@ -33,13 +33,23 @@
       <div class="container">
         <div class="login text-center">
           <h1>Sistem Data Pengundi</h1>
-          <form action="" method="post" class="mt-5">
+          @if(session('error'))
+            <div class="row justify-content-center mt-5">
+              <div class="col-md-8">
+                <div class="alert alert-danger" role="alert">
+                  {{ session('error') }}
+                </div>
+              </div>
+            </div>
+          @endif
+          <form action="{{ route('login') }}" method="post" class="mt-5">
+          @csrf
             <div class="row form-group align-items-center justify-content-center">
               <div class="col-sm-2 text-sm-end">
-                <label for="username">Username</label>
+                <label for="no_kad">Username</label>
               </div>
               <div class="col-md-3">
-                <input type="text" name="username" id="username" class="form-control">
+                <input type="text" name="no_kad" id="no_kad" class="form-control" placeholder="No Kad Pengenalan">
               </div>
             </div>
             <div class="row form-group align-items-center justify-content-center mt-3">
@@ -47,7 +57,7 @@
                 <label for="password">Password</label>
               </div>
               <div class="col-md-3">
-                <input type="password" name="password" id="password" class="form-control">
+                <input type="password" name="password" id="password" class="form-control" placeholder="xxxxxxxxxx">
               </div>
             </div>
             <div class="row justify-content-center mt-5">

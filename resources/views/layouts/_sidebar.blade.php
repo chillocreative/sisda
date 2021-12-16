@@ -3,7 +3,7 @@
   <div class="sidebar-header">
     <div class="logo">
       <a href="{{ route('dashboard') }}" style="color: #fff; font-size: 24px;">
-        <img src="assets/img/logo.png" alt="logo"/>
+        <img src="{{ asset('assets/img/logo.png') }}" alt="logo"/>
         KEADILAN
       </a>
     </div>
@@ -15,14 +15,18 @@
           <li class="{{ Route::is('dashboard') ? 'active' : '' }}">
             <a href="{{ route('dashboard') }}">Dashboard</a>
           </li>
-          <li class="{{ Route::is('user-master') or Route::is('user-admin') or Route::is('user-user') ? 'active' : '' }}">
+          @if(Auth::user()->role->name == 'master' or Auth::user()->role->name == 'admin')
+          <li class="{{ Route::is('user-master') || Route::is('user-admin') || Route::is('user-user') ? 'active' : '' }}">
             <a href="javascript:void(0)" aria-expanded="true">Users</a>
             <ul>
-              <li class="{{ Route::is('user-master') ? 'active' : '' }}"><a href="{{ route('user-master') }}">Master</a></li>
+              @if(Auth::user()->role->name == 'master')
+                <li class="{{ Route::is('user-master') ? 'active' : '' }}"><a href="{{ route('user-master') }}">Master</a></li>
+              @endif
               <li class="{{ Route::is('user-admin') ? 'active' : '' }}"><a href="{{ route('user-admin') }}">Admin</a></li>
               <li class="{{ Route::is('user-user') ? 'active' : '' }}"><a href="{{ route('user-user') }}">User</a></li>
             </ul>
           </li>
+          @endif
           <li>
             <a href="{{ route('logout') }}">Logout</a>
           </li>

@@ -16,11 +16,21 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/', [AuthController::class, 'index']);
+Route::post('/', [AuthController::class, 'login'])->name('login');
 
-Route::get('/dashboard', [PagesController::class, 'dashboard'])->name('dashboard');
+Route::group(['middleware' => 'auth'], function(){
+  Route::get('/dashboard', [PagesController::class, 'dashboard'])->name('dashboard');
 
-Route::get('/user/master', [PagesController::class, 'master'])->name('user-master');
-Route::get('/user/admin', [PagesController::class, 'admin'])->name('user-admin');
-Route::get('/user/user', [PagesController::class, 'user'])->name('user-user');
-
-Route::get('/logout', [AuthController::class, 'logout'])->name('logout');
+  Route::group(['middleware' => 'otentikasi:master'], function(){
+    Route::get('/user/master', [PagesController::class, 'user'])->name('user-master');
+    Route::get('/user/admin', [PagesController::class, 'user'])->name('user-admin');
+    Route::get('/user/user', [PagesController::class, 'user'])->name('user-user');
+  });
+  
+  Route::group(['middleware' => 'otentikasi:admin'], function(){
+    Route::get('/user/admin', [PagesController::class, 'user'])->name('user-admin');
+    Route::get('/user/user', [PagesController::class, 'user'])->name('user-user');
+  });
+  
+  Route::get('/logout', [AuthController::class, 'logout'])->name('logout');
+});
