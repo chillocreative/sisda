@@ -11,6 +11,14 @@ use Illuminate\Support\Facades\Hash;
 class UserController extends Controller
 {
     public function store(Request $request){
+        $request->validate([
+            'name' => 'required',
+            'no_kad' => 'required',
+            'phone' => 'required',
+            'email' => 'required|email',
+            'password' => 'required',
+        ]);
+        
         $checkNoKad = User::where('no_kad', $request->no_kad)->first();
         $checkEmail = User::where('email', $request->email)->first();
         $checkMaster = Role::find($request->role_id)->first();

@@ -15,6 +15,11 @@ class AuthController extends Controller
     }
 
     public function login(Request $request){
+        $request->validate([
+            'no_kad' => 'required',
+            'password' => 'required',
+        ]);
+        
         $credentials = [
             'no_kad' => $request->no_kad,
             'password' => $request->password,
