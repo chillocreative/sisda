@@ -88,8 +88,9 @@
 }
 
 .main-content {
+    min-height: 100vh !important;
     width: 100%;
-    background: #fff;
+    background: rgb(241, 241, 241);
 }
 
 .main-content-inner {

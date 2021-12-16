@@ -33,6 +33,8 @@
     <!-- modernizr css -->
     <script src="{{ asset('assets/js/vendor/modernizr-2.8.3.min.js') }}"></script>
 
+    @yield('style')
+
     <title>@yield('title') - Sistem Data Pengundi</title>
   </head>
   <body>
@@ -40,7 +42,7 @@
       @include('layouts._sidebar')
       <div class="main-content">
         @include('layouts._header')
-        <div class="main-content-inner">
+        <div class="main-content-inner py-3">
           @yield('content')
         </div>
       </div>
