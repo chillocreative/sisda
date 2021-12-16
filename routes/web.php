@@ -22,3 +22,5 @@ Route::get('/dashboard', [PagesController::class, 'dashboard'])->name('dashboard
 Route::get('/user/master', [PagesController::class, 'master'])->name('user-master');
 Route::get('/user/admin', [PagesController::class, 'admin'])->name('user-admin');
 Route::get('/user/user', [PagesController::class, 'user'])->name('user-user');
+
+Route::get('/logout', [AuthController::class, 'logout'])->name('logout');

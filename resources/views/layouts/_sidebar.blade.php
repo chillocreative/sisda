@@ -23,6 +23,9 @@
               <li class="{{ Route::is('user-user') ? 'active' : '' }}"><a href="{{ route('user-user') }}">User</a></li>
             </ul>
           </li>
+          <li>
+            <a href="{{ route('logout') }}">Logout</a>
+          </li>
         </ul>
       </nav>
     </div>
