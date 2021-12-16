@@ -15,14 +15,16 @@ class Otentikasi
      * @param  \Closure(\Illuminate\Http\Request): (\Illuminate\Http\Response|\Illuminate\Http\RedirectResponse)  $next
      * @return \Illuminate\Http\Response|\Illuminate\Http\RedirectResponse
      */
-    public function handle(Request $request, Closure $next, $role)
+    public function handle(Request $request, Closure $next, ...$roles)
     {
         if (!Auth::check()) {
             return redirect('/');
-        }
+        };
 
-        if (Auth::user()->role->name == $role) {
-            return $next($request);
+        foreach($roles as $role){
+            if (Auth::user()->role->name == $role) {
+                return $next($request);
+            }
         }
 
         return abort(404);
