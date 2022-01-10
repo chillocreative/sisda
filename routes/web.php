@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\GlobalController;
+use App\Http\Controllers\KadunController;
 use App\Http\Controllers\MulaCulaanController;
 use App\Http\Controllers\PagesController;
 use App\Http\Controllers\UserController;
@@ -24,8 +25,15 @@ Route::post('/', [AuthController::class, 'login'])->name('login');
 
 Route::middleware('auth')->group(function(){
   Route::get('/dashboard', [PagesController::class, 'dashboard'])->name('dashboard');
+
+  Route::group(['middleware' => 'otentikasi:superadmin'], function(){
+    Route::get('/user/superadmin', [PagesController::class, 'user'])->name('user-superadmin');
+
+    Route::group(['prefix' => 'data-culaan-master'], function(){
+      Route::resource('/kadun', KadunController::class)->only('index', 'store', 'destroy');
+    });
+  });
   
-  Route::get('/user/superadmin', [PagesController::class, 'user'])->middleware('otentikasi:superadmin')->name('user-superadmin');
   Route::group(['middleware' => 'otentikasi:superadmin,admin'], function(){
       Route::get('/user/admin', [PagesController::class, 'user'])->name('user-admin');
       Route::get('/user/user', [PagesController::class, 'user'])->name('user-user');
