@@ -37,7 +37,7 @@
             <a href="javascript:void(0)" aria-expanded="true">Data Culaan Master</a>
             <ul>
               <li class="{{ Route::is('kadun.index') ? 'active' : '' }}"><a href="{{ route('kadun.index') }}">Kadun</a></li>
-              <li class="{{ Route::is('user-user') ? 'active' : '' }}"><a href="{{ route('user-user') }}">MPKK</a></li>
+              <li class="{{ Route::is('mpkk.index') ? 'active' : '' }}"><a href="{{ route('mpkk.index') }}">MPKK</a></li>
               <li class="{{ Route::is('user-user') ? 'active' : '' }}"><a href="{{ route('user-user') }}">Tujuan Sumbangan</a></li>
               <li class="{{ Route::is('user-user') ? 'active' : '' }}"><a href="{{ route('user-user') }}">Jenis Sumbangan</a></li>
               <li class="{{ Route::is('user-user') ? 'active' : '' }}"><a href="{{ route('user-user') }}">Bantuan Lain</a></li>

@@ -12,4 +12,8 @@ class MPKK extends Model
     protected $table = 'mpkk';
 
     protected $fillable = ['name', 'kadun_id'];
+
+    public function kadun(){
+        return $this->belongsTo(Kadun::class);
+    }
 }

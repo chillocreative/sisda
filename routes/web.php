@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\GlobalController;
 use App\Http\Controllers\KadunController;
+use App\Http\Controllers\MPKKController;
 use App\Http\Controllers\MulaCulaanController;
 use App\Http\Controllers\PagesController;
 use App\Http\Controllers\UserController;
@@ -31,6 +32,7 @@ Route::middleware('auth')->group(function(){
 
     Route::group(['prefix' => 'data-culaan-master'], function(){
       Route::resource('/kadun', KadunController::class)->only('index', 'store', 'destroy');
+      Route::resource('/mpkk', MPKKController::class)->only('index', 'store', 'destroy');
     });
   });
   

@@ -1,11 +1,11 @@
 @extends('layouts.app')
 
-@section('title', 'Kadun')
+@section('title', 'MPKK')
 
 @section('content')
   <div class="row">
     <div class="col-lg-12">
-      <h1>Kadun</h1>
+      <h1>MPKK</h1>
     </div>
   </div>
 
@@ -13,12 +13,16 @@
     <div class="col-lg-4">
       <div class="card">
         <div class="card-body">
-          <form action="{{ route('kadun.store') }}" method="post">
+          <form action="{{ route('mpkk.store') }}" method="post">
           @csrf
             <div class="form-group">
-              <label for="code" class="form-control-label">Kode</label>
-              <input type="text" name="code" id="code" class="form-control @error('code') is-invalid @enderror" value="{{ old('code') }}">
-              @error('code') <small class="text-danger">{{ $message }}</small> @enderror
+              <label for="kadun_id" class="form-control-label">Kadun</label>
+              <select name="kadun_id" id="kadun_id" class="form-control py-0">
+                <option value="" selected disabled>Pilih Kadun</option>
+                @foreach($kadun as $k)
+                  <option value="{{ $k->id }}">{{ $k->code }} - {{ $k->name }}</option>
+                @endforeach
+              </select>
             </div>
             <div class="form-group">
               <label for="name" class="form-control-label">Nama</label>
@@ -40,21 +44,19 @@
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>Kode</th>
-                  <th>Nama</th>
-                  <th>Jumlah MPKK</th>
+                  <th>Kadun</th>
+                  <th>Name</th>
                   <th>Action</th>
                 </tr>
               </thead>
               <tbody>
-                @foreach($kadun as $k)
+                @foreach($mpkk as $m)
                   <tr>
                     <td>{{ $loop->iteration }}</td>
-                    <td>{{ $k->code }}</td>
-                    <td>{{ $k->name }}</td>
-                    <td>{{ $k->mpkk->count() }}</td>
+                    <td>{{ $m->kadun->name }}</td>
+                    <td>{{ $m->name }}</td>
                     <td>
-                      <form action="{{ route('kadun.destroy', $k->id) }}" method="post">
+                      <form action="{{ route('mpkk.destroy', $m->id) }}" method="post">
                       @csrf
                       @method('DELETE')
                         <button type="submit" class="btn btn-danger btn-sm fa fa-trash" onclick="return confirm('')"></button>
