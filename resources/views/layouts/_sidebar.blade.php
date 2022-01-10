@@ -15,10 +15,12 @@
           <li class="{{ Route::is('dashboard') ? 'active' : '' }}">
             <a href="{{ route('dashboard') }}">Dashboard</a>
           </li>
+          @if(Auth::user()->role->name != 'superadmin')
           <li class="{{ (request()->segment(1) == 'mula-culaan') ? 'active' : '' }}">
             <a href="{{ route('mula-culaan.index') }}">Mula Culaan</a>
           <li>
-          @if(Auth::user()->role->name == 'superadmin' or Auth::user()->role->name == 'admin')
+          @endif
+          @if(Auth::user()->role->name != 'user')
           <li class="{{ (request()->segment(1) == 'user') ? 'active' : '' }}">
             <a href="javascript:void(0)" aria-expanded="true">Users</a>
             <ul>

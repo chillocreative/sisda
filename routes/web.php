@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\GlobalController;
 use App\Http\Controllers\MulaCulaanController;
 use App\Http\Controllers\PagesController;
 use App\Http\Controllers\UserController;
@@ -34,7 +35,10 @@ Route::middleware('auth')->group(function(){
 
   Route::group(['middleware' => 'otentikasi:admin,user'], function(){
     Route::get('/mula-culaan', [MulaCulaanController::class, 'index'])->name('mula-culaan.index');
+    Route::post('/mula-culaan', [MulaCulaanController::class, 'store'])->name('mula-culaan.store');
   });
+
+  Route::post('/global/get-mpkk-specific', [GlobalController::class, 'getMPKKSpecific'])->name('get-mpkk-specific');
   
   Route::get('/logout', [AuthController::class, 'logout'])->name('logout');
 });

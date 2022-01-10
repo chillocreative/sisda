@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\MulaCulaan;
 use App\Models\Role;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
@@ -12,7 +13,12 @@ class PagesController extends Controller
 {
     public function dashboard(){
         $roles = Role::all();
-        return view('pages.dashboard', compact('roles'));
+        $culaan = MulaCulaan::all();
+        $data = [
+            'roles' => $roles,
+            'culaan' => $culaan,
+        ];
+        return view('pages.dashboard', $data);
     }
 
     public function user(){
