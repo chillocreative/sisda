@@ -40,7 +40,7 @@
               <li class="{{ Route::is('mpkk.index') ? 'active' : '' }}"><a href="{{ route('mpkk.index') }}">MPKK</a></li>
               <li class="{{ Route::is('tujuan-sumbangan.index') ? 'active' : '' }}"><a href="{{ route('tujuan-sumbangan.index') }}">Tujuan Sumbangan</a></li>
               <li class="{{ Route::is('jenis-sumbangan.index') ? 'active' : '' }}"><a href="{{ route('jenis-sumbangan.index') }}">Jenis Sumbangan</a></li>
-              <li class="{{ Route::is('user-user') ? 'active' : '' }}"><a href="{{ route('user-user') }}">Bantuan Lain</a></li>
+              <li class="{{ Route::is('bantuan-lain.index') ? 'active' : '' }}"><a href="{{ route('bantuan-lain.index') }}">Bantuan Lain</a></li>
               <li class="{{ Route::is('user-user') ? 'active' : '' }}"><a href="{{ route('user-user') }}">Keahlian Partai</a></li>
               <li class="{{ Route::is('user-user') ? 'active' : '' }}"><a href="{{ route('user-user') }}">Kecenderungan Politik</a></li>
             </ul>

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BantuanLain;
+use Database\Seeders\BantaunLain;
 use Illuminate\Http\Request;
 
 class BantuanLainController extends Controller
@@ -13,7 +15,8 @@ class BantuanLainController extends Controller
      */
     public function index()
     {
-        //
+        $bantuanLain = BantuanLain::all();
+        return view('pages.bantuan-lain', compact('bantuanLain'));
     }
 
     /**
@@ -34,7 +37,11 @@ class BantuanLainController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $request->validate([
+            'name' => 'required|unique:bantuan_lain',
+        ]);
+        BantuanLain::create($request->all());
+        return back()->with('success', 'Bantuan Lain berjaya ditambahkan');
     }
 
     /**
@@ -79,6 +86,8 @@ class BantuanLainController extends Controller
      */
     public function destroy($id)
     {
-        //
+        $bantuanLain = BantuanLain::findOrFail($id);
+        $bantuanLain->delete();
+        return back()->with('success', 'Bantuan Lain berjaya dihapus');
     }
 }
