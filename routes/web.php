@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\GlobalController;
+use App\Http\Controllers\JenisSumbanganController;
 use App\Http\Controllers\KadunController;
 use App\Http\Controllers\MPKKController;
 use App\Http\Controllers\MulaCulaanController;
@@ -35,6 +36,7 @@ Route::middleware('auth')->group(function(){
       Route::resource('/kadun', KadunController::class)->only('index', 'store', 'destroy');
       Route::resource('/mpkk', MPKKController::class)->only('index', 'store', 'destroy');
       Route::resource('/tujuan-sumbangan', TujuanSumbanganController::class)->only('index', 'store', 'destroy');
+      Route::resource('/jenis-sumbangan', JenisSumbanganController::class)->only('index', 'store', 'destroy');
     });
   });
   
