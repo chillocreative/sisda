@@ -5,6 +5,8 @@ use App\Http\Controllers\BantuanLainController;
 use App\Http\Controllers\GlobalController;
 use App\Http\Controllers\JenisSumbanganController;
 use App\Http\Controllers\KadunController;
+use App\Http\Controllers\KeahlianPartaiController;
+use App\Http\Controllers\KecenderunganPolitikController;
 use App\Http\Controllers\MPKKController;
 use App\Http\Controllers\MulaCulaanController;
 use App\Http\Controllers\PagesController;
@@ -39,6 +41,8 @@ Route::middleware('auth')->group(function(){
       Route::resource('/tujuan-sumbangan', TujuanSumbanganController::class)->only('index', 'store', 'destroy');
       Route::resource('/jenis-sumbangan', JenisSumbanganController::class)->only('index', 'store', 'destroy');
       Route::resource('/bantuan-lain', BantuanLainController::class)->only('index', 'store', 'destroy');
+      Route::resource('/keahlian-partai', KeahlianPartaiController::class)->only('index', 'store', 'destroy');
+      Route::resource('/kecenderungan-politik', KecenderunganPolitikController::class)->only('index', 'store', 'destroy');
     });
   });
   
