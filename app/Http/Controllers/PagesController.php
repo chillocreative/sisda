@@ -16,9 +16,9 @@ class PagesController extends Controller
     }
 
     public function user(){
-        if(Route::is('user-master')){
-            $role = Role::where('name', 'master')->first();
-            $title = 'User Master';
+        if(Route::is('user-superadmin')){
+            $role = Role::where('name', 'superadmin')->first();
+            $title = 'User Superadmin';
         }elseif(Route::is('user-admin')){
             $role = Role::where('name', 'admin')->first();
             $title = 'User Admin';

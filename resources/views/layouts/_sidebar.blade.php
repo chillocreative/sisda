@@ -15,12 +15,15 @@
           <li class="{{ Route::is('dashboard') ? 'active' : '' }}">
             <a href="{{ route('dashboard') }}">Dashboard</a>
           </li>
-          @if(Auth::user()->role->name == 'master' or Auth::user()->role->name == 'admin')
-          <li class="{{ Route::is('user-master') || Route::is('user-admin') || Route::is('user-user') ? 'active' : '' }}">
+          <li class="{{ (request()->segment(1) == 'mula-culaan') ? 'active' : '' }}">
+            <a href="{{ route('mula-culaan.index') }}">Mula Culaan</a>
+          <li>
+          @if(Auth::user()->role->name == 'superadmin' or Auth::user()->role->name == 'admin')
+          <li class="{{ (request()->segment(1) == 'user') ? 'active' : '' }}">
             <a href="javascript:void(0)" aria-expanded="true">Users</a>
             <ul>
-              @if(Auth::user()->role->name == 'master')
-                <li class="{{ Route::is('user-master') ? 'active' : '' }}"><a href="{{ route('user-master') }}">Master</a></li>
+              @if(Auth::user()->role->name == 'superadmin')
+                <li class="{{ Route::is('user-superadmin') ? 'active' : '' }}"><a href="{{ route('user-superadmin') }}">Superadmin</a></li>
               @endif
               <li class="{{ Route::is('user-admin') ? 'active' : '' }}"><a href="{{ route('user-admin') }}">Admin</a></li>
               <li class="{{ Route::is('user-user') ? 'active' : '' }}"><a href="{{ route('user-user') }}">User</a></li>

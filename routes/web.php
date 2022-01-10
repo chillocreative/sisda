@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\MulaCulaanController;
 use App\Http\Controllers\PagesController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
@@ -22,14 +23,17 @@ Route::post('/', [AuthController::class, 'login'])->name('login');
 
 Route::middleware('auth')->group(function(){
   Route::get('/dashboard', [PagesController::class, 'dashboard'])->name('dashboard');
-
   
-  Route::get('/user/master', [PagesController::class, 'user'])->middleware('otentikasi:master')->name('user-master');
-  Route::group(['middleware' => 'otentikasi:master,admin'], function(){
+  Route::get('/user/superadmin', [PagesController::class, 'user'])->middleware('otentikasi:superadmin')->name('user-superadmin');
+  Route::group(['middleware' => 'otentikasi:superadmin,admin'], function(){
       Route::get('/user/admin', [PagesController::class, 'user'])->name('user-admin');
       Route::get('/user/user', [PagesController::class, 'user'])->name('user-user');
       Route::delete('/user/destroy/{id}', [UserController::class, 'destroy'])->name('user-destroy');
       Route::post('/user/store', [UserController::class, 'store'])->name('user-store');
+  });
+
+  Route::group(['middleware' => 'otentikasi:admin,user'], function(){
+    Route::get('/mula-culaan', [MulaCulaanController::class, 'index'])->name('mula-culaan.index');
   });
   
   Route::get('/logout', [AuthController::class, 'logout'])->name('logout');
