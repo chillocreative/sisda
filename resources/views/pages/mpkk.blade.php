@@ -52,10 +52,10 @@
               <tbody>
                 @foreach($mpkk as $m)
                   <tr>
-                    <td>{{ $loop->iteration }}</td>
-                    <td>{{ $m->kadun->name }}</td>
-                    <td>{{ $m->name }}</td>
-                    <td>
+                    <td style="vertical-align: middle">{{ $loop->iteration }}</td>
+                    <td style="vertical-align: middle">{{ $m->kadun->name }}</td>
+                    <td style="vertical-align: middle">{{ $m->name }}</td>
+                    <td style="vertical-align: middle">
                       <form action="{{ route('mpkk.destroy', $m->id) }}" method="post">
                       @csrf
                       @method('DELETE')

@@ -38,7 +38,7 @@
             <ul>
               <li class="{{ Route::is('kadun.index') ? 'active' : '' }}"><a href="{{ route('kadun.index') }}">Kadun</a></li>
               <li class="{{ Route::is('mpkk.index') ? 'active' : '' }}"><a href="{{ route('mpkk.index') }}">MPKK</a></li>
-              <li class="{{ Route::is('user-user') ? 'active' : '' }}"><a href="{{ route('user-user') }}">Tujuan Sumbangan</a></li>
+              <li class="{{ Route::is('tujuan-sumbangan.index') ? 'active' : '' }}"><a href="{{ route('tujuan-sumbangan.index') }}">Tujuan Sumbangan</a></li>
               <li class="{{ Route::is('user-user') ? 'active' : '' }}"><a href="{{ route('user-user') }}">Jenis Sumbangan</a></li>
               <li class="{{ Route::is('user-user') ? 'active' : '' }}"><a href="{{ route('user-user') }}">Bantuan Lain</a></li>
               <li class="{{ Route::is('user-user') ? 'active' : '' }}"><a href="{{ route('user-user') }}">Keahlian Partai</a></li>

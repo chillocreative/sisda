@@ -6,6 +6,7 @@ use App\Http\Controllers\KadunController;
 use App\Http\Controllers\MPKKController;
 use App\Http\Controllers\MulaCulaanController;
 use App\Http\Controllers\PagesController;
+use App\Http\Controllers\TujuanSumbanganController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
@@ -33,6 +34,7 @@ Route::middleware('auth')->group(function(){
     Route::group(['prefix' => 'data-culaan-master'], function(){
       Route::resource('/kadun', KadunController::class)->only('index', 'store', 'destroy');
       Route::resource('/mpkk', MPKKController::class)->only('index', 'store', 'destroy');
+      Route::resource('/tujuan-sumbangan', TujuanSumbanganController::class)->only('index', 'store', 'destroy');
     });
   });
   
