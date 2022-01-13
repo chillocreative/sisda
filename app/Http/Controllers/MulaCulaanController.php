@@ -38,6 +38,8 @@ class MulaCulaanController extends Controller
 
     public function store(Request $request){
         $request->validate([
+            'name' => 'required',
+            'no_kad' => 'required',
             'alamat' => 'required',
             'kadun' => 'required',
             'mpkk' => 'required',
@@ -52,6 +54,7 @@ class MulaCulaanController extends Controller
             'tarikh_dan_masa' => 'required',
         ]);
         
+        $request['nama'] = $request->name;
         $request['user_id'] = Auth::user()->id;
         $request['kadun'] = Kadun::where('id', $request->kadun)->first()->name;
         $request['jenis_sumbangan'] = implode(',', $request->jenis_sumbangan);

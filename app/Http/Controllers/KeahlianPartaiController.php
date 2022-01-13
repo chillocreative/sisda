@@ -40,7 +40,7 @@ class KeahlianPartaiController extends Controller
             'name' => 'required|unique:keahlian_partai'
         ]);
         KeahlianPartai::create($request->all());
-        return back()->with('success', 'Keahlian Partai berjaya ditambahkan');
+        return back()->with('success', 'Keahlian Parti berjaya ditambahkan');
     }
 
     /**
@@ -87,6 +87,6 @@ class KeahlianPartaiController extends Controller
     {
         $keahlianPartai = KeahlianPartai::findOrFail($id);
         $keahlianPartai->delete();
-        return back()->with('success', 'Keahlian Partai berjaya dihapus');
+        return back()->with('success', 'Keahlian Parti berjaya dihapus');
     }
 }

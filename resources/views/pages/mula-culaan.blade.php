@@ -30,11 +30,11 @@
               <div class="col-lg-6">
                 <div class="form-group">
                   <label for="name" class="form-control-label">Nama</label>
-                  <input type="text" name="name" id="name" class="form-control" value="{{ Auth::user()->name }}" required disabled>
+                  <input type="text" name="name" id="name" class="form-control @error('name') is-invalid @enderror" value="{{ old('name') }}" required>
                 </div>
                 <div class="form-group">
-                  <label for="name" class="form-control-label">No Kad Pengenalan</label>
-                  <input type="text" name="name" id="name" class="form-control" value="{{ Auth::user()->no_kad }}" required disabled>
+                  <label for="no_kad" class="form-control-label">No Kad Pengenalan</label>
+                  <input type="text" name="no_kad" id="no_kad" class="form-control @error('no_kad') is-invalid @enderror" value="{{ old('no_kad') }}" required>
                 </div>
                 <div class="form-group">
                   <label for="alamat" class="form-control-label">
@@ -116,7 +116,7 @@
                 </div>
                 <div class="form-group">
                   <label for="keahlian-partai" class="form-control-label">
-                    Keahlian Partai Penerima Sumbangan
+                    Keahlian Parti Penerima Sumbangan
                     <button type="button" class="btn-tooltip fa fa-info-circle text-dark ml-2" data-toggle="tooltip" data-placement="right" title="Tooltip on keahlian partai"></button>  
                   </label>
                   @foreach($keahlianPartai as $k)

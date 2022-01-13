@@ -34,23 +34,25 @@ Route::middleware('auth')->group(function(){
 
   Route::group(['middleware' => 'otentikasi:superadmin'], function(){
     Route::get('/user/superadmin', [PagesController::class, 'user'])->name('user-superadmin');
-
-    Route::group(['prefix' => 'data-culaan-master'], function(){
-      Route::resource('/kadun', KadunController::class)->only('index', 'store', 'destroy');
-      Route::resource('/mpkk', MPKKController::class)->only('index', 'store', 'destroy');
-      Route::resource('/tujuan-sumbangan', TujuanSumbanganController::class)->only('index', 'store', 'destroy');
-      Route::resource('/jenis-sumbangan', JenisSumbanganController::class)->only('index', 'store', 'destroy');
-      Route::resource('/bantuan-lain', BantuanLainController::class)->only('index', 'store', 'destroy');
-      Route::resource('/keahlian-partai', KeahlianPartaiController::class)->only('index', 'store', 'destroy');
-      Route::resource('/kecenderungan-politik', KecenderunganPolitikController::class)->only('index', 'store', 'destroy');
-    });
   });
   
   Route::group(['middleware' => 'otentikasi:superadmin,admin'], function(){
-      Route::get('/user/admin', [PagesController::class, 'user'])->name('user-admin');
-      Route::get('/user/user', [PagesController::class, 'user'])->name('user-user');
-      Route::delete('/user/destroy/{id}', [UserController::class, 'destroy'])->name('user-destroy');
-      Route::post('/user/store', [UserController::class, 'store'])->name('user-store');
+      Route::group(['prefix' => 'user'], function(){
+        Route::get('/admin', [PagesController::class, 'user'])->name('user-admin');
+        Route::get('/user', [PagesController::class, 'user'])->name('user-user');
+        Route::delete('/destroy/{id}', [UserController::class, 'destroy'])->name('user-destroy');
+        Route::post('/store', [UserController::class, 'store'])->name('user-store');
+      });
+
+      Route::group(['prefix' => 'data-culaan-master'], function(){
+        Route::resource('/kadun', KadunController::class)->only('index', 'store', 'destroy');
+        Route::resource('/mpkk', MPKKController::class)->only('index', 'store', 'destroy');
+        Route::resource('/tujuan-sumbangan', TujuanSumbanganController::class)->only('index', 'store', 'destroy');
+        Route::resource('/jenis-sumbangan', JenisSumbanganController::class)->only('index', 'store', 'destroy');
+        Route::resource('/bantuan-lain', BantuanLainController::class)->only('index', 'store', 'destroy');
+        Route::resource('/keahlian-parti', KeahlianPartaiController::class)->only('index', 'store', 'destroy');
+        Route::resource('/kecenderungan-politik', KecenderunganPolitikController::class)->only('index', 'store', 'destroy');
+    });
   });
 
   Route::group(['middleware' => 'otentikasi:admin,user'], function(){

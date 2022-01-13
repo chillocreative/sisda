@@ -1,11 +1,11 @@
 @extends('layouts.app')
 
-@section('title', 'Keahlian Partai')
+@section('title', 'Keahlian Parti')
 
 @section('content')
   <div class="row">
     <div class="col-lg-12">
-      <h1>Keahlian Partai</h1>
+      <h1>Keahlian Parti</h1>
     </div>
   </div>
 
@@ -13,7 +13,7 @@
     <div class="col-lg-4">
       <div class="card">
         <div class="card-body">
-          <form action="{{ route('keahlian-partai.store') }}" method="post">
+          <form action="{{ route('keahlian-parti.store') }}" method="post">
           @csrf
             <div class="form-group">
               <label for="name" class="form-control-label">Nama</label>
@@ -45,7 +45,7 @@
                     <td style="vertical-align: middle">{{ $loop->iteration }}</td>
                     <td style="vertical-align: middle">{{ $k->name }}</td>
                     <td style="vertical-align: middle">
-                      <form action="{{ route('keahlian-partai.destroy', $k->id) }}" method="post">
+                      <form action="{{ route('keahlian-parti.destroy', $k->id) }}" method="post">
                       @csrf
                       @method('DELETE')
                         <button type="submit" class="btn btn-danger btn-sm fa fa-trash" onclick="return confirm('')"></button>
