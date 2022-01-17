@@ -18,18 +18,49 @@
         bottom: 0;
         right: 0;
       }
+
+    .bg-body{
+        background: #00b4db; /* fallback for old browsers */
+        background: -webkit-linear-gradient(
+            to left,
+            #00b4db,
+            #0083b0
+        ); /* Chrome 10-25, Safari 5.1-6 */
+        background: linear-gradient(
+            to left,
+            #00b4db,
+            #0083b0
+        ); /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
+      }
+         
+      .bg-linear {
+        background-image: linear-gradient(to right, #00c6ff 0%, #0072ff  51%, #00c6ff  100%)
+      }
+      .bg-linear {
+        text-transform: uppercase;
+        transition: 0.5s;
+        background-size: 200% auto;
+        color: white;            
+      }
+
+      .bg-linear:hover {
+        background-position: right center; /* change the direction of the change here */
+        color: #fff;
+        text-decoration: none;
+      }
+         
     </style>
 
     <title>Login - Sistem Data Pengundi</title>
   </head>
   <body>
 
-    <div class="d-flex align-items-center vh-100 bg-info">
+    <div class="d-flex align-items-center vh-100 bg-body">
       <div class="container">
         <div class="login mb-5">
           <div class="row justify-content-center">
             <div class="col-lg-4">
-              <div class="bg-primary shadow-lg p-5" style="width: 100%; height: 100%">
+              <div class="bg-linear shadow-lg p-5" style="width: 100%; height: 100%">
                 <h1 class="title text-light">
                   Welcome!
                   <hr class="my-3">

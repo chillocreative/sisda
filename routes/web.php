@@ -48,6 +48,7 @@ Route::middleware('auth')->group(function(){
         Route::put('/approved/{id}', [UserController::class, 'approved'])->name('approved');
         Route::get('/edit/{id}', [UserController::class, 'edit'])->name('user.edit');
         Route::put('/edit/{id}', [UserController::class, 'update'])->name('user.update');
+        Route::put('/user/reset-password/{id}', [UserController::class, 'resetPassword'])->name('user.reset-password');
       });
 
       Route::group(['prefix' => 'data-culaan-master'], function(){
@@ -68,7 +69,7 @@ Route::middleware('auth')->group(function(){
 
   Route::get('/profile', [UserController::class, 'profile'])->name('profile');
   Route::post('/profile', [UserController::class, 'profileUpdate'])->name('profile.update');
-  Route::post('/profile/update-password', [UserController::class, 'updatePassword'])->name('profile.update-password');
+  Route::put('/profile/update-password', [UserController::class, 'updatePassword'])->name('profile.update-password');
   Route::post('/global/get-mpkk-specific', [GlobalController::class, 'getMPKKSpecific'])->name('get-mpkk-specific');
   
   Route::get('/logout', [AuthController::class, 'logout'])->name('logout');

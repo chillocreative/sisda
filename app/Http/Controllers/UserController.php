@@ -80,6 +80,19 @@ class UserController extends Controller
         }
     }
 
+    public function resetPassword(Request $request, $id){
+        $request->validate([
+            'password' => 'required|confirmed',
+        ]);
+        $user = User::find($id);
+        if($user->role->name == 'user'){
+            $user->update([$user->password = Hash::make($request->password)]);
+            return back()->with('success', 'Password reset successfully');
+        }else{
+            return back()->with('error', 'Can not reset password this user');
+        }
+    }
+
     public function profile(){
         $user = User::find(Auth::user()->id);
         return view('pages.profile', compact('user'));

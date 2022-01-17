@@ -42,11 +42,12 @@
         </div>
       </div>
     </div>
-    <div class="col-lg-4">
+    <div class="col-lg-4 mt-3 mt-lg-0">
       <div class="card">
         <div class="card-body">
           <form action="{{ route('profile.update-password') }}" method="post">
           @csrf
+          @method('PUT')
               <div class="form-group mt-3">
                 <label for="password_lama" class="form-control-label">Password Lama</label>
                 <input type="password" name="password_lama" id="password_lama" class="form-control @error('password_lama') is-invalid @enderror">
