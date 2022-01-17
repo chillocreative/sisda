@@ -16,7 +16,7 @@ class BantuanLainController extends Controller
     public function index()
     {
         $bantuanLain = BantuanLain::all();
-        return view('pages.bantuan-lain', compact('bantuanLain'));
+        return view('pages.bantuan-lain.index', compact('bantuanLain'));
     }
 
     /**

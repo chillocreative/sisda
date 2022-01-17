@@ -15,7 +15,7 @@ class KecenderunganPolitikController extends Controller
     public function index()
     {
         $kecenderunganPolitik = KecenderunganPolitik::all();
-        return view('pages.kecenderungan-politik', compact('kecenderunganPolitik'));
+        return view('pages.kecenderungan-politik.index', compact('kecenderunganPolitik'));
     }
 
     /**

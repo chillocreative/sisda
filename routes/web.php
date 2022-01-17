@@ -51,13 +51,13 @@ Route::middleware('auth')->group(function(){
       });
 
       Route::group(['prefix' => 'data-culaan-master'], function(){
-        Route::resource('/kadun', KadunController::class)->only('index', 'store', 'destroy');
-        Route::resource('/mpkk', MPKKController::class)->only('index', 'store', 'destroy');
-        Route::resource('/tujuan-sumbangan', TujuanSumbanganController::class)->only('index', 'store', 'destroy');
-        Route::resource('/jenis-sumbangan', JenisSumbanganController::class)->only('index', 'store', 'destroy');
-        Route::resource('/bantuan-lain', BantuanLainController::class)->only('index', 'store', 'destroy');
-        Route::resource('/keahlian-parti', KeahlianPartaiController::class)->only('index', 'store', 'destroy');
-        Route::resource('/kecenderungan-politik', KecenderunganPolitikController::class)->only('index', 'store', 'destroy');
+        Route::resource('/kadun', KadunController::class)->except('show', 'create');
+        Route::resource('/mpkk', MPKKController::class)->except('show', 'create');
+        Route::resource('/tujuan-sumbangan', TujuanSumbanganController::class)->except('show', 'create');
+        Route::resource('/jenis-sumbangan', JenisSumbanganController::class)->except('show', 'create');
+        Route::resource('/bantuan-lain', BantuanLainController::class)->except('show', 'create');
+        Route::resource('/keahlian-parti', KeahlianPartaiController::class)->except('show', 'create');
+        Route::resource('/kecenderungan-politik', KecenderunganPolitikController::class)->except('show', 'create');
     });
   });
 

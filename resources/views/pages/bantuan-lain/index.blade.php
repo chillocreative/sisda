@@ -1,11 +1,11 @@
 @extends('layouts.app')
 
-@section('title', 'Keahlian Parti')
+@section('title', 'Bantuan Lain')
 
 @section('content')
   <div class="row">
     <div class="col-lg-12">
-      <h1>Keahlian Parti</h1>
+      <h1>Bantuan Lain</h1>
     </div>
   </div>
 
@@ -13,7 +13,7 @@
     <div class="col-lg-4">
       <div class="card">
         <div class="card-body">
-          <form action="{{ route('keahlian-parti.store') }}" method="post">
+          <form action="{{ route('bantuan-lain.store') }}" method="post">
           @csrf
             <div class="form-group mt-3">
               <label for="name" class="form-control-label">Nama</label>
@@ -42,12 +42,13 @@
                 </tr>
               </thead>
               <tbody>
-                @foreach($keahlianPartai as $k)
+                @foreach($bantuanLain as $b)
                   <tr>
                     <td style="vertical-align: middle">{{ $loop->iteration }}</td>
-                    <td style="vertical-align: middle">{{ $k->name }}</td>
+                    <td style="vertical-align: middle">{{ $b->name }}</td>
                     <td style="vertical-align: middle">
-                      <form action="{{ route('keahlian-parti.destroy', $k->id) }}" method="post">
+                      <a href="{{ route('bantuan-lain.edit', $b->id) }}" class="btn btn-warning btn-sm fa fa-edit"></a>
+                      <form action="{{ route('bantuan-lain.destroy', $b->id) }}" method="post" class="d-inline">
                       @csrf
                       @method('DELETE')
                         <button type="submit" class="btn btn-danger btn-sm fa fa-trash" onclick="return confirm('')"></button>

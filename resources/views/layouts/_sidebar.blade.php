@@ -34,13 +34,13 @@
           <li class="{{ (request()->segment(1) == 'data-culaan-master') ? 'active' : '' }}">
             <a href="javascript:void(0)" aria-expanded="true">Data Culaan Master</a>
             <ul>
-              <li class="{{ Route::is('kadun.index') ? 'active' : '' }}"><a href="{{ route('kadun.index') }}">Kadun</a></li>
-              <li class="{{ Route::is('mpkk.index') ? 'active' : '' }}"><a href="{{ route('mpkk.index') }}">MPKK</a></li>
-              <li class="{{ Route::is('tujuan-sumbangan.index') ? 'active' : '' }}"><a href="{{ route('tujuan-sumbangan.index') }}">Tujuan Sumbangan</a></li>
-              <li class="{{ Route::is('jenis-sumbangan.index') ? 'active' : '' }}"><a href="{{ route('jenis-sumbangan.index') }}">Jenis Sumbangan</a></li>
-              <li class="{{ Route::is('bantuan-lain.index') ? 'active' : '' }}"><a href="{{ route('bantuan-lain.index') }}">Bantuan Lain</a></li>
-              <li class="{{ Route::is('keahlian-parti.index') ? 'active' : '' }}"><a href="{{ route('keahlian-parti.index') }}">Keahlian Parti</a></li>
-              <li class="{{ Route::is('kecenderungan-politik.index') ? 'active' : '' }}"><a href="{{ route('kecenderungan-politik.index') }}">Kecenderungan Politik</a></li>
+              <li class="{{ (Request()->segment(2) == 'kadun') ? 'active' : '' }}"><a href="{{ route('kadun.index') }}">Kadun</a></li>
+              <li class="{{ (Request()->segment(2) == 'mpkk') ? 'active' : '' }}"><a href="{{ route('mpkk.index') }}">MPKK</a></li>
+              <li class="{{ (Request()->segment(2) == 'tujuan-sumbangan') ? 'active' : '' }}"><a href="{{ route('tujuan-sumbangan.index') }}">Tujuan Sumbangan</a></li>
+              <li class="{{ (Request()->segment(2) == 'jenis-sumbangan') ? 'active' : '' }}"><a href="{{ route('jenis-sumbangan.index') }}">Jenis Sumbangan</a></li>
+              <li class="{{ (Request()->segment(2) == 'bantuan-lain') ? 'active' : '' }}"><a href="{{ route('bantuan-lain.index') }}">Bantuan Lain</a></li>
+              <li class="{{ (Request()->segment(2) == 'keahlian-parti') ? 'active' : '' }}"><a href="{{ route('keahlian-parti.index') }}">Keahlian Parti</a></li>
+              <li class="{{ (Request()->segment(2) == 'kecenderungan-politik') ? 'active' : '' }}"><a href="{{ route('kecenderungan-politik.index') }}">Kecenderungan Politik</a></li>
             </ul>
           </li>
           @endif

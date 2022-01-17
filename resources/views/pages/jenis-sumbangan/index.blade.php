@@ -47,7 +47,8 @@
                     <td style="vertical-align: middle">{{ $loop->iteration }}</td>
                     <td style="vertical-align: middle">{{ $j->name }}</td>
                     <td style="vertical-align: middle">
-                      <form action="{{ route('jenis-sumbangan.destroy', $j->id) }}" method="post">
+                      <a href="{{ route('jenis-sumbangan.edit', $j->id) }}" class="btn btn-warning btn-sm fa fa-edit"></a>
+                      <form action="{{ route('jenis-sumbangan.destroy', $j->id) }}" method="post" class="d-inline">
                       @csrf
                       @method('DELETE')
                         <button type="submit" class="btn btn-danger btn-sm fa fa-trash" onclick="return confirm('')"></button>

@@ -15,7 +15,7 @@ class KeahlianPartaiController extends Controller
     public function index()
     {
         $keahlianPartai = KeahlianPartai::all();
-        return view('pages.keahlian-partai', compact('keahlianPartai'));
+        return view('pages.keahlian-partai.index', compact('keahlianPartai'));
     }
 
     /**

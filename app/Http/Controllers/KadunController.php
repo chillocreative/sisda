@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Kadun;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class KadunController extends Controller
 {
@@ -15,7 +16,7 @@ class KadunController extends Controller
     public function index()
     {
         $kadun = Kadun::all();
-        return view('pages.kadun', compact('kadun'));
+        return view('pages.kadun.index', compact('kadun'));
     }
 
     /**
@@ -63,7 +64,8 @@ class KadunController extends Controller
      */
     public function edit($id)
     {
-        //
+        $kadun = Kadun::findOrFail($id);
+        return view('pages.kadun.edit', compact('kadun'));
     }
 
     /**
@@ -75,7 +77,13 @@ class KadunController extends Controller
      */
     public function update(Request $request, $id)
     {
-        //
+        $kadun = Kadun::findOrFail($id);
+        $request->validate([
+            'name' => ['required', Rule::unique('kadun')->ignore($kadun->id, 'id')],
+            'code' => ['required', Rule::unique('kadun')->ignore($kadun->id, 'id')],
+        ]);
+        $kadun->update($request->all());
+        return back()->with('success', 'Kadun berjaya diupdate');
     }
 
     /**

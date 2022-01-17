@@ -15,7 +15,7 @@ class JenisSumbanganController extends Controller
     public function index()
     {
         $jenisSumbangan = JenisSumbangan::all();
-        return view('pages.jenis-sumbangan', compact('jenisSumbangan'));
+        return view('pages.jenis-sumbangan.index', compact('jenisSumbangan'));
     }
 
     /**

@@ -1,11 +1,11 @@
 @extends('layouts.app')
 
-@section('title', 'Tujuan Sumbangan')
+@section('title', 'Kecenderungan Politik')
 
 @section('content')
   <div class="row">
     <div class="col-lg-12">
-      <h1>Tujuan Sumbangan</h1>
+      <h1>Kecenderungan Politik</h1>
     </div>
   </div>
 
@@ -13,7 +13,7 @@
     <div class="col-lg-4">
       <div class="card">
         <div class="card-body">
-          <form action="{{ route('tujuan-sumbangan.store') }}" method="post">
+          <form action="{{ route('kecenderungan-politik.store') }}" method="post">
           @csrf
             <div class="form-group mt-3">
               <label for="name" class="form-control-label">Nama</label>
@@ -42,12 +42,13 @@
                 </tr>
               </thead>
               <tbody>
-                @foreach($tujuanSumbangan as $t)
+                @foreach($kecenderunganPolitik as $k)
                   <tr>
                     <td style="vertical-align: middle">{{ $loop->iteration }}</td>
-                    <td style="vertical-align: middle">{{ $t->name }}</td>
+                    <td style="vertical-align: middle">{{ $k->name }}</td>
                     <td style="vertical-align: middle">
-                      <form action="{{ route('tujuan-sumbangan.destroy', $t->id) }}" method="post">
+                      <a href="{{ route('kecenderungan-politik.edit', $k->id) }}" class="btn btn-warning btn-sm fa fa-edit"></a>
+                      <form action="{{ route('kecenderungan-politik.destroy', $k->id) }}" method="post" class="d-inline">
                       @csrf
                       @method('DELETE')
                         <button type="submit" class="btn btn-danger btn-sm fa fa-trash" onclick="return confirm('')"></button>
@@ -62,12 +63,4 @@
       </div>
     </div>
   </div>
-@endsection
-
-@section('script')
-  <script>
-    $(document).ready(function(){
-      // $('.data-table').DataTable();  
-    })
-  </script>
 @endsection

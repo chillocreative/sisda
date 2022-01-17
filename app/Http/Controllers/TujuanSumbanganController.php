@@ -15,7 +15,7 @@ class TujuanSumbanganController extends Controller
     public function index()
     {
         $tujuanSumbangan = TujuanSumbangan::all();
-        return view('pages.tujuan-sumbangan', compact('tujuanSumbangan'));
+        return view('pages.tujuan-sumbangan.index', compact('tujuanSumbangan'));
     }
 
     /**

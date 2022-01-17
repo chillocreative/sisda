@@ -17,7 +17,7 @@ class MPKKController extends Controller
     {
         $mpkk = MPKK::all();
         $kadun = Kadun::all();
-        return view('pages.mpkk', compact('mpkk', 'kadun'));
+        return view('pages.mpkk.index', compact('mpkk', 'kadun'));
     }
 
     /**
