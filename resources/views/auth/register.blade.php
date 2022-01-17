@@ -31,7 +31,7 @@
             <div class="col-lg-4">
               <div class="bg-primary shadow-lg p-5" style="width: 100%; height: 100%">
                 <h1 class="title text-light">
-                  Welcome!
+                  REGISTER
                   <hr class="my-3">
                   Sistem Data Pengundi
                 </h1>
@@ -40,23 +40,50 @@
             <div class="col-lg-8 mt-3 mt-lg-0">
               <div class="card border-0 rounded-0 shadow-lg">
                 <div class="card-body">
-                  <form action="{{ route('login') }}" method="post" class="mt-5">
+                  <form action="{{ route('register') }}" method="post" class="mt-5">
                   @csrf
                     <div class="row justify-content-center">
                       <div class="col-lg-8">
                         <div class="form-group">
+                          <label for="name" class="form-control-label">Name</label>
+                          <input type="text" name="name" id="name" class="form-control @error('name') is-invalid @enderror" value="{{ old('name') }}">
+                          @error('name') <small class="text-danger">{{ $message }}</small>@enderror
+                        </div>
+                        <div class="form-group mt-3">
                           <label for="no_kad" class="form-control-label">Username</label>
-                          <input type="text" name="no_kad" id="username" class="form-control" placeholder="No Kad Pengenalan">
+                          <input type="text" name="no_kad" id="username" class="form-control @error('no_kad') is-invalid @enderror" placeholder="No Kad Pengenalan" value="{{ old('no_kad') }}">
+                          @error('no_kad') <small class="text-danger">{{ $message }}</small>@enderror
+                        </div>
+                        <div class="form-group mt-3">
+                          <label for="email" class="form-control-label">Email</label>
+                          <input type="email" name="email" id="email" class="form-control @error('email') is-invalid @enderror" value="{{ old('email') }}">
+                          @error('email') <small class="text-danger">{{ $message }}</small>@enderror
+                        </div>
+                        <div class="form-group mt-3">
+                          <label for="phone" class="form-control-label">No Telefon</label>
+                          <input type="number" name="phone" id="phone" class="form-control @error('phone') is-invalid @enderror" value="{{ old('phone') }}">
+                          @error('phone') <small class="text-danger">{{ $message }}</small>@enderror
                         </div>
                         <div class="form-group mt-3">
                           <label for="password" class="form-control-label">Password</label>
-                          <input type="password" name="password" id="password" class="form-control">
+                          <input type="password" name="password" id="password" class="form-control @error('password') is-invalid @enderror">
+                          @error('password') <small class="text-danger">{{ $message }}</small>@enderror
+                        </div>
+                        <div class="form-group mt-3">
+                          <label for="password_confirmation" class="form-control-label">Password Confirmation</label>
+                          <input type="password" name="password_confirmation" id="password_confirmation @error('password_confirmation') is-invalid @enderror" class="form-control">
+                          @error('password_confirmation') <small class="text-danger">{{ $message }}</small>@enderror
                         </div>
                         <div class="form-group mt-3 text-center">
                           <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-outline-dark btn-light btn-block">LOGIN</button>
+                            <button type="submit" class="btn btn-outline-dark btn-light btn-block">REGISTER</button>
                           </div>
                         </div>
+                        @if(session('success'))
+                          <div class="alert alert-success mt-3" role="alert">
+                            {{ session('success') }}
+                          </div>
+                        @endif
                         @if(session('error'))
                           <div class="alert alert-danger mt-3" role="alert">
                             {{ session('error') }}
@@ -68,7 +95,7 @@
                   </form>
                   <div class="row text-center">
                     <div class="col-lg-12">
-                      <a href="{{ route('register') }}" class="register">Register</a>
+                      <a href="{{ route('login') }}" class="register">Login</a>
                     </div>
                   </div>
                 </div>

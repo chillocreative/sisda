@@ -12,6 +12,7 @@ use App\Http\Controllers\MulaCulaanController;
 use App\Http\Controllers\PagesController;
 use App\Http\Controllers\TujuanSumbanganController;
 use App\Http\Controllers\UserController;
+use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 
@@ -28,6 +29,8 @@ use Illuminate\Support\Facades\Auth;
 
 Route::get('/', [AuthController::class, 'index']);
 Route::post('/', [AuthController::class, 'login'])->name('login');
+Route::get('/register', [AuthController::class, 'register'])->name('register');
+Route::post('/register', [AuthController::class, 'registerStore'])->name('register.store');
 
 Route::middleware('auth')->group(function(){
   Route::get('/dashboard', [PagesController::class, 'dashboard'])->name('dashboard');
@@ -42,6 +45,9 @@ Route::middleware('auth')->group(function(){
         Route::get('/user', [PagesController::class, 'user'])->name('user-user');
         Route::delete('/destroy/{id}', [UserController::class, 'destroy'])->name('user-destroy');
         Route::post('/store', [UserController::class, 'store'])->name('user-store');
+        Route::put('/approved/{id}', [UserController::class, 'approved'])->name('approved');
+        Route::get('/edit/{id}', [UserController::class, 'edit'])->name('user.edit');
+        Route::put('/edit/{id}', [UserController::class, 'update'])->name('user.update');
       });
 
       Route::group(['prefix' => 'data-culaan-master'], function(){
@@ -60,6 +66,8 @@ Route::middleware('auth')->group(function(){
     Route::post('/mula-culaan', [MulaCulaanController::class, 'store'])->name('mula-culaan.store');
   });
 
+  Route::get('/profile', [UserController::class, 'profile'])->name('profile');
+  Route::post('/profile', [UserController::class, 'profileUpdate'])->name('profile.update');
   Route::post('/global/get-mpkk-specific', [GlobalController::class, 'getMPKKSpecific'])->name('get-mpkk-specific');
   
   Route::get('/logout', [AuthController::class, 'logout'])->name('logout');

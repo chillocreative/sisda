@@ -44,6 +44,9 @@
             </ul>
           </li>
           @endif
+          <li class="{{ Route::is('profile') ? 'active' : '' }}">
+            <a href="{{ route('profile') }}">My Profile</a>
+          </li>
           <li>
             <a href="{{ route('logout') }}">Logout</a>
           </li>

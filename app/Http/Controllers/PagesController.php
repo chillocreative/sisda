@@ -33,6 +33,8 @@ class PagesController extends Controller
             $title = 'User';
         }
 
-        return view('pages.user', compact('role', 'title'));
+        $users = User::where('role_id', $role->id)->orderBy('updated_at', 'DESC')->get();
+
+        return view('pages.user.index', compact('role', 'title', 'users'));
     }
 }

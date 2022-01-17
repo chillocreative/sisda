@@ -160,7 +160,7 @@
                   <input type="datetime-local" name="tarikh_dan_masa" id="tarikh-dan-masa" class="form-control" required>
                 </div>
                 <div class="form-group">
-                  <button type="submit" class="btn btn-primary btn-block">Submit</button>
+                  <button type="submit" class="btn btn-primary btn-block rounded-pill">Submit</button>
                 </div>
               </div>
             </div>

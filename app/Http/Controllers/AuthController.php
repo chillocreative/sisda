@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
@@ -25,9 +27,31 @@ class AuthController extends Controller
             'password' => $request->password,
         ];
         if(Auth::attempt($credentials)){
+            if(Auth::user()->approved == 0){
+                Auth::logout();
+                return redirect()->route('login')->with('error', 'Akaun masih tidak aktif, masih menunggu kelulusan');
+            }
             return redirect()->route('dashboard');
         }
         return back()->with('error', 'Wrong username or password');
+    }
+
+    public function register(){
+        return view('auth.register');
+    }
+
+    public function registerStore(Request $request){
+        $request->validate([
+            'name' => 'required',
+            'no_kad' => 'required|unique:users',
+            'phone' => 'required|numeric',
+            'email' => 'required|email|unique:users',
+            'password' => 'required|confirmed',
+        ]);
+        $request['role_id'] = 3;
+        $request['password'] = Hash::make($request->password);
+        User::create($request->all());
+        return back()->with('success', 'Successfully registered account');
     }
     
     public function logout(){
