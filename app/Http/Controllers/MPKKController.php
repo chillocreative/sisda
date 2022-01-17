@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Kadun;
 use App\Models\MPKK;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class MPKKController extends Controller
 {
@@ -65,7 +66,9 @@ class MPKKController extends Controller
      */
     public function edit($id)
     {
-        //
+        $mpkk = MPKK::findOrFail($id);
+        $kadun = Kadun::all();
+        return view('pages.mpkk.edit', compact('mpkk', 'kadun'));
     }
 
     /**
@@ -77,7 +80,13 @@ class MPKKController extends Controller
      */
     public function update(Request $request, $id)
     {
-        //
+        $mpkk = MPKK::findOrFail($id);
+        $request->validate([
+            'name' => ['required', Rule::unique('mpkk')->ignore($mpkk->id, 'id')],
+            'kadun_id' => 'required',
+        ]);
+        $mpkk->update($request->all());
+        return back()->with('success', 'MPKK berjaya diupdate');
     }
 
     /**
