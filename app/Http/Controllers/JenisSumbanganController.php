@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\JenisSumbangan;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class JenisSumbanganController extends Controller
 {
@@ -62,7 +63,8 @@ class JenisSumbanganController extends Controller
      */
     public function edit($id)
     {
-        //
+        $jenisSumbangan = JenisSumbangan::findOrFail($id);
+        return view('pages.jenis-sumbangan.edit', compact('jenisSumbangan'));
     }
 
     /**
@@ -74,7 +76,12 @@ class JenisSumbanganController extends Controller
      */
     public function update(Request $request, $id)
     {
-        //
+        $jenisSumbangan = JenisSumbangan::findOrFail($id);
+        $request->validate([
+            'name' => ['required', Rule::unique('jenis_sumbangan')->ignore($jenisSumbangan->id, 'id')],
+        ]);
+        $jenisSumbangan->update($request->all());
+        return back()->with('success', 'Jenis Sumbangan berjaya diupdate');
     }
 
     /**
