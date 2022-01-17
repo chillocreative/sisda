@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\ApprovedMail;
+use App\Mail\RegisterMail;
 use App\Models\Role;
 use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 
 class UserController extends Controller
@@ -26,7 +29,10 @@ class UserController extends Controller
         }
 
         $request['password'] = Hash::make($request->password);
-        User::create($request->all());
+        $user = User::create($request->all());
+
+        Mail::to($user->email)->send(new RegisterMail($user));
+
         return back()->with('success', 'Successfully added user');
     }
 
@@ -68,6 +74,7 @@ class UserController extends Controller
         $user = User::findOrFail($id);
         if($user->approved == 0){
             $user->update([$user->approved = 1]);
+            Mail::to($user->email)->send(new ApprovedMail($user));
         }else{
             $user->update([$user->approved = 0]);
         }

@@ -23,7 +23,7 @@
 @endsection
 
 @section('content')
-
+  @if(Auth::user()->role->name == 'superadmin' || Auth::user()->role->name == 'admin')
   <div class="row mt-3">
     @foreach($roles as $role)
     <div class="col-lg-4 {{ $loop->iteration >= 2 ? 'mt-3 mt-lg-0' : '' }}">
@@ -139,4 +139,5 @@
       </div>
     </div>
   </div>
+  @endif
 @endsection
