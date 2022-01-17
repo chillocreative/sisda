@@ -658,7 +658,7 @@ body {
     top: 50%;
     width: 4px;
     height: 36px;
-    background: var(--primary-color);
+    background: #018dff;
     -webkit-transform: translateY(-50%);
     transform: translateY(-50%);
 }
@@ -684,7 +684,7 @@ ul.breadcrumbs {
     display: block;
     font-size: 14px;
     font-weight: 400;
-    color: #7801ff;
+    color: #018dff;
     letter-spacing: 0;
     margin-right: 16px;
     position: relative;

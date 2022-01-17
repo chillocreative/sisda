@@ -2,14 +2,14 @@
 
 @section('title', 'Edit Jenis Sumbangan')
 
-@section('content')
-  
-  <div class="row">
-    <div class="col-lg-12">
-      <h1>Edit Jenis Sumbangan</h1>
-    </div>
-  </div>
+@section('breadcrumb_title', 'Edit Jenis Sumbangan')
+@section('breadcrumbs')
+  <li><a href="{{ route('jenis-sumbangan.index') }}">Jenis Sumbangan</a></li>
+  <li>Edit</li>
+@endsection
 
+@section('content')
+  <a href="{{ route('jenis-sumbangan.index') }}" class="btn btn-sm btn-secondary rounded-pill"><i class="fa fa-arrow-left"></i> <span class="ml-2">Kembali</span></a>
   <div class="row mt-3">
     <div class="col-lg-4">
       <div class="card">

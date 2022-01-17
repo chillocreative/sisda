@@ -2,6 +2,11 @@
 
 @section('title', 'Dashboard')
 
+@section('breadcrumb_title', 'Dashboard')
+@section('breadcrumbs')
+  <li>Dashboard</li>
+@endsection
+
 @section('style')
   <style>
     .card .card-body h1{

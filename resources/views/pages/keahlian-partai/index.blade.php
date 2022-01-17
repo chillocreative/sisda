@@ -2,13 +2,12 @@
 
 @section('title', 'Keahlian Parti')
 
-@section('content')
-  <div class="row">
-    <div class="col-lg-12">
-      <h1>Keahlian Parti</h1>
-    </div>
-  </div>
+@section('breadcrumb_title', 'Keahlian Parti')
+@section('breadcrumbs')
+  <li>Keahlian Parti</li>
+@endsection
 
+@section('content')
   <div class="row mt-3">
     <div class="col-lg-4">
       <div class="card">

@@ -2,13 +2,12 @@
 
 @section('title', 'My Profile')
 
-@section('content')
-  <div class="row">
-    <div class="col-lg-12">
-      <h1>My Profile</h1>
-    </div>
-  </div>
+@section('breadcrumb_title', 'My Profile')
+@section('breadcrumbs')
+  <li>My Profile</li>
+@endsection
 
+@section('content')
   <div class="row mt-3">
     <div class="col-lg-4">
       <div class="card">
@@ -54,7 +53,7 @@
                 @error('password_lama') <small class="text-danger">{{ $message }}</small>@enderror
               </div>
               <div class="form-group mt-3">
-                <label for="password" class="form-control-label">Password</label>
+                <label for="password" class="form-control-label">Password Baru</label>
                 <input type="password" name="password" id="password" class="form-control @error('password') is-invalid @enderror">
                 @error('password') <small class="text-danger">{{ $message }}</small>@enderror
               </div>

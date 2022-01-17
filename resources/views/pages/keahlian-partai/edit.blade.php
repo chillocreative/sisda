@@ -2,14 +2,14 @@
 
 @section('title', 'Edit Keahlian Parti')
 
-@section('content')
-  
-  <div class="row">
-    <div class="col-lg-12">
-      <h1>Edit Keahlian Parti</h1>
-    </div>
-  </div>
+@section('breadcrumb_title', 'Edit Keahlian Parti')
+@section('breadcrumbs')
+  <li><a href="{{ route('keahlian-parti.index') }}">Keahlian Parti</a></li>
+  <li>Edit</li>
+@endsection
 
+@section('content')
+  <a href="{{ route('keahlian-parti.index') }}" class="btn btn-sm btn-secondary rounded-pill"><i class="fa fa-arrow-left"></i> <span class="ml-2">Kembali</span></a>
   <div class="row mt-3">
     <div class="col-lg-4">
       <div class="card">

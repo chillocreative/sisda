@@ -2,14 +2,13 @@
 
 @section('title', 'Kecenderungan Politik')
 
-@section('content')
-  <div class="row">
-    <div class="col-lg-12">
-      <h1>Kecenderungan Politik</h1>
-    </div>
-  </div>
+@section('breadcrumb_title', 'Kecenderungan Politik')
+@section('breadcrumbs')
+  <li>Kecenderungan Politik</li>
+@endsection
 
-  <div class="row mt-3">
+@section('content')
+<div class="row mt-3">
     <div class="col-lg-4">
       <div class="card">
         <div class="card-body">

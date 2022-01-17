@@ -2,12 +2,13 @@
 
 @section('title', 'Edit User')
 
+@section('breadcrumb_title', 'Edit User')
+@section('breadcrumbs')
+  <li><a href="{{ route('user-user') }}">User</a></li>
+  <li>Edit</li>
+@endsection
+
 @section('content')
-  <div class="row">
-    <div class="col-lg-12">
-      <h1>Edit User</h1>
-    </div>
-  </div>
   <div class="row">
   <div class="row mt-3">
     <div class="col-lg-4">

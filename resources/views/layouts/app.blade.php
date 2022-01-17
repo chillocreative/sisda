@@ -44,6 +44,10 @@
     <title>@yield('title') - Sistem Data Pengundi</title>
   </head>
   <body>
+    <div id="preloader">
+        <div class="loader"></div>
+    </div>
+    
     <div class="page-container">
       @include('layouts._sidebar')
       <div class="main-content">

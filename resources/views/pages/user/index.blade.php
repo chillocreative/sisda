@@ -2,13 +2,13 @@
 
 @section('title') {{ $title }} @endsection
 
-@section('content')
-  <div class="row">
-    <div class="col-lg-12">
-      <h1>{{ $title }}</h1>
-    </div>
-  </div>
+@section('breadcrumb_title') {{ $title }} @endsection
+@section('breadcrumbs')
+  <li><a href="javascript:void(0)">User</a></li>
+  <li>{{ $title }}</li>
+@endsection
 
+@section('content')
   <div class="row mt-3">
     <div class="col-lg-4">
       <div class="card">
