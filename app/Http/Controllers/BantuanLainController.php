@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\BantuanLain;
 use Database\Seeders\BantaunLain;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class BantuanLainController extends Controller
 {
@@ -63,7 +64,8 @@ class BantuanLainController extends Controller
      */
     public function edit($id)
     {
-        //
+        $bantuanLain = BantuanLain::findOrFail($id);
+        return view('pages.bantuan-lain.edit', compact('bantuanLain'));
     }
 
     /**
@@ -75,7 +77,12 @@ class BantuanLainController extends Controller
      */
     public function update(Request $request, $id)
     {
-        //
+        $bantuanLain = BantuanLain::findOrFail($id);
+        $request->validate([
+            'name' => ['required', Rule::unique('bantuan_lain')->ignore($bantuanLain->id, 'id')],
+        ]);
+        $bantuanLain->update($request->all());
+        return back()->with('success', 'Bantuan Lain berjaya diupdate');
     }
 
     /**
