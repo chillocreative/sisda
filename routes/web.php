@@ -68,6 +68,7 @@ Route::middleware('auth')->group(function(){
 
   Route::get('/profile', [UserController::class, 'profile'])->name('profile');
   Route::post('/profile', [UserController::class, 'profileUpdate'])->name('profile.update');
+  Route::post('/profile/update-password', [UserController::class, 'updatePassword'])->name('profile.update-password');
   Route::post('/global/get-mpkk-specific', [GlobalController::class, 'getMPKKSpecific'])->name('get-mpkk-specific');
   
   Route::get('/logout', [AuthController::class, 'logout'])->name('logout');

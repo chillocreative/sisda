@@ -96,4 +96,18 @@ class UserController extends Controller
         $user->update($request->all());
         return back()->with('success', 'Profile updated successfully');
     }
+
+    public function updatePassword(Request $request){
+        $request->validate([
+            'password_lama' => 'required',
+            'password' => 'required|confirmed',
+        ]);
+        $user = User::find(Auth::user()->id);
+        if(Hash::check($request->password_lama, $user->password)){
+            $user->update([$user->password = Hash::make($request->password)]);
+            return back()->with('success', 'Password berjaya diupdate');    
+        }else{
+            return back()->with('error', 'Password lama salah');
+        }
+    }
 }

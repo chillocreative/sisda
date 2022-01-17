@@ -43,4 +43,34 @@
         </div>
       </div>
     </div>
+    <div class="col-lg-4">
+      <div class="card">
+        <div class="card-body">
+          <form action="{{ route('profile.update-password') }}" method="post">
+          @csrf
+              <div class="form-group mt-3">
+                <label for="password_lama" class="form-control-label">Password Lama</label>
+                <input type="password" name="password_lama" id="password_lama" class="form-control @error('password_lama') is-invalid @enderror">
+                @error('password_lama') <small class="text-danger">{{ $message }}</small>@enderror
+              </div>
+              <div class="form-group mt-3">
+                <label for="password" class="form-control-label">Password</label>
+                <input type="password" name="password" id="password" class="form-control @error('password') is-invalid @enderror">
+                @error('password') <small class="text-danger">{{ $message }}</small>@enderror
+              </div>
+              <div class="form-group mt-3">
+                <label for="password_confirmation" class="form-control-label">Password Confirmation</label>
+                <input type="password" name="password_confirmation" id="password_confirmation" class="form-control @error('password_confirmation') is-invalid @enderror">
+                @error('password_confirmation') <small class="text-danger">{{ $message }}</small>@enderror
+              </div>
+              <div class="form-group mt-3">
+                <div class="d-grid gap-2">
+                  <input type="submit" value="Update Password" class="btn btn-primary rounded-pill btn-block">
+                </div>
+              </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
 @endsection
