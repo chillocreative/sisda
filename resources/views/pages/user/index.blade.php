@@ -48,7 +48,7 @@
               <div class="form-group mt-3">
                 <input type="text" name="role_id" value="{{ $role->id }}" class="d-none">
                 <div class="d-grid gap-2">
-                  <input type="submit" value="Create" class="btn btn-primary rounded-pill btn-block">
+                  <input type="submit" value="Create" class="btn btn-primary btn-rounded btn-block">
                 </div>
               </div>
           </form>

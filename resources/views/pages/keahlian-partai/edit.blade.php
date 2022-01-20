@@ -9,7 +9,7 @@
 @endsection
 
 @section('content')
-  <a href="{{ route('keahlian-parti.index') }}" class="btn btn-sm btn-secondary rounded-pill"><i class="fa fa-arrow-left"></i> <span class="ml-2">Kembali</span></a>
+  <a href="{{ route('keahlian-parti.index') }}" class="btn btn-sm btn-secondary btn-rounded"><i class="fa fa-arrow-left"></i> <span class="ml-2">Kembali</span></a>
   <div class="row mt-3">
     <div class="col-lg-4">
       <div class="card">
@@ -24,7 +24,7 @@
             </div>
             <div class="form-group mt-3">
               <div class="d-grid gap-2">
-                <button type="submit" class="btn btn-primary rounded-pill btn-block">Update</button>
+                <button type="submit" class="btn btn-primary btn-rounded btn-block">Update</button>
               </div>
             </div>
           </form>

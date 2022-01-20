@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Bandar;
 use App\Models\BantuanLain;
 use App\Models\JenisSumbangan;
 use App\Models\Kadun;
@@ -9,6 +10,7 @@ use App\Models\KeahlianPartai;
 use App\Models\KecenderunganPolitik;
 use App\Models\MPKK;
 use App\Models\MulaCulaan;
+use App\Models\Negeri;
 use App\Models\TujuanSumbangan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,8 +18,8 @@ use Illuminate\Support\Facades\Auth;
 class MulaCulaanController extends Controller
 {
     public function index(){
+        $negeri = Negeri::all();
         $kadun = Kadun::all();
-        $mpkk = MPKK::all();
         $jenisSumbangan = JenisSumbangan::all();
         $tujuanSumbangan = TujuanSumbangan::all();
         $bantuanLain = BantuanLain::all();
@@ -25,8 +27,8 @@ class MulaCulaanController extends Controller
         $kecenderunganPolitik = KecenderunganPolitik::all();
 
         $data = [
+            'negeri' => $negeri,
             'kadun' => $kadun,
-            'mpkk' => $mpkk,
             'jenisSumbangan' => $jenisSumbangan,
             'tujuanSumbangan' => $tujuanSumbangan,
             'bantuanLain' => $bantuanLain,
@@ -40,27 +42,37 @@ class MulaCulaanController extends Controller
         $request->validate([
             'name' => 'required',
             'no_kad' => 'required',
+            'umur' => 'required',
+            'no_telp' => 'required',
+            'bangsa' => 'required',
             'alamat' => 'required',
+            'poskod' => 'required',
+            'negeri' => 'required',
+            'bandar' => 'required',
             'kadun' => 'required',
             'mpkk' => 'required',
             'bilangan_isi_rumah' => 'required',
             'jumlah_pendapatan_isi_rumah' => 'required',
+            'pekerjaan' => 'required',
+            'pemilik_rumah' => 'required',
             'jenis_sumbangan' => 'required',
             'tujuan_sumbangan' => 'required',
             'bantuan_lain' => 'required',
             'keahlian_partai' => 'required',
             'kecenderungan_politik' => 'required',
-            'nota' => 'required',
             'tarikh_dan_masa' => 'required',
         ]);
-        
         $request['nama'] = $request->name;
         $request['user_id'] = Auth::user()->id;
-        $request['kadun'] = Kadun::where('id', $request->kadun)->first()->name;
-        $request['jenis_sumbangan'] = implode(',', $request->jenis_sumbangan);
-        $request['bantuan_lain'] = implode(',', $request->bantuan_lain);
-        $request['keahlian_partai'] = implode(',', $request->keahlian_partai);
-        $request['kecenderungan_politik'] = implode(',', $request->kecenderungan_politik);
+        $request['negeri'] = Negeri::find($request->negeri)->name;
+        $request['kadun'] = Kadun::find($request->kadun)->name;
+        // $request['jenis_sumbangan'] = implode(',', $request->jenis_sumbangan);
+        // $request['bantuan_lain'] = implode(',', $request->bantuan_lain);
+        // $request['keahlian_partai'] = implode(',', $request->keahlian_partai);
+        // $request['kecenderungan_politik'] = implode(',', $request->kecenderungan_politik);
+
+        // dd($request->all());
+        
         MulaCulaan::create($request->all());
         return back()->with('success', 'Mula culaan berjaya disimpan');
     }

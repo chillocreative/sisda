@@ -30,7 +30,7 @@
             </div>
             <div class="form-group mt-3">
               <div class="d-grid gap-2">
-                <button type="submit" class="btn btn-primary rounded-pill btn-block">Create</button>
+                <button type="submit" class="btn btn-primary btn-rounded btn-block">Create</button>
               </div>
             </div>
           </form>

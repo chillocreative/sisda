@@ -47,7 +47,7 @@
               @endif
               <div class="form-group mt-3">
                 <div class="d-grid gap-2">
-                  <input type="submit" value="Update" class="btn btn-primary rounded-pill btn-block">
+                  <input type="submit" value="Update" class="btn btn-primary btn-rounded btn-block">
                 </div>
               </div>
           </form>
@@ -73,7 +73,7 @@
               </div>
               <div class="form-group mt-3">
                 <div class="d-grid gap-2">
-                  <input type="submit" value="Reset Password" class="btn btn-primary rounded-pill btn-block">
+                  <input type="submit" value="Reset Password" class="btn btn-primary btn-rounded btn-block">
                 </div>
               </div>
           </form>
