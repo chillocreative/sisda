@@ -1,11 +1,14 @@
 <div class="header-area">
   <div class="row align-items-center">
-    <div class="col-md-6 col-sm-8 clearfix">
+    <div class="col-4 clearfix">
       <div class="nav-btn mb-3 pull-left">
         <span></span>
         <span></span>
         <span></span>
       </div>
+    </div>
+    <div class="col-8 text-right">
+      <h6>Selamat Datang, {{ Auth::user()->name }}</h6>
     </div>
   </div>
 </div>

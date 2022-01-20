@@ -112,15 +112,15 @@ body {
     height: 100vh;
     width: 280px;
     overflow: hidden;
-    background: #00b4db; /* fallback for old browsers */
+    background: #00adef; /* fallback for old browsers */
     background: -webkit-linear-gradient(
         to left,
-        #00b4db,
+        #00adef,
         #0083b0
     ); /* Chrome 10-25, Safari 5.1-6 */
     background: linear-gradient(
         to left,
-        #00b4db,
+        #00adef,
         #0083b0
     ); /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
     box-shadow: 2px 0 32px rgba(0, 0, 0, 0.05);
@@ -152,15 +152,15 @@ body {
 
 .sidebar-header {
     padding: 19px 32px 20px;
-    background: #00b4db; /* fallback for old browsers */
+    background: #00adef; /* fallback for old browsers */
     background: -webkit-linear-gradient(
         to left,
-        #00b4db,
+        #00adef,
         #0083b0
     ); /* Chrome 10-25, Safari 5.1-6 */
     background: linear-gradient(
         to left,
-        #00b4db,
+        #00adef,
         #0083b0
     ); /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
 }
@@ -678,7 +678,7 @@ body {
     top: 50%;
     width: 4px;
     height: 36px;
-    background: #00b4db;
+    background: #00adef;
     -webkit-transform: translateY(-50%);
     transform: translateY(-50%);
 }
@@ -704,7 +704,7 @@ ul.breadcrumbs {
     display: block;
     font-size: 14px;
     font-weight: 400;
-    color: #00b4db;
+    color: #00adef;
     letter-spacing: 0;
     margin-right: 16px;
     position: relative;

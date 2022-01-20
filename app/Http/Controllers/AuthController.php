@@ -48,14 +48,16 @@ class AuthController extends Controller
             'name' => 'required',
             'no_kad' => 'required|unique:users',
             'phone' => 'required|numeric',
-            'email' => 'required|email|unique:users',
+            'email' => 'email|unique:users',
             'password' => 'required|confirmed',
         ]);
         $request['role_id'] = 3;
         $request['password'] = Hash::make($request->password);
         $user = User::create($request->all());
 
-        Mail::to($user->email)->send(new RegisterMail($user));
+        if($request->email){
+            Mail::to($user->email)->send(new RegisterMail($user));
+        }
 
         return back()->with('success', 'Successfully registered account');
     }

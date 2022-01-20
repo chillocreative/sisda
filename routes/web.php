@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BandarController;
 use App\Http\Controllers\BantuanLainController;
 use App\Http\Controllers\GlobalController;
 use App\Http\Controllers\JenisSumbanganController;
@@ -9,6 +10,7 @@ use App\Http\Controllers\KeahlianPartaiController;
 use App\Http\Controllers\KecenderunganPolitikController;
 use App\Http\Controllers\MPKKController;
 use App\Http\Controllers\MulaCulaanController;
+use App\Http\Controllers\NegeriController;
 use App\Http\Controllers\PagesController;
 use App\Http\Controllers\TujuanSumbanganController;
 use App\Http\Controllers\UserController;
@@ -37,6 +39,8 @@ Route::middleware('auth')->group(function(){
 
   Route::group(['middleware' => 'otentikasi:superadmin'], function(){
     Route::get('/user/superadmin', [PagesController::class, 'user'])->name('user-superadmin');
+    Route::resource('/negeri', NegeriController::class);
+    Route::resource('/bandar', BandarController::class);
   });
   
   Route::group(['middleware' => 'otentikasi:superadmin,admin'], function(){

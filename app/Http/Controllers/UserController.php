@@ -19,7 +19,7 @@ class UserController extends Controller
             'name' => 'required',
             'no_kad' => 'required|unique:users',
             'phone' => 'required|numeric',
-            'email' => 'required|email|unique:users',
+            'email' => 'email|unique:users',
             'password' => 'required|confirmed',
         ]);
         
@@ -31,7 +31,9 @@ class UserController extends Controller
         $request['password'] = Hash::make($request->password);
         $user = User::create($request->all());
 
-        Mail::to($user->email)->send(new RegisterMail($user));
+        if($request->email){
+            Mail::to($user->email)->send(new RegisterMail($user));
+        }
 
         return back()->with('success', 'Successfully added user');
     }
@@ -50,11 +52,18 @@ class UserController extends Controller
 
     public function update(Request $request, $id){
         $user = User::findOrFail($id);
-        $request->validate([
-            'name' => 'required',
-            'phone' => 'required|numeric',
-            'email' => ['required', 'email', Rule::unique('users')->ignore($user->id, 'id')],
-        ]);
+        if($user->email){
+            $request->validate([
+                'name' => 'required',
+                'phone' => 'required|numeric',
+                'email' => ['required', 'email', Rule::unique('users')->ignore($user->id, 'id')],
+            ]);
+        }else{
+            $request->validate([
+                'name' => 'required',
+                'phone' => 'required|numeric',
+            ]);
+        }
         $user->update($request->all());
         return back()->with('success', 'User updated successfully');
     }
@@ -74,7 +83,9 @@ class UserController extends Controller
         $user = User::findOrFail($id);
         if($user->approved == 0){
             $user->update([$user->approved = 1]);
-            Mail::to($user->email)->send(new ApprovedMail($user));
+            if($user->email){
+                Mail::to($user->email)->send(new ApprovedMail($user));
+            }
         }else{
             $user->update([$user->approved = 0]);
         }
@@ -100,11 +111,18 @@ class UserController extends Controller
 
     public function profileUpdate(Request $request){
         $user = User::find(Auth::user()->id);
-        $request->validate([
-            'name' => 'required',
-            'phone' => 'required|numeric',
-            'email' => ['required', 'email', Rule::unique('users')->ignore($user->id, 'id')],
-        ]);
+        if($user->email){
+            $request->validate([
+                'name' => 'required',
+                'phone' => 'required|numeric',
+                'email' => ['required', 'email', Rule::unique('users')->ignore($user->id, 'id')],
+            ]);
+        }else{
+            $request->validate([
+                'name' => 'required',
+                'phone' => 'required|numeric',
+            ]);
+        }
         
         $user->update($request->all());
         return back()->with('success', 'Profile updated successfully');

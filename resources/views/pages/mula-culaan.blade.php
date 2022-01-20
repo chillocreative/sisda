@@ -30,18 +30,18 @@
               <div class="col-lg-6">
                 <div class="form-group">
                   <label for="name" class="form-control-label">Nama</label>
-                  <input type="text" name="name" id="name" class="form-control @error('name') is-invalid @enderror" value="{{ old('name') }}" required>
+                  <input type="text" name="name" id="name" class="form-control text-uppercase @error('name') is-invalid @enderror" value="{{ old('name') }}" required>
                 </div>
                 <div class="form-group">
                   <label for="no_kad" class="form-control-label">No Kad Pengenalan</label>
-                  <input type="text" name="no_kad" id="no_kad" class="form-control @error('no_kad') is-invalid @enderror" value="{{ old('no_kad') }}" required>
+                  <input type="text" name="no_kad" id="no_kad" class="form-control text-uppercase @error('no_kad') is-invalid @enderror" value="{{ old('no_kad') }}" required>
                 </div>
                 <div class="form-group">
                   <label for="alamat" class="form-control-label">
                     Alamat
                     <button type="button" class="btn-tooltip fa fa-info-circle text-dark ml-2" data-toggle="tooltip" data-placement="right" title="Alamat tempat tinggal yang terkini."></button>  
                   </label>
-                  <textarea name="alamat" id="alamat" cols="30" rows="5" class="form-control">{{ old('alamat') }}</textarea>
+                  <textarea name="alamat" id="alamat" cols="30" rows="5" class="form-control text-uppercase">{{ old('alamat') }}</textarea>
                 </div>
                 <div class="form-group">
                   <label for="kadun" class="form-control-label">Kadun</label>
@@ -91,7 +91,7 @@
                   @foreach($jenisSumbangan as $s)
                     <div class="form-check">
                       <input class="form-check-input" type="checkbox" name="jenis_sumbangan[]" value="{{ $s->name }}" id="jenisSumbanganId{{ $s->id }}">
-                      <label class="form-check-label" for="jenisSumbanganId{{ $s->id }}">
+                      <label class="form-check-label text-uppercase" for="jenisSumbanganId{{ $s->id }}">
                         {{ $s->name }}
                       </label>
                     </div>

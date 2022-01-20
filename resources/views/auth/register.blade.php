@@ -13,24 +13,9 @@
         text-decoration: none;
         color: #444;
       }
-      .version{
-        position: absolute;
-        bottom: 0;
-        right: 0;
-      }
 
     .bg-body{
-        background: #00b4db; /* fallback for old browsers */
-        background: -webkit-linear-gradient(
-            to left,
-            #00b4db,
-            #0083b0
-        ); /* Chrome 10-25, Safari 5.1-6 */
-        background: linear-gradient(
-            to left,
-            #00b4db,
-            #0083b0
-        ); /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
+        background-color: #00adef !important;
       }
          
       .bg-linear {
@@ -48,15 +33,26 @@
         color: #fff;
         text-decoration: none;
       }
+      
+      @media (min-width: 990px){
+        .content {
+          height: 100vh;
+        }
+        .version{
+          position: absolute;
+          bottom: 0;
+          right: 0;
+        }
+      }
     </style>
 
     <title>Login - Sistem Data Pengundi</title>
   </head>
   <body>
 
-    <div class="d-flex align-items-center vh-100 bg-body">
+    <div class="content d-flex align-items-center bg-body">
       <div class="container">
-        <div class="login mb-5">
+        <div class="login mb-5 mt-5 mt-lg-0">
           <div class="row justify-content-center">
             <div class="col-lg-4">
               <div class="bg-linear shadow-lg p-5" style="width: 100%; height: 100%">
@@ -75,38 +71,38 @@
                     <div class="row justify-content-center">
                       <div class="col-lg-8">
                         <div class="form-group">
-                          <label for="name" class="form-control-label">Name</label>
+                          <label for="name" class="form-control-label">Name<span class="text-danger"> *</span></label>
                           <input type="text" name="name" id="name" class="form-control @error('name') is-invalid @enderror" value="{{ old('name') }}">
                           @error('name') <small class="text-danger">{{ $message }}</small>@enderror
                         </div>
                         <div class="form-group mt-3">
-                          <label for="no_kad" class="form-control-label">Username</label>
+                          <label for="no_kad" class="form-control-label">Username<span class="text-danger"> *</span></label>
                           <input type="text" name="no_kad" id="username" class="form-control @error('no_kad') is-invalid @enderror" placeholder="No Kad Pengenalan" value="{{ old('no_kad') }}">
                           @error('no_kad') <small class="text-danger">{{ $message }}</small>@enderror
                         </div>
                         <div class="form-group mt-3">
-                          <label for="email" class="form-control-label">Email</label>
+                          <label for="email" class="form-control-label">Email (Optional)</label>
                           <input type="email" name="email" id="email" class="form-control @error('email') is-invalid @enderror" value="{{ old('email') }}">
                           @error('email') <small class="text-danger">{{ $message }}</small>@enderror
                         </div>
                         <div class="form-group mt-3">
-                          <label for="phone" class="form-control-label">No Telefon</label>
+                          <label for="phone" class="form-control-label">No Telefon<span class="text-danger"> *</span></label>
                           <input type="number" name="phone" id="phone" class="form-control @error('phone') is-invalid @enderror" value="{{ old('phone') }}">
                           @error('phone') <small class="text-danger">{{ $message }}</small>@enderror
                         </div>
                         <div class="form-group mt-3">
-                          <label for="password" class="form-control-label">Password</label>
+                          <label for="password" class="form-control-label">Password<span class="text-danger"> *</span></label>
                           <input type="password" name="password" id="password" class="form-control @error('password') is-invalid @enderror">
                           @error('password') <small class="text-danger">{{ $message }}</small>@enderror
                         </div>
                         <div class="form-group mt-3">
-                          <label for="password_confirmation" class="form-control-label">Password Confirmation</label>
+                          <label for="password_confirmation" class="form-control-label">Password Confirmation<span class="text-danger"> *</span></label>
                           <input type="password" name="password_confirmation" id="password_confirmation @error('password_confirmation') is-invalid @enderror" class="form-control">
                           @error('password_confirmation') <small class="text-danger">{{ $message }}</small>@enderror
                         </div>
                         <div class="form-group mt-3 text-center">
                           <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-outline-dark btn-light btn-block">REGISTER</button>
+                            <button type="submit" class="btn btn-primary rounded-pill btn-block">REGISTER</button>
                           </div>
                         </div>
                         @if(session('success'))
@@ -134,11 +130,11 @@
           </div>
         </div>
       </div>
-      <div class="version bg-danger vw-100">
-        <div class="row justify-content-end m-0">
-          <div class="col-lg-6 mr-3 text-end text-light">
-            Sistem Culaan Ver. 1.0
-          </div>
+    </div>
+    <div class="container-fluid version bg-danger">
+      <div class="row justify-content-end m-0">
+        <div class="col-lg-6 mr-3 text-end text-light">
+          Sistem Culaan Ver. 1.0
         </div>
       </div>
     </div>
