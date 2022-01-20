@@ -1,10 +1,10 @@
 @extends('layouts.app')
 
-@section('title', 'MPKK')
+@section('title', 'Bandar')
 
-@section('breadcrumb_title', 'MPKK')
+@section('breadcrumb_title', 'Bandar')
 @section('breadcrumbs')
-  <li>MPKK</li>
+  <li>Bandar</li>
 @endsection
 
 @section('content')
@@ -12,14 +12,14 @@
     <div class="col-lg-4">
       <div class="card">
         <div class="card-body">
-          <form action="{{ route('mpkk.store') }}" method="post">
+          <form action="{{ route('bandar.store') }}" method="post">
           @csrf
             <div class="form-group mt-3">
-              <label for="kadun_id" class="form-control-label">Kadun</label>
-              <select name="kadun_id" id="kadun_id" class="form-control">
-                <option value="" selected disabled>Pilih Kadun</option>
-                @foreach($kadun as $k)
-                  <option value="{{ $k->id }}">{{ $k->code }} - {{ $k->name }}</option>
+              <label for="negeri_id" class="form-control-label">Negeri</label>
+              <select name="negeri_id" id="negeri_id" class="form-control py-1">
+                <option value="" selected disabled>Pilih Negeri</option>
+                @foreach($negeri as $n)
+                  <option value="{{ $n->id }}">{{ $n->name }}</option>
                 @endforeach
               </select>
             </div>
@@ -45,20 +45,20 @@
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>Kadun</th>
+                  <th>Negeri</th>
                   <th>Name</th>
                   <th>Action</th>
                 </tr>
               </thead>
               <tbody>
-                @foreach($mpkk as $m)
+                @foreach($bandar as $b)
                   <tr>
                     <td style="vertical-align: middle">{{ $loop->iteration }}</td>
-                    <td style="vertical-align: middle">{{ $m->kadun->name }}</td>
-                    <td style="vertical-align: middle">{{ $m->name }}</td>
+                    <td style="vertical-align: middle">{{ $b->negeri->name }}</td>
+                    <td style="vertical-align: middle">{{ $b->name }}</td>
                     <td style="vertical-align: middle">
-                      <a href="{{ route('mpkk.edit', $m->id) }}" class="btn btn-warning btn-sm fa fa-edit"></a>
-                      <form action="{{ route('mpkk.destroy', $m->id) }}" method="post" class="d-inline">
+                      <a href="{{ route('bandar.edit', $b->id) }}" class="btn btn-warning btn-sm fa fa-edit"></a>
+                      <form action="{{ route('bandar.destroy', $b->id) }}" method="post" class="d-inline">
                       @csrf
                       @method('DELETE')
                         <button type="submit" class="btn btn-danger btn-sm fa fa-trash" onclick="return confirm('')"></button>

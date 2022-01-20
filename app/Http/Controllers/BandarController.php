@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Bandar;
+use App\Models\Negeri;
 use Illuminate\Http\Request;
 
 class BandarController extends Controller
@@ -13,7 +15,9 @@ class BandarController extends Controller
      */
     public function index()
     {
-        //
+        $bandar = Bandar::all();
+        $negeri = Negeri::all();
+        return view('pages.bandar.index', compact('bandar', 'negeri'));
     }
 
     /**
@@ -34,7 +38,11 @@ class BandarController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $request->validate([
+            'name' => 'required|unique:bandar',
+        ]);
+        Bandar::create($request->all());
+        return back()->with('success', 'Bandar berjaya ditambahkan');
     }
 
     /**
@@ -56,7 +64,9 @@ class BandarController extends Controller
      */
     public function edit($id)
     {
-        //
+        $negeri = Negeri::all();
+        $bandar = Bandar::findOrFail($id);
+        return view('pages.bandar.edit', compact('negeri', 'bandar'));
     }
 
     /**
@@ -68,7 +78,12 @@ class BandarController extends Controller
      */
     public function update(Request $request, $id)
     {
-        //
+        $bandar = Bandar::findOrFail($id);
+        $request->validate([
+            'name' => 'required|unique:bandar,name,' . $bandar->id, 
+        ]);
+        $bandar->update($request->all());
+        return back()->with('success', 'Bandar berjaya diupdate');
     }
 
     /**
@@ -79,6 +94,8 @@ class BandarController extends Controller
      */
     public function destroy($id)
     {
-        //
+        $bandar = Bandar::findOrFail($id);
+        $bandar->delete();
+        return back()->with('success', 'Bandar berjaya dihapus');
     }
 }

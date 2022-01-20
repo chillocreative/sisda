@@ -18,11 +18,6 @@
           @csrf
           @method('PUT')
             <div class="form-group mt-3">
-              <label for="name" class="form-control-label">Nama</label>
-              <input type="text" name="name" id="name" class="form-control @error('name') is-invalid @enderror" value="{{ $mpkk->name }}">
-              @error('name') <small class="text-danger">{{ $message }}</small> @enderror
-            </div>
-            <div class="form-group mt-3">
               <label for="kadun" class="form-control-label">Kadun</label>
               <select name="kadun_id" id="kadun" class="form-control py-1">
                 @foreach($kadun as $k)
@@ -30,6 +25,11 @@
                 @endforeach
               </select>
               @error('kadun_id') <small class="text-danger">{{ $message }}</small> @enderror
+            </div>
+            <div class="form-group mt-3">
+              <label for="name" class="form-control-label">Nama</label>
+              <input type="text" name="name" id="name" class="form-control @error('name') is-invalid @enderror" value="{{ $mpkk->name }}">
+              @error('name') <small class="text-danger">{{ $message }}</small> @enderror
             </div>
             <div class="form-group mt-3">
               <div class="d-grid gap-2">
