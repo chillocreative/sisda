@@ -76,7 +76,7 @@
     <div class="col-lg-4">
       <a href="{{ route('mula-culaan.index') }}" class="button-29" role="button" style="width: 100%; height: 100px;">MULA CULAAN</a>
     </div>
-    <div class="col-lg-4">
+    <div class="col-lg-4 mt-3 mt-lg-0">
       <a href="#" class="button-29" role="button" style="width: 100%; height: 100px;">MASUK DATA PENGUNDI</a>
     </div>
   </div>

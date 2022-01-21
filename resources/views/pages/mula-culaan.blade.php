@@ -50,7 +50,7 @@
                   </div>
                 </div>
                 <div class="form-group">
-                  <label for="no_telp" class="form-control-label">No Telp<span class="text-danger"> *</span></label>
+                  <label for="no_telp" class="form-control-label">No Tel<span class="text-danger"> *</span></label>
                   <input type="text" name="no_telp" id="no_telp" class="form-control text-uppercase @error('no_telp') is-invalid @enderror" value="{{ old('no_tel') }}" required>
                   @error('no_telp') <small class="text-danger">{{ $message }}</small>@enderror
                 </div>
@@ -185,7 +185,9 @@
                     @foreach($tujuanSumbangan as $t)
                       <option value="{{ $t->name }}">{{ $t->name }}</option>
                     @endforeach
+                    <option value="lain-lain">Lain-Lain</option>
                   </select>
+                  <input id="lain" class="form-control mt-3 d-none" name="tujuan_sumbangan_custom">
                   @error('tujuan_sumbangan') <small class="text-danger">{{ $message }}</small>@enderror
                 </div>
                 <div class="form-group">
@@ -332,6 +334,16 @@
     $(document).ready(function(){
       $('[data-toggle="tooltip"]').tooltip()
       $('.select2-multiple').select2();
+
+      $('#tujuan-sumbangan').on('change', function () {
+          console.log(this)
+            if(this.value == 'lain-lain'){
+              console.log('success')
+               $('#lain').removeClass('d-none');
+            }else{
+               $('#lain').addClass('d-none');
+            }
+         })
 
       $('#no_kad').on('keyup', function(){
         $('#form-umur').removeClass('d-none')
