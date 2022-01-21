@@ -1,0 +1,65 @@
+.btn-switch {
+    margin: 0 4rem;
+    padding: 0;
+    position: relative;
+    border: none;
+    height: 1.5rem;
+    width: 3rem;
+    border-radius: 1.5rem;
+    color: #6b7381;
+    background: #bdc1c8;
+}
+.btn-switch:focus,
+.btn-switch:focus.active,
+.btn-switch.focus,
+.btn-switch.focus.active {
+    outline: none;
+}
+.btn-switch:before,
+.btn-switch:after {
+    line-height: 1.5rem;
+    width: 4rem;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    position: absolute;
+    bottom: 0;
+    transition: opacity 0.25s;
+}
+.btn-switch:before {
+    content: "No";
+    left: -4rem;
+}
+.btn-switch:after {
+    content: "Yes";
+    right: -4rem;
+    opacity: 0.5;
+}
+.btn-switch > .handle {
+    position: absolute;
+    top: 0.1875rem;
+    left: 0.1875rem;
+    width: 1.125rem;
+    height: 1.125rem;
+    border-radius: 1.125rem;
+    background: #fff;
+    transition: left 0.25s;
+}
+.btn-switch.active {
+    transition: background-color 0.25s;
+}
+.btn-switch.active {
+    background-color: #29b5a8;
+}
+.btn-switch.active > .handle {
+    left: 1.6875rem;
+    transition: left 0.25s;
+}
+.btn-switch.active:before {
+    opacity: 0.5;
+}
+.btn-switch.active:after {
+    opacity: 1;
+}

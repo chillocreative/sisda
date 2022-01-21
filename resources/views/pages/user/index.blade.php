@@ -2,6 +2,10 @@
 
 @section('title') {{ $title }} @endsection
 
+@section('style')
+  <link rel="stylesheet/less" type="text/css" href="{{ asset('assets/less/switch.less') }}">
+@endsection
+
 @section('breadcrumb_title') {{ $title }} @endsection
 @section('breadcrumbs')
   <li><a href="javascript:void(0)">User</a></li>
@@ -67,7 +71,7 @@
                             <th class="align-middle">No Kad Pengenalan</th>
                             <th class="align-middle">No Telefon</th>
                             <th class="align-middle">Email Address</th>
-                            <th class="align-middle">Approved</th>
+                            <th class="align-middle text-center">Approved</th>
                             @if(Auth::user()->role->name == 'superadmin' && (Route::is('user-user') || Route::is('user-admin')))
                               <th class="align-middle">Action</th>
                             @elseif(Auth::user()->role->name == 'admin' && Route::is('user-user'))
@@ -84,9 +88,9 @@
                             <td class="align-middle">{{ $user->phone }}</td>
                             <td class="align-middle">{{ $user->email }}</td>
                             <td class="align-middle text-center">
-                              <div class="form-check form-switch">
-                                <input class="form-check-input approved" type="checkbox" role="switch" data-id="{{ $user->id }}" {{ $user->approved ? 'checked' : '' }}>
-                              </div>
+                              <button type="button" class="btn btn-switch approved {{ $user->approved ? 'focus active' : '' }}" data-id="{{ $user->id }}" data-toggle="button" aria-pressed="{{ $user->approved ? 'true' : 'false' }}" autocomplete="off">
+                                <div class="handle"></div>
+                              </button>
                             </td>
                             @if(Auth::user()->role->name == 'superadmin' && (Route::is('user-admin') || Route::is('user-user')))
                               <td class="align-middle">
@@ -119,6 +123,7 @@
 @endsection
 
 @section('script')
+  <script src="https://cdn.jsdelivr.net/npm/less@4.1.1" ></script>
   <script>
     $(document).ready(function(){
       $('.approved').on('click', function(){
@@ -129,7 +134,7 @@
           type: 'PUT',
           data: {
             _token: '{{ csrf_token() }}',
-          },
+          }
         })
       })
     })

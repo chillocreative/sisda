@@ -9,6 +9,7 @@
 @endsection
 
 @section('content')
+  <a href="{{ route('user-user') }}" class="btn btn-sm btn-secondary btn-rounded"><i class="fa fa-arrow-left"></i> <span class="ml-2">Kembali</span></a>
   <div class="row mt-3">
     <div class="col-lg-4">
       <div class="card">

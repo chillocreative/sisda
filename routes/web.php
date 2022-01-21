@@ -39,8 +39,8 @@ Route::middleware('auth')->group(function(){
 
   Route::group(['middleware' => 'otentikasi:superadmin'], function(){
     Route::get('/user/superadmin', [PagesController::class, 'user'])->name('user-superadmin');
-    Route::resource('/negeri', NegeriController::class);
-    Route::resource('/bandar', BandarController::class);
+    Route::resource('/negeri', NegeriController::class)->except('show', 'create');
+    Route::resource('/bandar', BandarController::class)->except('show', 'create');
   });
   
   Route::group(['middleware' => 'otentikasi:superadmin,admin'], function(){
