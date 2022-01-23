@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BandarController;
 use App\Http\Controllers\BantuanLainController;
+use App\Http\Controllers\DataPengundiController;
 use App\Http\Controllers\GlobalController;
 use App\Http\Controllers\JenisSumbanganController;
 use App\Http\Controllers\KadunController;
@@ -12,6 +13,7 @@ use App\Http\Controllers\MPKKController;
 use App\Http\Controllers\MulaCulaanController;
 use App\Http\Controllers\NegeriController;
 use App\Http\Controllers\PagesController;
+use App\Http\Controllers\ParlimenController;
 use App\Http\Controllers\TujuanSumbanganController;
 use App\Http\Controllers\UserController;
 use App\Models\User;
@@ -39,8 +41,6 @@ Route::middleware('auth')->group(function(){
 
   Route::group(['middleware' => 'otentikasi:superadmin'], function(){
     Route::get('/user/superadmin', [PagesController::class, 'user'])->name('user-superadmin');
-    Route::resource('/negeri', NegeriController::class)->except('show', 'create');
-    Route::resource('/bandar', BandarController::class)->except('show', 'create');
   });
   
   Route::group(['middleware' => 'otentikasi:superadmin,admin'], function(){
@@ -55,7 +55,10 @@ Route::middleware('auth')->group(function(){
         Route::put('/user/reset-password/{id}', [UserController::class, 'resetPassword'])->name('user.reset-password');
       });
 
-      Route::group(['prefix' => 'data-culaan-master'], function(){
+      Route::group(['prefix' => 'data-master'], function(){
+        Route::resource('/negeri', NegeriController::class)->except('show', 'create');
+        Route::resource('/bandar', BandarController::class)->except('show', 'create');
+        Route::resource('/parlimen', ParlimenController::class)->except('show', 'create');
         Route::resource('/kadun', KadunController::class)->except('show', 'create');
         Route::resource('/mpkk', MPKKController::class)->except('show', 'create');
         Route::resource('/tujuan-sumbangan', TujuanSumbanganController::class)->except('show', 'create');
@@ -69,6 +72,8 @@ Route::middleware('auth')->group(function(){
   Route::group(['middleware' => 'otentikasi:admin,user'], function(){
     Route::get('/mula-culaan', [MulaCulaanController::class, 'index'])->name('mula-culaan.index');
     Route::post('/mula-culaan', [MulaCulaanController::class, 'store'])->name('mula-culaan.store');
+    Route::get('/data-pengundi', [DataPengundiController::class, 'index'])->name('data-pengundi.index');
+    Route::post('/data-pengundi', [DataPengundiController::class, 'store'])->name('data-pengundi.store');
   });
 
   Route::get('/profile', [UserController::class, 'profile'])->name('profile');

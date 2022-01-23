@@ -38,6 +38,7 @@
                   <th>#</th>
                   <th>Nama</th>
                   <th>Jumlah Bandar</th>
+                  <th>Jumlah Parlimen</th>
                   <th>Action</th>
                 </tr>
               </thead>
@@ -47,6 +48,7 @@
                     <td style="vertical-align: middle">{{ $loop->iteration }}</td>
                     <td style="vertical-align: middle">{{ $n->name }}</td>
                     <td style="vertical-align: middle">{{ $n->bandar->count() }}</td>
+                    <td style="vertical-align: middle">{{ $n->parlimen->count() }}</td>
                     <td>
                       <a href="{{ route('negeri.edit', $n->id) }}" class="btn btn-warning btn-sm fa fa-edit"></a>
                       <form action="{{ route('negeri.destroy', $n->id) }}" method="post" class="d-inline">

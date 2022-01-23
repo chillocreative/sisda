@@ -15,6 +15,16 @@
           <form action="{{ route('kadun.store') }}" method="post">
           @csrf
             <div class="form-group mt-3">
+              <label for="parlimen_id" class="form-control-label">Parlimen</label>
+              <select name="parlimen_id" id="parlimen_id" class="form-control py-0">
+                <option value="" selected disabled>Pilih Parlimen</option>
+                @foreach($parlimen as $p)
+                  <option value="{{ $p->id }}">{{ $p->name }}</option>
+                @endforeach
+              </select>
+              @error('parlimen_id') <small class="text-danger">{{ $message }}</small> @enderror
+            </div>
+            <div class="form-group mt-3">
               <label for="code" class="form-control-label">Kod</label>
               <input type="text" name="code" id="code" class="form-control @error('code') is-invalid @enderror" value="{{ old('code') }}">
               @error('code') <small class="text-danger">{{ $message }}</small> @enderror
@@ -42,6 +52,7 @@
                 <tr>
                   <th>#</th>
                   <th>Kod</th>
+                  <th>Parlimen</th>
                   <th>Nama</th>
                   <th>Jumlah MPKK</th>
                   <th>Action</th>
@@ -52,6 +63,7 @@
                   <tr>
                     <td style="vertical-align: middle">{{ $loop->iteration }}</td>
                     <td style="vertical-align: middle">{{ $k->code }}</td>
+                    <td style="vertical-align: middle">{{ $k->parlimen->name }}</td>
                     <td style="vertical-align: middle">{{ $k->name }}</td>
                     <td style="vertical-align: middle">{{ $k->mpkk->count() }}</td>
                     <td>

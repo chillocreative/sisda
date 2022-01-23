@@ -19,6 +19,9 @@
           <li class="{{ (request()->segment(1) == 'mula-culaan') ? 'active' : '' }}">
             <a href="{{ route('mula-culaan.index') }}">Mula Culaan</a>
           <li>
+          <li class="{{ (request()->segment(1) == 'data-pengundi') ? 'active' : '' }}">
+            <a href="{{ route('data-pengundi.index') }}">Data Pengundi</a>
+          <li>
           @endif
           @if(Auth::user()->role->name != 'user')
           <li class="{{ (request()->segment(1) == 'user') ? 'active' : '' }}">
@@ -34,10 +37,9 @@
           <li class="{{ (request()->segment(1) == 'data-culaan-master') ? 'active' : '' }}">
             <a href="javascript:void(0)" aria-expanded="true">Data Culaan Master</a>
             <ul>
-              @if(Auth::user()->role->name == 'superadmin')
-                <li class="{{ (Request()->segment(2) == 'negeri') ? 'active' : '' }}"><a href="{{ route('negeri.index') }}">Negeri</a></li>
-                <li class="{{ (Request()->segment(2) == 'bandar') ? 'active' : '' }}"><a href="{{ route('bandar.index') }}">Bandar</a></li>
-              @endif
+              <li class="{{ (Request()->segment(2) == 'negeri') ? 'active' : '' }}"><a href="{{ route('negeri.index') }}">Negeri</a></li>
+              <li class="{{ (Request()->segment(2) == 'parlimen') ? 'active' : '' }}"><a href="{{ route('parlimen.index') }}">Parlimen</a></li>
+              <li class="{{ (Request()->segment(2) == 'bandar') ? 'active' : '' }}"><a href="{{ route('bandar.index') }}">Bandar</a></li>
               <li class="{{ (Request()->segment(2) == 'kadun') ? 'active' : '' }}"><a href="{{ route('kadun.index') }}">Kadun</a></li>
               <li class="{{ (Request()->segment(2) == 'mpkk') ? 'active' : '' }}"><a href="{{ route('mpkk.index') }}">MPKK</a></li>
               <li class="{{ (Request()->segment(2) == 'tujuan-sumbangan') ? 'active' : '' }}"><a href="{{ route('tujuan-sumbangan.index') }}">Tujuan Sumbangan</a></li>

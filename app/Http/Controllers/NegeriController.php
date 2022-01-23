@@ -94,7 +94,7 @@ class NegeriController extends Controller
     public function destroy($id)
     {
         $negeri = Negeri::findOrFail($id);
-        if($negeri->bandar->count() < 1){
+        if($negeri->bandar->count() < 1 && $negeri->parlimen->count() < 1){
             $negeri->delete();
             return back()->with('success', 'Negeri berjaya dihapus');
         }

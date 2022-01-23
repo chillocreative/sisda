@@ -2,12 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Kadun;
+use App\Models\Negeri;
 use App\Models\Parlimen;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
-class KadunController extends Controller
+class ParlimenController extends Controller
 {
     /**
      * Display a listing of the resource.
@@ -16,9 +15,9 @@ class KadunController extends Controller
      */
     public function index()
     {
+        $negeri = Negeri::all();
         $parlimen = Parlimen::all();
-        $kadun = Kadun::all();
-        return view('pages.kadun.index', compact('parlimen', 'kadun'));
+        return view('pages.parlimen.index', compact('negeri', 'parlimen'));
     }
 
     /**
@@ -40,11 +39,12 @@ class KadunController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name' => 'required|unique:kadun',
-            'parlimen_id' => 'required',
+            'negeri_id' => 'required',
+            'code' => 'required|unique:parlimen',
+            'name' => 'required|unique:parlimen',
         ]);
-        Kadun::create($request->all());
-        return back()->with('success', 'Kadun berjaya ditambahkan');
+        Parlimen::create($request->all());
+        return back()->with('success', 'Parlimen berjaya ditambahkan');
     }
 
     /**
@@ -66,9 +66,9 @@ class KadunController extends Controller
      */
     public function edit($id)
     {
-        $kadun = Kadun::findOrFail($id);
-        $parlimen = Parlimen::all();
-        return view('pages.kadun.edit', compact('kadun', 'parlimen'));
+        $parlimen = Parlimen::findOrFail($id);
+        $negeri = Negeri::all();
+        return view('pages.parlimen.edit', compact('parlimen', 'negeri'));
     }
 
     /**
@@ -80,13 +80,14 @@ class KadunController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $kadun = Kadun::findOrFail($id);
+        $parlimen = Parlimen::findOrFail($id);
         $request->validate([
-            'name' => ['required', Rule::unique('kadun')->ignore($kadun->id, 'id')],
-            'parlimen_id' => 'required',
+            'negeri_id' => 'required',
+            'code' => 'required|unique:parlimen,code,' . $parlimen->id,
+            'name' => 'required|unique:parlimen,name,' . $parlimen->id,
         ]);
-        $kadun->update($request->all());
-        return back()->with('success', 'Kadun berjaya diupdate');
+        $parlimen->update($request->all());
+        return back()->with('success', 'Parlimen berjaya diupdate');
     }
 
     /**
@@ -97,11 +98,11 @@ class KadunController extends Controller
      */
     public function destroy($id)
     {
-        $kadun = Kadun::findOrFail($id);
-        if($kadun->mpkk->count() < 1){
-            $kadun->delete();
-            return back()->with('success', 'Kadun berjaya dihapus');
+        $parlimen = Parlimen::findOrFail($id);
+        if($parlimen->kadun->count() < 1){
+            $parlimen->delete();
+            return back()->with('success', 'Parlimen berjaya dihapus');
         }
-        return back()->with('error', 'Kadun tak bisa dihapus sebab ada MPKK');
+        return back()->with('error', 'Parlimen tak dapat dihapus sebab ada kadun');
     }
 }

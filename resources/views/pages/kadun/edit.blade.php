@@ -18,6 +18,16 @@
           @csrf
           @method('PUT')
             <div class="form-group mt-3">
+              <label for="parlimen_id" class="form-control-label">Parlimen</label>
+              <select name="parlimen_id" id="parlimen_id" class="form-control py-0">
+                <option value="" selected disabled>Pilih Parlimen</option>
+                @foreach($parlimen as $p)
+                  <option value="{{ $p->id }}"  {{ $p->id == $kadun->parlimen_id ? 'selected' : '' }}>{{ $p->name }}</option>
+                @endforeach
+              </select>
+              @error('parlimen_id') <small class="text-danger">{{ $message }}</small> @enderror
+            </div>
+            <div class="form-group mt-3">
               <label for="code" class="form-control-label">Kod</label>
               <input type="text" name="code" id="code" class="form-control @error('code') is-invalid @enderror" value="{{ $kadun->code }}">
               @error('code') <small class="text-danger">{{ $message }}</small> @enderror

@@ -11,9 +11,13 @@ class Kadun extends Model
 
     protected $table = 'kadun';
 
-    protected $fillable = ['code', 'name'];
+    protected $fillable = ['code', 'name', 'parlimen_id'];
 
     public function mpkk(){
         return $this->hasMany(MPKK::class);
+    }
+
+    public function parlimen(){
+        return $this->belongsTo(Parlimen::class);
     }
 }

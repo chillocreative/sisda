@@ -17,6 +17,10 @@ class Negeri extends Model
         return $this->hasMany(Bandar::class);
     }
 
+    public function parlimen(){
+        return $this->hasMany(Parlimen::class);
+    }
+
     public function mpkk(){
         return $this->hasMany(MPKK::class);
     }

@@ -1,10 +1,10 @@
 @extends('layouts.app')
 
-@section('title', 'MPKK')
+@section('title', 'Parlimen')
 
-@section('breadcrumb_title', 'MPKK')
+@section('breadcrumb_title', 'Parlimen')
 @section('breadcrumbs')
-  <li>MPKK</li>
+  <li>Parlimen</li>
 @endsection
 
 @section('content')
@@ -12,17 +12,22 @@
     <div class="col-lg-4">
       <div class="card">
         <div class="card-body">
-          <form action="{{ route('mpkk.store') }}" method="post">
+          <form action="{{ route('parlimen.store') }}" method="post">
           @csrf
             <div class="form-group mt-3">
-              <label for="kadun_id" class="form-control-label">Kadun</label>
-              <select name="kadun_id" id="kadun_id" class="form-control">
-                <option value="" selected disabled>Pilih Kadun</option>
-                @foreach($kadun as $k)
-                  <option value="{{ $k->id }}">{{ $k->code }} - {{ $k->name }}</option>
+              <label for="negeri_id" class="form-control-label">Negeri</label>
+              <select name="negeri_id" id="negeri_id" class="form-control py-0">
+                <option value="" selected disabled>Pilih Negeri</option>
+                @foreach($negeri as $n)
+                  <option value="{{ $n->id }}">{{ $n->name }}</option>
                 @endforeach
               </select>
-              @error('kadun_id') <small class="text-danger">{{ $message }}</small> @enderror
+              @error('negeri_id') <small class="text-danger">{{ $message }}</small> @enderror
+            </div>
+            <div class="form-group mt-3">
+              <label for="code" class="form-control-label">Kod</label>
+              <input type="text" name="code" id="code" class="form-control @error('code') is-invalid @enderror" value="{{ old('code') }}">
+              @error('code') <small class="text-danger">{{ $message }}</small> @enderror
             </div>
             <div class="form-group mt-3">
               <label for="name" class="form-control-label">Nama</label>
@@ -46,20 +51,24 @@
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>Kadun</th>
+                  <th>Kod</th>
+                  <th>Negeri</th>
                   <th>Name</th>
+                  <th>Jumlah Kadun</th>
                   <th>Action</th>
                 </tr>
               </thead>
               <tbody>
-                @foreach($mpkk as $m)
+                @foreach($parlimen as $p)
                   <tr>
                     <td style="vertical-align: middle">{{ $loop->iteration }}</td>
-                    <td style="vertical-align: middle">{{ $m->kadun->name }}</td>
-                    <td style="vertical-align: middle">{{ $m->name }}</td>
+                    <td style="vertical-align: middle">{{ $p->code }}</td>
+                    <td style="vertical-align: middle">{{ $p->negeri->name }}</td>
+                    <td style="vertical-align: middle">{{ $p->name }}</td>
+                    <td style="vertical-align: middle">{{ $p->kadun->count() }}</td>
                     <td style="vertical-align: middle">
-                      <a href="{{ route('mpkk.edit', $m->id) }}" class="btn btn-warning btn-sm fa fa-edit"></a>
-                      <form action="{{ route('mpkk.destroy', $m->id) }}" method="post" class="d-inline">
+                      <a href="{{ route('parlimen.edit', $p->id) }}" class="btn btn-warning btn-sm fa fa-edit"></a>
+                      <form action="{{ route('parlimen.destroy', $p->id) }}" method="post" class="d-inline">
                       @csrf
                       @method('DELETE')
                         <button type="submit" class="btn btn-danger btn-sm fa fa-trash" onclick="return confirm('')"></button>
