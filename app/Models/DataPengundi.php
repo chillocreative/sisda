@@ -1,0 +1,24 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class DataPengundi extends Model
+{
+    use HasFactory;
+
+    protected $table = 'data_pengundi';
+
+    protected $fillable = ['name', 'no_kad', 'umur', 'phone', 'bangsa', 'alamat', 'alamat2', 'poskod', 'negeri', 'bandar', 'parlimen', 'kadun', 'keahlian_partai', 'kecenderungan_politik', 'user_id'];
+
+    protected $attributes = [
+        'keahlian_partai' => '-',
+        'kecenderungan_politik' => '-',
+    ];
+
+    public function user(){
+        return $this->belongsTo(User::class);
+    }
+}

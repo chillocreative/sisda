@@ -79,8 +79,13 @@ Route::middleware('auth')->group(function(){
   Route::get('/profile', [UserController::class, 'profile'])->name('profile');
   Route::post('/profile', [UserController::class, 'profileUpdate'])->name('profile.update');
   Route::put('/profile/update-password', [UserController::class, 'updatePassword'])->name('profile.update-password');
-  Route::post('/global/get-mpkk-specific', [GlobalController::class, 'getMPKKSpecific'])->name('get-mpkk-specific');
-  Route::post('/global/get-bandar-specific', [GlobalController::class, 'getBandarSpecific'])->name('get-bandar-specific');
+
+  Route::group(['prefix' => 'global'], function(){
+    Route::post('/get-mpkk-specific', [GlobalController::class, 'getMPKKSpecific'])->name('get-mpkk-specific');
+    Route::post('/get-bandar-specific', [GlobalController::class, 'getBandarSpecific'])->name('get-bandar-specific');
+    Route::post('/get-parlimen-specific', [GlobalController::class, 'getParlimenSpecific'])->name('get-parlimen-specific');
+    Route::post('/get-kadun-specific', [GlobalController::class, 'getKadunSpecific'])->name('get-kadun-specific');
+  });
   
   Route::get('/logout', [AuthController::class, 'logout'])->name('logout');
 });

@@ -78,7 +78,7 @@
                 <div class="row">
                   <div class="col-lg-4 form-group">
                     <label for="poskod" class="form-control-label">Poskod<span class="text-danger"> *</span></label>
-                    <input type="number" name="poskod" id="poskod" class="form-control @error('no_telp') is-invalid @enderror" value="{{ old('poskod') }}" maxlength="5" required>
+                    <input type="text" name="poskod" id="poskod" pattern="\d*" class="form-control @error('no_telp') is-invalid @enderror" value="{{ old('poskod') }}" maxlength="5" required>
                     @error('poskod') <small class="text-danger">{{ $message }}</small>@enderror
                   </div>
                   <div class="col-md-4 form-group">
