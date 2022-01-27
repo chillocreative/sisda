@@ -49,6 +49,13 @@
               <li class="{{ (Request()->segment(2) == 'kecenderungan-politik') ? 'active' : '' }}"><a href="{{ route('kecenderungan-politik.index') }}">Kecenderungan Politik</a></li>
             </ul>
           </li>
+          <li class="{{ (Request()->segment(1) == 'report') ? 'active' : '' }}">
+            <a href="javascript:void(0)" aria-expanded="true">Report</a>
+            <ul>
+              <li class="{{ Route::is('report-mula-culaan') ? 'active' : '' }}"><a href="{{ route('report-mula-culaan') }}">Mula Culaan</a></li>
+              <li class="{{ Route::is('report-data-pengundi') ? 'active' : '' }}"><a href="{{ route('report-data-pengundi') }}">Data Pengundi</a></li>
+            </ul>
+          </li>
           @endif
           <li class="{{ Route::is('profile') ? 'active' : '' }}">
             <a href="{{ route('profile') }}">My Profile</a>

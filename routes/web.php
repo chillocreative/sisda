@@ -14,6 +14,7 @@ use App\Http\Controllers\MulaCulaanController;
 use App\Http\Controllers\NegeriController;
 use App\Http\Controllers\PagesController;
 use App\Http\Controllers\ParlimenController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\TujuanSumbanganController;
 use App\Http\Controllers\UserController;
 use App\Models\User;
@@ -44,6 +45,13 @@ Route::middleware('auth')->group(function(){
   });
   
   Route::group(['middleware' => 'otentikasi:superadmin,admin'], function(){
+      Route::group(['prefix' => 'report'], function(){
+        Route::get('/mula-culaan', [ReportController::class, 'mulaCulaan'])->name('report-mula-culaan');
+        Route::get('/data-pengundi', [ReportController::class, 'dataPengundi'])->name('report-data-pengundi');
+
+        Route::get('/mula-culaan/export-excel', [ReportController::class, 'exportExcelMulaCulaan'])->name('export-excel-mula-culaan');
+      });
+
       Route::group(['prefix' => 'user'], function(){
         Route::get('/admin', [PagesController::class, 'user'])->name('user-admin');
         Route::get('/user', [PagesController::class, 'user'])->name('user-user');
@@ -52,7 +60,7 @@ Route::middleware('auth')->group(function(){
         Route::put('/approved/{id}', [UserController::class, 'approved'])->name('approved');
         Route::get('/edit/{id}', [UserController::class, 'edit'])->name('user.edit');
         Route::put('/edit/{id}', [UserController::class, 'update'])->name('user.update');
-        Route::put('/user/reset-password/{id}', [UserController::class, 'resetPassword'])->name('user.reset-password');
+        Route::put('/reset-password/{id}', [UserController::class, 'resetPassword'])->name('user.reset-password');
       });
 
       Route::group(['prefix' => 'data-master'], function(){

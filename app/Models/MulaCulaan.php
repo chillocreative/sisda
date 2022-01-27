@@ -14,4 +14,8 @@ class MulaCulaan extends Model
     protected $fillable = ['user_id', 'nama', 'no_kad', 'umur', 'no_telp', 'bangsa', 'alamat', 'alamat_2', 'poskod', 'negeri', 'bandar', 'kadun', 'mpkk', 'bilangan_isi_rumah', 'jumlah_pendapatan_isi_rumah', 'pekerjaan', 'pemilik_rumah', 'jenis_sumbangan', 'tujuan_sumbangan', 'bantuan_lain', 'keahlian_partai', 'kecenderungan_politik', 'nota', 'tarikh_dan_masa', 'ic'];
 
     protected $dates = ['tarikh_dan_masa'];
+
+    public function user(){
+        return $this->belongsTo(User::class);
+    }
 }
