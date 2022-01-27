@@ -46,7 +46,7 @@
                 <tr>
                   <th>#</th>
                   <th>Negeri</th>
-                  <th>Name</th>
+                  <th>Nama</th>
                   <th>Action</th>
                 </tr>
               </thead>

@@ -47,7 +47,7 @@
                 <tr>
                   <th>#</th>
                   <th>Kadun</th>
-                  <th>Name</th>
+                  <th>Nama</th>
                   <th>Action</th>
                 </tr>
               </thead>

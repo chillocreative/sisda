@@ -53,7 +53,7 @@
                   <th>#</th>
                   <th>Kod</th>
                   <th>Negeri</th>
-                  <th>Name</th>
+                  <th>Nama</th>
                   <th>Jumlah Kadun</th>
                   <th>Action</th>
                 </tr>
