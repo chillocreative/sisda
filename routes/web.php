@@ -5,6 +5,7 @@ use App\Http\Controllers\BandarController;
 use App\Http\Controllers\BantuanLainController;
 use App\Http\Controllers\DataPengundiController;
 use App\Http\Controllers\GlobalController;
+use App\Http\Controllers\HubunganController;
 use App\Http\Controllers\JenisSumbanganController;
 use App\Http\Controllers\KadunController;
 use App\Http\Controllers\KeahlianPartaiController;
@@ -75,6 +76,7 @@ Route::middleware('auth')->group(function(){
         Route::resource('/bantuan-lain', BantuanLainController::class)->except('show', 'create');
         Route::resource('/keahlian-parti', KeahlianPartaiController::class)->except('show', 'create');
         Route::resource('/kecenderungan-politik', KecenderunganPolitikController::class)->except('show', 'create');
+        Route::resource('/hubungan', HubunganController::class)->except('show', 'create');
     });
   });
 

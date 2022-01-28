@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\DataPengundi;
+use App\Models\Hubungan;
 use App\Models\Kadun;
 use App\Models\KeahlianPartai;
 use App\Models\KecenderunganPolitik;
@@ -18,6 +19,7 @@ class DataPengundiController extends Controller
             'negeri' => Negeri::all(),
             'keahlianPartai' => KeahlianPartai::all(),
             'kecenderunganPolitik' => KecenderunganPolitik::all(),
+            'hubungan' => Hubungan::all(),
         ];
         return view('pages.data-pengundi', $data);
     }

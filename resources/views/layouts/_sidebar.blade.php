@@ -47,6 +47,7 @@
               <li class="{{ (Request()->segment(2) == 'bantuan-lain') ? 'active' : '' }}"><a href="{{ route('bantuan-lain.index') }}">Bantuan Lain</a></li>
               <li class="{{ (Request()->segment(2) == 'keahlian-parti') ? 'active' : '' }}"><a href="{{ route('keahlian-parti.index') }}">Keahlian Parti</a></li>
               <li class="{{ (Request()->segment(2) == 'kecenderungan-politik') ? 'active' : '' }}"><a href="{{ route('kecenderungan-politik.index') }}">Kecenderungan Politik</a></li>
+              <li class="{{ (Request()->segment(2) == 'hubungan') ? 'active' : '' }}"><a href="{{ route('hubungan.index') }}">Hubungan</a></li>
             </ul>
           </li>
           <li class="{{ (Request()->segment(1) == 'report') ? 'active' : '' }}">
