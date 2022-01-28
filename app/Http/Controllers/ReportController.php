@@ -9,13 +9,14 @@ use Carbon\Carbon;
 use DateTime;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
+use PDF;
 
 class ReportController extends Controller
 {
     public function mulaCulaan(Request $request){
         if(!$request->from){
             $from = Carbon::now()->subDays(30)->format('Y-m-d');
-            $to = Carbon::now()->addDay()->format('Y-m-d');
+            $to = Carbon::now()->format('Y-m-d');
             return redirect('report/mula-culaan?from=' . $from . '&to=' . $to);
         }else{
             $from = Carbon::parse($request->from)->format('Y-m-d');
@@ -27,11 +28,22 @@ class ReportController extends Controller
     }
 
     public function exportExcelMulaCulaan(Request $request){
-        $from = $request->from;
-        $to = $request->to;
+        $from = Carbon::parse($request->from)->format('Y-m-d');
+        $to = Carbon::parse($request->to)->addDay()->format('Y-m-d');
         $fileName = 'Mula Culaan dari ' . $from . ' hingga ' . $to;
         $data = new MulaCulaanExport($from, $to);
         return Excel::download($data, $fileName . '.xlsx');
+    }
+
+    public function exportPDFMulaCulaan(Request $request){
+        $from = Carbon::parse($request->from)->format('Y-m-d');
+        $to = Carbon::parse($request->to)->addDay()->format('Y-m-d');
+
+        $data = MulaCulaan::whereBetween('created_at', [$from, $to])->get();
+        $fileName = 'Mula Culaan dari ' . $from . ' hingga ' . $to . '.pdf'; 
+
+        $pdf = PDF::loadview('pdf.export-mula-culaan', compact('data'));
+        return $pdf->download($fileName);
     }
 
     public function dataPengundi(){

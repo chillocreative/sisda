@@ -45,6 +45,7 @@ class DataPengundiController extends Controller
                 'no_kad' => $request->no_kad[$i],
                 'umur' => $request->umur[$i],
                 'phone' => $request->phone[$i],
+                'hubungan' => $request->hubungan[$i],
                 'bangsa' => $request->bangsa[$i],
                 'alamat' => $request->alamat[$i],
                 'alamat2' => $request->alamat2[$i],

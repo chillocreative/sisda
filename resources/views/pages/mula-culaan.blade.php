@@ -295,7 +295,7 @@
                   @error('tarikh_dan_masa') <small class="text-danger">{{ $message }}</small>@enderror
                 </div>
                 <div class="form-group">
-                  <label for="gambar_ic" class="form-control-label">Upload IC<span class="text-danger"> *</span></label>
+                  <label for="gambar_ic" class="form-control-label">Muat Naik Salinan Kad Pengenalan<span class="text-danger"> *</span></label>
                   <input type="file" name="gambar_ic" id="gambar_ic" class="form-control-file" accept=".jpg, .jpeg, .png, .pdf" required>
                 </div>
                 <div class="form-group">
