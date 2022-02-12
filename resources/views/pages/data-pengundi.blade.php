@@ -67,15 +67,6 @@
                                         </select>
                                         @error('bangsa') <small class="text-danger">{{ $message }}</small>@enderror
                                     </div>
-                                    <div class="form-group">
-                                        <label for="hubungan" class="form-control-label">Hubungan<span class="text-danger">*</span></label>
-                                        <select name="hubungan[]" id="hubungan" class="form-control py-0" required>
-                                            <option value="" selected disabled>Pilih Hubungan</option>
-                                            @foreach($hubungan as $h)
-                                                <option value="{{ $h->name }}">{{ $h->name }}</option>
-                                            @endforeach
-                                        </select>
-                                    </div>
                                 </div>
                                 <div class="col-lg-6">
                                     <div class="form-group">

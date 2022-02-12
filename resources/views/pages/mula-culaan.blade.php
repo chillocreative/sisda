@@ -62,8 +62,9 @@
                     <option value="Cina">Cina</option>
                     <option value="India">India</option>
                     <option value="Bumiputra">Bumiputra</option>
-                    <option value="Lain-Lain">Lain-Lain</option>
+                    <option value="lain-lain">Lain-Lain</option>
                   </select>
+                  <input id="bangsa-lain" class="form-control mt-3 d-none" name="bangsa_custom">
                   @error('bangsa') <small class="text-danger">{{ $message }}</small>@enderror
                 </div>
                 <div class="form-group">
@@ -107,7 +108,7 @@
                     <select name="kadun" id="kadun" class="form-control py-0" required>
                       <option value="" disabled selected>Pilih Kadun</option>
                       @foreach($kadun as $k)
-                        <option value="{{ $k->id }}">{{ $k->name }}</option>
+                        <option value="{{ $k->id }}" class="text-uppercase">{{ $k->name }}</option>
                       @endforeach
                     </select>
                     @error('kadun') <small class="text-danger">{{ $message }}</small>@enderror
@@ -187,7 +188,7 @@
                     @endforeach
                     <option value="lain-lain">Lain-Lain</option>
                   </select>
-                  <input id="lain" class="form-control mt-3 d-none" name="tujuan_sumbangan_custom">
+                  <input id="tujuan-sumbangan-lain" class="form-control mt-3 d-none" name="tujuan_sumbangan_custom">
                   @error('tujuan_sumbangan') <small class="text-danger">{{ $message }}</small>@enderror
                 </div>
                 <div class="form-group">
@@ -336,14 +337,22 @@
       $('.select2-multiple').select2();
 
       $('#tujuan-sumbangan').on('change', function () {
-          console.log(this)
-            if(this.value == 'lain-lain'){
-              console.log('success')
-               $('#lain').removeClass('d-none');
-            }else{
-               $('#lain').addClass('d-none');
-            }
-         })
+        if(this.value == 'lain-lain'){
+          console.log('success')
+            $('#tujuan-sumbangan-lain').removeClass('d-none');
+        }else{
+            $('#tujuan-sumbangan-lain').addClass('d-none');
+        }
+      })
+
+      $('#bangsa').on('change', function () {
+        if(this.value == 'lain-lain'){
+          console.log('success')
+            $('#bangsa-lain').removeClass('d-none');
+        }else{
+            $('#bangsa-lain').addClass('d-none');
+        }
+      })
 
       $('#no_kad').on('keyup', function(){
         $('#form-umur').removeClass('d-none')

@@ -75,6 +75,14 @@ class MulaCulaanController extends Controller
         $request['kadun'] = Kadun::find($request->kadun)->name;
         $request['jenis_sumbangan'] = implode(',', $request->jenis_sumbangan);
         $request['bantuan_lain'] = implode(',', $request->bantuan_lain);
+
+        if($request->bangsa == 'lain-lain'){
+            if($request->bangsa_custom){
+                $request['bangsa'] = $request->bangsa_custom;
+            }else{
+                $request['bangsa'] = 'Lain-Lain';
+            }
+        }
         
         if($request->tujuan_sumbangan == 'lain-lain'){
             if($request->tujuan_sumbangan_custom){
