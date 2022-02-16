@@ -67,53 +67,27 @@
       </div> --}}
     </div>
     <div class="row mt-3 mt-lg-5">
-      <div class="col-lg-4">
-        <div class="card h-full">
+      <div class="col-lg-12">
+        <div class="card">
           <div class="card-body text-center">
               <h4 class="header-title">Keahlian Parti</h4>
-              <canvas id="keahlian-parti-chart" height="233"></canvas>
+              <canvas id="keahlian-parti-chart" style="height:233px"></canvas>
           </div>
         </div>
       </div>
-      <div class="col-lg-4 mt-3 mt-lg-0">
+      <div class="col-lg-12 mt-3">
         <div class="card h-full">
           <div class="card-body text-center">
               <h4 class="header-title">Kecenderungan Politik</h4>
-              <canvas id="kecenderungan-politik-chart" height="233"></canvas>
+              <canvas id="kecenderungan-politik-chart" style="height:233px"></canvas>
           </div>
         </div>
       </div>
-      <div class="col-lg-4 mt-3 mt-lg-0">
+      <div class="col-lg-12 mt-3">
         <div class="card h-full">
           <div class="card-body text-center">
               <h4 class="header-title">Jenis Sumbangan Yang Disalurkan</h4>
-              <canvas id="jenis-sumbangan-chart" height="233"></canvas>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="row mt-3 mt-lg-5">
-      <div class="col-lg-4">
-        <div class="card h-full">
-          <div class="card-body text-center">
-              <h4 class="header-title">Bantuan Lain Yang Sedang Diterima</h4>
-              <canvas id="bantuan-lain-chart" height="233"></canvas>
-          </div>
-        </div>
-      </div>
-      <div class="col-lg-4 mt-3 mt-lg-0">
-        <div class="card h-full">
-          <div class="card-body text-center">
-              <h4 class="header-title">Tujuan Sumbangan</h4>
-              <canvas id="tujuan-sumbangan-chart" height="233"></canvas>
-          </div>
-        </div>
-      </div>
-      <div class="col-lg-4 mt-3 mt-lg-0">
-        <div class="card h-full">
-          <div class="card-body text-center">
-              <h4 class="header-title">Jenis Pekerjaan</h4>
-              <canvas id="jenis-pekerjaan-chart" height="233"></canvas>
+              <canvas id="jenis-sumbangan-chart" style="height:233px"></canvas>
           </div>
         </div>
       </div>
@@ -122,6 +96,33 @@
       <div class="col-lg-12">
         <div class="card h-full">
           <div class="card-body text-center">
+              <h4 class="header-title">Bantuan Lain Yang Sedang Diterima</h4>
+              <canvas id="bantuan-lain-chart" style="height:233px"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-12 mt-3">
+        <div class="card h-full">
+          <div class="card-body text-center">
+              <h4 class="header-title">Tujuan Sumbangan</h4>
+              <canvas id="tujuan-sumbangan-chart" style="height:233px"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-12 mt-3">
+        <div class="card h-full">
+          <div class="card-body text-center">
+              <h4 class="header-title">Jenis Pekerjaan</h4>
+              <canvas id="jenis-pekerjaan-chart" style="height:233px"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="row mt-3 mt-lg-5">
+      <div class="col-lg-12">
+        <div class="card h-full">
+          <div class="card-body text-center">
+            <h4 class="header-title">Jumlah Pengundi Mengikuti Umur</h4>
             <canvas id="umur-chart" style="height: 233px;"></canvas>
           </div>
         </div>
@@ -141,6 +142,7 @@
       <div class="col-lg-12">
         <div class="card h-full">
           <div class="card-body text-center">
+            <h4 class="header-title">Jumlah Pengundi Mengikuti Julat Pendapatan</h4>
             <canvas id="jumlah-pendapatan-chart" style="height: 233px;"></canvas>
           </div>
         </div>
@@ -151,11 +153,19 @@
 
 @section('script')
     <script>
+
       function randomColor(){
         return "#" + Math.floor(Math.random()*16777215).toString(16);
       }
       
       colorCollection = ["#8919FE", "#12C498", "#F8CB3F", "#E36D68", '#003f5c', '#ff6361', '#ffa600', '#37C5F6', '#F637E8', '#00764A', '#9F3700', '#D39999'];
+
+      let position;
+      if($(window).width() >= 1000){
+        position = 'right'
+      }else{
+        position = 'top'
+      }
 
       function pieChart(elmId, label, data){
         if ($(`#${elmId}`).length) {
@@ -183,14 +193,31 @@
               },
               // Configuration options go here
               options: {
+                  responsive: true,
                   legend: {
-                      display: true
+                    labels: {
+                      usePointStyle: true,
+                      pointStyle: 'circle',
+                    },
+                    position: position,
                   },
                   animation: {
                       easing: "easeInOutBack"
                   }
               }
           });
+          
+          $(window).resize(function(){
+            let position;
+            if($(window).width() <= 1000){
+              position = 'top'
+            }else{
+              position = 'right'
+            }
+            chart.options.legend.position = position
+            chart.update()
+          })
+
         }
       }
 
@@ -365,7 +392,7 @@
             options: {
                 responsive: true,
                 legend: {
-                  position: 'right' 
+                  position: position,
                 },
                 scales: {
                   xAxes: [{
@@ -376,6 +403,18 @@
                   }]
                 }
             }
+          })
+          
+          
+          $(window).resize(function(){
+            let position;
+            if($(window).width() <= 1000){
+              position = 'top'
+            }else{
+              position = 'right'
+            }
+            chart.options.legend.position = position
+            chart.update()
           })
         }
 
