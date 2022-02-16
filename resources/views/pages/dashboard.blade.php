@@ -340,6 +340,10 @@
             },
             options: {
               legend: {
+                  labels: {
+                    usePointStyle: true,
+                    pointStyle: 'circle',
+                  },
                   display: true
               },
               animation: {
@@ -392,6 +396,10 @@
             options: {
                 responsive: true,
                 legend: {
+                  labels: {
+                    usePointStyle: true,
+                    pointStyle: 'circle',
+                  },
                   position: position,
                 },
                 scales: {
