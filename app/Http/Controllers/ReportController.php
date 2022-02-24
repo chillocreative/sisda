@@ -42,7 +42,7 @@ class ReportController extends Controller
         $data = MulaCulaan::whereBetween('created_at', [$from, $to])->get();
         $fileName = 'Mula Culaan dari ' . $from . ' hingga ' . $to . '.pdf'; 
 
-        $pdf = PDF::loadview('pdf.export-mula-culaan', compact('data'));
+        $pdf = PDF::loadview('pdf.export-mula-culaan', compact('data'))->setPaper('a4', 'landscape');
         return $pdf->download($fileName);
     }
 
