@@ -152,6 +152,7 @@
 @endsection
 
 @section('script')
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/1.0.0/chartjs-plugin-datalabels.min.js" integrity="sha512-XulchVN83YTvsOaBGjLeApZuasKd8F4ZZ28/aMHevKjzrrjG0lor+T4VU248fWYMNki3Eimk+uwdlQS+uZmu8g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script>
 
       function randomColor(){
@@ -180,6 +181,7 @@
 
           var ctx = document.getElementById(`${elmId}`).getContext('2d');
           var chart = new Chart(ctx, {
+              plugins: [ChartDataLabels],
               // The type of chart we want to create
               type: 'doughnut',
               // The data for our dataset
@@ -203,8 +205,20 @@
                   },
                   animation: {
                       easing: "easeInOutBack"
+                  },
+                  plugins: {
+                    datalabels: {
+                      color: '#ffffff',
+                      formatter: function(value, context) {
+                        if(value == 0){
+                          return '';
+                        }else{
+                          return  value
+                        }
+                      }
+                    }
                   }
-              }
+              },
           });
           
           $(window).resize(function(){
@@ -295,6 +309,7 @@
           var ctx = document.getElementById("umur-chart").getContext('2d');
           const labels = @json($umurLabel);
           var chart = new Chart(ctx, {
+              plugins: [ChartDataLabels],
             type: 'bar',
             data: {  
               labels: labels,
@@ -318,6 +333,18 @@
                         beginAtZero:true
                     }
                 }]
+              },
+              plugins: {
+                datalabels: {
+                  color: '#ffffff',
+                  formatter: function(value, context) {
+                    if(value == 0){
+                      return '';
+                    }else{
+                      return  value
+                    }
+                  }
+                }
               }
             }
           })
@@ -328,6 +355,7 @@
           var ctx = document.getElementById("jumlah-pendapatan-chart").getContext('2d');
           const labels = @json($jumlahPendapatanLabel);
           var chart = new Chart(ctx, {
+              plugins: [ChartDataLabels],
             type: 'bar',
             data: {  
               labels: labels,
@@ -355,6 +383,18 @@
                         beginAtZero:true
                     }
                 }]
+              },
+              plugins: {
+                datalabels: {
+                  color: '#ffffff',
+                  formatter: function(value, context) {
+                    if(value == 0){
+                      return '';
+                    }else{
+                      return  value
+                    }
+                  }
+                }
               }
             }
           })
@@ -388,6 +428,7 @@
           }
 
           var chart = new Chart(ctx, {
+              plugins: [ChartDataLabels],
             type: 'bar',
             data: {
                 labels: labels,
@@ -409,7 +450,19 @@
                   yAxes: [{
                       stacked: true
                   }]
+                },
+              plugins: {
+                datalabels: {
+                  color: '#ffffff',
+                  formatter: function(value, context) {
+                    if(value == 0){
+                      return '';
+                    }else{
+                      return  value
+                    }
+                  }
                 }
+              }
             }
           })
           
