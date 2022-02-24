@@ -26,6 +26,6 @@ class MulaCulaanExport implements FromCollection, withHeadings
 
     public function headings(): array
     {
-        return ['Nama', 'No Kad', 'Umur', 'Tel', 'Bangsa', 'Alamat', 'Alamat 2', 'Poskod', 'Negeri', 'Bandar', 'Kadun', 'MPKK', 'Bilangan Isi Rumah', 'Pendapatan Isi Rumah', 'Pekerjaan', 'Pemilik Rumah', 'Jenis Sumbangan', 'Tujuan Sumbangan', 'Bantuan Lain', 'Keahlian Partai', 'Kecenderungan Politik', 'Nota', 'Tarikh Dan Masa', 'Created at'];
+        return ['Nama', 'No Kad', 'Umur', 'Tel', 'Bangsa', 'Alamat', 'Alamat 2', 'Poskod', 'Negeri', 'Bandar', 'Kadun', 'MPKK', 'Bilangan Isi Rumah', 'Pendapatan Isi Rumah', 'Pekerjaan', 'Pemilik Rumah', 'Jenis Sumbangan', 'Tujuan Sumbangan', 'Bantuan Lain', 'Keahlian Partai', 'Kecenderungan Politik', 'Nota', 'Tarikh Dan Masa', 'Tarikh Input'];
     }
 }

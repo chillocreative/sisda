@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\DataPengundi as DataPengundiExport;
 use App\Exports\MulaCulaanExport;
 use App\Models\DataPengundi;
 use App\Models\MulaCulaan;
@@ -35,8 +36,24 @@ class ReportController extends Controller
         return Excel::download($data, $fileName . '.xlsx');
     }
 
-    public function dataPengundi(){
-        $dataPengundi = DataPengundi::orderBy('created_at', 'DESC')->get();
+    public function dataPengundi(Request $request){
+        if(!$request->from){
+            $from = Carbon::now()->subDays(30)->format('Y-m-d');
+            $to = Carbon::now()->format('Y-m-d');
+            return redirect('report/data-pengundi?from=' . $from . '&to=' . $to);
+        }else{
+            $from = Carbon::parse($request->from)->format('Y-m-d');
+            $to = Carbon::parse($request->to)->addDay()->format('Y-m-d');
+        }
+        $dataPengundi = DataPengundi::whereBetween('created_at', [$from, $to])->get();
         return view('pages.report.data-pengundi', compact('dataPengundi'));
+    }
+
+    public function exportExcelDataPengundi(Request $request){
+        $from = Carbon::parse($request->from)->format('Y-m-d');
+        $to = Carbon::parse($request->to)->addDay()->format('Y-m-d');
+        $fileName = 'Data Pengundi dari ' . $from . ' hingga ' . $to;
+        $data = new DataPengundiExport($from, $to);
+        return Excel::download($data, $fileName . '.xlsx');
     }
 }

@@ -42,73 +42,75 @@
           </div>
         </div>
         <hr>
-        <div class="table-responsive">
-          <table class="table table-hover" id="dataTable">
-            <thead>
-              <tr>
-                <th></th>
-                <th class="align-middle">#</th>
-                <th class="align-middle">User</th>
-                <th class="align-middle">Nama</th>
-                <th class="align-middle">No Kad</th>
-                <th class="align-middle">Umur</th>
-                <th class="align-middle">Tel</th>
-                <th class="align-middle">Bangsa</th>
-                <th class="align-middle">Alamat</th>
-                <th class="align-middle">Alamat 2</th>
-                <th class="align-middle">Poskod</th>
-                <th class="align-middle">Negeri</th>
-                <th class="align-middle">Bandar</th>
-                <th class="align-middle">Kadun</th>
-                <th class="align-middle">MPKK</th>
-                <th class="align-middle">Bilangan Isi Rumah</th>
-                <th class="align-middle">Pendapatan Isi Rumah</th>
-                <th class="align-middle">Pekerjaan</th>
-                <th class="align-middle">Pemilik Rumah</th>
-                <th class="align-middle">Jenis Sumbangan</th>
-                <th class="align-middle">Tujuan Sumbangan</th>
-                <th class="align-middle">Bantuan Lain</th>
-                <th class="align-middle">Keahlian Parti</th>
-                <th class="align-middle">Kecenderungan Politik</th>
-                <th class="align-middle">Nota</th>
-                <th class="align-middle">Tarikh dan Masa</th>
-                <th class="align-middle">Muat Naik Salinan Kad Pengenalan</th>
-              </tr>
-            </thead>
-            <tbody>
-                @foreach($mulaCulaan as $m)
-                  <tr>
-                    <td></td>
-                    <td>{{ $loop->iteration }}</td>
-                    <td>{{ $m->user->name }}</td>
-                    <td>{{ $m->nama }}</td>
-                    <td>{{ $m->no_kad }}</td>
-                    <td>{{ $m->umur }}</td>
-                    <td>{{ $m->no_telp }}</td>
-                    <td>{{ $m->bangsa }}</td>
-                    <td>{{ $m->alamat }}</td>
-                    <td>{{ $m->alamat_2 }}</td>
-                    <td>{{ $m->poskod }}</td>
-                    <td>{{ $m->negeri }}</td>
-                    <td>{{ $m->bandar }}</td>
-                    <td>{{ $m->kadun }}</td>
-                    <td>{{ $m->mpkk }}</td>
-                    <td>{{ $m->bilangan_isi_rumah }}</td>
-                    <td>{{ $m->jumlah_pendapatan_isi_rumah }}</td>
-                    <td>{{ $m->pekerjaan }}</td>
-                    <td>{{ $m->pemilik_rumah }}</td>
-                    <td>{{ $m->jenis_sumbangan }}</td>
-                    <td>{{ $m->tujuan_sumbangan }}</td>
-                    <td>{{ $m->bantuan_lain }}</td>
-                    <td>{{ $m->keahlian_partai }}</td>
-                    <td>{{ $m->kecenderungan_politik }}</td>
-                    <td>{{ $m->nota }}</td>
-                    <td>{{ $m->tarikh_dan_masa }}</td>
-                    <td><img src="{{ asset('ic') }}/{{ $m->ic }}" style="max-height: 300px;"></td>
-                  </tr>
-                @endforeach
-            </tbody>
-          </table>
+        <div class="col-lg-12">
+          <div class="table-responsive">
+            <table class="table table-hover" id="dataTable">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th class="align-middle">#</th>
+                  <th class="align-middle">User</th>
+                  <th class="align-middle">Nama</th>
+                  <th class="align-middle">No Kad</th>
+                  <th class="align-middle">Umur</th>
+                  <th class="align-middle">Tel</th>
+                  <th class="align-middle">Bangsa</th>
+                  <th class="align-middle">Alamat</th>
+                  <th class="align-middle">Alamat 2</th>
+                  <th class="align-middle">Poskod</th>
+                  <th class="align-middle">Negeri</th>
+                  <th class="align-middle">Bandar</th>
+                  <th class="align-middle">Kadun</th>
+                  <th class="align-middle">MPKK</th>
+                  <th class="align-middle">Bilangan Isi Rumah</th>
+                  <th class="align-middle">Pendapatan Isi Rumah</th>
+                  <th class="align-middle">Pekerjaan</th>
+                  <th class="align-middle">Pemilik Rumah</th>
+                  <th class="align-middle">Jenis Sumbangan</th>
+                  <th class="align-middle">Tujuan Sumbangan</th>
+                  <th class="align-middle">Bantuan Lain</th>
+                  <th class="align-middle">Keahlian Parti</th>
+                  <th class="align-middle">Kecenderungan Politik</th>
+                  <th class="align-middle">Nota</th>
+                  <th class="align-middle">Tarikh dan Masa</th>
+                  <th class="align-middle">Muat Naik Salinan Kad Pengenalan</th>
+                </tr>
+              </thead>
+              <tbody>
+                  @foreach($mulaCulaan as $m)
+                    <tr>
+                      <td></td>
+                      <td>{{ $loop->iteration }}</td>
+                      <td>{{ $m->user->name }}</td>
+                      <td>{{ $m->nama }}</td>
+                      <td>{{ $m->no_kad }}</td>
+                      <td>{{ $m->umur }}</td>
+                      <td>{{ $m->no_telp }}</td>
+                      <td>{{ $m->bangsa }}</td>
+                      <td>{{ $m->alamat }}</td>
+                      <td>{{ $m->alamat_2 }}</td>
+                      <td>{{ $m->poskod }}</td>
+                      <td>{{ $m->negeri }}</td>
+                      <td>{{ $m->bandar }}</td>
+                      <td>{{ $m->kadun }}</td>
+                      <td>{{ $m->mpkk }}</td>
+                      <td>{{ $m->bilangan_isi_rumah }}</td>
+                      <td>{{ $m->jumlah_pendapatan_isi_rumah }}</td>
+                      <td>{{ $m->pekerjaan }}</td>
+                      <td>{{ $m->pemilik_rumah }}</td>
+                      <td>{{ $m->jenis_sumbangan }}</td>
+                      <td>{{ $m->tujuan_sumbangan }}</td>
+                      <td>{{ $m->bantuan_lain }}</td>
+                      <td>{{ $m->keahlian_partai }}</td>
+                      <td>{{ $m->kecenderungan_politik }}</td>
+                      <td>{{ $m->nota }}</td>
+                      <td>{{ $m->tarikh_dan_masa }}</td>
+                      <td><img src="{{ asset('ic') }}/{{ $m->ic }}" style="max-height: 300px;"></td>
+                    </tr>
+                  @endforeach
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
