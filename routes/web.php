@@ -49,7 +49,6 @@ Route::middleware('auth')->group(function(){
       Route::group(['prefix' => 'report'], function(){
         Route::get('/mula-culaan', [ReportController::class, 'mulaCulaan'])->name('report-mula-culaan');
         Route::get('/mula-culaan/export-excel', [ReportController::class, 'exportExcelMulaCulaan'])->name('export-excel-mula-culaan');
-        Route::get('/mula-culaan/export-pdf', [ReportController::class, 'exportPDFMulaCulaan'])->name('export-pdf-mula-culaan');
 
         Route::get('/data-pengundi', [ReportController::class, 'dataPengundi'])->name('report-data-pengundi');
       });

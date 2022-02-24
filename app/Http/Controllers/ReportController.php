@@ -35,17 +35,6 @@ class ReportController extends Controller
         return Excel::download($data, $fileName . '.xlsx');
     }
 
-    public function exportPDFMulaCulaan(Request $request){
-        $from = Carbon::parse($request->from)->format('Y-m-d');
-        $to = Carbon::parse($request->to)->addDay()->format('Y-m-d');
-
-        $data = MulaCulaan::whereBetween('created_at', [$from, $to])->get();
-        $fileName = 'Mula Culaan dari ' . $from . ' hingga ' . $to . '.pdf'; 
-
-        $pdf = PDF::loadview('pdf.export-mula-culaan', compact('data'))->setPaper('a4', 'landscape');
-        return $pdf->download($fileName);
-    }
-
     public function dataPengundi(){
         $dataPengundi = DataPengundi::orderBy('created_at', 'DESC')->get();
         return view('pages.report.data-pengundi', compact('dataPengundi'));

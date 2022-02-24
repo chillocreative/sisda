@@ -39,11 +39,6 @@
               <input type="hidden" name="to" value="{{ Request::get('to') }}">
               <button class="btn btn-success"><i class="fa fa-file-excel-o mr-1"></i> Export Excel</button>  
             </form>
-            <form action="{{ route('export-pdf-mula-culaan') }}" method="GET" class="d-inline">
-              <input type="hidden" name="from" value="{{ Request::get('from') }}">
-              <input type="hidden" name="to" value="{{ Request::get('to') }}">
-              <button class="btn btn-danger"><i class="fa fa-file-pdf-o mr-1"></i> Export PDF</button>  
-            </form>
           </div>
         </div>
         <hr>
