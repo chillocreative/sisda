@@ -29,17 +29,14 @@ class AuthController extends Controller
             'no_kad' => $request->no_kad,
             'password' => $request->password,
         ];
-        dump($credentials);
         if(Auth::attempt($credentials)){
-            dd('login');
-            // if(Auth::user()->approved == 0){
-            //     Auth::logout();
-            //     return redirect()->route('login')->with('error', 'Akaun masih tidak aktif, masih menunggu kelulusan');
-            // }
-            // return redirect()->route('dashboard');
+            if(Auth::user()->approved == 0){
+                Auth::logout();
+                return redirect()->route('login')->with('error', 'Akaun masih tidak aktif, masih menunggu kelulusan');
+            }
+            return redirect()->route('dashboard');
         }
-        dd('gagal');
-        // return back()->with('error', 'Wrong username or password');
+        return back()->with('error', 'Wrong username or password');
     }
 
     public function register(){
