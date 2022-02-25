@@ -38,14 +38,14 @@ Route::post('/', [AuthController::class, 'login'])->name('login');
 Route::get('/register', [AuthController::class, 'register'])->name('register');
 Route::post('/register', [AuthController::class, 'registerStore'])->name('register.store');
 
-// Route::middleware('auth')->group(function(){
+Route::middleware('auth')->group(function(){
   Route::get('/dashboard', [PagesController::class, 'dashboard'])->name('dashboard');
 
-  // Route::group(['middleware' => 'otentikasi:superadmin'], function(){
+  Route::group(['middleware' => 'otentikasi:superadmin'], function(){
     Route::get('/user/superadmin', [PagesController::class, 'user'])->name('user-superadmin');
-  // });
+  });
   
-  // Route::group(['middleware' => 'otentikasi:superadmin,admin'], function(){
+  Route::group(['middleware' => 'otentikasi:superadmin,admin'], function(){
       Route::group(['prefix' => 'report'], function(){
         Route::get('/mula-culaan', [ReportController::class, 'mulaCulaan'])->name('report-mula-culaan');
         Route::get('/mula-culaan/export-excel', [ReportController::class, 'exportExcelMulaCulaan'])->name('export-excel-mula-culaan');
@@ -78,14 +78,14 @@ Route::post('/register', [AuthController::class, 'registerStore'])->name('regist
         Route::resource('/kecenderungan-politik', KecenderunganPolitikController::class)->except('show', 'create');
         Route::resource('/hubungan', HubunganController::class)->except('show', 'create');
     });
-  // });
+  });
 
-  // Route::group(['middleware' => 'otentikasi:admin,user'], function(){
+  Route::group(['middleware' => 'otentikasi:admin,user'], function(){
     Route::get('/mula-culaan', [MulaCulaanController::class, 'index'])->name('mula-culaan.index');
     Route::post('/mula-culaan', [MulaCulaanController::class, 'store'])->name('mula-culaan.store');
     Route::get('/data-pengundi', [DataPengundiController::class, 'index'])->name('data-pengundi.index');
     Route::post('/data-pengundi', [DataPengundiController::class, 'store'])->name('data-pengundi.store');
-  // });
+  });
 
   Route::get('/profile', [UserController::class, 'profile'])->name('profile');
   Route::post('/profile', [UserController::class, 'profileUpdate'])->name('profile.update');
@@ -99,4 +99,4 @@ Route::post('/register', [AuthController::class, 'registerStore'])->name('regist
   });
   
   Route::get('/logout', [AuthController::class, 'logout'])->name('logout');
-// });
+});
