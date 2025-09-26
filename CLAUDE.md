@@ -4,7 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Laravel 8 application called "Sistem Data Pengundi" (Voter Data System) - a Malaysian voter registration and data management system. The application manages voter information and initial registration ("Mula Culaan") data with role-based access control.
+This is a Laravel 11 application called "Sistem Data Pengundi" (Voter Data System) - a Malaysian voter registration and data management system. The application manages voter information and initial registration ("Mula Culaan") data with role-based access control.
+
+**Current Version**: Laravel Framework 11.46.0
+**PHP Requirement**: ^8.2 (currently running PHP 8.3.11)
+**Database**: MySQL (sistemdatapengundi)
 
 ## Development Commands
 
@@ -24,7 +28,11 @@ This is a Laravel 8 application called "Sistem Data Pengundi" (Voter Data System
 - `npm run hot` - Hot module replacement for development
 
 ### Testing
-- `vendor/bin/phpunit` or `php artisan test` - Run PHPUnit tests
+- `vendor/bin/phpunit` or `php artisan test` - Run PHPUnit tests (PHPUnit 11)
+
+### Code Quality
+- `./vendor/bin/pint` - Laravel Pint code formatter
+- `composer audit` - Check for security vulnerabilities
 
 ## Core Application Architecture
 
@@ -82,7 +90,7 @@ Administrative data is managed through resource controllers under `/data-master`
 ### File Upload & Export Features
 - IC (Identity Card) photo uploads for MulaCulaan records
 - Excel export functionality for both DataPengundi and MulaCulaan using `app/Exports/` classes
-- PDF export support via DomPDF (barryvdh/laravel-dompdf)
+- PDF export support via DomPDF v3.1.1 (security vulnerabilities resolved)
 
 ### Frontend Architecture
 - Traditional Blade templating with layouts in `resources/views/layouts/`
@@ -99,8 +107,11 @@ The application uses MySQL with migrations in `database/migrations/`. Key tables
 - Support tables for dropdown options
 
 ## Development Notes
-- Uses Laravel Sanctum for API authentication (though primarily web-based)
+- **Laravel 11 Upgrade**: Upgraded from Laravel 8.83 to 11.46.0 with security fixes
+- **Security**: All vulnerable packages updated (DomPDF v3.1.1, replaced fruitcake/laravel-cors, added symfony/mailer)
+- Uses Laravel Sanctum v4.2.0 for API authentication (though primarily web-based)
 - Custom middleware `Otentikasi` for role-based access control
 - File uploads stored in `public/ic/` directory
-- Environment configuration follows Laravel standards (copy `.env.example` to `.env`)
+- Environment configuration: MySQL database (sistemdatapengundi)
 - Uses Laravel Mix for frontend asset compilation
+- PHP 8.2+ required, tested with PHP 8.3.11
