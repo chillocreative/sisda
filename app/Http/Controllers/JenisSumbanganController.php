@@ -94,6 +94,6 @@ class JenisSumbanganController extends Controller
     {
         $jenisSumbangan = JenisSumbangan::findOrFail($id);
         $jenisSumbangan->delete();
-        return back()->with('success', 'Jenis Sumbangan berhasil dihapus');
+        return back()->with('success', 'Jenis Sumbangan berhasil dipadam');
     }
 }

@@ -13,11 +13,12 @@ use App\Models\MulaCulaan;
 use App\Models\Negeri;
 use App\Models\TujuanSumbangan;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 
 class MulaCulaanController extends Controller
 {
-    public function index(){
+    private function data(){
         $negeri = Negeri::all();
         $kadun = Kadun::all();
         $jenisSumbangan = JenisSumbangan::all();
@@ -35,67 +36,118 @@ class MulaCulaanController extends Controller
             'keahlianPartai' => $keahlianPartai,
             'kecenderunganPolitik' => $kecenderunganPolitik,
         ];
-        return view('pages.mula-culaan', $data);
+
+        return $data;
+    }
+
+    private $validation = [
+        'name' => 'required',
+        'no_kad' => 'required|numeric',
+        'umur' => 'required',
+        'no_telp' => 'required',
+        'bangsa' => 'required',
+        'alamat' => 'required',
+        'poskod' => 'required',
+        'negeri' => 'required',
+        'bandar' => 'required',
+        'kadun' => 'required',
+        'mpkk' => 'required',
+        'bilangan_isi_rumah' => 'required',
+        'jumlah_pendapatan_isi_rumah' => 'required',
+        'pekerjaan' => 'required',
+        'pemilik_rumah' => 'required',
+        'jenis_sumbangan' => 'required',
+        'tujuan_sumbangan' => 'required',
+        'bantuan_lain' => 'required',
+        'keahlian_partai' => 'required',
+        'kecenderungan_politik' => 'required',
+        'tarikh_dan_masa' => 'required',
+        'gambar_ic' => 'required',
+    ];
+
+    public function index(){
+        $data = $this->data();
+        
+        return view('pages.mula-culaan.index', $data);
     }
 
     public function store(Request $request){
-        $request->validate([
-            'name' => 'required',
-            'no_kad' => 'required',
-            'umur' => 'required',
-            'no_telp' => 'required',
-            'bangsa' => 'required',
-            'alamat' => 'required',
-            'poskod' => 'required',
-            'negeri' => 'required',
-            'bandar' => 'required',
-            'kadun' => 'required',
-            'mpkk' => 'required',
-            'bilangan_isi_rumah' => 'required',
-            'jumlah_pendapatan_isi_rumah' => 'required',
-            'pekerjaan' => 'required',
-            'pemilik_rumah' => 'required',
-            'jenis_sumbangan' => 'required',
-            'tujuan_sumbangan' => 'required',
-            'bantuan_lain' => 'required',
-            'keahlian_partai' => 'required',
-            'kecenderungan_politik' => 'required',
-            'tarikh_dan_masa' => 'required',
-            'gambar_ic' => 'required',
-        ]);
+        $request->validate($this->validation);
 
         $file = $request->file('gambar_ic');
         $fileName = time() . '.' . $file->extension();
         $file->move('ic/', $fileName);
 
         $request['ic'] = $fileName;
+        $request['ic_url'] = env('APP_URL') . '/' . 'ic' . '/' . $fileName;
         $request['nama'] = $request->name;
         $request['user_id'] = Auth::user()->id;
         $request['negeri'] = Negeri::find($request->negeri)->name;
         $request['kadun'] = Kadun::find($request->kadun)->name;
         $request['jenis_sumbangan'] = implode(',', $request->jenis_sumbangan);
         $request['bantuan_lain'] = implode(',', $request->bantuan_lain);
+        $request['pekerjaan'] = $request->pekerjaan === 'lain' ? $request->pekerjaan_custom : $request->pekerjaan;
+        $request['bangsa'] = $request->bangsa === 'lain' ? $request->bangsa_custom : $request->bangsa;
+        $request['tujuan_sumbangan'] = $request->tujuan_sumbangan === 'lain' ? $request->tujuan_sumbangan_custom : $request->tujuan_sumbangan;
 
-        if($request->bangsa == 'lain-lain'){
-            if($request->bangsa_custom){
-                $request['bangsa'] = $request->bangsa_custom;
-            }else{
-                $request['bangsa'] = 'Lain-Lain';
-            }
-        }
-        
-        if($request->tujuan_sumbangan == 'lain-lain'){
-            if($request->tujuan_sumbangan_custom){
-                $request['tujuan_sumbangan'] = $request->tujuan_sumbangan_custom;
-            }else{
-                $request['tujuan_sumbangan'] = 'Lain-Lain';
-            }
-        }
         // $request['keahlian_partai'] = implode(',', $request->keahlian_partai);
         // $request['kecenderungan_politik'] = implode(',', $request->kecenderungan_politik);
-
         
         MulaCulaan::create($request->all());
         return back()->with('success', 'Mula culaan berjaya disimpan');
+    }
+
+    public function edit($id){
+        $data = $this->data();
+        $culaan = MulaCulaan::findOrFail($id);
+
+        if(Auth::user()->role_id === 3){
+            if($culaan->user_id !== Auth::user()->id){
+                return back()->with('error', 'Tidak mempunyai akses');
+            }
+        }
+
+        $negeri_id = Negeri::where('name', $culaan->negeri)->first()->id;
+        $kadun_id = Kadun::where('name', $culaan->kadun)->first()->id;
+
+        $data['bandar'] = Bandar::where('negeri_id', $negeri_id)->get();
+        $data['mpkk'] = MPKK::where('kadun_id', $kadun_id)->get();
+        $data['culaan'] = $culaan;
+
+        return view('pages.mula-culaan.edit', $data);
+    }
+
+    public function update($id, Request $request){
+        $culaan = MulaCulaan::findOrFail($id);
+
+        if(Auth::user()->role_id === 3){
+            if($culaan->user_id !== Auth::user()->id){
+                return abort(403);
+            }
+        }
+
+        if($request->gambar_ic){
+            $file = $request->file('gambar_ic');
+            $fileName = time() . '.' . $file->extension();
+            $file->move('ic/', $fileName);
+    
+            $request['ic'] = $fileName;
+            $request['ic_url'] = env('APP_URL') . '/' . 'ic' . '/' . $fileName;
+        }else{
+            $request['ic'] = $culaan->ic;
+        }
+        
+        $request['nama'] = $request->name;
+        $request['negeri'] = Negeri::find($request->negeri)->name;
+        $request['kadun'] = Kadun::find($request->kadun)->name;
+        $request['jenis_sumbangan'] = implode(',', $request->jenis_sumbangan);
+        $request['bantuan_lain'] = implode(',', $request->bantuan_lain);
+        $request['pekerjaan'] = $request->pekerjaan === 'lain' ? $request->pekerjaan_custom : $request->pekerjaan;
+        $request['bangsa'] = $request->bangsa === 'lain' ? $request->bangsa_custom : $request->bangsa;
+        $request['tujuan_sumbangan'] = $request->tujuan_sumbangan === 'lain' ? $request->tujuan_sumbangan_custom : $request->tujuan_sumbangan;
+
+        $request->validate(Arr::except($this->validation, ['gambar_ic']));
+        $culaan->update($request->all());
+        return back()->with('success', 'Mula culaan berjaya diupdate');
     }
 }

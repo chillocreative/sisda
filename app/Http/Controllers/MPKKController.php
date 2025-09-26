@@ -99,6 +99,6 @@ class MPKKController extends Controller
     {
         $mpkk = MPKK::findOrFail($id);
         $mpkk->delete();
-        return back()->with('success', 'MPKK berjaya dihapus');
+        return back()->with('success', 'MPKK berjaya dipadam');
     }
 }

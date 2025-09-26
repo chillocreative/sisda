@@ -17,22 +17,6 @@
     .bg-body{
         background: #00adef !important;
       }
-         
-      .bg-linear {
-        background-image: linear-gradient(to right, #00c6ff 0%, #0072ff  51%, #00c6ff  100%)
-      }
-      .bg-linear {
-        text-transform: uppercase;
-        transition: 0.5s;
-        background-size: 200% auto;
-        color: white;            
-      }
-
-      .bg-linear:hover {
-        background-position: right center; /* change the direction of the change here */
-        color: #fff;
-        text-decoration: none;
-      }
       
       @media (min-width: 990px){
         .content {
@@ -55,12 +39,11 @@
         <div class="login mb-5">
           <div class="row justify-content-center">
             <div class="col-lg-4">
-              <div class="bg-linear shadow-lg p-5" style="width: 100%; height: 100%">
-                <h1 class="title text-light">
-                  Selamat Datang
-                  <hr class="my-3">
-                  Sistem Data Pengundi
-                </h1>
+              <div class="shadow-lg p-5" style="width: 100%;  background-color: #203864">
+                <div class="text-center">
+                  <img src="{{ asset('assets/img/logo.png') }}" style="width: 200px;">
+                  <h1 class="text-light" style="font-size: 70px;">SISDA</h1>
+                </div>
               </div>
             </div>
             <div class="col-lg-8 mt-3 mt-lg-0">
@@ -71,11 +54,11 @@
                     <div class="row justify-content-center">
                       <div class="col-lg-8">
                         <div class="form-group">
-                          <label for="no_kad" class="form-control-label">Username</label>
-                          <input type="text" name="no_kad" id="username" class="form-control" placeholder="No Kad Pengenalan">
+                          <label for="no_kad" class="form-control-label">No Kad Pengenalan</label>
+                          <input type="text" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');" onKeyPress="if(this.value.length==12) return false;" name="no_kad" id="username" class="form-control" placeholder="No Kad Pengenalan">
                         </div>
                         <div class="form-group mt-3">
-                          <label for="password" class="form-control-label">Password</label>
+                          <label for="password" class="form-control-label">Kata Laluan</label>
                           <input type="password" name="password" id="password" class="form-control">
                         </div>
                         <div class="form-group mt-3 text-center">
@@ -94,20 +77,15 @@
                   </form>
                   <div class="row text-center">
                     <div class="col-lg-12">
-                      <a href="{{ route('register') }}" class="register">Register</a>
+                      <a href="{{ route('register') }}" class="register">Daftar</a>
+                      | 
+                      <a href="https://sistemdatapengundi.com" class="register">Laman Utama</a>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
-    <div class="container-fluid version bg-danger">
-      <div class="row justify-content-end m-0">
-        <div class="col-lg-6 mr-3 text-end text-light">
-          Sistem Culaan Ver. 1.0
         </div>
       </div>
     </div>

@@ -41,19 +41,35 @@ Route::post('/register', [AuthController::class, 'registerStore'])->name('regist
 Route::middleware('auth')->group(function(){
   Route::get('/dashboard', [PagesController::class, 'dashboard'])->name('dashboard');
 
+  Route::group(['prefix' => 'data-pengundi'], function() {
+    Route::get('/{id}', [DataPengundiController::class, 'edit'])->name('data-pengundi.edit');
+    Route::put('/{id}', [DataPengundiController::class, 'update'])->name('data-pengundi.update');
+  });
+
+  Route::group(['prefix' => 'mula-culaan'], function() {
+    Route::get('/{id}', [MulaCulaanController::class, 'edit'])->name('mula-culaan.edit');
+    Route::put('/{id}', [MulaCulaanController::class, 'update'])->name('mula-culaan.update');
+  });
+
+  Route::group(['prefix' => 'report'], function(){
+    Route::group(['prefix' => 'mula-culaan'], function(){
+      Route::get('/', [ReportController::class, 'mulaCulaan'])->name('report-mula-culaan');
+      Route::delete('/delete/{id}', [ReportController::class, 'destroyMulaCulaan'])->name('report-mula-culaan.destroy');
+      Route::get('/export-excel', [ReportController::class, 'exportExcelMulaCulaan'])->name('export-excel-mula-culaan');
+    });
+
+    Route::group(['prefix' => 'data-pengundi'], function(){
+      Route::get('/', [ReportController::class, 'dataPengundi'])->name('report-data-pengundi');
+      Route::delete('/delete/{id}', [ReportController::class, 'destroyDataPengundi'])->name('report-data-pengundi.destroy');
+      Route::get('/export-excel', [ReportController::class, 'exportExcelDataPengundi'])->name('export-excel-data-pengundi');
+    });
+  });
+
   Route::group(['middleware' => 'otentikasi:superadmin'], function(){
     Route::get('/user/superadmin', [PagesController::class, 'user'])->name('user-superadmin');
   });
   
   Route::group(['middleware' => 'otentikasi:superadmin,admin'], function(){
-      Route::group(['prefix' => 'report'], function(){
-        Route::get('/mula-culaan', [ReportController::class, 'mulaCulaan'])->name('report-mula-culaan');
-        Route::get('/mula-culaan/export-excel', [ReportController::class, 'exportExcelMulaCulaan'])->name('export-excel-mula-culaan');
-
-        Route::get('/data-pengundi', [ReportController::class, 'dataPengundi'])->name('report-data-pengundi');
-        Route::get('/data-pengundi/export-excel', [ReportController::class, 'exportExcelDataPengundi'])->name('export-excel-data-pengundi');
-      });
-
       Route::group(['prefix' => 'user'], function(){
         Route::get('/admin', [PagesController::class, 'user'])->name('user-admin');
         Route::get('/user', [PagesController::class, 'user'])->name('user-user');
@@ -84,6 +100,8 @@ Route::middleware('auth')->group(function(){
     Route::get('/mula-culaan', [MulaCulaanController::class, 'index'])->name('mula-culaan.index');
     Route::post('/mula-culaan', [MulaCulaanController::class, 'store'])->name('mula-culaan.store');
     Route::get('/data-pengundi', [DataPengundiController::class, 'index'])->name('data-pengundi.index');
+    Route::post('/data-pengundi/draft', [DataPengundiController::class, 'draft'])->name('data-pengundi.draft');
+    Route::delete('/data-pengundi/{id}', [DataPengundiController::class, 'destroy'])->name('data-pengundi.destroy');
     Route::post('/data-pengundi', [DataPengundiController::class, 'store'])->name('data-pengundi.store');
   });
 
@@ -96,6 +114,9 @@ Route::middleware('auth')->group(function(){
     Route::post('/get-bandar-specific', [GlobalController::class, 'getBandarSpecific'])->name('get-bandar-specific');
     Route::post('/get-parlimen-specific', [GlobalController::class, 'getParlimenSpecific'])->name('get-parlimen-specific');
     Route::post('/get-kadun-specific', [GlobalController::class, 'getKadunSpecific'])->name('get-kadun-specific');
+
+    Route::post('/data-pengundi', [GlobalController::class, 'dataPengundi'])->name('global.data-pengundi');
+    Route::post('/mula-culaan', [GlobalController::class, 'mulaCulaan'])->name('global.mula-culaan');
   });
   
   Route::get('/logout', [AuthController::class, 'logout'])->name('logout');

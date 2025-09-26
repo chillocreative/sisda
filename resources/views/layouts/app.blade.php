@@ -5,6 +5,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
+    <link rel="icon" type="image/png" href="{{ asset('assets/img/icon.png') }}" />
+
     <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet">
 
     <!-- Font Awesome -->
@@ -53,40 +55,50 @@
         @include('layouts._header')
         <div class="main-content-inner py-3">
           @if(session('success'))
-          <div class="row">
-            <div class="col-lg-12">
-              <div class="alert alert-success alert-dismissible fade show" role="alert">
-                  {{ session('success') }}
-                  <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                      <span class="fa fa-times"></span>
-                  </button>
+            <div class="modal fade" id="alertModal" tabindex="-1" role="dialog" aria-labelledby="alertModalLabel" aria-hidden="true">
+              <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                  <div class="modal-body p-3">
+                    <div class="text-center">
+                      <p class="mb-3 text-success">{{ session('success') }}</p>
+                      <button type="button" class="btn btn-primary btn-sm px-4 py-1" data-dismiss="modal">OK</button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
           @endif
           @if(session('error'))
-          <div class="row">
-            <div class="col-lg-12">
-              <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                  {{ session('error') }}
-                  <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                      <span class="fa fa-times"></span>
-                  </button>
+            <div class="modal fade" id="alertModal" tabindex="-1" role="dialog" aria-labelledby="alertModalLabel" aria-hidden="true">
+              <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                  <div class="modal-body p-3">
+                    <div class="text-center">
+                      <p class="mb-3 text-danger">{{ session('error') }}</p>
+                      <button type="button" class="btn btn-primary btn-sm px-4 py-1" data-dismiss="modal">OK</button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
           @endif
           @yield('content')
         </div>
       </div>
     </div>
 
-    
+    <!-- JQuery -->
     <script src="{{ asset('assets/js/vendor/jquery-2.2.4.min.js') }}"></script>
+
+    <!-- Alert -->
+    <script type="text/javascript">
+      $(window).on('load', function() {
+        $('#alertModal').modal('show')
+      })
+    </script>
     
-    
-    <script src="http://cdn.datatables.net/1.11.3/js/jquery.dataTables.min.js"></script>
     <!-- Datatable -->
+    <script src="http://cdn.datatables.net/1.11.3/js/jquery.dataTables.min.js"></script>
 
     <!-- bootstrap 4 js -->
     <script src="{{ asset('assets/js/popper.min.js') }}"></script>
@@ -96,27 +108,6 @@
     <script src="{{ asset('assets/js/jquery.slimscroll.min.js') }}"></script>
     <script src="{{ asset('assets/js/jquery.slicknav.min.js') }}"></script>
 
-
-    <!-- start chart js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.2/Chart.min.js"></script>
-    <!-- start highcharts js -->
-    <script src="https://code.highcharts.com/highcharts.js"></script>
-    <!-- start zingchart js -->
-    <script src="https://cdn.zingchart.com/zingchart.min.js"></script>
-    <script>
-      zingchart.MODULESDIR = 'https://cdn.zingchart.com/modules/'
-      ZC.LICENSE = [
-        '569d52cefae586f634c54f86dc99e6a9',
-        'ee6b7db5b51705a13dc2339db3edaf6d',
-      ]
-    </script>
-
-    
-    
-    <!-- all line chart activation -->
-    <script src="{{ asset('assets/js/line-chart.js') }}"></script>
-    <!-- all pie chart -->
-    <script src="{{ asset('assets/js/pie-chart.js') }}"></script>
     <!-- others plugins -->
     <script src="{{ asset('assets/js/plugins.js') }}"></script>
     <script src="{{ asset('assets/js/scripts.js') }}"></script>

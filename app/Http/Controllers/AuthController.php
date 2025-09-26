@@ -46,7 +46,7 @@ class AuthController extends Controller
     public function registerStore(Request $request){
         $request->validate([
             'name' => 'required',
-            'no_kad' => 'required|unique:users',
+            'no_kad' => 'required|numeric|unique:users',
             'phone' => 'required|numeric',
             'email' => 'email|unique:users',
             'password' => 'required|confirmed',
@@ -64,6 +64,6 @@ class AuthController extends Controller
     
     public function logout(){
         Auth::logout();
-        return redirect('/');
+        return redirect('https://sistemdatapengundi.com');
     }
 }

@@ -94,6 +94,6 @@ class TujuanSumbanganController extends Controller
     {
         $tujuanSumbangan = TujuanSumbangan::findOrFail($id);
         $tujuanSumbangan->delete();
-        return back()->with('success', 'Tujuan Sumbangan berjaya dihapus');
+        return back()->with('success', 'Tujuan Sumbangan berjaya dipadam');
     }
 }

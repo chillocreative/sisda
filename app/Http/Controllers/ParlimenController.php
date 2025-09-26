@@ -101,8 +101,8 @@ class ParlimenController extends Controller
         $parlimen = Parlimen::findOrFail($id);
         if($parlimen->kadun->count() < 1){
             $parlimen->delete();
-            return back()->with('success', 'Parlimen berjaya dihapus');
+            return back()->with('success', 'Parlimen berjaya dipadam');
         }
-        return back()->with('error', 'Parlimen tak dapat dihapus sebab ada kadun');
+        return back()->with('error', 'Parlimen tak dapat dipadam sebab ada kadun');
     }
 }

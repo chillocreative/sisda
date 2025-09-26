@@ -100,8 +100,8 @@ class KadunController extends Controller
         $kadun = Kadun::findOrFail($id);
         if($kadun->mpkk->count() < 1){
             $kadun->delete();
-            return back()->with('success', 'Kadun berjaya dihapus');
+            return back()->with('success', 'Kadun berjaya dipadam');
         }
-        return back()->with('error', 'Kadun tak bisa dihapus sebab ada MPKK');
+        return back()->with('error', 'Kadun tak bisa dipadam sebab ada MPKK');
     }
 }

@@ -26,7 +26,7 @@
               </div>
               <div class="form-group mt-3">
                 <label for="no_kad" class="form-control-label">No Kad Pengenalan</label>
-                <input type="number" name="no_kad" id="no_kad" class="form-control @error('no_kad') is-invalid @enderror" value="{{ old('no_kad') }}">
+                <input type="text" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');" onKeyPress="if(this.value.length==12) return false;" name="no_kad" id="no_kad" class="form-control @error('no_kad') is-invalid @enderror" value="{{ old('no_kad') }}">
                 @error('no_kad') <small class="text-danger">{{ $message }}</small>@enderror
               </div>
               <div class="form-group mt-3">

@@ -94,6 +94,6 @@ class KeahlianPartaiController extends Controller
     {
         $keahlianPartai = KeahlianPartai::findOrFail($id);
         $keahlianPartai->delete();
-        return back()->with('success', 'Keahlian Parti berjaya dihapus');
+        return back()->with('success', 'Keahlian Parti berjaya dipadam');
     }
 }

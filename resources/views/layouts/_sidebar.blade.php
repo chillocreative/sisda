@@ -50,6 +50,7 @@
               <li class="{{ (Request()->segment(2) == 'hubungan') ? 'active' : '' }}"><a href="{{ route('hubungan.index') }}">Hubungan</a></li>
             </ul>
           </li>
+          @endif
           <li class="{{ (Request()->segment(1) == 'report') ? 'active' : '' }}">
             <a href="javascript:void(0)" aria-expanded="true">Report</a>
             <ul>
@@ -57,7 +58,6 @@
               <li class="{{ Route::is('report-data-pengundi') ? 'active' : '' }}"><a href="{{ route('report-data-pengundi') }}">Data Pengundi</a></li>
             </ul>
           </li>
-          @endif
           <li class="{{ Route::is('profile') ? 'active' : '' }}">
             <a href="{{ route('profile') }}">My Profile</a>
           </li>

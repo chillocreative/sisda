@@ -93,6 +93,6 @@ class HubunganController extends Controller
     {
         $hubungan = Hubungan::findOrFail($id);
         $hubungan->delete();
-        return back()->with('success', 'Hubungan berjaya dihapus');
+        return back()->with('success', 'Hubungan berjaya dipadam');
     }
 }

@@ -95,6 +95,6 @@ class BantuanLainController extends Controller
     {
         $bantuanLain = BantuanLain::findOrFail($id);
         $bantuanLain->delete();
-        return back()->with('success', 'Bantuan Lain berjaya dihapus');
+        return back()->with('success', 'Bantuan Lain berjaya dipadam');
     }
 }

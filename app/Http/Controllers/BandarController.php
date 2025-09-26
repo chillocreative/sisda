@@ -96,6 +96,6 @@ class BandarController extends Controller
     {
         $bandar = Bandar::findOrFail($id);
         $bandar->delete();
-        return back()->with('success', 'Bandar berjaya dihapus');
+        return back()->with('success', 'Bandar berjaya dipadam');
     }
 }

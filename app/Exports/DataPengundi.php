@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Models\DataPengundi as AppDataPengundi;
+use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 
@@ -21,11 +22,17 @@ class DataPengundi implements FromCollection, WithHeadings
     */
     public function collection()
     {
-        return AppDataPengundi::whereBetween('created_at', [$this->from, $this->to])->select('name', 'no_kad', 'umur', 'phone', 'bangsa', 'hubungan', 'alamat', 'alamat2', 'poskod', 'negeri', 'bandar', 'parlimen', 'kadun', 'keahlian_partai', 'kecenderungan_politik', 'created_at')->get();
+        $data = AppDataPengundi::where('is_draft', false)->whereBetween('created_at', [$this->from, $this->to])->select('name', 'no_kad', 'umur', 'phone', 'bangsa', 'hubungan', 'alamat', 'poskod', 'negeri', 'bandar', 'parlimen', 'kadun', 'keahlian_partai', 'kecenderungan_politik', 'created_at');
+
+        if(Auth::user()->role_id === 3){
+            $data = $data->where('user_id', Auth::user()->id);
+        }
+
+        return $data->get();
     }
 
     public function headings(): array
     {
-        return ['Nama', 'No Kad', 'Umur', 'Tel', 'Bangsa', 'Hubungan', 'Alamat', 'Alamat 2', 'Poskod', 'Negeri', 'Bandar', 'Parlimen', 'Kadun', 'Keahlian Parti', 'Kecenderungan Politik', 'Tarikh Input'];
+        return ['Nama', 'No Kad', 'Umur', 'Tel', 'Bangsa', 'Hubungan', 'Alamat', 'Poskod', 'Negeri', 'Bandar', 'Parlimen', 'Kadun', 'Keahlian Parti', 'Kecenderungan Politik', 'Tarikh Input'];
     }
 }

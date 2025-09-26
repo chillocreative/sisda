@@ -96,8 +96,8 @@ class NegeriController extends Controller
         $negeri = Negeri::findOrFail($id);
         if($negeri->bandar->count() < 1 && $negeri->parlimen->count() < 1){
             $negeri->delete();
-            return back()->with('success', 'Negeri berjaya dihapus');
+            return back()->with('success', 'Negeri berjaya dipadam');
         }
-        return back()->with('error', 'Negeri tak bisa dihapus sebab ada Bandar');
+        return back()->with('error', 'Negeri tak bisa dipadam sebab ada Bandar');
     }
 }

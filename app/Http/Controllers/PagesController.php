@@ -22,6 +22,10 @@ use stdClass;
 class PagesController extends Controller
 {
     public function dashboard(Request $request){    
+        if(Auth::user()->role_id === 3){
+            return view('pages.dashboard.user');
+        }
+
         function getDataMontly($modelName, $year){
             $temp = [];
             $montly = [];
@@ -129,96 +133,105 @@ class PagesController extends Controller
             $culaan = MulaCulaan::orderBy('created_at', 'ASC');
         }
 
-        //Umur
-        for($i = 0; $i < 17; $i++){
-            $umurTemp[$i] = (5 * $i) + 18;
-            $umurLabel[$i] = ((5 * $i) + 18) . ' - ' . ((5 * $i) + 18 + 5 - 1);
-        }
-        unset($umurLabel[count($umurLabel)-1]);
-
-        for($i = 0; $i < count($umurTemp) - 1; $i++){
-            $count = 1;
-            $umurData[$i] = 0;
-            foreach($culaan->get() as $c){
-                if($c->umur >= $umurTemp[$i] && $c->umur < (5 * $i) + 18 + 5){
-                    $umurData[$i] = $count++;
-                }
+        if($culaan->count() > 0){
+            //Umur
+            for($i = 0; $i < 17; $i++){
+                $umurTemp[$i] = (5 * $i) + 18;
+                $umurLabel[$i] = ((5 * $i) + 18) . ' - ' . ((5 * $i) + 18 + 5 - 1);
             }
-        }
-
-        //Jumlah Pendapatan
-        for($i = 0; $i < 20; $i++){
-            $jumlahPendapatanTemp[$i] = (500 * $i) + 500;
-            $jumlahPendapatanLabel[$i] = ((500 * $i) + 1) . ' - ' . ((500 * $i) + 500);
-        }
-        
-        for($i = 0; $i < count($jumlahPendapatanTemp); $i++){
-            $count = 1;
-            $jumlahPendapatanData[$i] = 0;
-            foreach($culaan->get() as $c){
-                if($c->jumlah_pendapatan_isi_rumah >= $jumlahPendapatanTemp[$i] - 500 + 1 && $c->jumlah_pendapatan_isi_rumah <= $jumlahPendapatanTemp[$i]){
-                    $jumlahPendapatanData[$i] = $count++;
-                }
-            }
-        }
-
-        //Keahlian Parti Mengikuti Bangsa
-        foreach($culaan->get() as $i => $c){
-            $keahlianBangsaTemp[$i] = $c->bangsa;
-            $keahlianPartiBangsaTemp[$i] = $c->keahlian_partai;
-        }
-
-        for($i = 0; $i < count($keahlianPartiBangsaTemp); $i++){
-            $keahlianPartiBangsaExpArr[$i] = explode(',', $keahlianPartiBangsaTemp[$i]);
-        }
-
-        for($i = 0; $i < count($keahlianPartiBangsaExpArr); $i++){
-            for($j = 0; $j < count($keahlianPartiBangsaExpArr[$i]); $j++){
-                $keahlianPartiBangsaExp[] = $keahlianPartiBangsaExpArr[$i][$j];
-                $keahlianBangsaExp[] = $keahlianBangsaTemp[$i];
-            }
-        }
-
-        for($i = 0; $i < count($bangsa); $i++){
-            $keahlianPartiBangsaData[] = array();
-            foreach($keahlianParti as $j => $parti){
-                $keahlianPartiBangsaData[$i][$j] = 0;
+            unset($umurLabel[count($umurLabel)-1]);
+    
+            for($i = 0; $i < count($umurTemp) - 1; $i++){
                 $count = 1;
-                for($k = 0; $k < count($keahlianPartiBangsaExp); $k++ ){
-                    if($parti->name == $keahlianPartiBangsaExp[$k] && $keahlianBangsaExp[$k] == $bangsa[$i]){
-                        $keahlianPartiBangsaData[$i][$j] = $count++;
+                $umurData[$i] = 0;
+                foreach($culaan->get() as $c){
+                    if($c->umur >= $umurTemp[$i] && $c->umur < (5 * $i) + 18 + 5){
+                        $umurData[$i] = $count++;
                     }
                 }
             }
+    
+            //Jumlah Pendapatan
+            for($i = 0; $i < 20; $i++){
+                $jumlahPendapatanTemp[$i] = (500 * $i) + 500;
+                $jumlahPendapatanLabel[$i] = ((500 * $i) + 1) . ' - ' . ((500 * $i) + 500);
+            }
+            
+            for($i = 0; $i < count($jumlahPendapatanTemp); $i++){
+                $count = 1;
+                $jumlahPendapatanData[$i] = 0;
+                foreach($culaan->get() as $c){
+                    if($c->jumlah_pendapatan_isi_rumah >= $jumlahPendapatanTemp[$i] - 500 + 1 && $c->jumlah_pendapatan_isi_rumah <= $jumlahPendapatanTemp[$i]){
+                        $jumlahPendapatanData[$i] = $count++;
+                    }
+                }
+            }
+    
+            //Keahlian Parti Mengikuti Bangsa
+            foreach($culaan->get() as $i => $c){
+                $keahlianBangsaTemp[$i] = $c->bangsa;
+                $keahlianPartiBangsaTemp[$i] = $c->keahlian_partai;
+            }
+    
+            for($i = 0; $i < count($keahlianPartiBangsaTemp); $i++){
+                $keahlianPartiBangsaExpArr[$i] = explode(',', $keahlianPartiBangsaTemp[$i]);
+            }
+    
+            for($i = 0; $i < count($keahlianPartiBangsaExpArr); $i++){
+                for($j = 0; $j < count($keahlianPartiBangsaExpArr[$i]); $j++){
+                    $keahlianPartiBangsaExp[] = $keahlianPartiBangsaExpArr[$i][$j];
+                    $keahlianBangsaExp[] = $keahlianBangsaTemp[$i];
+                }
+            }
+    
+            for($i = 0; $i < count($bangsa); $i++){
+                $keahlianPartiBangsaData[] = array();
+                foreach($keahlianParti as $j => $parti){
+                    $keahlianPartiBangsaData[$i][$j] = 0;
+                    $count = 1;
+                    for($k = 0; $k < count($keahlianPartiBangsaExp); $k++ ){
+                        if($parti->name == $keahlianPartiBangsaExp[$k] && $keahlianBangsaExp[$k] == $bangsa[$i]){
+                            $keahlianPartiBangsaData[$i][$j] = $count++;
+                        }
+                    }
+                }
+            }
+    
+            $data = [
+                'roles' => $roles,
+                'mpkk' => $mpkk,
+                'culaan' => $culaan,
+                'keahlianPartiLabel' => label($keahlianParti),
+                'keahlianPartiData' =>  getMultipleData($culaan->get(), $keahlianParti, 'keahlian_partai'),
+                'kecenderunganPolitikLabel' => label($kecenderunganPolitik),
+                'kecenderunganPolitikData' => getData($culaan->get(), $kecenderunganPolitik, 'kecenderungan_politik'),
+                'jenisSumbanganLabel' => label($jenisSumbangan),
+                'jenisSumbanganData' => getMultipleData($culaan->get(), $jenisSumbangan, 'jenis_sumbangan'),
+                'bantuanLainLabel' => label($bantuanLain),
+                'bantuanLainData' => getMultipleData($culaan->get(), $bantuanLain, 'bantuan_lain'),
+                'tujuanSumbanganLabel' => label($tujuanSumbangan),
+                'tujuanSumbanganData' => getData($culaan->get(), $tujuanSumbangan, 'tujuan_sumbangan'),
+                'jenisPekerjaanLabel' => label($jenisPekerjaan),
+                'jenisPekerjaanData' => getData($culaan->get(), $jenisPekerjaan, 'pekerjaan'),
+                'umurLabel' => $umurLabel,
+                'umurData' => $umurData,
+                'jumlahPendapatanLabel' => $jumlahPendapatanLabel,
+                'jumlahPendapatanData' => $jumlahPendapatanData,
+                'jumlahKeahlianPartiLabel' => label($jumlahKeahlianParti),
+                'bangsaLabel' => $bangsa,
+                'keahlianPartiBangsaData' => $keahlianPartiBangsaData,
+                'culaanMontly' => getDataMontly($culaan, $thisYear),
+            ];
+            
+            return view('pages.dashboard.admin', $data);
         }
 
         $data = [
             'roles' => $roles,
             'mpkk' => $mpkk,
             'culaan' => $culaan,
-            'keahlianPartiLabel' => label($keahlianParti),
-            'keahlianPartiData' =>  getMultipleData($culaan->get(), $keahlianParti, 'keahlian_partai'),
-            'kecenderunganPolitikLabel' => label($kecenderunganPolitik),
-            'kecenderunganPolitikData' => getData($culaan->get(), $kecenderunganPolitik, 'kecenderungan_politik'),
-            'jenisSumbanganLabel' => label($jenisSumbangan),
-            'jenisSumbanganData' => getMultipleData($culaan->get(), $jenisSumbangan, 'jenis_sumbangan'),
-            'bantuanLainLabel' => label($bantuanLain),
-            'bantuanLainData' => getMultipleData($culaan->get(), $bantuanLain, 'bantuan_lain'),
-            'tujuanSumbanganLabel' => label($tujuanSumbangan),
-            'tujuanSumbanganData' => getData($culaan->get(), $tujuanSumbangan, 'tujuan_sumbangan'),
-            'jenisPekerjaanLabel' => label($jenisPekerjaan),
-            'jenisPekerjaanData' => getData($culaan->get(), $jenisPekerjaan, 'pekerjaan'),
-            'umurLabel' => $umurLabel,
-            'umurData' => $umurData,
-            'jumlahPendapatanLabel' => $jumlahPendapatanLabel,
-            'jumlahPendapatanData' => $jumlahPendapatanData,
-            'jumlahKeahlianPartiLabel' => label($jumlahKeahlianParti),
-            'bangsaLabel' => $bangsa,
-            'keahlianPartiBangsaData' => $keahlianPartiBangsaData,
-            'culaanMontly' => getDataMontly($culaan, $thisYear),
         ];
-        
-        return view('pages.dashboard', $data);
+        return view('pages.dashboard.admin', $data);
     }
 
     public function user(){

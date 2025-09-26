@@ -94,6 +94,6 @@ class KecenderunganPolitikController extends Controller
     {
         $kecenderunganPolitik = KecenderunganPolitik::findOrFail($id);
         $kecenderunganPolitik->delete();
-        return back()->with('success', 'Kecenderungan Politik berjaya dihapus');
+        return back()->with('success', 'Kecenderungan Politik berjaya dipadam');
     }
 }
