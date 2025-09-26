@@ -21,98 +21,98 @@ use stdClass;
 
 class PagesController extends Controller
 {
-    public function dashboard(Request $request){    
+    private function getDataMontly($modelName, $year){
+        $temp = [];
+        $montly = [];
+
+        $model = $modelName->select('id', 'created_at')->where(DB::raw('YEAR(created_at)'), $year)->get()->groupBy(function($date){
+            return Carbon::parse($date->created_at)->format('m');
+        });
+
+
+        foreach ($model as $key => $value) {
+            $temp[(int)$key] = count($value);
+        }
+
+        for($i = 0; $i < 12; $i++){
+            if(!empty($temp[$i])){
+                $montly[$i] = $temp[$i];
+            }else{
+                $montly[$i] = 0;
+            }
+        }
+
+        return $montly;
+    }
+
+    private function label($modelName){
+        $label = [];
+        foreach($modelName as $k){
+            $label[] = $k->name;
+        }
+
+        return $label;
+    }
+
+    private function getData($parentModel, $modelName, $column){
+        $temp = [];
+        $dataCount = [];
+
+        foreach ($parentModel as $key => $value) {
+            $temp[$key] = $value->$column;
+        }
+
+        foreach($modelName as $i => $k){
+            $count = 1;
+            $dataCount[] = 0;
+            for($j = 0; $j < count($temp); $j++){
+                if($k->name == $temp[$j]){
+                    $dataCount[$i] = $count++;
+                }
+            }
+        }
+
+        return $dataCount;
+    }
+
+    private function getMultipleData($parentModel, $modelName, $column){
+        $temp = [];
+        $expArr = [];
+        $exp = [];
+        $dataCount = [];
+
+        foreach ($parentModel as $key => $value) {
+            $temp[$key] = $value->$column;
+        }
+
+        for($j = 0; $j < count($temp); $j++){
+            $expArr[] = explode(',', $temp[$j]);
+        }
+
+        for($i = 0; $i < count($expArr); $i++){
+            for($j = 0; $j < count($expArr[$i]); $j++){
+                $exp[] = $expArr[$i][$j];
+            }
+        }
+
+        foreach($modelName as $i => $k){
+            $count = 1;
+            $nameTemp = $k->name;
+            $dataCount[] = 0;
+            $expArr = [];
+            for($j = 0; $j < count($exp); $j++){
+                if($nameTemp == $exp[$j]){
+                    $dataCount[$i] = $count++;
+                }
+            }
+        }
+
+        return $dataCount;
+    }
+
+    public function dashboard(Request $request){
         if(Auth::user()->role_id === 3){
             return view('pages.dashboard.user');
-        }
-
-        function getDataMontly($modelName, $year){
-            $temp = [];
-            $montly = [];
-
-            $model = $modelName->select('id', 'created_at')->where(DB::raw('YEAR(created_at)'), $year)->get()->groupBy(function($date){
-                return Carbon::parse($date->created_at)->format('m');
-            });
-
-            
-            foreach ($model as $key => $value) {
-                $temp[(int)$key] = count($value);
-            }
-
-            for($i = 0; $i < 12; $i++){
-                if(!empty($temp[$i])){
-                    $montly[$i] = $temp[$i];    
-                }else{
-                    $montly[$i] = 0;    
-                }
-            }
-            
-            return $montly;
-        }
-
-        function label($modelName){
-            $label = [];
-            foreach($modelName as $k){
-                $label[] = $k->name;
-            }
-
-            return $label;
-        }
-
-        function getData($parentModel, $modelName, $column){
-            $temp = [];
-            $dataCount = [];
-
-            foreach ($parentModel as $key => $value) {
-                $temp[$key] = $value->$column;
-            }
-
-            foreach($modelName as $i => $k){
-                $count = 1;
-                $dataCount[] = 0;
-                for($j = 0; $j < count($temp); $j++){
-                    if($k->name == $temp[$j]){
-                        $dataCount[$i] = $count++;
-                    }
-                }
-            }
-
-            return $dataCount;
-        }
-
-        function getMultipleData($parentModel, $modelName, $column){
-            $temp = [];
-            $expArr = [];
-            $exp = [];
-            $dataCount = [];
-            
-            foreach ($parentModel as $key => $value) {
-                $temp[$key] = $value->$column;
-            }
-
-            for($j = 0; $j < count($temp); $j++){
-                $expArr[] = explode(',', $temp[$j]);
-            }
-
-            for($i = 0; $i < count($expArr); $i++){
-                for($j = 0; $j < count($expArr[$i]); $j++){
-                    $exp[] = $expArr[$i][$j];
-                }
-            }
-
-            foreach($modelName as $i => $k){
-                $count = 1;
-                $nameTemp = $k->name;
-                $dataCount[] = 0;
-                $expArr = [];
-                for($j = 0; $j < count($exp); $j++){
-                    if($nameTemp == $exp[$j]){
-                        $dataCount[$i] = $count++;
-                    }
-                }
-            }
-
-            return $dataCount;
         }
 
         $thisYear = Carbon::now()->format('Y');
@@ -201,26 +201,26 @@ class PagesController extends Controller
                 'roles' => $roles,
                 'mpkk' => $mpkk,
                 'culaan' => $culaan,
-                'keahlianPartiLabel' => label($keahlianParti),
-                'keahlianPartiData' =>  getMultipleData($culaan->get(), $keahlianParti, 'keahlian_partai'),
-                'kecenderunganPolitikLabel' => label($kecenderunganPolitik),
-                'kecenderunganPolitikData' => getData($culaan->get(), $kecenderunganPolitik, 'kecenderungan_politik'),
-                'jenisSumbanganLabel' => label($jenisSumbangan),
-                'jenisSumbanganData' => getMultipleData($culaan->get(), $jenisSumbangan, 'jenis_sumbangan'),
-                'bantuanLainLabel' => label($bantuanLain),
-                'bantuanLainData' => getMultipleData($culaan->get(), $bantuanLain, 'bantuan_lain'),
-                'tujuanSumbanganLabel' => label($tujuanSumbangan),
-                'tujuanSumbanganData' => getData($culaan->get(), $tujuanSumbangan, 'tujuan_sumbangan'),
-                'jenisPekerjaanLabel' => label($jenisPekerjaan),
-                'jenisPekerjaanData' => getData($culaan->get(), $jenisPekerjaan, 'pekerjaan'),
+                'keahlianPartiLabel' => $this->label($keahlianParti),
+                'keahlianPartiData' =>  $this->getMultipleData($culaan->get(), $keahlianParti, 'keahlian_partai'),
+                'kecenderunganPolitikLabel' => $this->label($kecenderunganPolitik),
+                'kecenderunganPolitikData' => $this->getData($culaan->get(), $kecenderunganPolitik, 'kecenderungan_politik'),
+                'jenisSumbanganLabel' => $this->label($jenisSumbangan),
+                'jenisSumbanganData' => $this->getMultipleData($culaan->get(), $jenisSumbangan, 'jenis_sumbangan'),
+                'bantuanLainLabel' => $this->label($bantuanLain),
+                'bantuanLainData' => $this->getMultipleData($culaan->get(), $bantuanLain, 'bantuan_lain'),
+                'tujuanSumbanganLabel' => $this->label($tujuanSumbangan),
+                'tujuanSumbanganData' => $this->getData($culaan->get(), $tujuanSumbangan, 'tujuan_sumbangan'),
+                'jenisPekerjaanLabel' => $this->label($jenisPekerjaan),
+                'jenisPekerjaanData' => $this->getData($culaan->get(), $jenisPekerjaan, 'pekerjaan'),
                 'umurLabel' => $umurLabel,
                 'umurData' => $umurData,
                 'jumlahPendapatanLabel' => $jumlahPendapatanLabel,
                 'jumlahPendapatanData' => $jumlahPendapatanData,
-                'jumlahKeahlianPartiLabel' => label($jumlahKeahlianParti),
+                'jumlahKeahlianPartiLabel' => $this->label($jumlahKeahlianParti),
                 'bangsaLabel' => $bangsa,
                 'keahlianPartiBangsaData' => $keahlianPartiBangsaData,
-                'culaanMontly' => getDataMontly($culaan, $thisYear),
+                'culaanMontly' => $this->getDataMontly($culaan, $thisYear),
             ];
             
             return view('pages.dashboard.admin', $data);
