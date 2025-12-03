@@ -210,7 +210,12 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
     const formatDate = (dateString) => {
         if (!dateString) return 'Tidak pernah';
         return new Date(dateString).toLocaleDateString('ms-MY', {
-            year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
         });
     };
 
