@@ -22,18 +22,19 @@ SISDA is a comprehensive voter data management system built with Laravel 11 and 
   - Implemented a custom **Delete Confirmation Modal**.
   - **Rejected User Handling**: Added specific logic to allow deletion of users with "Ditolak" status, displaying a warning message: *"Pengguna ini mempunyai status 'Ditolak'"*.
   - Fixed issue where native confirm dialogs were not providing a good user experience.
-- **Timestamp Formatting**:
-  - Updated the "Last Login" column to show a detailed, readable format: `DD MMM YYYY, HH:MM AM/PM` (e.g., *04 Dec 2025, 02:05 PM*).
+- **Last Login Tracking**:
+  - Implemented backend logic to update `last_login` timestamp on successful authentication.
+  - Updated `User` model to include `last_login` in fillable and casts.
+  - **Timestamp Formatting**: Updated the column to show a detailed, readable format: `DD MMM YYYY, HH:MM AM/PM` (e.g., *04 Dec 2025, 02:52 PM*).
+  - Changed locale to `en-US` to ensure AM/PM format instead of PG (Malay format).
 
 ### 3. Deployment Readiness
 - **cPanel Configuration**:
-  - Created `.cpanel.yml` for automated deployment via cPanel Git Version Control.
-  - Configured to handle Composer dependencies, migrations, and asset building.
-- **Production Build**:
-  - Successfully ran `npm run build` to compile and optimize assets for production.
-  - Verified that all icons (including the new bell icon) render correctly in the production build.
+  - Optimized `.cpanel.yml` for automated deployment via cPanel Git Version Control.
+  - **Fix**: Reordered tasks to build assets (`npm run build`) *before* caching configuration to ensure fresh assets are served.
+  - **Fix**: Removed `.env` copy and key generation commands to prevent "uncommitted changes" errors during deployment.
 - **Documentation**:
-  - Created `DEPLOYMENT_CHECKLIST.txt` and `DEPLOYMENT_READY.txt` to guide the deployment process.
+  - Created `CPANEL_DEPLOYMENT.txt` with detailed manual setup instructions and troubleshooting steps.
   - Updated `.gitignore` to exclude markdown documentation files (except `sisda.md`) from the repository to keep the production environment clean.
 
 ## Technical Stack
