@@ -28,6 +28,7 @@ class User extends Authenticatable
         'status',
         'approved_by',
         'approved_at',
+        'last_login',
         'password',
     ];
 
@@ -51,6 +52,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'approved_at' => 'datetime',
+            'last_login' => 'datetime',
             'password' => 'hashed',
         ];
     }
