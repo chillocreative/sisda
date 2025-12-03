@@ -1,0 +1,105 @@
+# cPanel Deployment Instructions
+
+## IMPORTANT: First-Time Setup (Do Once)
+
+Before deploying for the first time, you MUST manually create the `.env` file on the server:
+
+### Step 1: Create .env File
+1. Login to cPanel
+2. Go to File Manager
+3. Navigate to `/home/chilloc1/sistemdatapengundi.com/`
+4. Copy `.env.example` to `.env`
+5. Edit `.env` and set:
+   ```
+   APP_NAME=SISDA
+   APP_ENV=production
+   APP_KEY=
+   APP_DEBUG=false
+   APP_URL=https://sistemdatapengundi.com
+   
+   DB_CONNECTION=mysql
+   DB_HOST=localhost
+   DB_PORT=3306
+   DB_DATABASE=chilloc1_sisda
+   DB_USERNAME=chilloc1_sisda_user
+   DB_PASSWORD=[your_database_password]
+   
+   SESSION_DRIVER=database
+   CACHE_STORE=database
+   QUEUE_CONNECTION=database
+   ```
+
+### Step 2: Generate Application Key
+Run this command in cPanel Terminal:
+```bash
+cd /home/chilloc1/sistemdatapengundi.com/
+php artisan key:generate --force
+```
+
+### Step 3: Set Permissions
+```bash
+chmod -R 755 storage bootstrap/cache
+chmod -R 775 storage
+```
+
+## Regular Deployment Process
+
+After the first-time setup, deployments are automatic:
+
+1. **Push code to GitHub** (already done when you commit)
+2. **Go to cPanel → Git Version Control**
+3. **Click "Manage"** on your repository
+4. **Click "Pull or Deploy"** tab
+5. **Click "Update from Remote"**
+
+The `.cpanel.yml` will automatically:
+- ✅ Copy files to deployment directory
+- ✅ Install Composer dependencies
+- ✅ Create storage link
+- ✅ Run database migrations
+- ✅ Install NPM dependencies
+- ✅ Build production assets (with AM/PM format)
+- ✅ Cache configuration
+- ✅ Set permissions
+
+## Troubleshooting
+
+### Error: "No uncommitted changes exist"
+This means there are uncommitted files on the server. To fix:
+
+1. Go to cPanel Terminal
+2. Navigate to repository directory:
+   ```bash
+   cd /home/chilloc1/repositories/sisda
+   ```
+3. Check status:
+   ```bash
+   git status
+   ```
+4. Reset uncommitted changes:
+   ```bash
+   git reset --hard HEAD
+   ```
+5. Try deployment again
+
+### Error: "npm run build failed"
+1. Check Node.js version (should be 18+)
+2. Clear npm cache:
+   ```bash
+   cd /home/chilloc1/sistemdatapengundi.com/
+   rm -rf node_modules package-lock.json
+   npm install --production
+   npm run build
+   ```
+
+### Assets not updating (still showing PG instead of AM)
+1. Clear browser cache (Ctrl+F5)
+2. Check that `npm run build` ran successfully in deployment log
+3. Verify files in `public/build/` have recent timestamps
+
+## Notes
+
+- The `.env` file is NOT in Git (for security)
+- You must create it manually on the server
+- Never commit `.env` to Git
+- The `APP_KEY` should be generated once and kept secret
