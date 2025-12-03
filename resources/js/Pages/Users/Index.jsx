@@ -209,7 +209,7 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
 
     const formatDate = (dateString) => {
         if (!dateString) return 'Tidak pernah';
-        return new Date(dateString).toLocaleDateString('ms-MY', {
+        return new Date(dateString).toLocaleDateString('en-US', {
             day: '2-digit',
             month: 'short',
             year: 'numeric',
