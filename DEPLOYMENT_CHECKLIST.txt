@@ -1,0 +1,177 @@
+================================================================================
+SISDA - cPanel Deployment Checklist
+================================================================================
+Date: 2025-12-04
+Repository: https://github.com/chillocreative/sisda.git
+Domain: https://sistemdatapengundi.com
+
+================================================================================
+PRE-DEPLOYMENT CHECKLIST
+================================================================================
+
+✅ Production build completed (npm run build)
+✅ All changes committed to Git
+✅ Code pushed to GitHub repository
+✅ .cpanel.yml configured for automatic deployment
+✅ .env.example configured with production settings
+
+================================================================================
+CPANEL DEPLOYMENT STEPS
+================================================================================
+
+1. LOGIN TO CPANEL
+   - URL: Your cPanel URL
+   - Username: chilloc1
+   - Navigate to "Git Version Control"
+
+2. CREATE/UPDATE GIT REPOSITORY
+   - Click "Create" or "Manage" existing repository
+   - Repository URL: https://github.com/chillocreative/sisda.git
+   - Repository Path: /home/chilloc1/repositories/sisda
+   - Branch: main
+   - Click "Create" or "Update"
+
+3. PULL LATEST CODE
+   - Click "Manage" on the repository
+   - Click "Pull or Deploy" tab
+   - Click "Update from Remote"
+   - Deployment will run automatically via .cpanel.yml
+
+4. CONFIGURE DATABASE (if not done)
+   - Go to "MySQL Databases" in cPanel
+   - Create database: chilloc1_sisda
+   - Create user: chilloc1_sisda_user
+   - Set strong password
+   - Add user to database with ALL PRIVILEGES
+
+5. UPDATE .env FILE (Manual - First Time Only)
+   - Go to File Manager
+   - Navigate to /home/chilloc1/sistemdatapengundi.com/
+   - Edit .env file with correct values:
+     
+     APP_NAME=SISDA
+     APP_ENV=production
+     APP_KEY=[will be generated automatically]
+     APP_DEBUG=false
+     APP_URL=https://sistemdatapengundi.com
+     
+     DB_CONNECTION=mysql
+     DB_HOST=localhost
+     DB_PORT=3306
+     DB_DATABASE=chilloc1_sisda
+     DB_USERNAME=chilloc1_sisda_user
+     DB_PASSWORD=[your_database_password]
+     
+     SESSION_DRIVER=database
+     CACHE_STORE=database
+     QUEUE_CONNECTION=database
+
+6. VERIFY DEPLOYMENT
+   - Check deployment log in cPanel Git interface
+   - Verify all artisan commands ran successfully
+   - Check file permissions (755 for storage and bootstrap/cache)
+
+7. VERIFY WEBSITE
+   - Visit https://sistemdatapengundi.com
+   - Test login with super admin account
+   - Check all pages load correctly
+   - Verify database connection
+
+================================================================================
+POST-DEPLOYMENT TASKS
+================================================================================
+
+□ Test user registration and approval workflow
+□ Test all CRUD operations (Hasil Culaan, Data Pengundi)
+□ Test Master Data management
+□ Verify file uploads work correctly
+□ Test Excel export functionality
+□ Check responsive design on mobile
+□ Verify all modals work correctly
+□ Test role-based access control (Super Admin, Admin, User)
+
+================================================================================
+AUTOMATIC DEPLOYMENT PROCESS (.cpanel.yml)
+================================================================================
+
+The following tasks run automatically when you pull/deploy:
+
+1. Copy all files to deployment path
+2. Copy .env.example to .env (first time only)
+3. Install Composer dependencies (production mode)
+4. Generate application key
+5. Create storage symbolic link
+6. Run database migrations
+7. Cache configuration, routes, and views
+8. Install NPM dependencies (production mode)
+9. Build frontend assets
+10. Set correct permissions
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+If deployment fails:
+
+1. Check deployment log in cPanel Git interface
+2. Verify database credentials in .env
+3. Check file permissions (755 for storage, bootstrap/cache)
+4. Ensure PHP version is 8.1 or higher
+5. Verify Composer and NPM are available
+6. Check error logs in storage/logs/laravel.log
+
+Common Issues:
+- "Permission denied" → Check file permissions
+- "Database connection failed" → Verify .env database settings
+- "Class not found" → Run: composer dump-autoload
+- "Route not found" → Run: php artisan route:cache
+- "View not found" → Run: php artisan view:cache
+
+================================================================================
+MANUAL COMMANDS (if needed)
+================================================================================
+
+If automatic deployment fails, run these manually via SSH:
+
+cd /home/chilloc1/sistemdatapengundi.com/
+composer install --no-dev --optimize-autoloader
+php artisan key:generate --force
+php artisan storage:link --force
+php artisan migrate --force
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+npm install --production
+npm run build
+chmod -R 755 storage bootstrap/cache
+
+================================================================================
+IMPORTANT NOTES
+================================================================================
+
+1. NEVER commit .env file to Git (it's in .gitignore)
+2. Always test locally before deploying
+3. Keep database backups before running migrations
+4. Monitor error logs after deployment
+5. Use HTTPS for production (SSL certificate required)
+6. Set APP_DEBUG=false in production
+7. Use strong passwords for database and admin accounts
+
+================================================================================
+SUPPORT CONTACTS
+================================================================================
+
+Developer: [Your contact information]
+Repository: https://github.com/chillocreative/sisda
+Documentation: See sisda-design.md (local only, not in Git)
+
+================================================================================
+DEPLOYMENT HISTORY
+================================================================================
+
+2025-12-04: Enhanced User Approval and Users pages with custom Modal components
+            - Added delete confirmation modals
+            - Improved UX with custom dialogs
+            - Built production assets
+
+================================================================================
