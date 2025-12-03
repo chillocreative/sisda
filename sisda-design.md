@@ -1888,3 +1888,97 @@ $existingPengundi = \App\Models\DataPengundi::where('no_ic', $validated['no_ic']
   - Applied to Negeri, Bandar, and Parlimen fields
   - Provides clearer guidance to users
 
+---
+
+## 29. User Approval Module - Modal Enhancement (2025-12-04)
+
+### 29.1 Overview
+Enhanced the User Approval page to replace native browser confirmation dialogs with a custom Modal component for improved user experience and better testability.
+
+### 29.2 Changes Made
+
+#### Frontend Updates (`resources/js/Pages/UserApproval/Index.jsx`)
+
+**Component Imports**:
+- Added `Modal` from `@/Components/Modal`
+- Added `PrimaryButton` from `@/Components/PrimaryButton`
+- Added `DangerButton` from `@/Components/DangerButton`
+- Added `SecondaryButton` from `@/Components/SecondaryButton`
+
+**State Management**:
+- Added `confirmingUser` state to track which user is being confirmed
+- Added `actionType` state to track action type ('approve' or 'reject')
+- Replaced `handleApprove` and `handleReject` with `confirmAction` function
+- Added `closeModal` function to reset modal state
+- Added `executeAction` function to perform the actual API call
+
+**UI Improvements**:
+- Replaced native `window.confirm()` dialogs with custom Modal component
+- Modal displays user name in confirmation message
+- Different button styles for approve (emerald) vs reject (red) actions
+- Added "Batal" (Cancel) button to close modal without action
+- Loading state shows "Sedang Diproses..." during API call
+- Modal automatically closes after successful action
+
+### 29.3 Modal Features
+
+**Approve Confirmation**:
+- Title: "Luluskan Pengguna"
+- Message: "Adakah anda pasti mahu meluluskan pengguna {name}? Pengguna akan mendapat akses ke sistem."
+- Primary button: Emerald green "Luluskan Pengguna"
+
+**Reject Confirmation**:
+- Title: "Tolak Pengguna"
+- Message: "Adakah anda pasti mahu menolak pengguna {name}? Pengguna tidak akan mendapat akses ke sistem."
+- Danger button: Red "Tolak Pengguna"
+
+**Common Elements**:
+- Secondary "Batal" button to cancel action
+- Disabled state during processing
+- Smooth fade-in/out transitions
+- Click outside to close (if enabled)
+
+### 29.4 Benefits
+
+**User Experience**:
+- More visually appealing than native browser dialogs
+- Consistent with application design language
+- Better mobile responsiveness
+- Clearer action context with user name displayed
+
+**Developer Experience**:
+- Easier to test with automated browser tools
+- No need to handle native dialog interactions
+- Customizable styling and behavior
+- Reusable Modal component pattern
+
+**Accessibility**:
+- Better keyboard navigation support
+- Screen reader friendly
+- Focus management
+- Proper ARIA attributes (from HeadlessUI Dialog)
+
+### 29.5 Technical Implementation
+
+**Modal Component** (`@/Components/Modal.jsx`):
+- Built with HeadlessUI Dialog component
+- Smooth transitions using Transition components
+- Configurable max width (sm, md, lg, xl, 2xl)
+- Backdrop overlay with opacity transition
+- Closeable via backdrop click or ESC key
+
+**Button Components**:
+- `PrimaryButton`: Default blue action button
+- `DangerButton`: Red destructive action button
+- `SecondaryButton`: Gray cancel/secondary button
+- All support disabled states and custom className overrides
+
+### 29.6 Files Modified
+- `resources/js/Pages/UserApproval/Index.jsx` - Enhanced with Modal component
+
+### 29.7 Future Enhancements
+- Consider adding success toast notification after approval/rejection
+- Add animation for row removal after successful action
+- Implement undo functionality for accidental rejections
+- Add bulk approve/reject with modal confirmation
+

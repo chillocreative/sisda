@@ -2,26 +2,40 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, router } from '@inertiajs/react';
 import { useState } from 'react';
 import { CheckCircle, XCircle, MapPin, Calendar, User as UserIcon } from 'lucide-react';
+import Modal from '@/Components/Modal';
+import PrimaryButton from '@/Components/PrimaryButton';
+import DangerButton from '@/Components/DangerButton';
+import SecondaryButton from '@/Components/SecondaryButton';
 
 export default function Index({ pendingUsers }) {
     const [processing, setProcessing] = useState(null);
+    const [confirmingUser, setConfirmingUser] = useState(null);
+    const [actionType, setActionType] = useState(null); // 'approve' or 'reject'
 
-    const handleApprove = (userId) => {
-        if (confirm('Adakah anda pasti mahu meluluskan pengguna ini?')) {
-            setProcessing(userId);
-            router.post(route('user-approval.approve', userId), {}, {
-                onFinish: () => setProcessing(null),
-            });
-        }
+    const confirmAction = (user, type) => {
+        setConfirmingUser(user);
+        setActionType(type);
     };
 
-    const handleReject = (userId) => {
-        if (confirm('Adakah anda pasti mahu menolak pengguna ini?')) {
-            setProcessing(userId);
-            router.post(route('user-approval.reject', userId), {}, {
-                onFinish: () => setProcessing(null),
-            });
-        }
+    const closeModal = () => {
+        setConfirmingUser(null);
+        setActionType(null);
+    };
+
+    const executeAction = () => {
+        if (!confirmingUser || !actionType) return;
+
+        const userId = confirmingUser.id;
+        setProcessing(userId);
+
+        const routeName = actionType === 'approve' ? 'user-approval.approve' : 'user-approval.reject';
+
+        router.post(route(routeName, userId), {}, {
+            onFinish: () => {
+                setProcessing(null);
+                closeModal();
+            },
+        });
     };
 
     const formatDate = (dateString) => {
@@ -100,8 +114,8 @@ export default function Index({ pendingUsers }) {
                                             </td>
                                             <td className="py-3 px-4">
                                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.role === 'admin'
-                                                        ? 'bg-purple-100 text-purple-800'
-                                                        : 'bg-blue-100 text-blue-800'
+                                                    ? 'bg-purple-100 text-purple-800'
+                                                    : 'bg-blue-100 text-blue-800'
                                                     }`}>
                                                     {user.role === 'admin' ? 'Pentadbir' : 'Pengguna'}
                                                 </span>
@@ -125,7 +139,7 @@ export default function Index({ pendingUsers }) {
                                             <td className="py-3 px-4">
                                                 <div className="flex items-center justify-end space-x-2">
                                                     <button
-                                                        onClick={() => handleApprove(user.id)}
+                                                        onClick={() => confirmAction(user, 'approve')}
                                                         disabled={processing === user.id}
                                                         className="flex items-center space-x-1 px-3 py-1.5 bg-emerald-500 text-white text-sm rounded-lg hover:bg-emerald-600 transition-colors disabled:opacity-50"
                                                     >
@@ -133,7 +147,7 @@ export default function Index({ pendingUsers }) {
                                                         <span>Lulus</span>
                                                     </button>
                                                     <button
-                                                        onClick={() => handleReject(user.id)}
+                                                        onClick={() => confirmAction(user, 'reject')}
                                                         disabled={processing === user.id}
                                                         className="flex items-center space-x-1 px-3 py-1.5 bg-rose-500 text-white text-sm rounded-lg hover:bg-rose-600 transition-colors disabled:opacity-50"
                                                     >
@@ -162,10 +176,10 @@ export default function Index({ pendingUsers }) {
                                         onClick={() => link.url && router.get(link.url)}
                                         disabled={!link.url}
                                         className={`px-3 py-1 rounded-lg text-sm transition-colors ${link.active
-                                                ? 'bg-slate-900 text-white'
-                                                : link.url
-                                                    ? 'border border-slate-300 text-slate-700 hover:bg-slate-50'
-                                                    : 'border border-slate-200 text-slate-400 cursor-not-allowed'
+                                            ? 'bg-slate-900 text-white'
+                                            : link.url
+                                                ? 'border border-slate-300 text-slate-700 hover:bg-slate-50'
+                                                : 'border border-slate-200 text-slate-400 cursor-not-allowed'
                                             }`}
                                         dangerouslySetInnerHTML={{ __html: link.label }}
                                     />
@@ -175,6 +189,45 @@ export default function Index({ pendingUsers }) {
                     )}
                 </div>
             </div>
+
+            <Modal show={!!confirmingUser} onClose={closeModal}>
+                <div className="p-6">
+                    <h2 className="text-lg font-medium text-slate-900">
+                        {actionType === 'approve'
+                            ? 'Luluskan Pengguna'
+                            : 'Tolak Pengguna'}
+                    </h2>
+
+                    <p className="mt-1 text-sm text-slate-600">
+                        {actionType === 'approve'
+                            ? `Adakah anda pasti mahu meluluskan pengguna ${confirmingUser?.name}? Pengguna akan mendapat akses ke sistem.`
+                            : `Adakah anda pasti mahu menolak pengguna ${confirmingUser?.name}? Pengguna tidak akan mendapat akses ke sistem.`}
+                    </p>
+
+                    <div className="mt-6 flex justify-end space-x-3">
+                        <SecondaryButton onClick={closeModal}>
+                            Batal
+                        </SecondaryButton>
+
+                        {actionType === 'approve' ? (
+                            <PrimaryButton
+                                className="bg-emerald-600 hover:bg-emerald-500 focus:ring-emerald-500"
+                                onClick={executeAction}
+                                disabled={processing === confirmingUser?.id}
+                            >
+                                {processing === confirmingUser?.id ? 'Sedang Diproses...' : 'Luluskan Pengguna'}
+                            </PrimaryButton>
+                        ) : (
+                            <DangerButton
+                                onClick={executeAction}
+                                disabled={processing === confirmingUser?.id}
+                            >
+                                {processing === confirmingUser?.id ? 'Sedang Diproses...' : 'Tolak Pengguna'}
+                            </DangerButton>
+                        )}
+                    </div>
+                </div>
+            </Modal>
         </AuthenticatedLayout>
     );
 }

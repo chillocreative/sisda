@@ -27,13 +27,16 @@ import {
     UserCheck,
     UserCircle,
     Map,
-    Phone
+    Phone,
+    Bell
 } from 'lucide-react';
 
 export default function AuthenticatedLayout({ children }) {
-    const user = usePage().props.auth.user;
+    const { user, pendingApprovalsCount } = usePage().props.auth;
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [openDropdown, setOpenDropdown] = useState(null); // Track which dropdown is open
+
+    console.log('Pending Approvals Count:', pendingApprovalsCount);
 
     const masterDataSubmenu = [
         ...(user.role === 'super_admin' ? [{ name: 'Negeri', href: route('master-data.negeri.index'), icon: MapPin }] : []),
@@ -224,7 +227,7 @@ export default function AuthenticatedLayout({ children }) {
                                     <Link
                                         href={item.href}
                                         className={`
-                                            flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium
+                                            flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium
                                             transition-colors duration-150
                                             ${item.current
                                                 ? 'bg-slate-900 text-white'
@@ -232,8 +235,15 @@ export default function AuthenticatedLayout({ children }) {
                                             }
                                         `}
                                     >
-                                        <item.icon className="h-5 w-5" />
-                                        <span>{item.name}</span>
+                                        <div className="flex items-center space-x-3">
+                                            <item.icon className="h-5 w-5" />
+                                            <span>{item.name}</span>
+                                        </div>
+                                        {item.name === 'Kelulusan Pengguna' && pendingApprovalsCount > 0 && (
+                                            <div className="relative">
+                                                <Bell className="h-5 w-5 text-red-800" fill="#991b1b" />
+                                            </div>
+                                        )}
                                     </Link>
                                 )}
                             </div>

@@ -29,10 +29,26 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $user = $request->user();
+        $pendingApprovalsCount = 0;
+
+        // Calculate pending approvals count for Super Admin and Admin
+        if ($user && ($user->isSuperAdmin() || $user->isAdmin())) {
+            $query = \App\Models\User::where('status', 'pending');
+            
+            // Admin can only see pending users in their Parlimen (Bandar)
+            if ($user->isAdmin()) {
+                $query->where('bandar_id', $user->bandar_id);
+            }
+            
+            $pendingApprovalsCount = $query->count();
+        }
+
         return [
             ...parent::share($request),
             'auth' => [
-                'user' => $request->user(),
+                'user' => $user,
+                'pendingApprovalsCount' => $pendingApprovalsCount,
             ],
         ];
     }

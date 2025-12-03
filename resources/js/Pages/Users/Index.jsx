@@ -5,12 +5,16 @@ import { useState, useEffect } from 'react';
 import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
+import Modal from '@/Components/Modal';
+import DangerButton from '@/Components/DangerButton';
+import SecondaryButton from '@/Components/SecondaryButton';
 
 export default function Index({ users, stats, negeriList, bandarList, kadunList, filters: initialFilters }) {
     const [selectedUsers, setSelectedUsers] = useState([]);
     const [editingUser, setEditingUser] = useState(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
+    const [confirmingDelete, setConfirmingDelete] = useState(null);
 
     // Filter State
     const [filterData, setFilterData] = useState({
@@ -132,10 +136,17 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
     };
 
     // CRUD Actions
-    const handleDelete = (userId) => {
-        if (confirm('Adakah anda pasti mahu memadam pengguna ini?')) {
-            router.delete(route('users.destroy', userId));
-        }
+    const handleDelete = (user) => {
+        setConfirmingDelete(user);
+    };
+
+    const executeDelete = () => {
+        if (!confirmingDelete) return;
+
+        router.delete(route('users.destroy', confirmingDelete.id), {
+            onSuccess: () => setConfirmingDelete(null),
+            onError: () => setConfirmingDelete(null),
+        });
     };
 
     const handleBulkDelete = () => {
@@ -392,7 +403,7 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
                                                 <button onClick={() => setEditingUser(user)} className="p-2 text-slate-600 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors">
                                                     <Edit className="h-4 w-4" />
                                                 </button>
-                                                <button onClick={() => handleDelete(user.id)} className="p-2 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
+                                                <button onClick={() => handleDelete(user)} className="p-2 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
                                                     <Trash2 className="h-4 w-4" />
                                                 </button>
                                             </div>
@@ -578,6 +589,35 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
                     </div>
                 </div>
             )}
+
+            {/* Delete Confirmation Modal */}
+            <Modal show={!!confirmingDelete} onClose={() => setConfirmingDelete(null)}>
+                <div className="p-6">
+                    <h2 className="text-lg font-medium text-slate-900">
+                        Padam Pengguna
+                    </h2>
+
+                    <p className="mt-1 text-sm text-slate-600">
+                        Adakah anda pasti mahu memadam pengguna <span className="font-semibold">{confirmingDelete?.name}</span>?
+                        {confirmingDelete?.status === 'rejected' && (
+                            <span className="block mt-2 text-rose-600">
+                                Pengguna ini mempunyai status "Ditolak".
+                            </span>
+                        )}
+                        Tindakan ini tidak boleh dibatalkan.
+                    </p>
+
+                    <div className="mt-6 flex justify-end space-x-3">
+                        <SecondaryButton onClick={() => setConfirmingDelete(null)}>
+                            Batal
+                        </SecondaryButton>
+
+                        <DangerButton onClick={executeDelete}>
+                            Padam Pengguna
+                        </DangerButton>
+                    </div>
+                </div>
+            </Modal>
         </AuthenticatedLayout>
     );
 }
