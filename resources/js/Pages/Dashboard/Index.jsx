@@ -1,5 +1,5 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { useState } from 'react';
 import {
     Users,
@@ -115,6 +115,35 @@ export default function Dashboard({
         danger: '#ef4444'
     };
 
+    const handleFilter = () => {
+        router.get(route('dashboard'), {
+            negeri_id: filters.negeri,
+            bandar_id: filters.bandar,
+            kadun_id: filters.kadun,
+            mpkk_id: filters.mpkk,
+            tarikh_dari: filters.tarikhDari,
+            tarikh_hingga: filters.tarikhHingga
+        }, {
+            preserveState: true,
+            preserveScroll: true
+        });
+    };
+
+    const handleReset = () => {
+        setFilters({
+            negeri: '',
+            bandar: '',
+            kadun: '',
+            mpkk: '',
+            tarikhDari: '',
+            tarikhHingga: ''
+        });
+        router.get(route('dashboard'), {}, {
+            preserveState: true,
+            preserveScroll: true
+        });
+    };
+
     return (
         <AuthenticatedLayout>
             <Head title="Dashboard" />
@@ -213,19 +242,13 @@ export default function Dashboard({
                         </div>
                         <div className="flex items-center justify-end space-x-3 mt-4">
                             <button
-                                onClick={() => setFilters({
-                                    negeri: '',
-                                    bandar: '',
-                                    kadun: '',
-                                    mpkk: '',
-                                    tarikhDari: '',
-                                    tarikhHingga: ''
-                                })}
+                                onClick={handleReset}
                                 className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
                             >
                                 Set Semula
                             </button>
                             <button
+                                onClick={handleFilter}
                                 className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors"
                             >
                                 Tapis

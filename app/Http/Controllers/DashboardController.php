@@ -29,8 +29,15 @@ class DashboardController extends Controller
         $negeriId = $request->input('negeri_id');
         $bandarId = $request->input('bandar_id');
         $kadunId = $request->input('kadun_id');
+        $mpkkId = $request->input('mpkk_id');
         $tarikhDari = $request->input('tarikh_dari');
         $tarikhHingga = $request->input('tarikh_hingga');
+
+        // Convert IDs to names (since database stores names as strings)
+        $negeriNama = $negeriId ? Negeri::find($negeriId)?->nama : null;
+        $bandarNama = $bandarId ? Bandar::find($bandarId)?->nama : null;
+        $kadunNama = $kadunId ? Kadun::find($kadunId)?->nama : null;
+        $mpkkNama = $mpkkId ? Mpkk::find($mpkkId)?->nama : null;
 
         // Base queries
         $pengundiQuery = DataPengundi::query();
@@ -39,31 +46,31 @@ class DashboardController extends Controller
         // Apply territory filtering for Admin and User (Super Admin sees all)
         if (!$user->isSuperAdmin()) {
             if ($user->negeri_id) {
-                $pengundiQuery->where('negeri', $user->negeri_id);
-                $culaanQuery->where('negeri', $user->negeri_id);
+                $pengundiQuery->where('negeri', $user->negeri->nama ?? '');
+                $culaanQuery->where('negeri', $user->negeri->nama ?? '');
             }
             if ($user->bandar_id) {
-                $pengundiQuery->where('bandar', $user->bandar_id);
-                $culaanQuery->where('bandar', $user->bandar_id);
+                $pengundiQuery->where('bandar', $user->bandar->nama ?? '');
+                $culaanQuery->where('bandar', $user->bandar->nama ?? '');
             }
             if ($user->kadun_id) {
-                $pengundiQuery->where('kadun', $user->kadun_id);
-                $culaanQuery->where('kadun', $user->kadun_id);
+                $pengundiQuery->where('kadun', $user->kadun->nama ?? '');
+                $culaanQuery->where('kadun', $user->kadun->nama ?? '');
             }
         }
 
         // Apply additional filters from request
-        if ($negeriId) {
-            $pengundiQuery->where('negeri', $negeriId);
-            $culaanQuery->where('negeri', $negeriId);
+        if ($negeriNama) {
+            $pengundiQuery->where('negeri', $negeriNama);
+            $culaanQuery->where('negeri', $negeriNama);
         }
-        if ($bandarId) {
-            $pengundiQuery->where('bandar', $bandarId);
-            $culaanQuery->where('bandar', $bandarId);
+        if ($bandarNama) {
+            $pengundiQuery->where('bandar', $bandarNama);
+            $culaanQuery->where('bandar', $bandarNama);
         }
-        if ($kadunId) {
-            $pengundiQuery->where('kadun', $kadunId);
-            $culaanQuery->where('kadun', $kadunId);
+        if ($kadunNama) {
+            $pengundiQuery->where('kadun', $kadunNama);
+            $culaanQuery->where('kadun', $kadunNama);
         }
         if ($tarikhDari) {
             $pengundiQuery->whereDate('created_at', '>=', $tarikhDari);
