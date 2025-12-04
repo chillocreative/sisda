@@ -8,8 +8,10 @@ deployment:
     - composer install --no-dev --optimize-autoloader --no-interaction
     - php artisan storage:link --force
     - php artisan migrate --force
-    - npm install --production
+    - npm ci
     - npm run build
+    - rm -rf node_modules
+    - npm install --production --no-optional
     - php artisan optimize:clear
     - php artisan config:cache
     - php artisan route:cache
