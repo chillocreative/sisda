@@ -1,0 +1,35 @@
+# CRITICAL FIX: Broken Images on Production
+
+If images are still broken even after uploading new ones, the **Symbolic Link** on your server is missing or broken.
+
+## The Problem
+Laravel stores files in `storage/app/public`, but the browser looks for them in `public/storage`. A "symbolic link" connects these two folders. If this link is missing, the browser cannot see the files.
+
+## The Solution (Run these commands)
+
+1.  **Login to cPanel**
+2.  **Open "Terminal"** (Search for "Terminal" in the cPanel dashboard)
+3.  **Run the following commands exactly:**
+
+```bash
+# 1. Go to your project folder
+cd /home/chilloc1/sistemdatapengundi.com/
+
+# 2. Delete the existing (broken) link if it exists
+rm public/storage
+
+# 3. Create a fresh symbolic link
+php artisan storage:link
+```
+
+### Expected Output
+You should see: `The [public/storage] link has been connected to [storage/app/public].`
+
+## Verification
+1.  Go to your website and refresh the page.
+2.  Upload a NEW image.
+3.  It should now appear correctly.
+
+## Note on Old Images
+This fix will make **new** uploads work immediately.
+For **old** images (uploaded locally), you still need to manually upload them via File Manager as described in `TROUBLESHOOTING_IMAGES.txt`.
