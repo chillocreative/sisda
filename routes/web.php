@@ -21,6 +21,32 @@ Route::get('/dashboard/search-ic', [\App\Http\Controllers\DashboardController::c
     ->name('dashboard.search-ic');
 
 
+// DEBUG: Check pending count
+Route::get('/debug-pending-count', function () {
+    $user = auth()->user();
+    if (!$user) {
+        return response()->json(['error' => 'Not authenticated']);
+    }
+    
+    $query = \App\Models\User::pending();
+    if ($user->isAdmin()) {
+        $query->where('bandar_id', $user->bandar_id);
+    }
+    $count = $query->count();
+    $pendingUsers = $query->get(['id', 'name', 'bandar_id', 'status']);
+    
+    return response()->json([
+        'user_id' => $user->id,
+        'user_name' => $user->name,
+        'user_role' => $user->role,
+        'user_bandar_id' => $user->bandar_id,
+        'is_admin' => $user->isAdmin(),
+        'is_super_admin' => $user->isSuperAdmin(),
+        'pending_count' => $count,
+        'pending_users' => $pendingUsers
+    ]);
+})->middleware('auth');
+
 // Pending approval page (accessible without auth)
 Route::get('/pending-approval', function () {
     return Inertia::render('Auth/PendingApproval');
