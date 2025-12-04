@@ -636,6 +636,11 @@ export default function Edit({
                                                 src={previewUrl}
                                                 alt="Preview Kad Pengenalan"
                                                 className="w-full h-full object-contain"
+                                                onError={(e) => {
+                                                    e.target.onerror = null;
+                                                    e.target.src = 'https://placehold.co/600x400?text=Imej+Tidak+Dijumpai';
+                                                    e.target.className = "w-full h-full object-contain opacity-50";
+                                                }}
                                             />
                                             {isUploading && (
                                                 <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center">

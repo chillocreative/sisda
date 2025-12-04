@@ -2,6 +2,7 @@
 
 ## Problem 1: Missing Images (404 Error)
 **Error:** `Failed to load resource: the server responded with a status of 404` for files like `b5dL902....jpg`.
+**Symptom:** Broken image icon in "Dokumen & Nota" section (Preview Kad Pengenalan).
 
 ### Cause
 Uploaded files (like Kad Pengenalan images) are stored in `storage/app/public`. These files are **NOT** tracked by Git (because of `.gitignore`), so they are **NOT** automatically deployed to the production server when you push code.
@@ -46,11 +47,16 @@ After uploading, check if the symbolic link exists:
 **Error:** `Uncaught (in promise) Error: A listener indicated an asynchronous response...`
 
 ### Cause
-This is usually caused by **Browser Extensions** (like AdBlock, LastPass, or Grammarly) interfering with the page load, especially when a resource (like the image above) fails to load (404).
+This is a side effect of the 404 error. Browser extensions (like AdBlock, LastPass, etc.) often crash or disconnect when a network request fails (like the missing image).
 
 ### Solution
 1. **Fix the 404 error first** (follow steps above).
-2. If the error persists, it is likely harmless and only visible in the console.
-3. To confirm it's an extension:
-   - Open the page in **Incognito/Private Mode** (where extensions are disabled).
-   - If the error disappears, it confirms an extension is the cause.
+2. Once the image loads correctly, this error should disappear.
+3. If it persists, it is harmless and only affects your local browser session (due to your installed extensions). It does not affect other users.
+
+---
+
+## Code Update (Fix Implemented)
+We have updated the code to handle missing images gracefully. Instead of a broken icon, it will now show a placeholder image with the text "Imej Tidak Dijumpai" if the file is missing.
+
+**File Modified:** `resources/js/Pages/Reports/HasilCulaan/Edit.jsx`
