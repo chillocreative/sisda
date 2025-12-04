@@ -1,0 +1,56 @@
+# Troubleshooting: Missing Images & Production Errors
+
+## Problem 1: Missing Images (404 Error)
+**Error:** `Failed to load resource: the server responded with a status of 404` for files like `b5dL902....jpg`.
+
+### Cause
+Uploaded files (like Kad Pengenalan images) are stored in `storage/app/public`. These files are **NOT** tracked by Git (because of `.gitignore`), so they are **NOT** automatically deployed to the production server when you push code.
+
+### Solution
+You must manually transfer the uploaded files from your local computer to the production server.
+
+#### Option A: Using cPanel File Manager (Easiest)
+1. **On your local computer:**
+   - Go to your project folder: `d:\laragon\www\SISDA\storage\app\public`
+   - Select all files/folders inside this directory.
+   - Compress them into a ZIP file (e.g., `uploads.zip`).
+
+2. **On cPanel:**
+   - Go to **File Manager**.
+   - Navigate to your project's storage directory: `/home/chilloc1/sistemdatapengundi.com/storage/app/public/`
+   - Click **Upload** and upload your `uploads.zip`.
+   - Right-click `uploads.zip` and select **Extract**.
+   - Ensure the files are extracted directly into `public` (not a subfolder).
+
+#### Option B: Using FTP (FileZilla)
+1. Connect to your server using FTP.
+2. Navigate to `/home/chilloc1/sistemdatapengundi.com/storage/app/public/` on the remote site.
+3. Navigate to `d:\laragon\www\SISDA\storage\app\public\` on your local site.
+4. Drag and drop all files/folders to upload them.
+
+### Verification
+After uploading, check if the symbolic link exists:
+1. In cPanel Terminal, run:
+   ```bash
+   ls -la /home/chilloc1/sistemdatapengundi.com/public/storage
+   ```
+2. It should point to `../storage/app/public`. If not, run:
+   ```bash
+   cd /home/chilloc1/sistemdatapengundi.com/
+   php artisan storage:link --force
+   ```
+
+---
+
+## Problem 2: "Message channel closed" Error
+**Error:** `Uncaught (in promise) Error: A listener indicated an asynchronous response...`
+
+### Cause
+This is usually caused by **Browser Extensions** (like AdBlock, LastPass, or Grammarly) interfering with the page load, especially when a resource (like the image above) fails to load (404).
+
+### Solution
+1. **Fix the 404 error first** (follow steps above).
+2. If the error persists, it is likely harmless and only visible in the console.
+3. To confirm it's an extension:
+   - Open the page in **Incognito/Private Mode** (where extensions are disabled).
+   - If the error disappears, it confirms an extension is the cause.
