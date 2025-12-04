@@ -240,8 +240,9 @@ export default function AuthenticatedLayout({ children }) {
                                             <span>{item.name}</span>
                                         </div>
                                         {item.name === 'Kelulusan Pengguna' && pendingApprovalsCount > 0 && (
-                                            <div className="relative">
-                                                <Bell className="h-3 w-3 text-red-800" fill="#991b1b" />
+                                            <div className="flex items-center justify-center bg-red-100 text-red-600 rounded-full px-2 py-0.5 ml-auto">
+                                                <Bell className="h-4 w-4 mr-1" />
+                                                <span className="text-xs font-bold">{pendingApprovalsCount}</span>
                                             </div>
                                         )}
                                     </Link>

@@ -34,14 +34,14 @@ class HandleInertiaRequests extends Middleware
 
         // Calculate pending approvals count for Super Admin and Admin
         if ($user && ($user->isSuperAdmin() || $user->isAdmin())) {
-            $query = \App\Models\User::where('status', 'pending');
+            $query = \App\Models\User::pending();
             
             // Admin can only see pending users in their Parlimen (Bandar)
             if ($user->isAdmin()) {
                 $query->where('bandar_id', $user->bandar_id);
             }
             
-            $pendingApprovalsCount = $query->count();
+            $pendingApprovalsCount = (int) $query->count();
         }
 
         return [
