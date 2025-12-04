@@ -36,7 +36,12 @@ export default function AuthenticatedLayout({ children }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [openDropdown, setOpenDropdown] = useState(null); // Track which dropdown is open
 
+    console.log('=== SISDA Layout v2.0 ===');
+    console.log('User:', user);
     console.log('Pending Approvals Count:', pendingApprovalsCount);
+    console.log('Type of count:', typeof pendingApprovalsCount);
+    console.log('Count > 0?', pendingApprovalsCount > 0);
+
 
     const masterDataSubmenu = [
         ...(user.role === 'super_admin' ? [{ name: 'Negeri', href: route('master-data.negeri.index'), icon: MapPin }] : []),
