@@ -556,6 +556,11 @@ export default function Index({ hasilCulaan, filters, currentUserId }) {
                             src={viewingImage}
                             alt="Kad Pengenalan"
                             className="max-w-full max-h-[75vh] object-contain rounded"
+                            onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = 'https://placehold.co/600x400?text=Imej+Tidak+Dijumpai';
+                                e.target.className = "max-w-full max-h-[75vh] object-contain rounded opacity-50";
+                            }}
                         />
                     </div>
                 </div>
