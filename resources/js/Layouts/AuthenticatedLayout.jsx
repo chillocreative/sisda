@@ -28,7 +28,11 @@ import {
     UserCircle,
     Map,
     Phone,
-    Bell
+    Bell,
+    Brain,
+    Zap,
+    Play,
+    List
 } from 'lucide-react';
 
 export default function AuthenticatedLayout({ children }) {
@@ -61,6 +65,18 @@ export default function AuthenticatedLayout({ children }) {
     const userLaporanSubmenu = [
         { name: 'Hasil Culaan', href: route('reports.hasil-culaan.index'), icon: ClipboardList },
         { name: 'Data Pengundi', href: route('reports.data-pengundi.index'), icon: UserCheck },
+    ];
+
+    const callCenterSubmenu = [
+        ...(user.role === 'super_admin' || user.role === 'admin' ? [
+            { name: 'Dashboard', href: route('call-center.analytics.index'), icon: LayoutDashboard },
+            { name: 'Skrip Panggilan', href: route('call-center.scripts.index'), icon: FileText },
+        ] : []),
+        { name: 'Dashboard Ejen', href: route('call-center.agent.index'), icon: UserCheck },
+        ...(user.role === 'super_admin' || user.role === 'admin' ? [
+            { name: 'Analitik AI', href: route('call-center.analytics.ai'), icon: Brain },
+        ] : []),
+        { name: 'Indeks Panggilan', href: route('call-center.history.index'), icon: List },
     ];
 
     const navigation = [
@@ -112,9 +128,16 @@ export default function AuthenticatedLayout({ children }) {
                 submenu: userLaporanSubmenu
             }
         ] : []),
-        // Call Center (Super Admin only)
-        ...(user.role === 'super_admin' ? [
-            { name: 'Call Center', href: route('call-center.index'), icon: Phone, current: route().current('call-center.*') }
+        // Call Center (Super Admin, Admin, and User)
+        ...(user.role === 'super_admin' || user.role === 'admin' || user.role === 'user' ? [
+            {
+                name: 'Pusat Panggilan',
+                href: route('call-center.index'),
+                icon: Phone,
+                current: route().current('call-center.*'),
+                hasSubmenu: true,
+                submenu: callCenterSubmenu
+            }
         ] : []),
         { name: 'Profil', href: route('profile.edit'), icon: User, current: route().current('profile.edit') },
     ];
@@ -132,6 +155,8 @@ export default function AuthenticatedLayout({ children }) {
             setOpenDropdown('Data Induk');
         } else if (route().current('reports.*')) {
             setOpenDropdown('Laporan');
+        } else if (route().current('call-center.*')) {
+            setOpenDropdown('Pusat Panggilan');
         }
     }, [route().current()]);
 
@@ -197,17 +222,6 @@ export default function AuthenticatedLayout({ children }) {
                                         </button>
                                         {openDropdown === item.name && (
                                             <div className="mt-1 ml-4 space-y-1">
-                                                <Link
-                                                    href={item.href}
-                                                    className="flex items-center space-x-3 px-4 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-100 transition-colors"
-                                                >
-                                                    {item.name === 'Data Induk' ? (
-                                                        <Database className="h-4 w-4" />
-                                                    ) : (
-                                                        <FileText className="h-4 w-4" />
-                                                    )}
-                                                    <span>{item.name === 'Data Induk' ? 'Semua Data' : 'Semua Laporan'}</span>
-                                                </Link>
                                                 {item.submenu.map((subitem) => (
                                                     <Link
                                                         key={subitem.name}

@@ -73,6 +73,11 @@ Route::middleware('auth')->group(function () {
     
     // Call Center (Super Admin only)
     Route::get('/call-center', [\App\Http\Controllers\CallCenterController::class, 'index'])->name('call-center.index');
+    Route::get('/call-center/scripts', [\App\Http\Controllers\CallCenterController::class, 'scripts'])->name('call-center.scripts.index');
+    Route::get('/call-center/agent', [\App\Http\Controllers\CallCenterController::class, 'agent'])->name('call-center.agent.index');
+    Route::get('/call-center/analytics', [\App\Http\Controllers\CallCenterController::class, 'analytics'])->name('call-center.analytics.index');
+    Route::get('/call-center/analytics/ai', [\App\Http\Controllers\CallCenterController::class, 'aiAnalytics'])->name('call-center.analytics.ai');
+    Route::get('/call-center/history', [\App\Http\Controllers\CallCenterController::class, 'history'])->name('call-center.history.index');
     
     // Master Data
     Route::get('/master-data', [\App\Http\Controllers\MasterDataController::class, 'index'])->name('master-data.index');
