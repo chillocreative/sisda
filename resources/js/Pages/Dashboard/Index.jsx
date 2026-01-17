@@ -1,6 +1,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, router } from '@inertiajs/react';
 import { useState } from 'react';
+import useDragScroll from '@/Hooks/useDragScroll';
 import {
     Users,
     ClipboardList,
@@ -77,6 +78,8 @@ export default function Dashboard({
     mpkkList = []
 }) {
     const [showFilters, setShowFilters] = useState(false);
+    const scrollRef1 = useDragScroll();
+    const scrollRef2 = useDragScroll();
     const [filters, setFilters] = useState({
         negeri: '',
         bandar: '',
@@ -424,7 +427,7 @@ export default function Dashboard({
                         <div className="p-6 border-b border-slate-200">
                             <h3 className="text-lg font-semibold text-slate-900">Kawasan Paling Aktif</h3>
                         </div>
-                        <div className="overflow-x-auto">
+                        <div ref={scrollRef1} className="overflow-x-auto">
                             <table className="w-full">
                                 <thead className="bg-slate-50">
                                     <tr>
@@ -457,7 +460,7 @@ export default function Dashboard({
                         <div className="p-6 border-b border-slate-200">
                             <h3 className="text-lg font-semibold text-slate-900">Petugas Teraktif</h3>
                         </div>
-                        <div className="overflow-x-auto">
+                        <div ref={scrollRef2} className="overflow-x-auto">
                             <table className="w-full">
                                 <thead className="bg-slate-50">
                                     <tr>

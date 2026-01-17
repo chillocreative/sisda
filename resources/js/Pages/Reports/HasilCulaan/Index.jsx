@@ -3,6 +3,7 @@ import Modal from '@/Components/Modal';
 import SecondaryButton from '@/Components/SecondaryButton';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { useState } from 'react';
+import useDragScroll from '@/Hooks/useDragScroll';
 import {
     Search,
     Calendar,
@@ -24,6 +25,7 @@ export default function Index({ hasilCulaan, filters, currentUserId }) {
     const [showFilters, setShowFilters] = useState(false);
     const [viewingItem, setViewingItem] = useState(null);
     const [viewingImage, setViewingImage] = useState(null);
+    const scrollRef = useDragScroll();
 
     // Helper to check if user can modify a record
     const canModifyRecord = (item) => {
@@ -218,7 +220,7 @@ export default function Index({ hasilCulaan, filters, currentUserId }) {
 
                 {/* Data Table */}
                 <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                    <div className="overflow-x-auto">
+                    <div ref={scrollRef} className="overflow-x-auto">
                         <table className="w-full">
                             <thead className="bg-slate-50 border-b border-slate-200">
                                 <tr>
