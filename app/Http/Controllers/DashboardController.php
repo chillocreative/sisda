@@ -85,15 +85,24 @@ class DashboardController extends Controller
         $totalPengundi = $pengundiQuery->count();
         $totalCulaan = $culaanQuery->count();
 
-        // Political tendency percentages (using string column)
-        $totalWithTendency = DataPengundi::whereNotNull('kecenderungan_politik')
+        // Create filtered query for political tendency
+        $tendencyQuery = clone $pengundiQuery;
+        $totalWithTendency = $tendencyQuery->whereNotNull('kecenderungan_politik')
             ->where('kecenderungan_politik', '!=', '')
             ->count();
         
-        $phCount = DataPengundi::where('kecenderungan_politik', 'like', '%PH%')->count();
-        $bnCount = DataPengundi::where('kecenderungan_politik', 'like', '%BN%')->count();
-        $pnCount = DataPengundi::where('kecenderungan_politik', 'like', '%PN%')->count();
-        $tidakPastiCount = DataPengundi::where('kecenderungan_politik', 'like', '%TIDAK PASTI%')->count();
+        // Political tendency percentages (using filtered queries)
+        $phQuery = clone $pengundiQuery;
+        $phCount = $phQuery->where('kecenderungan_politik', 'like', '%PH%')->count();
+        
+        $bnQuery = clone $pengundiQuery;
+        $bnCount = $bnQuery->where('kecenderungan_politik', 'like', '%BN%')->count();
+        
+        $pnQuery = clone $pengundiQuery;
+        $pnCount = $pnQuery->where('kecenderungan_politik', 'like', '%PN%')->count();
+        
+        $tidakPastiQuery = clone $pengundiQuery;
+        $tidakPastiCount = $tidakPastiQuery->where('kecenderungan_politik', 'like', '%TIDAK PASTI%')->count();
 
         $sokongan = [
             'ph' => $totalWithTendency > 0 ? round(($phCount / $totalWithTendency) * 100) : 0,
@@ -102,8 +111,9 @@ class DashboardController extends Controller
             'tidakPasti' => $totalWithTendency > 0 ? round(($tidakPastiCount / $totalWithTendency) * 100) : 0,
         ];
 
-        // Bangsa distribution
-        $bangsaStats = DataPengundi::select('bangsa', DB::raw('count(*) as jumlah'))
+        // Bangsa distribution (using filtered query)
+        $bangsaQuery = clone $pengundiQuery;
+        $bangsaStats = $bangsaQuery->select('bangsa', DB::raw('count(*) as jumlah'))
             ->whereNotNull('bangsa')
             ->groupBy('bangsa')
             ->get()
@@ -117,50 +127,85 @@ class DashboardController extends Controller
             'lain' => $bangsaStats['Lain-lain'] ?? 0,
         ];
 
-        // Age distribution
+        // Age distribution (using filtered query)
         $umurDistribution = [
-            ['range' => '18-25', 'jumlah' => DataPengundi::whereBetween('umur', [18, 25])->count()],
-            ['range' => '26-35', 'jumlah' => DataPengundi::whereBetween('umur', [26, 35])->count()],
-            ['range' => '36-45', 'jumlah' => DataPengundi::whereBetween('umur', [36, 45])->count()],
-            ['range' => '46-55', 'jumlah' => DataPengundi::whereBetween('umur', [46, 55])->count()],
-            ['range' => '56-65', 'jumlah' => DataPengundi::whereBetween('umur', [56, 65])->count()],
-            ['range' => '65+', 'jumlah' => DataPengundi::where('umur', '>', 65)->count()],
+            ['range' => '18-25', 'jumlah' => (clone $pengundiQuery)->whereBetween('umur', [18, 25])->count()],
+            ['range' => '26-35', 'jumlah' => (clone $pengundiQuery)->whereBetween('umur', [26, 35])->count()],
+            ['range' => '36-45', 'jumlah' => (clone $pengundiQuery)->whereBetween('umur', [36, 45])->count()],
+            ['range' => '46-55', 'jumlah' => (clone $pengundiQuery)->whereBetween('umur', [46, 55])->count()],
+            ['range' => '56-65', 'jumlah' => (clone $pengundiQuery)->whereBetween('umur', [56, 65])->count()],
+            ['range' => '65+', 'jumlah' => (clone $pengundiQuery)->where('umur', '>', 65)->count()],
         ];
 
-        // Monthly trend (last 6 months)
+        // Monthly trend (last 6 months) - using filtered query
         $trendBulanan = [];
         for ($i = 5; $i >= 0; $i--) {
             $date = now()->subMonths($i);
+            $monthQuery = clone $pengundiQuery;
             $trendBulanan[] = [
                 'bulan' => $date->format('M'),
-                'jumlah' => DataPengundi::whereYear('created_at', $date->year)
+                'jumlah' => $monthQuery->whereYear('created_at', $date->year)
                     ->whereMonth('created_at', $date->month)
                     ->count()
             ];
         }
 
-        // KADUN Statistics (instead of MPKK)
-        $mpkkStats = DataPengundi::select('kadun', DB::raw('count(*) as total'))
+        // KADUN Statistics (using filtered queries)
+        $kadunStatsQuery = clone $pengundiQuery;
+        $mpkkStats = $kadunStatsQuery->select('kadun', DB::raw('count(*) as total'))
             ->whereNotNull('kadun')
             ->groupBy('kadun')
             ->orderBy('total', 'desc')
             ->take(5)
             ->get()
-            ->map(function($item) {
+            ->map(function($item) use ($negeriNama, $bandarNama, $kadunNama, $tarikhDari, $tarikhHingga, $user) {
                 $kadunName = $item->kadun;
                 $total = $item->total;
                 
-                $phCount = DataPengundi::where('kadun', $kadunName)
+                // Build filtered query for this KADUN
+                $kadunPengundiQuery = DataPengundi::where('kadun', $kadunName);
+                $kadunCulaanQuery = HasilCulaan::where('kadun', $kadunName);
+                
+                // Apply same filters as main query
+                if (!$user->isSuperAdmin()) {
+                    if ($user->negeri_id) {
+                        $kadunPengundiQuery->where('negeri', $user->negeri->nama ?? '');
+                        $kadunCulaanQuery->where('negeri', $user->negeri->nama ?? '');
+                    }
+                    if ($user->bandar_id) {
+                        $kadunPengundiQuery->where('bandar', $user->bandar->nama ?? '');
+                        $kadunCulaanQuery->where('bandar', $user->bandar->nama ?? '');
+                    }
+                }
+                
+                if ($negeriNama) {
+                    $kadunPengundiQuery->where('negeri', $negeriNama);
+                    $kadunCulaanQuery->where('negeri', $negeriNama);
+                }
+                if ($bandarNama) {
+                    $kadunPengundiQuery->where('bandar', $bandarNama);
+                    $kadunCulaanQuery->where('bandar', $bandarNama);
+                }
+                if ($tarikhDari) {
+                    $kadunPengundiQuery->whereDate('created_at', '>=', $tarikhDari);
+                    $kadunCulaanQuery->whereDate('created_at', '>=', $tarikhDari);
+                }
+                if ($tarikhHingga) {
+                    $kadunPengundiQuery->whereDate('created_at', '<=', $tarikhHingga);
+                    $kadunCulaanQuery->whereDate('created_at', '<=', $tarikhHingga);
+                }
+                
+                $phCount = (clone $kadunPengundiQuery)
                     ->where('kecenderungan_politik', 'like', '%PH%')
                     ->count();
-                $bnCount = DataPengundi::where('kadun', $kadunName)
+                $bnCount = (clone $kadunPengundiQuery)
                     ->where('kecenderungan_politik', 'like', '%BN%')
                     ->count();
-                $tidakPastiCount = DataPengundi::where('kadun', $kadunName)
+                $tidakPastiCount = (clone $kadunPengundiQuery)
                     ->where('kecenderungan_politik', 'like', '%TIDAK PASTI%')
                     ->count();
 
-                $culaanCount = HasilCulaan::where('kadun', $kadunName)->count();
+                $culaanCount = $kadunCulaanQuery->count();
 
                 return [
                     'mpkk' => $kadunName,
@@ -173,27 +218,105 @@ class DashboardController extends Controller
             })
             ->toArray();
 
-        // Top Petugas
+
+        // Top Petugas (using filtered queries)
+        // Build filter conditions for subqueries
+        $pengundiFilterConditions = '';
+        $culaanFilterConditions = '';
+        $filterParams = [];
+        
+        if (!$user->isSuperAdmin()) {
+            if ($user->negeri_id) {
+                $pengundiFilterConditions .= " AND negeri = ?";
+                $culaanFilterConditions .= " AND negeri = ?";
+                $filterParams[] = $user->negeri->nama ?? '';
+                $filterParams[] = $user->negeri->nama ?? '';
+            }
+            if ($user->bandar_id) {
+                $pengundiFilterConditions .= " AND bandar = ?";
+                $culaanFilterConditions .= " AND bandar = ?";
+                $filterParams[] = $user->bandar->nama ?? '';
+                $filterParams[] = $user->bandar->nama ?? '';
+            }
+            if ($user->kadun_id) {
+                $pengundiFilterConditions .= " AND kadun = ?";
+                $culaanFilterConditions .= " AND kadun = ?";
+                $filterParams[] = $user->kadun->nama ?? '';
+                $filterParams[] = $user->kadun->nama ?? '';
+            }
+        }
+        
+        if ($negeriNama) {
+            $pengundiFilterConditions .= " AND negeri = ?";
+            $culaanFilterConditions .= " AND negeri = ?";
+            $filterParams[] = $negeriNama;
+            $filterParams[] = $negeriNama;
+        }
+        if ($bandarNama) {
+            $pengundiFilterConditions .= " AND bandar = ?";
+            $culaanFilterConditions .= " AND bandar = ?";
+            $filterParams[] = $bandarNama;
+            $filterParams[] = $bandarNama;
+        }
+        if ($kadunNama) {
+            $pengundiFilterConditions .= " AND kadun = ?";
+            $culaanFilterConditions .= " AND kadun = ?";
+            $filterParams[] = $kadunNama;
+            $filterParams[] = $kadunNama;
+        }
+        if ($tarikhDari) {
+            $pengundiFilterConditions .= " AND DATE(created_at) >= ?";
+            $culaanFilterConditions .= " AND DATE(created_at) >= ?";
+            $filterParams[] = $tarikhDari;
+            $filterParams[] = $tarikhDari;
+        }
+        if ($tarikhHingga) {
+            $pengundiFilterConditions .= " AND DATE(created_at) <= ?";
+            $culaanFilterConditions .= " AND DATE(created_at) <= ?";
+            $filterParams[] = $tarikhHingga;
+            $filterParams[] = $tarikhHingga;
+        }
+        
         $petugasStats = User::select('users.*')
-            ->selectRaw('(SELECT COUNT(*) FROM data_pengundi WHERE submitted_by = users.id) as pengundi_count')
-            ->selectRaw('(SELECT COUNT(*) FROM hasil_culaan WHERE submitted_by = users.id) as culaan_count')
+            ->selectRaw("(SELECT COUNT(*) FROM data_pengundi WHERE submitted_by = users.id {$pengundiFilterConditions}) as pengundi_count", $filterParams)
+            ->selectRaw("(SELECT COUNT(*) FROM hasil_culaan WHERE submitted_by = users.id {$culaanFilterConditions}) as culaan_count")
             ->havingRaw('(pengundi_count + culaan_count) > 0')
             ->orderByRaw('(pengundi_count + culaan_count) DESC')
             ->take(5)
             ->get()
-            ->map(function($user) {
-                $latestRecord = DataPengundi::where('submitted_by', $user->id)
-                    ->latest()
-                    ->first();
+            ->map(function($petugasUser) use ($negeriNama, $bandarNama, $kadunNama, $tarikhDari, $tarikhHingga, $user) {
+                // Get latest record with same filters
+                $latestRecordQuery = DataPengundi::where('submitted_by', $petugasUser->id);
+                
+                if (!$user->isSuperAdmin()) {
+                    if ($user->negeri_id) {
+                        $latestRecordQuery->where('negeri', $user->negeri->nama ?? '');
+                    }
+                    if ($user->bandar_id) {
+                        $latestRecordQuery->where('bandar', $user->bandar->nama ?? '');
+                    }
+                    if ($user->kadun_id) {
+                        $latestRecordQuery->where('kadun', $user->kadun->nama ?? '');
+                    }
+                }
+                
+                if ($negeriNama) $latestRecordQuery->where('negeri', $negeriNama);
+                if ($bandarNama) $latestRecordQuery->where('bandar', $bandarNama);
+                if ($kadunNama) $latestRecordQuery->where('kadun', $kadunNama);
+                if ($tarikhDari) $latestRecordQuery->whereDate('created_at', '>=', $tarikhDari);
+                if ($tarikhHingga) $latestRecordQuery->whereDate('created_at', '<=', $tarikhHingga);
+                
+                $latestRecord = $latestRecordQuery->latest()->first();
 
                 return [
-                    'nama' => $user->name,
-                    'jumlah' => $user->pengundi_count + $user->culaan_count,
+                    'nama' => $petugasUser->name,
+                    'jumlah' => $petugasUser->pengundi_count + $petugasUser->culaan_count,
                     'kawasan' => $latestRecord ? $latestRecord->kadun : 'N/A',
                     'tarikh' => $latestRecord ? $latestRecord->created_at->format('Y-m-d') : 'N/A',
                 ];
             })
             ->toArray();
+
 
         // Get filter options
         $negeriList = Negeri::orderBy('nama')->get();
