@@ -23,47 +23,47 @@ export default function Index() {
     const features = [
         {
             icon: PhoneCall,
-            title: 'Automated Call Handling',
-            description: 'Intelligent call routing and automated dialing system for efficient voter outreach',
+            title: 'Pengurusan Panggilan Automatik',
+            description: 'Sistem penghalaan panggilan pintar dan pendailan automatik untuk jangkauan pengundi yang cekap',
             color: 'blue'
         },
         {
             icon: MessageSquare,
-            title: 'Voter Interaction Logging',
-            description: 'Comprehensive recording and tracking of all voter communications and responses',
+            title: 'Rekod Interaksi Pengundi',
+            description: 'Rakaman dan penjejakan menyeluruh semua komunikasi dan respons pengundi',
             color: 'emerald'
         },
         {
             icon: TrendingUp,
-            title: 'Sentiment & Issue Tracking',
-            description: 'Real-time analysis of voter sentiment and key political issues identification',
+            title: 'Penjejakan Sentimen & Isu',
+            description: 'Analisis masa nyata sentimen pengundi dan pengenalpastian isu politik utama',
             color: 'amber'
         },
         {
             icon: BarChart3,
-            title: 'Call Analytics & Reporting',
-            description: 'Detailed analytics dashboard with performance metrics and insights',
+            title: 'Analitik & Pelaporan Panggilan',
+            description: 'Papan pemuka analitik terperinci dengan metrik prestasi dan pandangan mendalam',
             color: 'purple'
         },
         {
             icon: Database,
-            title: 'Voter Database Integration',
-            description: 'Seamless integration with existing voter registration and demographic data',
+            title: 'Integrasi Pangkalan Data Pengundi',
+            description: 'Integrasi lancar dengan pendaftaran pengundi dan data demografi sedia ada',
             color: 'sky'
         },
         {
             icon: Headphones,
-            title: 'Agent Management',
-            description: 'Monitor agent performance, call quality, and productivity metrics',
+            title: 'Pengurusan Ejen',
+            description: 'Pantau prestasi ejen, kualiti panggilan, dan metrik produktiviti',
             color: 'rose'
         }
     ];
 
     const stats = [
-        { label: 'Total Calls', value: '---', icon: Phone, color: 'blue' },
-        { label: 'Active Agents', value: '---', icon: Users, color: 'emerald' },
-        { label: 'Avg Call Duration', value: '---', icon: Clock, color: 'amber' },
-        { label: 'Success Rate', value: '---', icon: CheckCircle2, color: 'purple' }
+        { label: 'Jumlah Panggilan', value: '---', icon: Phone, color: 'blue' },
+        { label: 'Ejen Aktif', value: '---', icon: Users, color: 'emerald' },
+        { label: 'Purata Tempoh Panggilan', value: '---', icon: Clock, color: 'amber' },
+        { label: 'Kadar Kejayaan', value: '---', icon: CheckCircle2, color: 'purple' }
     ];
 
     const getColorClasses = (color) => {
@@ -92,14 +92,14 @@ export default function Index() {
                                     <Phone className="h-8 w-8" />
                                 </div>
                                 <div>
-                                    <h1 className="text-3xl font-bold">Call Center</h1>
-                                    <p className="text-blue-100 text-sm">Political Communication & Analytics Module</p>
+                                    <h1 className="text-3xl font-bold">Pusat Panggilan</h1>
+                                    <p className="text-blue-100 text-sm">Modul Komunikasi & Analitik Politik</p>
                                 </div>
                             </div>
                         </div>
                         <div className="hidden md:flex items-center space-x-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
                             <div className="h-2 w-2 bg-amber-400 rounded-full animate-pulse"></div>
-                            <span className="text-sm font-medium">Under Development</span>
+                            <span className="text-sm font-medium">Dalam Pembangunan</span>
                         </div>
                     </div>
                 </div>
@@ -114,11 +114,11 @@ export default function Index() {
                         </div>
                         <div className="flex-1">
                             <h3 className="text-lg font-semibold text-amber-900 mb-2">
-                                Module Under Development
+                                Modul Dalam Pembangunan
                             </h3>
                             <p className="text-amber-800 leading-relaxed">
-                                We are currently developing a comprehensive Call Center system designed specifically for political organizations.
-                                This module will enable efficient voter outreach, sentiment analysis, and data-driven campaign strategies.
+                                Kami sedang membangunkan sistem Pusat Panggilan yang komprehensif yang direka khusus untuk organisasi politik.
+                                Modul ini akan membolehkan jangkauan pengundi yang cekap, analisis sentimen, dan strategi kempen berasaskan data.
                             </p>
                         </div>
                     </div>
@@ -144,8 +144,8 @@ export default function Index() {
                 {/* Features Grid */}
                 <div>
                     <div className="mb-6">
-                        <h2 className="text-xl font-bold text-slate-900 mb-2">Planned Features</h2>
-                        <p className="text-slate-600">Comprehensive tools for political communication and voter engagement</p>
+                        <h2 className="text-xl font-bold text-slate-900 mb-2">Ciri-ciri Dirancang</h2>
+                        <p className="text-slate-600">Alat komprehensif untuk komunikasi politik dan penglibatan pengundi</p>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -175,8 +175,8 @@ export default function Index() {
                             <Activity className="h-6 w-6 text-blue-600" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold text-slate-900 mb-2">System Capabilities</h2>
-                            <p className="text-slate-600">Advanced features for political campaign management</p>
+                            <h2 className="text-xl font-bold text-slate-900 mb-2">Keupayaan Sistem</h2>
+                            <p className="text-slate-600">Ciri-ciri canggih untuk pengurusan kempen politik</p>
                         </div>
                     </div>
 
@@ -185,22 +185,22 @@ export default function Index() {
                             <div className="flex items-start space-x-3">
                                 <PhoneOutgoing className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
                                 <div>
-                                    <h4 className="font-semibold text-slate-900 mb-1">Outbound Campaigns</h4>
-                                    <p className="text-sm text-slate-600">Automated dialing for voter surveys and campaign messaging</p>
+                                    <h4 className="font-semibold text-slate-900 mb-1">Kempen Keluar</h4>
+                                    <p className="text-sm text-slate-600">Pendailan automatik untuk tinjauan pengundi dan pemesejan kempen</p>
                                 </div>
                             </div>
                             <div className="flex items-start space-x-3">
                                 <PhoneIncoming className="h-5 w-5 text-emerald-600 mt-0.5 flex-shrink-0" />
                                 <div>
-                                    <h4 className="font-semibold text-slate-900 mb-1">Inbound Support</h4>
-                                    <p className="text-sm text-slate-600">Handle voter inquiries and feedback efficiently</p>
+                                    <h4 className="font-semibold text-slate-900 mb-1">Sokongan Masuk</h4>
+                                    <p className="text-sm text-slate-600">Kendalikan pertanyaan dan maklum balas pengundi dengan cekap</p>
                                 </div>
                             </div>
                             <div className="flex items-start space-x-3">
                                 <FileText className="h-5 w-5 text-purple-600 mt-0.5 flex-shrink-0" />
                                 <div>
-                                    <h4 className="font-semibold text-slate-900 mb-1">Call Scripting</h4>
-                                    <p className="text-sm text-slate-600">Dynamic scripts based on voter demographics and issues</p>
+                                    <h4 className="font-semibold text-slate-900 mb-1">Skrip Panggilan</h4>
+                                    <p className="text-sm text-slate-600">Skrip dinamik berdasarkan demografi pengundi dan isu</p>
                                 </div>
                             </div>
                         </div>
@@ -209,22 +209,22 @@ export default function Index() {
                             <div className="flex items-start space-x-3">
                                 <BarChart3 className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
                                 <div>
-                                    <h4 className="font-semibold text-slate-900 mb-1">Real-time Analytics</h4>
-                                    <p className="text-sm text-slate-600">Live dashboards with call metrics and performance indicators</p>
+                                    <h4 className="font-semibold text-slate-900 mb-1">Analitik Masa Nyata</h4>
+                                    <p className="text-sm text-slate-600">Papan pemuka langsung dengan metrik panggilan dan penunjuk prestasi</p>
                                 </div>
                             </div>
                             <div className="flex items-start space-x-3">
                                 <Database className="h-5 w-5 text-sky-600 mt-0.5 flex-shrink-0" />
                                 <div>
-                                    <h4 className="font-semibold text-slate-900 mb-1">Data Integration</h4>
-                                    <p className="text-sm text-slate-600">Seamless sync with voter registration and demographic databases</p>
+                                    <h4 className="font-semibold text-slate-900 mb-1">Integrasi Data</h4>
+                                    <p className="text-sm text-slate-600">Penyegerakan lancar dengan pendaftaran pengundi dan pangkalan data demografi</p>
                                 </div>
                             </div>
                             <div className="flex items-start space-x-3">
                                 <Zap className="h-5 w-5 text-rose-600 mt-0.5 flex-shrink-0" />
                                 <div>
-                                    <h4 className="font-semibold text-slate-900 mb-1">AI-Powered Insights</h4>
-                                    <p className="text-sm text-slate-600">Sentiment analysis and predictive voter behavior modeling</p>
+                                    <h4 className="font-semibold text-slate-900 mb-1">Pandangan Berkuasa AI</h4>
+                                    <p className="text-sm text-slate-600">Analisis sentimen dan pemodelan tingkah laku pengundi ramalan</p>
                                 </div>
                             </div>
                         </div>
@@ -235,11 +235,11 @@ export default function Index() {
                 <div className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl border border-slate-200 p-6 text-center">
                     <div className="inline-flex items-center justify-center space-x-2 mb-3">
                         <Clock className="h-5 w-5 text-slate-600" />
-                        <span className="text-lg font-semibold text-slate-900">Coming Soon</span>
+                        <span className="text-lg font-semibold text-slate-900">Akan Datang Tidak Lama Lagi</span>
                     </div>
                     <p className="text-slate-600 max-w-2xl mx-auto">
-                        Our development team is working diligently to bring you a state-of-the-art Call Center solution.
-                        Stay tuned for updates on the launch timeline.
+                        Pasukan pembangunan kami sedang bekerja keras untuk membawa anda penyelesaian Pusat Panggilan yang terkini.
+                        Nantikan kemas kini mengenai garis masa pelancaran.
                     </p>
                 </div>
             </div>
