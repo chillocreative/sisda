@@ -2,7 +2,6 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm } from '@inertiajs/react';
 import { ArrowLeft } from 'lucide-react';
 import SearchableSelect from '@/Components/SearchableSelect';
-import AsyncSearchableSelectWithCallback from '@/Components/AsyncSearchableSelectWithCallback';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
@@ -142,15 +141,35 @@ export default function Create({
         setData(field, value.toUpperCase());
     };
 
-    const handlePostcodeSelect = (postcodeData) => {
-        // Auto-populate Negeri, Bandar, and Parlimen
-        if (postcodeData) {
-            setData(prevData => ({
-                ...prevData,
-                poskod: postcodeData.postcode,
-                negeri: postcodeData.negeri_nama || '',
-                bandar: postcodeData.bandar_nama || '',
-            }));
+    useEffect(() => {
+        const fetchPostcodeDetails = async () => {
+            if (data.poskod.length === 5) {
+                try {
+                    const response = await axios.get(route('api.postcodes.search-details'), {
+                        params: { query: data.poskod }
+                    });
+
+                    if (response.data && response.data.length > 0) {
+                        const postcodeData = response.data[0];
+                        setData(prevData => ({
+                            ...prevData,
+                            negeri: postcodeData.negeri_nama || '',
+                            bandar: postcodeData.bandar_nama || '',
+                        }));
+                    }
+                } catch (error) {
+                    console.error('Error fetching postcode details:', error);
+                }
+            }
+        };
+
+        fetchPostcodeDetails();
+    }, [data.poskod]);
+
+    const handlePostcodeChange = (e) => {
+        const value = e.target.value.replace(/\D/g, '');
+        if (value.length <= 5) {
+            setData('poskod', value);
         }
     };
 
@@ -296,13 +315,14 @@ export default function Create({
                                     <label className="block text-sm font-medium text-slate-700 mb-1">
                                         Poskod <span className="text-rose-500">*</span>
                                     </label>
-                                    <AsyncSearchableSelectWithCallback
+                                    <input
+                                        type="text"
                                         value={data.poskod}
-                                        onChange={(val) => setData('poskod', val)}
-                                        onSelect={handlePostcodeSelect}
-                                        routeName="api.postcodes.search-details"
+                                        onChange={handlePostcodeChange}
                                         placeholder="00000"
-                                        displayField="postcode"
+                                        maxLength="5"
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                        required
                                     />
                                     {errors.poskod && <p className="text-sm text-rose-600 mt-1">{errors.poskod}</p>}
                                 </div>
