@@ -416,12 +416,17 @@ export default function Create({
                                     <label className="block text-sm font-medium text-slate-700 mb-1">
                                         Negeri <span className="text-rose-500">*</span>
                                     </label>
-                                    <SearchableSelect
+                                    <select
                                         value={data.negeri}
-                                        onChange={(val) => setData('negeri', val)}
-                                        options={negeriList}
-                                        placeholder="Pilih Negeri"
-                                    />
+                                        onChange={(e) => setData('negeri', e.target.value)}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                        required
+                                    >
+                                        <option value="">Pilih Negeri</option>
+                                        {negeriList.map((item) => (
+                                            <option key={item.id} value={item.nama}>{item.nama}</option>
+                                        ))}
+                                    </select>
                                     {errors.negeri && <p className="text-sm text-rose-600 mt-1">{errors.negeri}</p>}
                                 </div>
 
@@ -443,12 +448,17 @@ export default function Create({
                                     <label className="block text-sm font-medium text-slate-700 mb-1">
                                         Parlimen <span className="text-rose-500">*</span>
                                     </label>
-                                    <SearchableSelect
+                                    <select
                                         value={data.parlimen}
-                                        onChange={(val) => setData('parlimen', val)}
-                                        options={parlimenOptions}
-                                        placeholder={loadingParlimen ? "Memuat..." : "Pilih Parlimen"}
-                                    />
+                                        onChange={(e) => setData('parlimen', e.target.value)}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                        required
+                                    >
+                                        <option value="">{loadingParlimen ? "Memuat..." : "Pilih Parlimen"}</option>
+                                        {parlimenOptions.map((item) => (
+                                            <option key={item.id} value={item.nama}>{item.nama}</option>
+                                        ))}
+                                    </select>
                                     {errors.parlimen && <p className="text-sm text-rose-600 mt-1">{errors.parlimen}</p>}
                                 </div>
 
@@ -456,12 +466,17 @@ export default function Create({
                                     <label className="block text-sm font-medium text-slate-700 mb-1">
                                         KADUN <span className="text-rose-500">*</span>
                                     </label>
-                                    <SearchableSelect
+                                    <select
                                         value={data.kadun}
-                                        onChange={(val) => setData('kadun', val)}
-                                        options={kadunOptions}
-                                        placeholder={loadingKadun ? "Memuat..." : "Pilih KADUN"}
-                                    />
+                                        onChange={(e) => setData('kadun', e.target.value)}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                        required
+                                    >
+                                        <option value="">{loadingKadun ? "Memuat..." : "Pilih KADUN"}</option>
+                                        {kadunOptions.map((item) => (
+                                            <option key={item.id} value={item.nama}>{item.nama}</option>
+                                        ))}
+                                    </select>
                                     {errors.kadun && <p className="text-sm text-rose-600 mt-1">{errors.kadun}</p>}
                                 </div>
 
@@ -469,12 +484,17 @@ export default function Create({
                                     <label className="block text-sm font-medium text-slate-700 mb-1">
                                         Daerah Mengundi <span className="text-rose-500">*</span>
                                     </label>
-                                    <SearchableSelect
+                                    <select
                                         value={data.daerah_mengundi}
-                                        onChange={(val) => setData('daerah_mengundi', val)}
-                                        options={daerahMengundiOptions}
-                                        placeholder={loadingDaerahMengundi ? "Memuat..." : "Pilih Daerah Mengundi"}
-                                    />
+                                        onChange={(e) => setData('daerah_mengundi', e.target.value)}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                        required
+                                    >
+                                        <option value="">{loadingDaerahMengundi ? "Memuat..." : "Pilih Daerah Mengundi"}</option>
+                                        {daerahMengundiOptions.map((item) => (
+                                            <option key={item.id} value={item.nama}>{item.nama}</option>
+                                        ))}
+                                    </select>
                                     {errors.daerah_mengundi && <p className="text-sm text-rose-600 mt-1">{errors.daerah_mengundi}</p>}
                                 </div>
                             </div>
