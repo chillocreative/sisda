@@ -48,9 +48,12 @@ export default function Create({
         pendapatan_isi_rumah: '',
         pekerjaan: '',
         pemilik_rumah: '',
-        jenis_sumbangan: '',
-        tujuan_sumbangan: '',
-        bantuan_lain: '',
+        jenis_sumbangan: [],
+        jenis_sumbangan_lain: '',
+        tujuan_sumbangan: [],
+        tujuan_sumbangan_lain: '',
+        bantuan_lain: [],
+        bantuan_lain_lain: '',
         keahlian_parti: '',
         kecenderungan_politik: '',
         kad_pengenalan: null,
@@ -286,6 +289,14 @@ export default function Create({
         if (value.length <= 5) {
             setData('poskod', value);
         }
+    };
+
+    const handleCheckboxChange = (field, value) => {
+        const currentValues = data[field] || [];
+        const newValues = currentValues.includes(value)
+            ? currentValues.filter(v => v !== value)
+            : [...currentValues, value];
+        setData(field, newValues);
     };
 
     const handleSubmit = (e) => {
@@ -568,7 +579,7 @@ export default function Create({
 
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Pendapatan Isi Rumah (RM) <span className="text-rose-500">*</span>
+                                    Pendapatan Isi Rumah (RM)
                                 </label>
                                 <input
                                     type="number"
@@ -577,7 +588,6 @@ export default function Create({
                                     min="0"
                                     step="0.01"
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                    required
                                 />
                                 {errors.pendapatan_isi_rumah && <p className="text-sm text-rose-600 mt-1">{errors.pendapatan_isi_rumah}</p>}
                             </div>
@@ -621,60 +631,90 @@ export default function Create({
                     <div className="bg-white rounded-xl border border-slate-200 p-6">
                         <h2 className="text-lg font-semibold text-slate-900 mb-4">Maklumat Bantuan & Politik</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-medium text-slate-700 mb-2">
                                     Jenis Sumbangan
                                 </label>
-                                <select
-                                    value={data.jenis_sumbangan}
-                                    onChange={(e) => setData('jenis_sumbangan', e.target.value)}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                >
-                                    <option value="">Pilih Jenis Sumbangan</option>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                     {jenisSumbanganList.map((item) => (
-                                        <option key={item.id} value={item.nama}>
-                                            {item.nama}
-                                        </option>
+                                        <label key={item.id} className="flex items-center space-x-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={data.jenis_sumbangan.includes(item.nama)}
+                                                onChange={() => handleCheckboxChange('jenis_sumbangan', item.nama)}
+                                                className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                                            />
+                                            <span className="text-sm text-slate-700">{item.nama}</span>
+                                        </label>
                                     ))}
-                                </select>
+                                </div>
+                                {data.jenis_sumbangan.some(item => item.toLowerCase().includes('lain')) && (
+                                    <input
+                                        type="text"
+                                        value={data.jenis_sumbangan_lain}
+                                        onChange={(e) => setData('jenis_sumbangan_lain', e.target.value)}
+                                        placeholder="Nyatakan jenis sumbangan lain"
+                                        className="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                    />
+                                )}
                                 {errors.jenis_sumbangan && <p className="text-sm text-rose-600 mt-1">{errors.jenis_sumbangan}</p>}
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-medium text-slate-700 mb-2">
                                     Tujuan Sumbangan
                                 </label>
-                                <select
-                                    value={data.tujuan_sumbangan}
-                                    onChange={(e) => setData('tujuan_sumbangan', e.target.value)}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                >
-                                    <option value="">Pilih Tujuan Sumbangan</option>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                     {tujuanSumbanganList.map((item) => (
-                                        <option key={item.id} value={item.nama}>
-                                            {item.nama}
-                                        </option>
+                                        <label key={item.id} className="flex items-center space-x-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={data.tujuan_sumbangan.includes(item.nama)}
+                                                onChange={() => handleCheckboxChange('tujuan_sumbangan', item.nama)}
+                                                className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                                            />
+                                            <span className="text-sm text-slate-700">{item.nama}</span>
+                                        </label>
                                     ))}
-                                </select>
+                                </div>
+                                {data.tujuan_sumbangan.some(item => item.toLowerCase().includes('lain')) && (
+                                    <input
+                                        type="text"
+                                        value={data.tujuan_sumbangan_lain}
+                                        onChange={(e) => setData('tujuan_sumbangan_lain', e.target.value)}
+                                        placeholder="Nyatakan tujuan sumbangan lain"
+                                        className="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                    />
+                                )}
                                 {errors.tujuan_sumbangan && <p className="text-sm text-rose-600 mt-1">{errors.tujuan_sumbangan}</p>}
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-medium text-slate-700 mb-2">
                                     Bantuan Lain
                                 </label>
-                                <select
-                                    value={data.bantuan_lain}
-                                    onChange={(e) => setData('bantuan_lain', e.target.value)}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                >
-                                    <option value="">Pilih Bantuan Lain</option>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                     {bantuanLainList.map((item) => (
-                                        <option key={item.id} value={item.nama}>
-                                            {item.nama}
-                                        </option>
+                                        <label key={item.id} className="flex items-center space-x-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={data.bantuan_lain.includes(item.nama)}
+                                                onChange={() => handleCheckboxChange('bantuan_lain', item.nama)}
+                                                className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                                            />
+                                            <span className="text-sm text-slate-700">{item.nama}</span>
+                                        </label>
                                     ))}
-                                </select>
+                                </div>
+                                {data.bantuan_lain.some(item => item.toLowerCase().includes('lain')) && (
+                                    <input
+                                        type="text"
+                                        value={data.bantuan_lain_lain}
+                                        onChange={(e) => setData('bantuan_lain_lain', e.target.value)}
+                                        placeholder="Nyatakan bantuan lain"
+                                        className="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                    />
+                                )}
                                 {errors.bantuan_lain && <p className="text-sm text-rose-600 mt-1">{errors.bantuan_lain}</p>}
                             </div>
 

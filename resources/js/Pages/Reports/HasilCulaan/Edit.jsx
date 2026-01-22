@@ -556,9 +556,10 @@ export default function Edit({
                                 {errors.bil_isi_rumah && <p className="text-sm text-rose-600 mt-1">{errors.bil_isi_rumah}</p>}
                             </div>
 
+
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Pendapatan Isi Rumah (RM) <span className="text-rose-500">*</span>
+                                    Pendapatan Isi Rumah (RM)
                                 </label>
                                 <input
                                     type="number"
@@ -567,7 +568,6 @@ export default function Edit({
                                     min="0"
                                     step="0.01"
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                    required
                                 />
                                 {errors.pendapatan_isi_rumah && <p className="text-sm text-rose-600 mt-1">{errors.pendapatan_isi_rumah}</p>}
                             </div>

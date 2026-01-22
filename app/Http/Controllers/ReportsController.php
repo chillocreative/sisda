@@ -165,12 +165,15 @@ class ReportsController extends Controller
             'mpkk' => 'nullable|string|max:255',
             'daerah_mengundi' => 'nullable|string|max:255',
             'bil_isi_rumah' => 'required|integer|min:1',
-            'pendapatan_isi_rumah' => 'required|numeric|min:0',
+            'pendapatan_isi_rumah' => 'nullable|numeric|min:0',
             'pekerjaan' => 'required|string|max:255',
             'pemilik_rumah' => 'required|string|max:255',
-            'jenis_sumbangan' => 'nullable|string|max:255',
-            'tujuan_sumbangan' => 'nullable|string|max:255',
-            'bantuan_lain' => 'nullable|string|max:255',
+            'jenis_sumbangan' => 'nullable|array',
+            'jenis_sumbangan_lain' => 'nullable|string|max:255',
+            'tujuan_sumbangan' => 'nullable|array',
+            'tujuan_sumbangan_lain' => 'nullable|string|max:255',
+            'bantuan_lain' => 'nullable|array',
+            'bantuan_lain_lain' => 'nullable|string|max:255',
             'keahlian_parti' => 'nullable|string|max:255',
             'kecenderungan_politik' => 'nullable|string|max:255',
             'kad_pengenalan' => 'nullable|image|max:5120', // 5MB max
@@ -186,6 +189,40 @@ class ReportsController extends Controller
                  abort(403, 'You can only create records for your Parlimen (' . ($user->bandar->nama ?? 'Unknown') . ').');
             }
         }
+
+        // Process checkbox arrays into comma-separated strings
+        if (isset($validated['jenis_sumbangan']) && is_array($validated['jenis_sumbangan'])) {
+            $jenisSumbangan = $validated['jenis_sumbangan'];
+            $hasLainLain = count(array_filter($jenisSumbangan, fn($item) => stripos($item, 'lain') !== false)) > 0;
+            if ($hasLainLain && !empty($validated['jenis_sumbangan_lain'])) {
+                $jenisSumbangan = array_filter($jenisSumbangan, fn($item) => stripos($item, 'lain') === false);
+                $jenisSumbangan[] = $validated['jenis_sumbangan_lain'];
+            }
+            $validated['jenis_sumbangan'] = implode(', ', $jenisSumbangan);
+        }
+
+        if (isset($validated['tujuan_sumbangan']) && is_array($validated['tujuan_sumbangan'])) {
+            $tujuanSumbangan = $validated['tujuan_sumbangan'];
+            $hasLainLain = count(array_filter($tujuanSumbangan, fn($item) => stripos($item, 'lain') !== false)) > 0;
+            if ($hasLainLain && !empty($validated['tujuan_sumbangan_lain'])) {
+                $tujuanSumbangan = array_filter($tujuanSumbangan, fn($item) => stripos($item, 'lain') === false);
+                $tujuanSumbangan[] = $validated['tujuan_sumbangan_lain'];
+            }
+            $validated['tujuan_sumbangan'] = implode(', ', $tujuanSumbangan);
+        }
+
+        if (isset($validated['bantuan_lain']) && is_array($validated['bantuan_lain'])) {
+            $bantuanLain = $validated['bantuan_lain'];
+            $hasLainLain = count(array_filter($bantuanLain, fn($item) => stripos($item, 'lain') !== false)) > 0;
+            if ($hasLainLain && !empty($validated['bantuan_lain_lain'])) {
+                $bantuanLain = array_filter($bantuanLain, fn($item) => stripos($item, 'lain') === false);
+                $bantuanLain[] = $validated['bantuan_lain_lain'];
+            }
+            $validated['bantuan_lain'] = implode(', ', $bantuanLain);
+        }
+
+        // Remove the _lain fields as they're not in the database
+        unset($validated['jenis_sumbangan_lain'], $validated['tujuan_sumbangan_lain'], $validated['bantuan_lain_lain']);
 
         // Handle file upload
         if ($request->hasFile('kad_pengenalan')) {
@@ -300,12 +337,15 @@ class ReportsController extends Controller
             'mpkk' => 'nullable|string|max:255',
             'daerah_mengundi' => 'nullable|string|max:255',
             'bil_isi_rumah' => 'required|integer|min:1',
-            'pendapatan_isi_rumah' => 'required|numeric|min:0',
+            'pendapatan_isi_rumah' => 'nullable|numeric|min:0',
             'pekerjaan' => 'required|string|max:255',
             'pemilik_rumah' => 'required|string|max:255',
-            'jenis_sumbangan' => 'nullable|string|max:255',
-            'tujuan_sumbangan' => 'nullable|string|max:255',
-            'bantuan_lain' => 'nullable|string|max:255',
+            'jenis_sumbangan' => 'nullable|array',
+            'jenis_sumbangan_lain' => 'nullable|string|max:255',
+            'tujuan_sumbangan' => 'nullable|array',
+            'tujuan_sumbangan_lain' => 'nullable|string|max:255',
+            'bantuan_lain' => 'nullable|array',
+            'bantuan_lain_lain' => 'nullable|string|max:255',
             'keahlian_parti' => 'nullable|string|max:255',
             'kecenderungan_politik' => 'nullable|string|max:255',
             'kad_pengenalan' => 'nullable|image|max:5120', // 5MB max
@@ -319,6 +359,40 @@ class ReportsController extends Controller
         if ($user->isUser() && $request->kadun !== ($user->kadun->nama ?? '')) {
             abort(403, 'Anda tidak boleh memindahkan rekod ke luar kawasan anda.');
         }
+
+        // Process checkbox arrays into comma-separated strings
+        if (isset($validated['jenis_sumbangan']) && is_array($validated['jenis_sumbangan'])) {
+            $jenisSumbangan = $validated['jenis_sumbangan'];
+            $hasLainLain = count(array_filter($jenisSumbangan, fn($item) => stripos($item, 'lain') !== false)) > 0;
+            if ($hasLainLain && !empty($validated['jenis_sumbangan_lain'])) {
+                $jenisSumbangan = array_filter($jenisSumbangan, fn($item) => stripos($item, 'lain') === false);
+                $jenisSumbangan[] = $validated['jenis_sumbangan_lain'];
+            }
+            $validated['jenis_sumbangan'] = implode(', ', $jenisSumbangan);
+        }
+
+        if (isset($validated['tujuan_sumbangan']) && is_array($validated['tujuan_sumbangan'])) {
+            $tujuanSumbangan = $validated['tujuan_sumbangan'];
+            $hasLainLain = count(array_filter($tujuanSumbangan, fn($item) => stripos($item, 'lain') !== false)) > 0;
+            if ($hasLainLain && !empty($validated['tujuan_sumbangan_lain'])) {
+                $tujuanSumbangan = array_filter($tujuanSumbangan, fn($item) => stripos($item, 'lain') === false);
+                $tujuanSumbangan[] = $validated['tujuan_sumbangan_lain'];
+            }
+            $validated['tujuan_sumbangan'] = implode(', ', $tujuanSumbangan);
+        }
+
+        if (isset($validated['bantuan_lain']) && is_array($validated['bantuan_lain'])) {
+            $bantuanLain = $validated['bantuan_lain'];
+            $hasLainLain = count(array_filter($bantuanLain, fn($item) => stripos($item, 'lain') !== false)) > 0;
+            if ($hasLainLain && !empty($validated['bantuan_lain_lain'])) {
+                $bantuanLain = array_filter($bantuanLain, fn($item) => stripos($item, 'lain') === false);
+                $bantuanLain[] = $validated['bantuan_lain_lain'];
+            }
+            $validated['bantuan_lain'] = implode(', ', $bantuanLain);
+        }
+
+        // Remove the _lain fields as they're not in the database
+        unset($validated['jenis_sumbangan_lain'], $validated['tujuan_sumbangan_lain'], $validated['bantuan_lain_lain']);
 
         // Handle file upload
         if ($request->hasFile('kad_pengenalan')) {
