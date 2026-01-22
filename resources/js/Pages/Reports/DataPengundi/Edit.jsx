@@ -18,6 +18,8 @@ export default function Edit({
     keahlianPartiList,
     kecenderunganPolitikList
 }) {
+    const [parlimenOptions, setParlimenOptions] = useState([]);
+    const [loadingParlimen, setLoadingParlimen] = useState(false);
     const [kadunOptions, setKadunOptions] = useState([]);
     const [loadingKadun, setLoadingKadun] = useState(false);
     const [daerahMengundiOptions, setDaerahMengundiOptions] = useState([]);
@@ -39,6 +41,31 @@ export default function Edit({
         keahlian_parti: dataPengundi.keahlian_parti || '',
         kecenderungan_politik: dataPengundi.kecenderungan_politik || '',
     });
+
+    // Fetch Parlimen options when Negeri changes
+    useEffect(() => {
+        const fetchParlimen = async () => {
+            if (!data.negeri) {
+                setParlimenOptions([]);
+                return;
+            }
+
+            setLoadingParlimen(true);
+            try {
+                const response = await axios.get(route('api.parlimen.by-negeri'), {
+                    params: { negeri: data.negeri }
+                });
+                setParlimenOptions(response.data);
+            } catch (error) {
+                console.error('Error fetching Parlimen:', error);
+                setParlimenOptions([]);
+            } finally {
+                setLoadingParlimen(false);
+            }
+        };
+
+        fetchParlimen();
+    }, [data.negeri]);
 
     // Fetch KADUN options when Parlimen changes
     useEffect(() => {
@@ -321,12 +348,11 @@ export default function Edit({
                                     <label className="block text-sm font-medium text-slate-700 mb-1">
                                         Negeri <span className="text-rose-500">*</span>
                                     </label>
-                                    <input
-                                        type="text"
+                                    <SearchableSelect
                                         value={data.negeri}
-                                        readOnly
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400 bg-slate-50"
-                                        placeholder="Pilih Poskod terlebih dahulu"
+                                        onChange={(val) => setData('negeri', val)}
+                                        options={negeriList}
+                                        placeholder="Pilih Negeri"
                                     />
                                     {errors.negeri && <p className="text-sm text-rose-600 mt-1">{errors.negeri}</p>}
                                 </div>
@@ -352,8 +378,8 @@ export default function Edit({
                                     <SearchableSelect
                                         value={data.parlimen}
                                         onChange={(val) => setData('parlimen', val)}
-                                        options={parlimenList}
-                                        placeholder="Pilih Parlimen"
+                                        options={parlimenOptions}
+                                        placeholder={loadingParlimen ? "Memuat..." : "Pilih Parlimen"}
                                     />
                                     {errors.parlimen && <p className="text-sm text-rose-600 mt-1">{errors.parlimen}</p>}
                                 </div>

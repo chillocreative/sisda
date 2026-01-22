@@ -727,6 +727,32 @@ class ReportsController extends Controller
     }
 
     /**
+     * Get Parlimen by Negeri name.
+     */
+    public function getParlimenByNegeri(Request $request)
+    {
+        $negeriNama = $request->input('negeri');
+        
+        if (!$negeriNama) {
+            return response()->json([]);
+        }
+
+        // Find Negeri
+        $negeri = \App\Models\Negeri::where('nama', $negeriNama)->first();
+        
+        if (!$negeri) {
+            return response()->json([]);
+        }
+
+        // Get Parlimen (Bandar model) for this Negeri
+        $parlimenList = \App\Models\Bandar::where('negeri_id', $negeri->id)
+            ->orderBy('nama')
+            ->get();
+
+        return response()->json($parlimenList);
+    }
+
+    /**
      * Get KADUN by Bandar name.
      */
     public function getKadunByBandar(Request $request)

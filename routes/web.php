@@ -191,6 +191,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/postcodes/search-details', [\App\Http\Controllers\ReportsController::class, 'searchPostcodeWithDetails'])->name('api.postcodes.search-details');
     Route::get('/api/kadun/by-bandar', [\App\Http\Controllers\ReportsController::class, 'getKadunByBandar'])->name('api.kadun.by-bandar');
     Route::get('/api/daerah-mengundi/by-bandar', [\App\Http\Controllers\ReportsController::class, 'getDaerahMengundiByBandar'])->name('api.daerah-mengundi.by-bandar');
+    Route::get('/api/parlimen/by-negeri', [\App\Http\Controllers\ReportsController::class, 'getParlimenByNegeri'])->name('api.parlimen.by-negeri');
 });
 
 require __DIR__.'/auth.php';
