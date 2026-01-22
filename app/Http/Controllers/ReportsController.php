@@ -126,10 +126,13 @@ class ReportsController extends Controller
         }
         $daerahMengundiList = $daerahMengundiQuery->get();
 
+        $parlimenList = \App\Models\Parlimen::orderBy('nama')->get();
+
         return Inertia::render('Reports/HasilCulaan/Create', [
             'bangsaList' => $bangsaList,
             'negeriList' => $negeriList,
             'bandarList' => $bandarList,
+            'parlimenList' => $parlimenList,
             'kadunList' => $kadunList,
             'daerahMengundiList' => $daerahMengundiList,
             'jenisSumbanganList' => $jenisSumbanganList,
@@ -249,11 +252,14 @@ class ReportsController extends Controller
         }
         $daerahMengundiList = $daerahMengundiQuery->get();
 
+        $parlimenList = \App\Models\Parlimen::orderBy('nama')->get();
+
         return Inertia::render('Reports/HasilCulaan/Edit', [
             'hasilCulaan' => $hasilCulaan,
             'bangsaList' => $bangsaList,
             'negeriList' => $negeriList,
             'bandarList' => $bandarList,
+            'parlimenList' => $parlimenList,
             'kadunList' => $kadunList,
             'daerahMengundiList' => $daerahMengundiList,
             'jenisSumbanganList' => $jenisSumbanganList,
@@ -471,11 +477,13 @@ class ReportsController extends Controller
         }
         $daerahMengundiList = $daerahMengundiQuery->get();
 
+        $parlimenList = \App\Models\Parlimen::orderBy('nama')->get();
+
         return Inertia::render('Reports/DataPengundi/Create', [
             'bangsaList' => $bangsaList,
-
             'negeriList' => $negeriList,
             'bandarList' => $bandarList,
+            'parlimenList' => $parlimenList,
             'kadunList' => $kadunList,
             'daerahMengundiList' => $daerahMengundiList,
             'keahlianPartiList' => $keahlianPartiList,
@@ -550,12 +558,14 @@ class ReportsController extends Controller
         }
         $daerahMengundiList = $daerahMengundiQuery->get();
 
+        $parlimenList = \App\Models\Parlimen::orderBy('nama')->get();
+
         return Inertia::render('Reports/DataPengundi/Edit', [
             'dataPengundi' => $dataPengundi,
             'bangsaList' => $bangsaList,
-
             'negeriList' => $negeriList,
             'bandarList' => $bandarList,
+            'parlimenList' => $parlimenList,
             'kadunList' => $kadunList,
             'daerahMengundiList' => $daerahMengundiList,
             'keahlianPartiList' => $keahlianPartiList,

@@ -208,7 +208,6 @@ export default function Create({
                 poskod: postcodeData.postcode,
                 negeri: postcodeData.negeri_nama || '',
                 bandar: postcodeData.bandar_nama || '',
-                kadun: '' // Reset KADUN when postcode changes
             }));
         }
     };
@@ -396,32 +395,12 @@ export default function Create({
                                     <label className="block text-sm font-medium text-slate-700 mb-1">
                                         KADUN <span className="text-rose-500">*</span>
                                     </label>
-                                    {data.bandar ? (
-                                        <select
-                                            value={data.kadun}
-                                            onChange={(e) => setData('kadun', e.target.value)}
-                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                            disabled={loadingKadun}
-                                            required
-                                        >
-                                            <option value="">
-                                                {loadingKadun ? 'Loading...' : 'Pilih KADUN'}
-                                            </option>
-                                            {kadunOptions.map((item) => (
-                                                <option key={item.id} value={item.nama}>
-                                                    {item.nama}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    ) : (
-                                        <input
-                                            type="text"
-                                            value=""
-                                            readOnly
-                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-100 text-slate-500"
-                                            placeholder="Pilih Poskod terlebih dahulu"
-                                        />
-                                    )}
+                                    <SearchableSelect
+                                        value={data.kadun}
+                                        onChange={(val) => setData('kadun', val)}
+                                        options={kadunList}
+                                        placeholder="Pilih KADUN"
+                                    />
                                     {errors.kadun && <p className="text-sm text-rose-600 mt-1">{errors.kadun}</p>}
                                 </div>
 
@@ -429,32 +408,12 @@ export default function Create({
                                     <label className="block text-sm font-medium text-slate-700 mb-1">
                                         Daerah Mengundi <span className="text-rose-500">*</span>
                                     </label>
-                                    {data.bandar ? (
-                                        <select
-                                            value={data.daerah_mengundi}
-                                            onChange={(e) => setData('daerah_mengundi', e.target.value)}
-                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                            disabled={loadingDaerahMengundi}
-                                            required
-                                        >
-                                            <option value="">
-                                                {loadingDaerahMengundi ? 'Loading...' : 'Pilih Daerah Mengundi'}
-                                            </option>
-                                            {daerahMengundiOptions.map((item) => (
-                                                <option key={item.id} value={item.nama}>
-                                                    {item.kod_dm} - {item.nama}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    ) : (
-                                        <input
-                                            type="text"
-                                            value=""
-                                            readOnly
-                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-100 text-slate-500"
-                                            placeholder="Pilih Poskod terlebih dahulu"
-                                        />
-                                    )}
+                                    <SearchableSelect
+                                        value={data.daerah_mengundi}
+                                        onChange={(val) => setData('daerah_mengundi', val)}
+                                        options={daerahMengundiList}
+                                        placeholder="Pilih Daerah Mengundi"
+                                    />
                                     {errors.daerah_mengundi && <p className="text-sm text-rose-600 mt-1">{errors.daerah_mengundi}</p>}
                                 </div>
                             </div>
