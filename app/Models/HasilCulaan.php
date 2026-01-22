@@ -21,6 +21,7 @@ class HasilCulaan extends Model
         'poskod',
         'negeri',
         'bandar',
+        'parlimen',
         'kadun',
         'daerah_mengundi',
         'bil_isi_rumah',

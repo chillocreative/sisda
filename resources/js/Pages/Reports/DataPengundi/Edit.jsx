@@ -40,10 +40,10 @@ export default function Edit({
         kecenderungan_politik: dataPengundi.kecenderungan_politik || '',
     });
 
-    // Fetch KADUN options when Bandar changes
+    // Fetch KADUN options when Parlimen changes
     useEffect(() => {
         const fetchKadun = async () => {
-            if (!data.bandar) {
+            if (!data.parlimen) {
                 setKadunOptions([]);
                 return;
             }
@@ -51,7 +51,7 @@ export default function Edit({
             setLoadingKadun(true);
             try {
                 const response = await axios.get(route('api.kadun.by-bandar'), {
-                    params: { bandar: data.bandar }
+                    params: { bandar: data.parlimen }
                 });
                 setKadunOptions(response.data);
             } catch (error) {
@@ -63,12 +63,12 @@ export default function Edit({
         };
 
         fetchKadun();
-    }, [data.bandar]);
+    }, [data.parlimen]);
 
-    // Fetch Daerah Mengundi options when Bandar changes
+    // Fetch Daerah Mengundi options when Parlimen changes
     useEffect(() => {
         const fetchDaerahMengundi = async () => {
-            if (!data.bandar) {
+            if (!data.parlimen) {
                 setDaerahMengundiOptions([]);
                 return;
             }
@@ -76,7 +76,7 @@ export default function Edit({
             setLoadingDaerahMengundi(true);
             try {
                 const response = await axios.get(route('api.daerah-mengundi.by-bandar'), {
-                    params: { bandar: data.bandar }
+                    params: { bandar: data.parlimen }
                 });
                 setDaerahMengundiOptions(response.data);
             } catch (error) {
@@ -88,7 +88,7 @@ export default function Edit({
         };
 
         fetchDaerahMengundi();
-    }, [data.bandar]);
+    }, [data.parlimen]);
 
     useEffect(() => {
         const fetchPostcodeDetails = async () => {
@@ -103,7 +103,8 @@ export default function Edit({
                         setData(prevData => ({
                             ...prevData,
                             negeri: postcodeData.negeri_nama || '',
-                            bandar: postcodeData.bandar_nama || '',
+                            bandar: postcodeData.city || '',
+                            parlimen: postcodeData.bandar_nama || '',
                         }));
                     }
                 } catch (error) {
@@ -364,8 +365,8 @@ export default function Edit({
                                     <SearchableSelect
                                         value={data.kadun}
                                         onChange={(val) => setData('kadun', val)}
-                                        options={kadunList}
-                                        placeholder="Pilih KADUN"
+                                        options={kadunOptions}
+                                        placeholder={loadingKadun ? "Memuat..." : "Pilih KADUN"}
                                     />
                                     {errors.kadun && <p className="text-sm text-rose-600 mt-1">{errors.kadun}</p>}
                                 </div>
@@ -377,8 +378,8 @@ export default function Edit({
                                     <SearchableSelect
                                         value={data.daerah_mengundi}
                                         onChange={(val) => setData('daerah_mengundi', val)}
-                                        options={daerahMengundiList}
-                                        placeholder="Pilih Daerah Mengundi"
+                                        options={daerahMengundiOptions}
+                                        placeholder={loadingDaerahMengundi ? "Memuat..." : "Pilih Daerah Mengundi"}
                                     />
                                     {errors.daerah_mengundi && <p className="text-sm text-rose-600 mt-1">{errors.daerah_mengundi}</p>}
                                 </div>
