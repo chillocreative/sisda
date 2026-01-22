@@ -126,7 +126,7 @@ class ReportsController extends Controller
         }
         $daerahMengundiList = $daerahMengundiQuery->get();
 
-        $parlimenList = \App\Models\Parlimen::orderBy('nama')->get();
+        $parlimenList = \App\Models\Bandar::orderBy('nama')->get();
 
         return Inertia::render('Reports/HasilCulaan/Create', [
             'bangsaList' => $bangsaList,
@@ -252,7 +252,7 @@ class ReportsController extends Controller
         }
         $daerahMengundiList = $daerahMengundiQuery->get();
 
-        $parlimenList = \App\Models\Parlimen::orderBy('nama')->get();
+        $parlimenList = \App\Models\Bandar::orderBy('nama')->get();
 
         return Inertia::render('Reports/HasilCulaan/Edit', [
             'hasilCulaan' => $hasilCulaan,
@@ -477,7 +477,7 @@ class ReportsController extends Controller
         }
         $daerahMengundiList = $daerahMengundiQuery->get();
 
-        $parlimenList = \App\Models\Parlimen::orderBy('nama')->get();
+        $parlimenList = \App\Models\Bandar::orderBy('nama')->get();
 
         return Inertia::render('Reports/DataPengundi/Create', [
             'bangsaList' => $bangsaList,
@@ -558,7 +558,7 @@ class ReportsController extends Controller
         }
         $daerahMengundiList = $daerahMengundiQuery->get();
 
-        $parlimenList = \App\Models\Parlimen::orderBy('nama')->get();
+        $parlimenList = \App\Models\Bandar::orderBy('nama')->get();
 
         return Inertia::render('Reports/DataPengundi/Edit', [
             'dataPengundi' => $dataPengundi,
