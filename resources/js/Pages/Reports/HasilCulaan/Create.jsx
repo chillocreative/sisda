@@ -27,6 +27,8 @@ export default function Create({
     const [loadingKadun, setLoadingKadun] = useState(false);
     const [daerahMengundiOptions, setDaerahMengundiOptions] = useState([]);
     const [loadingDaerahMengundi, setLoadingDaerahMengundi] = useState(false);
+    const [mpkkOptions, setMpkkOptions] = useState([]);
+    const [loadingMpkk, setLoadingMpkk] = useState(false);
 
     const { data, setData, post, processing, errors } = useForm({
         nama: '',
@@ -40,6 +42,7 @@ export default function Create({
         bandar: '',
         parlimen: '',
         kadun: '',
+        mpkk: '',
         daerah_mengundi: '',
         bil_isi_rumah: '',
         pendapatan_isi_rumah: '',
@@ -103,6 +106,31 @@ export default function Create({
 
         fetchKadun();
     }, [data.parlimen]);
+
+    // Fetch MPKK options when KADUN changes
+    useEffect(() => {
+        const fetchMpkk = async () => {
+            if (!data.kadun) {
+                setMpkkOptions([]);
+                return;
+            }
+
+            setLoadingMpkk(true);
+            try {
+                const response = await axios.get(route('api.mpkk.by-kadun'), {
+                    params: { kadun: data.kadun }
+                });
+                setMpkkOptions(response.data);
+            } catch (error) {
+                console.error('Error fetching MPKK:', error);
+                setMpkkOptions([]);
+            } finally {
+                setLoadingMpkk(false);
+            }
+        };
+
+        fetchMpkk();
+    }, [data.kadun]);
 
     // Fetch Daerah Mengundi options when Parlimen changes
     useEffect(() => {
@@ -478,6 +506,24 @@ export default function Create({
                                         ))}
                                     </select>
                                     {errors.kadun && <p className="text-sm text-rose-600 mt-1">{errors.kadun}</p>}
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                                        MPKK <span className="text-rose-500">*</span>
+                                    </label>
+                                    <select
+                                        value={data.mpkk}
+                                        onChange={(e) => setData('mpkk', e.target.value)}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                        required
+                                    >
+                                        <option value="">{loadingMpkk ? "Memuat..." : "Pilih MPKK"}</option>
+                                        {mpkkOptions.map((item) => (
+                                            <option key={item.id} value={item.nama}>{item.nama}</option>
+                                        ))}
+                                    </select>
+                                    {errors.mpkk && <p className="text-sm text-rose-600 mt-1">{errors.mpkk}</p>}
                                 </div>
 
                                 <div>

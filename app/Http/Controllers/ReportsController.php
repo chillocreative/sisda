@@ -162,6 +162,7 @@ class ReportsController extends Controller
             'bandar' => 'required|string|max:255',
             'parlimen' => 'required|string|max:255',
             'kadun' => 'required|string|max:255',
+            'mpkk' => 'nullable|string|max:255',
             'daerah_mengundi' => 'nullable|string|max:255',
             'bil_isi_rumah' => 'required|integer|min:1',
             'pendapatan_isi_rumah' => 'required|numeric|min:0',
@@ -214,6 +215,7 @@ class ReportsController extends Controller
                 'bandar' => $validated['bandar'],
                 'parlimen' => $validated['parlimen'], 
                 'kadun' => $validated['kadun'],
+                'mpkk' => $validated['mpkk'] ?? null,
                 'daerah_mengundi' => $validated['daerah_mengundi'] ?? null,
                 'keahlian_parti' => $validated['keahlian_parti'] ?? null,
                 'kecenderungan_politik' => $validated['kecenderungan_politik'] ?? null,
@@ -295,6 +297,7 @@ class ReportsController extends Controller
             'bandar' => 'required|string|max:255',
             'parlimen' => 'required|string|max:255',
             'kadun' => 'required|string|max:255',
+            'mpkk' => 'nullable|string|max:255',
             'daerah_mengundi' => 'nullable|string|max:255',
             'bil_isi_rumah' => 'required|integer|min:1',
             'pendapatan_isi_rumah' => 'required|numeric|min:0',
@@ -513,6 +516,7 @@ class ReportsController extends Controller
             'bandar' => 'required|string|max:255',
             'parlimen' => 'required|string|max:255',
             'kadun' => 'required|string|max:255',
+            'mpkk' => 'nullable|string|max:255',
             'daerah_mengundi' => 'nullable|string|max:255',
             'keahlian_parti' => 'nullable|string|max:255',
             'kecenderungan_politik' => 'nullable|string|max:255',
@@ -602,6 +606,7 @@ class ReportsController extends Controller
             'bandar' => 'required|string|max:255',
             'parlimen' => 'required|string|max:255',
             'kadun' => 'required|string|max:255',
+            'mpkk' => 'nullable|string|max:255',
             'daerah_mengundi' => 'nullable|string|max:255',
             'keahlian_parti' => 'nullable|string|max:255',
             'kecenderungan_politik' => 'nullable|string|max:255',
@@ -759,6 +764,29 @@ class ReportsController extends Controller
             ->get();
 
         return response()->json($parlimenList);
+    }
+
+    public function getMpkkByKadun(Request $request)
+    {
+        $kadunNama = $request->input('kadun');
+        
+        if (!$kadunNama) {
+            return response()->json([]);
+        }
+
+        // Find KADUN
+        $kadun = \App\Models\Kadun::where('nama', $kadunNama)->first();
+        
+        if (!$kadun) {
+            return response()->json([]);
+        }
+
+        // Get MPKK for this KADUN
+        $mpkkList = \App\Models\Mpkk::where('kadun_id', $kadun->id)
+            ->orderBy('nama')
+            ->get();
+
+        return response()->json($mpkkList);
     }
 
     /**

@@ -23,6 +23,7 @@ class HasilCulaan extends Model
         'bandar',
         'parlimen',
         'kadun',
+        'mpkk',
         'daerah_mengundi',
         'bil_isi_rumah',
         'pendapatan_isi_rumah',

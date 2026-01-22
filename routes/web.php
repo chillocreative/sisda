@@ -192,6 +192,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/kadun/by-bandar', [\App\Http\Controllers\ReportsController::class, 'getKadunByBandar'])->name('api.kadun.by-bandar');
     Route::get('/api/daerah-mengundi/by-bandar', [\App\Http\Controllers\ReportsController::class, 'getDaerahMengundiByBandar'])->name('api.daerah-mengundi.by-bandar');
     Route::get('/api/parlimen/by-negeri', [\App\Http\Controllers\ReportsController::class, 'getParlimenByNegeri'])->name('api.parlimen.by-negeri');
+    Route::get('/api/mpkk/by-kadun', [\App\Http\Controllers\ReportsController::class, 'getMpkkByKadun'])->name('api.mpkk.by-kadun');
 });
 
 require __DIR__.'/auth.php';
