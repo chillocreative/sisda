@@ -705,11 +705,20 @@ class ReportsController extends Controller
 
         // Enrich with Bandar and Negeri data
         $enrichedPostcodes = $postcodes->map(function($postcode) {
-            // Find matching Bandar by city name
-            $bandar = \App\Models\Bandar::where('nama', 'like', '%' . $postcode->city . '%')->first();
+            // Find matching Bandar by city name (case-insensitive)
+            $bandar = \App\Models\Bandar::whereRaw('LOWER(nama) = ?', [strtolower($postcode->city)])->first();
+            
+            // Fallback to like if exact match fails
+            if (!$bandar) {
+                $bandar = \App\Models\Bandar::where('nama', 'like', '%' . $postcode->city . '%')->first();
+            }
             
             // Find matching Negeri by state name
-            $negeri = \App\Models\Negeri::where('nama', 'like', '%' . $postcode->state . '%')->first();
+            $negeri = \App\Models\Negeri::whereRaw('LOWER(nama) = ?', [strtolower($postcode->state)])->first();
+            
+            if (!$negeri) {
+                $negeri = \App\Models\Negeri::where('nama', 'like', '%' . $postcode->state . '%')->first();
+            }
             
             return [
                 'postcode' => $postcode->postcode,

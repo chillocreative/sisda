@@ -237,12 +237,12 @@ export default function Create({
 
                     if (response.data && response.data.length > 0) {
                         const postcodeData = response.data[0];
-                        setData(prevData => ({
-                            ...prevData,
+                        setData({
+                            ...data,
                             negeri: postcodeData.negeri_nama || '',
                             bandar: postcodeData.city || '',
                             parlimen: postcodeData.bandar_nama || '',
-                        }));
+                        });
                     }
                 } catch (error) {
                     console.error('Error fetching postcode details:', error);
