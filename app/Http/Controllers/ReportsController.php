@@ -152,7 +152,7 @@ class ReportsController extends Controller
 
         $validated = $request->validate([
             'nama' => 'required|string|max:255',
-            'no_ic' => 'required|string|digits:12',
+            'no_ic' => 'required|string|digits:12|unique:hasil_culaan,no_ic',
             'umur' => 'required|integer|min:1|max:150',
             'no_tel' => 'required|string|max:255',
             'bangsa' => 'required|string|max:255',
@@ -178,6 +178,8 @@ class ReportsController extends Controller
             'kecenderungan_politik' => 'nullable|string|max:255',
             'kad_pengenalan' => 'nullable|image|max:5120', // 5MB max
             'nota' => 'nullable|string',
+        ], [
+            'no_ic.unique' => 'No. Kad Pengenalan ini telah didaftarkan dalam Hasil Culaan.',
         ]);
 
         // Admin Restriction: Ensure data is created for their Parlimen
@@ -324,7 +326,7 @@ class ReportsController extends Controller
 
         $validated = $request->validate([
             'nama' => 'required|string|max:255',
-            'no_ic' => 'required|string|digits:12',
+            'no_ic' => 'required|string|digits:12|unique:hasil_culaan,no_ic,' . $hasilCulaan->id,
             'umur' => 'required|integer|min:1|max:150',
             'no_tel' => 'required|string|max:255',
             'bangsa' => 'required|string|max:255',
@@ -350,6 +352,8 @@ class ReportsController extends Controller
             'kecenderungan_politik' => 'nullable|string|max:255',
             'kad_pengenalan' => 'nullable|image|max:5120', // 5MB max
             'nota' => 'nullable|string',
+        ], [
+            'no_ic.unique' => 'No. Kad Pengenalan ini telah didaftarkan dalam Hasil Culaan.',
         ]);
 
         // Admin/User Restriction: Ensure data remains in their territory
@@ -579,7 +583,7 @@ class ReportsController extends Controller
 
         $validated = $request->validate([
             'nama' => 'required|string|max:255',
-            'no_ic' => 'required|string|digits:12',
+            'no_ic' => 'required|string|digits:12|unique:data_pengundi,no_ic',
             'umur' => 'required|integer|min:1|max:150',
             'no_tel' => 'required|string|max:255',
             'bangsa' => 'required|string|max:255',
@@ -594,6 +598,8 @@ class ReportsController extends Controller
             'daerah_mengundi' => 'nullable|string|max:255',
             'keahlian_parti' => 'nullable|string|max:255',
             'kecenderungan_politik' => 'nullable|string|max:255',
+        ], [
+            'no_ic.unique' => 'No. Kad Pengenalan ini telah didaftarkan dalam Data Pengundi.',
         ]);
 
         // Admin Restriction: Ensure data is created for their Parlimen
@@ -669,7 +675,7 @@ class ReportsController extends Controller
 
         $validated = $request->validate([
             'nama' => 'required|string|max:255',
-            'no_ic' => 'required|string|digits:12',
+            'no_ic' => 'required|string|digits:12|unique:data_pengundi,no_ic,' . $dataPengundi->id,
             'umur' => 'required|integer|min:1|max:150',
             'no_tel' => 'required|string|max:255',
             'bangsa' => 'required|string|max:255',
@@ -684,6 +690,8 @@ class ReportsController extends Controller
             'daerah_mengundi' => 'nullable|string|max:255',
             'keahlian_parti' => 'nullable|string|max:255',
             'kecenderungan_politik' => 'nullable|string|max:255',
+        ], [
+            'no_ic.unique' => 'No. Kad Pengenalan ini telah didaftarkan dalam Data Pengundi.',
         ]);
 
         // Admin Restriction: Ensure data remains in their Parlimen
