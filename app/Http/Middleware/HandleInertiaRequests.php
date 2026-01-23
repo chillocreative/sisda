@@ -46,6 +46,7 @@ class HandleInertiaRequests extends Middleware
 
         return [
             ...parent::share($request),
+            'app_url' => url('/'),
             'auth' => [
                 'user' => $user,
                 'pendingApprovalsCount' => $pendingApprovalsCount,

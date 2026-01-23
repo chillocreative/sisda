@@ -182,7 +182,7 @@ export default function AuthenticatedLayout({ children }) {
                     {/* Logo */}
                     <div className="flex items-center justify-between h-16 px-6 border-b border-slate-200">
                         <Link href={route('dashboard')} className="flex items-center space-x-3">
-                            <img src="/images/logo-sisda.png" alt="SISDA" className="h-8 w-auto" />
+                            <img src={`${usePage().props.app_url}/images/logo-sisda.png`} alt="SISDA" className="h-8 w-auto" />
                             <span className="text-xl font-bold text-slate-900">SISDA</span>
                         </Link>
                         <button
