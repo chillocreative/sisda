@@ -236,7 +236,7 @@ export default function Create({
 
     return (
         <AuthenticatedLayout>
-            <Head title="Tambah Data Pengundi" />
+            <Head title="Borang Data Pengundi" />
 
             <div className="max-w-4xl mx-auto space-y-6">
                 {/* Header */}
@@ -248,7 +248,7 @@ export default function Create({
                         <ArrowLeft className="h-5 w-5 text-slate-600" />
                     </button>
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900">Tambah Data Pengundi</h1>
+                        <h1 className="text-2xl font-bold text-slate-900">Borang Data Pengundi</h1>
                         <p className="text-sm text-slate-600 mt-1">Isi semua maklumat yang diperlukan</p>
                     </div>
                 </div>
