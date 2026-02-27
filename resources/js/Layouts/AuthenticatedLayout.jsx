@@ -323,7 +323,7 @@ export default function AuthenticatedLayout({ children }) {
                 </header>
 
                 {/* Page content */}
-                <main className="px-4 pt-6 pb-10 sm:p-6 lg:p-8">
+                <main className="px-4 pt-8 pb-16 sm:p-6 lg:p-8">
                     {children}
                 </main>
             </div>
