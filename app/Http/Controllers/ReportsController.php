@@ -582,7 +582,17 @@ class ReportsController extends Controller
                     ->where('no_ic', $request->input('ic'))
                     ->first();
                 if ($voter) {
-                    $prefill = $voter->only(['no_ic', 'nama', 'lokaliti', 'daerah_mengundi', 'kadun', 'parlimen', 'negeri', 'bangsa']);
+                    $tc = fn($s) => $s ? ucwords(strtolower($s)) : null;
+                    $prefill = [
+                        'no_ic'           => $voter->no_ic,
+                        'nama'            => $voter->nama,
+                        'bangsa'          => $voter->bangsa,
+                        'negeri'          => $tc($voter->negeri),
+                        'parlimen'        => $tc($voter->parlimen),
+                        'kadun'           => $tc($voter->kadun),
+                        'daerah_mengundi' => $voter->daerah_mengundi,
+                        'lokaliti'        => $voter->lokaliti,
+                    ];
                 }
             }
         }

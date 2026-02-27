@@ -196,12 +196,12 @@ export default function Edit({
             ...data,
             no_ic: voter.no_ic,
             nama: voter.nama || data.nama,
-            lokaliti: voter.lokaliti ? toTitleCase(voter.lokaliti) : data.lokaliti,
-            daerah_mengundi: voter.daerah_mengundi ? toTitleCase(voter.daerah_mengundi) : data.daerah_mengundi,
+            lokaliti: voter.lokaliti || data.lokaliti,
+            daerah_mengundi: voter.daerah_mengundi || data.daerah_mengundi,
             kadun: voter.kadun ? toTitleCase(voter.kadun) : data.kadun,
             parlimen: voter.parlimen ? toTitleCase(voter.parlimen) : data.parlimen,
             negeri: voter.negeri ? toTitleCase(voter.negeri) : data.negeri,
-            bangsa: voter.bangsa ? toTitleCase(voter.bangsa) : data.bangsa,
+            bangsa: voter.bangsa || data.bangsa,
         });
         setShowSuggestions(false);
         setIcSuggestions([]);
