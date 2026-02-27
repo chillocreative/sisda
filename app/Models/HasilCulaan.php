@@ -25,6 +25,7 @@ class HasilCulaan extends Model
         'kadun',
         'mpkk',
         'daerah_mengundi',
+        'lokaliti',
         'bil_isi_rumah',
         'pendapatan_isi_rumah',
         'pekerjaan',

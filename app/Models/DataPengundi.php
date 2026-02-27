@@ -26,6 +26,7 @@ class DataPengundi extends Model
         'kadun',
         'mpkk',
         'daerah_mengundi',
+        'lokaliti',
         'keahlian_parti',
         'kecenderungan_politik',
         'submitted_by',

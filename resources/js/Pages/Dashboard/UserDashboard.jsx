@@ -1,6 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, router } from '@inertiajs/react';
-import { Search, ClipboardList, UserCheck, Eye, Edit, X } from 'lucide-react';
+import { Search, ClipboardList, UserCheck, Eye, Edit, X, Plus } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 
@@ -54,14 +54,14 @@ export default function UserDashboard() {
     };
 
     const handleResultClick = (result) => {
-        if (result.can_edit) {
-            // Navigate to edit page
+        setShowResults(false);
+        if (result.type === 'voter_db') {
+            router.visit(result.create_url + '?ic=' + result.no_ic);
+        } else if (result.can_edit) {
             router.visit(result.edit_url);
         } else {
-            // Show view-only modal
             setSelectedRecord(result);
             setShowModal(true);
-            setShowResults(false);
         }
     };
 
@@ -101,7 +101,7 @@ export default function UserDashboard() {
                             <div className="absolute z-10 w-full mt-2 bg-white border-2 border-slate-200 rounded-lg shadow-xl max-h-96 overflow-y-auto">
                                 {searchResults.map((result, index) => (
                                     <button
-                                        key={`${result.type}-${result.id}`}
+                                        key={`${result.type}-${result.id ?? result.no_ic}`}
                                         onClick={() => handleResultClick(result)}
                                         className="w-full px-6 py-4 text-left hover:bg-slate-50 border-b border-slate-100 last:border-b-0 transition-colors"
                                     >
@@ -109,19 +109,24 @@ export default function UserDashboard() {
                                             <div className="flex-1">
                                                 <div className="flex items-center space-x-2 mb-1">
                                                     <span className="font-semibold text-slate-900">{result.nama}</span>
-                                                    <span className={`px-2 py-0.5 text-xs font-medium rounded ${result.type === 'hasil_culaan'
-                                                        ? 'bg-emerald-100 text-emerald-700'
-                                                        : 'bg-sky-100 text-sky-700'
-                                                        }`}>
-                                                        {result.type === 'hasil_culaan' ? 'Hasil Culaan' : 'Data Pengundi'}
+                                                    <span className={`px-2 py-0.5 text-xs font-medium rounded ${
+                                                        result.type === 'hasil_culaan'
+                                                            ? 'bg-emerald-100 text-emerald-700'
+                                                            : result.type === 'voter_db'
+                                                                ? 'bg-violet-100 text-violet-700'
+                                                                : 'bg-sky-100 text-sky-700'
+                                                    }`}>
+                                                        {result.type === 'hasil_culaan' ? 'Hasil Culaan' : result.type === 'voter_db' ? 'Pangkalan Data' : 'Data Pengundi'}
                                                     </span>
                                                 </div>
                                                 <p className="text-sm text-slate-600">No. IC: {result.no_ic}</p>
-                                                <p className="text-sm text-slate-600">Tel: {result.no_tel}</p>
+                                                {result.no_tel && <p className="text-sm text-slate-600">Tel: {result.no_tel}</p>}
                                                 <p className="text-xs text-slate-500 mt-1">{result.kadun}, {result.bandar}</p>
                                             </div>
                                             <div className="ml-4">
-                                                {result.can_edit ? (
+                                                {result.type === 'voter_db' ? (
+                                                    <Plus className="h-5 w-5 text-violet-600" />
+                                                ) : result.can_edit ? (
                                                     <Edit className="h-5 w-5 text-blue-600" />
                                                 ) : (
                                                     <Eye className="h-5 w-5 text-slate-400" />

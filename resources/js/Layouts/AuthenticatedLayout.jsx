@@ -32,7 +32,8 @@ import {
     Brain,
     Zap,
     Play,
-    List
+    List,
+    Upload
 } from 'lucide-react';
 
 export default function AuthenticatedLayout({ children }) {
@@ -54,6 +55,7 @@ export default function AuthenticatedLayout({ children }) {
         { name: 'Kecenderungan Politik', href: route('master-data.kecenderungan-politik.index'), icon: TrendingUp },
 
         { name: 'Bangsa', href: route('master-data.bangsa.index'), icon: UserCircle },
+        { name: 'Lokaliti', href: route('master-data.lokaliti.index'), icon: MapPin },
     ];
 
     const laporanSubmenu = [
@@ -90,6 +92,10 @@ export default function AuthenticatedLayout({ children }) {
             { name: 'Pengguna', href: route('users.index'), icon: Users, current: route().current('users.*') }
         ] : []),
 
+        // Upload Database (Super Admin only)
+        ...(user.role === 'super_admin' ? [
+            { name: 'Upload Database', href: route('upload-database.index'), icon: Upload, current: route().current('upload-database.*') }
+        ] : []),
         // Data Induk menu (Super Admin and Admin only)
         ...(user.role === 'super_admin' || user.role === 'admin' ? [
             {
@@ -317,7 +323,7 @@ export default function AuthenticatedLayout({ children }) {
                 </header>
 
                 {/* Page content */}
-                <main className="p-4 sm:p-6 lg:p-8">
+                <main className="px-4 pt-6 pb-10 sm:p-6 lg:p-8">
                     {children}
                 </main>
             </div>

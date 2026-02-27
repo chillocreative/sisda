@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\HasilCulaan;
 use App\Models\DataPengundi;
 use App\Models\DaerahMengundi;
+use App\Models\Lokaliti;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Exports\HasilCulaanExport;
@@ -128,6 +129,8 @@ class ReportsController extends Controller
 
         $parlimenList = \App\Models\Bandar::orderBy('nama')->get();
 
+        $lokalitiList = Lokaliti::orderBy('nama')->get();
+
         return Inertia::render('Reports/HasilCulaan/Create', [
             'bangsaList' => $bangsaList,
             'negeriList' => $negeriList,
@@ -140,6 +143,7 @@ class ReportsController extends Controller
             'bantuanLainList' => $bantuanLainList,
             'keahlianPartiList' => $keahlianPartiList,
             'kecenderunganPolitikList' => $kecenderunganPolitikList,
+            'lokalitiList' => $lokalitiList,
         ]);
     }
 
@@ -164,6 +168,7 @@ class ReportsController extends Controller
             'kadun' => 'required|string|max:255',
             'mpkk' => 'nullable|string|max:255',
             'daerah_mengundi' => 'nullable|string|max:255',
+            'lokaliti' => 'nullable|string|max:255',
             'bil_isi_rumah' => 'required|integer|min:1',
             'pendapatan_isi_rumah' => 'nullable|numeric|min:0',
             'pekerjaan' => 'required|string|max:255',
@@ -256,6 +261,7 @@ class ReportsController extends Controller
                 'kadun' => $validated['kadun'],
                 'mpkk' => $validated['mpkk'] ?? null,
                 'daerah_mengundi' => $validated['daerah_mengundi'] ?? null,
+                'lokaliti' => $validated['lokaliti'] ?? null,
                 'keahlian_parti' => $validated['keahlian_parti'] ?? null,
                 'kecenderungan_politik' => $validated['kecenderungan_politik'] ?? null,
                 'hubungan' => null, // Will be updated manually by user
@@ -296,6 +302,8 @@ class ReportsController extends Controller
 
         $parlimenList = \App\Models\Bandar::orderBy('nama')->get();
 
+        $lokalitiList = Lokaliti::orderBy('nama')->get();
+
         return Inertia::render('Reports/HasilCulaan/Edit', [
             'hasilCulaan' => $hasilCulaan,
             'bangsaList' => $bangsaList,
@@ -309,6 +317,7 @@ class ReportsController extends Controller
             'bantuanLainList' => $bantuanLainList,
             'keahlianPartiList' => $keahlianPartiList,
             'kecenderunganPolitikList' => $kecenderunganPolitikList,
+            'lokalitiList' => $lokalitiList,
         ]);
     }
 
@@ -338,6 +347,7 @@ class ReportsController extends Controller
             'kadun' => 'required|string|max:255',
             'mpkk' => 'nullable|string|max:255',
             'daerah_mengundi' => 'nullable|string|max:255',
+            'lokaliti' => 'nullable|string|max:255',
             'bil_isi_rumah' => 'required|integer|min:1',
             'pendapatan_isi_rumah' => 'nullable|numeric|min:0',
             'pekerjaan' => 'required|string|max:255',
@@ -543,7 +553,7 @@ class ReportsController extends Controller
     /**
      * Show the form for creating a new Data Pengundi.
      */
-    public function dataPengundiCreate()
+    public function dataPengundiCreate(Request $request)
     {
         $bangsaList = \App\Models\Bangsa::all();
 
@@ -562,6 +572,21 @@ class ReportsController extends Controller
 
         $parlimenList = \App\Models\Bandar::orderBy('nama')->get();
 
+        $lokalitiList = Lokaliti::orderBy('nama')->get();
+
+        $prefill = null;
+        if ($request->filled('ic')) {
+            $activeBatch = \App\Models\UploadBatch::where('is_active', true)->first();
+            if ($activeBatch) {
+                $voter = \App\Models\PangkalanDataPengundi::where('upload_batch_id', $activeBatch->id)
+                    ->where('no_ic', $request->input('ic'))
+                    ->first();
+                if ($voter) {
+                    $prefill = $voter->only(['no_ic', 'nama', 'lokaliti', 'daerah_mengundi', 'kadun', 'parlimen', 'negeri', 'bangsa']);
+                }
+            }
+        }
+
         return Inertia::render('Reports/DataPengundi/Create', [
             'bangsaList' => $bangsaList,
             'negeriList' => $negeriList,
@@ -571,6 +596,8 @@ class ReportsController extends Controller
             'daerahMengundiList' => $daerahMengundiList,
             'keahlianPartiList' => $keahlianPartiList,
             'kecenderunganPolitikList' => $kecenderunganPolitikList,
+            'lokalitiList' => $lokalitiList,
+            'prefill' => $prefill,
         ]);
     }
 
@@ -596,6 +623,7 @@ class ReportsController extends Controller
             'kadun' => 'required|string|max:255',
             'mpkk' => 'nullable|string|max:255',
             'daerah_mengundi' => 'nullable|string|max:255',
+            'lokaliti' => 'nullable|string|max:255',
             'keahlian_parti' => 'nullable|string|max:255',
             'kecenderungan_politik' => 'nullable|string|max:255',
         ], [
@@ -646,6 +674,8 @@ class ReportsController extends Controller
 
         $parlimenList = \App\Models\Bandar::orderBy('nama')->get();
 
+        $lokalitiList = Lokaliti::orderBy('nama')->get();
+
         return Inertia::render('Reports/DataPengundi/Edit', [
             'dataPengundi' => $dataPengundi,
             'bangsaList' => $bangsaList,
@@ -656,6 +686,7 @@ class ReportsController extends Controller
             'daerahMengundiList' => $daerahMengundiList,
             'keahlianPartiList' => $keahlianPartiList,
             'kecenderunganPolitikList' => $kecenderunganPolitikList,
+            'lokalitiList' => $lokalitiList,
         ]);
     }
 
@@ -688,6 +719,7 @@ class ReportsController extends Controller
             'kadun' => 'required|string|max:255',
             'mpkk' => 'nullable|string|max:255',
             'daerah_mengundi' => 'nullable|string|max:255',
+            'lokaliti' => 'nullable|string|max:255',
             'keahlian_parti' => 'nullable|string|max:255',
             'kecenderungan_politik' => 'nullable|string|max:255',
         ], [

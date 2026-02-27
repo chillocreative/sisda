@@ -1,7 +1,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm } from '@inertiajs/react';
 import { ArrowLeft, Upload, X, Loader2, Image as ImageIcon } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import SearchableSelect from '@/Components/SearchableSelect';
 
@@ -16,7 +16,8 @@ export default function Edit({
     tujuanSumbanganList,
     bantuanLainList,
     keahlianPartiList,
-    kecenderunganPolitikList
+    kecenderunganPolitikList,
+    lokalitiList
 }) {
     const [uploadProgress, setUploadProgress] = useState(0);
     const [isUploading, setIsUploading] = useState(false);
@@ -32,6 +33,10 @@ export default function Edit({
     const [loadingDaerahMengundi, setLoadingDaerahMengundi] = useState(false);
     const [mpkkOptions, setMpkkOptions] = useState([]);
     const [loadingMpkk, setLoadingMpkk] = useState(false);
+    const [icSuggestions, setIcSuggestions] = useState([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const icDebounceRef = useRef(null);
+    const icWrapperRef = useRef(null);
 
     const { data, setData, post, processing, errors } = useForm({
         _method: 'PUT',
@@ -48,6 +53,7 @@ export default function Edit({
         kadun: hasilCulaan.kadun || '',
         mpkk: hasilCulaan.mpkk || '',
         daerah_mengundi: hasilCulaan.daerah_mengundi || '',
+        lokaliti: hasilCulaan.lokaliti || '',
         bil_isi_rumah: hasilCulaan.bil_isi_rumah || '',
         pendapatan_isi_rumah: hasilCulaan.pendapatan_isi_rumah || '',
         pekerjaan: hasilCulaan.pekerjaan || '',
@@ -187,6 +193,32 @@ export default function Edit({
         fetchPostcodeDetails();
     }, [data.poskod]);
 
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (icWrapperRef.current && !icWrapperRef.current.contains(e.target)) {
+                setShowSuggestions(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const handleSuggestionClick = (voter) => {
+        setData({
+            ...data,
+            no_ic: voter.no_ic,
+            nama: voter.nama || data.nama,
+            lokaliti: voter.lokaliti || data.lokaliti,
+            daerah_mengundi: voter.daerah_mengundi || data.daerah_mengundi,
+            kadun: voter.kadun || data.kadun,
+            parlimen: voter.parlimen || data.parlimen,
+            negeri: voter.negeri || data.negeri,
+            bangsa: voter.bangsa || data.bangsa,
+        });
+        setShowSuggestions(false);
+        setIcSuggestions([]);
+    };
+
     const handlePostcodeChange = (e) => {
         const value = e.target.value.replace(/\D/g, '');
         if (value.length <= 5) {
@@ -204,6 +236,21 @@ export default function Edit({
         if (digitsOnly.length > 12) return;
 
         setData('no_ic', digitsOnly);
+
+        if (icDebounceRef.current) clearTimeout(icDebounceRef.current);
+        if (digitsOnly.length >= 3) {
+            icDebounceRef.current = setTimeout(() => {
+                axios.get(route('api.voter.suggest-ic'), { params: { ic: digitsOnly } })
+                    .then(res => {
+                        setIcSuggestions(res.data || []);
+                        setShowSuggestions((res.data || []).length > 0);
+                    })
+                    .catch(() => setIcSuggestions([]));
+            }, 300);
+        } else {
+            setIcSuggestions([]);
+            setShowSuggestions(false);
+        }
 
         // Clear age if IC is empty or too short
         if (digitsOnly.length < 6) {
@@ -327,7 +374,7 @@ export default function Edit({
                                 {errors.nama && <p className="text-sm text-rose-600 mt-1">{errors.nama}</p>}
                             </div>
 
-                            <div>
+                            <div ref={icWrapperRef} className="relative">
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
                                     No. IC <span className="text-rose-500">*</span>
                                 </label>
@@ -340,6 +387,21 @@ export default function Edit({
                                     required
                                 />
                                 {errors.no_ic && <p className="text-sm text-rose-600 mt-1">{errors.no_ic}</p>}
+                                {showSuggestions && icSuggestions.length > 0 && (
+                                    <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                                        {icSuggestions.map((voter) => (
+                                            <button
+                                                key={voter.no_ic}
+                                                type="button"
+                                                onClick={() => handleSuggestionClick(voter)}
+                                                className="w-full text-left px-4 py-2.5 hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0"
+                                            >
+                                                <span className="font-mono text-sm font-medium text-slate-900">{voter.no_ic}</span>
+                                                <span className="ml-2 text-sm text-slate-500">{voter.nama}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             <div>
@@ -532,6 +594,23 @@ export default function Edit({
                                         ))}
                                     </select>
                                     {errors.daerah_mengundi && <p className="text-sm text-rose-600 mt-1">{errors.daerah_mengundi}</p>}
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                                        Lokaliti
+                                    </label>
+                                    <select
+                                        value={data.lokaliti}
+                                        onChange={(e) => setData('lokaliti', e.target.value)}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                    >
+                                        <option value="">Pilih Lokaliti</option>
+                                        {lokalitiList && lokalitiList.map((item) => (
+                                            <option key={item.id} value={item.nama}>{item.nama}</option>
+                                        ))}
+                                    </select>
+                                    {errors.lokaliti && <p className="text-sm text-rose-600 mt-1">{errors.lokaliti}</p>}
                                 </div>
                             </div>
                         </div>

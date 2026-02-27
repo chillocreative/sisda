@@ -240,6 +240,7 @@ export default function Index({ hasilCulaan, filters, currentUserId }) {
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Bangsa</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Negeri</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Bandar</th>
+                                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Lokaliti</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Pendapatan</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Tarikh</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Dikemukakan</th>
@@ -250,7 +251,7 @@ export default function Index({ hasilCulaan, filters, currentUserId }) {
                             <tbody className="divide-y divide-slate-100">
                                 {hasilCulaan.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan="13" className="py-8 text-center text-slate-500">
+                                        <td colSpan="14" className="py-8 text-center text-slate-500">
                                             Tiada rekod dijumpai
                                         </td>
                                     </tr>
@@ -281,6 +282,7 @@ export default function Index({ hasilCulaan, filters, currentUserId }) {
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.bangsa}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.negeri}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.bandar}</td>
+                                            <td className="py-3 px-4 text-sm text-slate-600">{item.lokaliti || '—'}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{formatCurrency(item.pendapatan_isi_rumah)}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{formatDate(item.created_at)}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.submitted_by?.name || '-'}</td>

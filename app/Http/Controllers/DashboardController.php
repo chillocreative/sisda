@@ -11,6 +11,8 @@ use App\Models\Bandar;
 use App\Models\Kadun;
 use App\Models\Mpkk;
 use App\Models\User;
+use App\Models\UploadBatch;
+use App\Models\PangkalanDataPengundi;
 use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
@@ -408,6 +410,30 @@ class DashboardController extends Controller
                 'can_edit' => $canEdit,
                 'edit_url' => $canEdit ? route('reports.data-pengundi.edit', $record->id) : null,
             ];
+        }
+
+        // Search in voter database
+        $activeBatch = UploadBatch::where('is_active', true)->first();
+        if ($activeBatch) {
+            $voterResults = PangkalanDataPengundi::where('upload_batch_id', $activeBatch->id)
+                ->where('no_ic', 'like', "%{$icNumber}%")
+                ->limit(5)
+                ->get(['no_ic', 'nama', 'lokaliti', 'kadun', 'parlimen', 'negeri', 'bangsa']);
+
+            foreach ($voterResults as $voter) {
+                $results[] = [
+                    'id'         => null,
+                    'type'       => 'voter_db',
+                    'no_ic'      => $voter->no_ic,
+                    'nama'       => $voter->nama,
+                    'no_tel'     => null,
+                    'kadun'      => $voter->kadun,
+                    'bandar'     => $voter->parlimen,
+                    'can_edit'   => true,
+                    'edit_url'   => null,
+                    'create_url' => route('reports.data-pengundi.create'),
+                ];
+            }
         }
 
         return response()->json($results);

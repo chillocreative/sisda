@@ -233,6 +233,7 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Negeri</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Parlimen</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">KADUN</th>
+                                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Lokaliti</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Keahlian Parti</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Tarikh</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Dikemukakan</th>
@@ -242,7 +243,7 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
                             <tbody className="divide-y divide-slate-100">
                                 {dataPengundi.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan="14" className="py-8 text-center text-slate-500">
+                                        <td colSpan="15" className="py-8 text-center text-slate-500">
                                             Tiada rekod dijumpai
                                         </td>
                                     </tr>
@@ -275,6 +276,7 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.negeri}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.parlimen}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.kadun}</td>
+                                            <td className="py-3 px-4 text-sm text-slate-600">{item.lokaliti || '—'}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.keahlian_parti || '-'}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{formatDate(item.created_at)}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.submitted_by?.name || '-'}</td>

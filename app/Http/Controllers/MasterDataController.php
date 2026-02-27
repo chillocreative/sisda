@@ -16,6 +16,7 @@ use App\Models\KeahlianParti;
 use App\Models\KecenderunganPolitik;
 use App\Models\Hubungan;
 use App\Models\Bangsa;
+use App\Models\Lokaliti;
 
 class MasterDataController extends Controller
 {
@@ -1559,5 +1560,59 @@ class MasterDataController extends Controller
         }
 
         return response()->json(['message' => 'Order updated successfully']);
+    }
+
+    // =========================================================
+    // LOKALITI
+    // =========================================================
+
+    public function lokalitiIndex(Request $request)
+    {
+        $query = Lokaliti::query();
+
+        if ($request->filled('search')) {
+            $query->where('nama', 'like', '%' . $request->search . '%');
+        }
+
+        $lokaliti = $query->orderBy('nama')->paginate(20)->withQueryString();
+
+        return Inertia::render('MasterData/Lokaliti/Index', [
+            'lokaliti' => $lokaliti,
+            'filters' => $request->only(['search']),
+        ]);
+    }
+
+    public function lokalitiStore(Request $request)
+    {
+        $validated = $request->validate([
+            'nama' => 'required|string|max:255|unique:lokaliti,nama',
+        ]);
+
+        Lokaliti::create($validated);
+
+        return back()->with('success', 'Lokaliti berjaya ditambah.');
+    }
+
+    public function lokalitiUpdate(Request $request, Lokaliti $lokaliti)
+    {
+        $validated = $request->validate([
+            'nama' => 'required|string|max:255|unique:lokaliti,nama,' . $lokaliti->id,
+        ]);
+
+        $lokaliti->update($validated);
+
+        return back()->with('success', 'Lokaliti berjaya dikemaskini.');
+    }
+
+    public function lokalitiDestroy(Lokaliti $lokaliti)
+    {
+        $lokaliti->delete();
+
+        return back()->with('success', 'Lokaliti berjaya dipadam.');
+    }
+
+    public function getAllLokaliti()
+    {
+        return Lokaliti::orderBy('nama')->get();
     }
 }

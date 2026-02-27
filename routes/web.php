@@ -161,7 +161,13 @@ Route::middleware('auth')->group(function () {
     Route::post('/master-data/bangsa', [\App\Http\Controllers\MasterDataController::class, 'bangsaStore'])->name('master-data.bangsa.store');
     Route::put('/master-data/bangsa/{bangsa}', [\App\Http\Controllers\MasterDataController::class, 'bangsaUpdate'])->name('master-data.bangsa.update');
     Route::delete('/master-data/bangsa/{bangsa}', [\App\Http\Controllers\MasterDataController::class, 'bangsaDestroy'])->name('master-data.bangsa.destroy');
-    
+
+    // Lokaliti
+    Route::get('/master-data/lokaliti', [\App\Http\Controllers\MasterDataController::class, 'lokalitiIndex'])->name('master-data.lokaliti.index');
+    Route::post('/master-data/lokaliti', [\App\Http\Controllers\MasterDataController::class, 'lokalitiStore'])->name('master-data.lokaliti.store');
+    Route::put('/master-data/lokaliti/{lokaliti}', [\App\Http\Controllers\MasterDataController::class, 'lokalitiUpdate'])->name('master-data.lokaliti.update');
+    Route::delete('/master-data/lokaliti/{lokaliti}', [\App\Http\Controllers\MasterDataController::class, 'lokalitiDestroy'])->name('master-data.lokaliti.destroy');
+
     // Reorder Master Data
     Route::post('/master-data/reorder', [\App\Http\Controllers\MasterDataController::class, 'reorder'])->name('master-data.reorder');
         
@@ -193,6 +199,15 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/daerah-mengundi/by-bandar', [\App\Http\Controllers\ReportsController::class, 'getDaerahMengundiByBandar'])->name('api.daerah-mengundi.by-bandar');
     Route::get('/api/parlimen/by-negeri', [\App\Http\Controllers\ReportsController::class, 'getParlimenByNegeri'])->name('api.parlimen.by-negeri');
     Route::get('/api/mpkk/by-kadun', [\App\Http\Controllers\ReportsController::class, 'getMpkkByKadun'])->name('api.mpkk.by-kadun');
+    Route::get('/api/lokaliti', [\App\Http\Controllers\MasterDataController::class, 'getAllLokaliti'])->name('api.lokaliti.index');
+
+    // Upload Database (Super Admin only)
+    Route::get('/upload-database', [\App\Http\Controllers\UploadDatabaseController::class, 'index'])->name('upload-database.index');
+    Route::post('/upload-database', [\App\Http\Controllers\UploadDatabaseController::class, 'store'])->name('upload-database.store');
+    Route::post('/upload-database/{batch}/restore', [\App\Http\Controllers\UploadDatabaseController::class, 'restore'])->name('upload-database.restore');
+    Route::delete('/upload-database/{batch}', [\App\Http\Controllers\UploadDatabaseController::class, 'destroy'])->name('upload-database.destroy');
+    Route::get('/api/voter/search-ic', [\App\Http\Controllers\UploadDatabaseController::class, 'searchByIc'])->name('api.voter.search-ic');
+    Route::get('/api/voter/suggest-ic', [\App\Http\Controllers\UploadDatabaseController::class, 'suggestIc'])->name('api.voter.suggest-ic');
 });
 
 require __DIR__.'/auth.php';

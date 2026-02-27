@@ -29,6 +29,19 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
+        // General User
+        User::updateOrCreate(
+            ['telephone' => '333'],
+            [
+                'name' => 'General User',
+                'role' => 'user',
+                'status' => 'approved',
+                'password' => '123',
+            ]
+        );
+
+        $this->call(LokalitSeeder::class);
+
         // Example Admin (ensure territory tables are seeded first)
         // User::create([
         //     'name' => 'Admin Johor',
