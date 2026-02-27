@@ -1,7 +1,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm, router } from '@inertiajs/react';
-import { useState, useRef } from 'react';
-import { Upload, Loader2, CheckCircle, XCircle, RefreshCw, Trash2, Database } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Upload, Loader2, CheckCircle, XCircle, RefreshCw, Trash2, Database, AlertTriangle } from 'lucide-react';
 
 export default function Index({ batches, flash }) {
     const [confirmDelete, setConfirmDelete] = useState(null);
@@ -11,6 +11,17 @@ export default function Index({ batches, flash }) {
     });
 
     const fileInputRef = useRef(null);
+
+    const hasProcessing = batches.data.some((b) => b.status === 'processing');
+
+    // Poll every 5 seconds while any batch is processing
+    useEffect(() => {
+        if (!hasProcessing) return;
+        const interval = setInterval(() => {
+            router.reload({ only: ['batches'] });
+        }, 5000);
+        return () => clearInterval(interval);
+    }, [hasProcessing]);
 
     const handleFileChange = (e) => {
         setData('fail', e.target.files[0]);
@@ -47,7 +58,12 @@ export default function Index({ batches, flash }) {
             case 'completed':
                 return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Selesai</span>;
             case 'processing':
-                return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Memproses</span>;
+                return (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Memproses
+                    </span>
+                );
             case 'failed':
                 return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Gagal</span>;
             default:
@@ -77,6 +93,17 @@ export default function Index({ batches, flash }) {
                     <div className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-800 rounded-lg px-4 py-3">
                         <XCircle className="h-5 w-5 flex-shrink-0" />
                         <span className="text-sm">{flash.error}</span>
+                    </div>
+                )}
+
+                {/* Processing notice banner */}
+                {hasProcessing && (
+                    <div className="flex items-center gap-3 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg px-4 py-3">
+                        <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+                        <span className="text-sm">
+                            Pemprosesan data sedang berjalan di latar belakang. Halaman ini akan dikemaskini secara automatik setiap 5 saat.
+                        </span>
+                        <Loader2 className="h-4 w-4 animate-spin flex-shrink-0 ml-auto" />
                     </div>
                 )}
 
@@ -113,18 +140,15 @@ export default function Index({ batches, flash }) {
                                 {processing ? (
                                     <>
                                         <Loader2 className="h-4 w-4 animate-spin" />
-                                        Memproses... (sila tunggu)
+                                        Memuat naik...
                                     </>
                                 ) : (
                                     <>
                                         <Upload className="h-4 w-4" />
-                                        Muat Naik &amp; Proses
+                                        Muat Naik
                                     </>
                                 )}
                             </button>
-                            {processing && (
-                                <p className="text-sm text-slate-500">Pemprosesan mungkin mengambil masa 30–60 saat. Jangan tutup halaman ini.</p>
-                            )}
                         </div>
                     </form>
                 </div>
@@ -185,7 +209,7 @@ export default function Index({ batches, flash }) {
                                                     <div className="flex items-center justify-center gap-2">
                                                         <button
                                                             onClick={() => handleRestore(batch)}
-                                                            disabled={batch.is_active}
+                                                            disabled={batch.is_active || batch.status === 'processing'}
                                                             title="Jadikan aktif"
                                                             className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                                         >
@@ -194,8 +218,9 @@ export default function Index({ batches, flash }) {
                                                         </button>
                                                         <button
                                                             onClick={() => handleDelete(batch)}
+                                                            disabled={batch.status === 'processing'}
                                                             title="Padam"
-                                                            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-red-300 text-red-700 hover:bg-red-50 transition-colors"
+                                                            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-red-300 text-red-700 hover:bg-red-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                                         >
                                                             <Trash2 className="h-3 w-3" />
                                                             Padam
