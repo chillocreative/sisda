@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Imports\VoterDatabaseImport;
+use App\Models\Lokaliti;
 use App\Models\PangkalanDataPengundi;
 use App\Models\UploadBatch;
 use Illuminate\Bus\Queueable;
@@ -67,6 +68,29 @@ class ProcessVoterUpload implements ShouldQueue
         ]);
 
         $this->deleteDirectory($tempDir);
+
+        // Sync unique lokaliti values to master table
+        $batchLokaliti = PangkalanDataPengundi::where('upload_batch_id', $this->batchId)
+            ->whereNotNull('lokaliti')
+            ->where('lokaliti', '!=', '')
+            ->distinct()
+            ->pluck('lokaliti')
+            ->toArray();
+
+        $existingNames = Lokaliti::pluck('nama')
+            ->map(fn($n) => strtoupper(trim($n)))
+            ->toArray();
+
+        $newNames = array_values(array_diff($batchLokaliti, $existingNames));
+
+        if (!empty($newNames)) {
+            $now = now();
+            Lokaliti::insert(array_map(fn($nama) => [
+                'nama'       => $nama,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ], $newNames));
+        }
     }
 
     public function failed(Throwable $exception): void

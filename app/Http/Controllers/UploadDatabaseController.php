@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Jobs\ProcessVoterUpload;
+use App\Models\Lokaliti;
 use App\Models\PangkalanDataPengundi;
 use App\Models\UploadBatch;
 use Illuminate\Http\Request;
@@ -58,6 +59,29 @@ class UploadDatabaseController extends Controller
     {
         UploadBatch::where('id', '!=', $batch->id)->update(['is_active' => false]);
         $batch->update(['is_active' => true]);
+
+        // Sync unique lokaliti values from this batch to master table
+        $batchLokaliti = PangkalanDataPengundi::where('upload_batch_id', $batch->id)
+            ->whereNotNull('lokaliti')
+            ->where('lokaliti', '!=', '')
+            ->distinct()
+            ->pluck('lokaliti')
+            ->toArray();
+
+        $existingNames = Lokaliti::pluck('nama')
+            ->map(fn($n) => strtoupper(trim($n)))
+            ->toArray();
+
+        $newNames = array_values(array_diff($batchLokaliti, $existingNames));
+
+        if (!empty($newNames)) {
+            $now = now();
+            Lokaliti::insert(array_map(fn($nama) => [
+                'nama'       => $nama,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ], $newNames));
+        }
 
         return redirect()->route('upload-database.index')
             ->with('success', "Batch '{$batch->nama_fail}' telah dijadikan aktif.");
