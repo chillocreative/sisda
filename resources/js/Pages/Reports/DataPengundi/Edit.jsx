@@ -535,6 +535,9 @@ export default function Edit({
                                         required
                                     >
                                         <option value="">{loadingDaerahMengundi ? "Memuat..." : "Pilih Daerah Mengundi"}</option>
+                                        {data.daerah_mengundi && !daerahMengundiOptions.some(o => o.nama === data.daerah_mengundi) && (
+                                            <option value={data.daerah_mengundi}>{data.daerah_mengundi}</option>
+                                        )}
                                         {daerahMengundiOptions.map((item) => (
                                             <option key={item.id} value={item.nama}>{item.nama}</option>
                                         ))}
@@ -552,6 +555,9 @@ export default function Edit({
                                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                                     >
                                         <option value="">Pilih Lokaliti</option>
+                                        {data.lokaliti && !(lokalitiList || []).some(o => o.nama === data.lokaliti) && (
+                                            <option value={data.lokaliti}>{data.lokaliti}</option>
+                                        )}
                                         {lokalitiList && lokalitiList.map((item) => (
                                             <option key={item.id} value={item.nama}>{item.nama}</option>
                                         ))}
