@@ -63,6 +63,7 @@ export default function Edit({
         jenis_sumbangan: hasilCulaan.jenis_sumbangan || '',
         tujuan_sumbangan: hasilCulaan.tujuan_sumbangan || '',
         bantuan_lain: hasilCulaan.bantuan_lain || '',
+        zpp_jenis_bantuan: hasilCulaan.zpp_jenis_bantuan || '',
         keahlian_parti: hasilCulaan.keahlian_parti || '',
         kecenderungan_politik: hasilCulaan.kecenderungan_politik || '',
         kad_pengenalan: null,
@@ -802,6 +803,27 @@ export default function Edit({
                                     ))}
                                 </select>
                                 {errors.bantuan_lain && <p className="text-sm text-rose-600 mt-1">{errors.bantuan_lain}</p>}
+                                {data.bantuan_lain && data.bantuan_lain.includes('ZAKAT PULAU PINANG') && (
+                                    <div className="mt-3">
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                                            Jenis Bantuan ZPP <span className="text-rose-500">*</span>
+                                        </label>
+                                        <select
+                                            value={data.zpp_jenis_bantuan}
+                                            onChange={(e) => setData('zpp_jenis_bantuan', e.target.value)}
+                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                        >
+                                            <option value="">Pilih Jenis Bantuan ZPP</option>
+                                            <option value="Bantuan kewangan asnaf">Bantuan kewangan asnaf</option>
+                                            <option value="Bantuan makanan / sara hidup">Bantuan makanan / sara hidup</option>
+                                            <option value="Bantuan perubatan">Bantuan perubatan</option>
+                                            <option value="Bantuan pendidikan">Bantuan pendidikan</option>
+                                            <option value="Bantuan perumahan">Bantuan perumahan</option>
+                                            <option value="Modal perniagaan asnaf">Modal perniagaan asnaf</option>
+                                        </select>
+                                        {errors.zpp_jenis_bantuan && <p className="text-sm text-rose-600 mt-1">{errors.zpp_jenis_bantuan}</p>}
+                                    </div>
+                                )}
                             </div>
 
                             <div>

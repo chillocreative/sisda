@@ -500,6 +500,12 @@ export default function Index({ hasilCulaan, filters, currentUserId }) {
                                     <label className="block text-sm font-medium text-slate-500">Tujuan Sumbangan</label>
                                     <div className="mt-1 text-slate-900">{viewingItem.tujuan_sumbangan || '-'}</div>
                                 </div>
+                                {viewingItem.bantuan_lain && viewingItem.bantuan_lain.includes('ZAKAT PULAU PINANG') && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-500">Jenis Bantuan ZPP</label>
+                                        <div className="mt-1 text-slate-900">{viewingItem.zpp_jenis_bantuan || '-'}</div>
+                                    </div>
+                                )}
                                 <div>
                                     <label className="block text-sm font-medium text-slate-500">Dikemukakan Oleh</label>
                                     <div className="mt-1 text-slate-900">{viewingItem.submitted_by?.name || '-'}</div>
