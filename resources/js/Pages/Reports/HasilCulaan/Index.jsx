@@ -481,6 +481,14 @@ export default function Index({ hasilCulaan, filters, currentUserId }) {
                                     <div className="mt-1 text-slate-900">{viewingItem.pekerjaan || '-'}</div>
                                 </div>
                                 <div>
+                                    <label className="block text-sm font-medium text-slate-500">Jenis Pekerjaan</label>
+                                    <div className="mt-1 text-slate-900">
+                                        {viewingItem.jenis_pekerjaan === 'Lain-lain' && viewingItem.jenis_pekerjaan_lain
+                                            ? viewingItem.jenis_pekerjaan_lain
+                                            : viewingItem.jenis_pekerjaan || '-'}
+                                    </div>
+                                </div>
+                                <div>
                                     <label className="block text-sm font-medium text-slate-500">Pemilik Rumah</label>
                                     <div className="mt-1 text-slate-900">{viewingItem.pemilik_rumah || '-'}</div>
                                 </div>

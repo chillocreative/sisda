@@ -53,6 +53,8 @@ export default function Create({
         bil_isi_rumah: '',
         pendapatan_isi_rumah: '',
         pekerjaan: '',
+        jenis_pekerjaan: '',
+        jenis_pekerjaan_lain: '',
         pemilik_rumah: '',
         jenis_sumbangan: [],
         jenis_sumbangan_lain: '',
@@ -685,15 +687,60 @@ export default function Create({
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
                                     Pekerjaan <span className="text-rose-500">*</span>
                                 </label>
-                                <input
-                                    type="text"
+                                <select
                                     value={data.pekerjaan}
                                     onChange={(e) => setData('pekerjaan', e.target.value)}
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                                     required
-                                />
+                                >
+                                    <option value="">Pilih Sektor</option>
+                                    <option value="Penjawat Awam">Penjawat Awam</option>
+                                    <option value="Swasta">Swasta</option>
+                                </select>
                                 {errors.pekerjaan && <p className="text-sm text-rose-600 mt-1">{errors.pekerjaan}</p>}
                             </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">
+                                    Jenis Pekerjaan <span className="text-rose-500">*</span>
+                                </label>
+                                <select
+                                    value={data.jenis_pekerjaan}
+                                    onChange={(e) => setData('jenis_pekerjaan', e.target.value)}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                    required
+                                >
+                                    <option value="">Pilih Jenis Pekerjaan</option>
+                                    <option value="Bekerja Sendiri / Usahawan / Peniaga">Bekerja Sendiri / Usahawan / Peniaga</option>
+                                    <option value="Petani">Petani</option>
+                                    <option value="Nelayan">Nelayan</option>
+                                    <option value="Penternak">Penternak</option>
+                                    <option value="Pekerja Am / Buruh">Pekerja Am / Buruh</option>
+                                    <option value="Pekerja Kontrak / Sambilan / Gig">Pekerja Kontrak / Sambilan / Gig</option>
+                                    <option value="Pesara">Pesara</option>
+                                    <option value="Tidak Bekerja / Menganggur">Tidak Bekerja / Menganggur</option>
+                                    <option value="Suri Rumah">Suri Rumah</option>
+                                    <option value="Pelajar">Pelajar</option>
+                                    <option value="Lain-lain">Lain-lain (nyatakan)</option>
+                                </select>
+                                {errors.jenis_pekerjaan && <p className="text-sm text-rose-600 mt-1">{errors.jenis_pekerjaan}</p>}
+                            </div>
+
+                            {data.jenis_pekerjaan === 'Lain-lain' && (
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                                        Jenis Pekerjaan (Lain-lain) <span className="text-rose-500">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={data.jenis_pekerjaan_lain}
+                                        onChange={(e) => setData('jenis_pekerjaan_lain', e.target.value)}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                        placeholder="Sila nyatakan jenis pekerjaan"
+                                    />
+                                    {errors.jenis_pekerjaan_lain && <p className="text-sm text-rose-600 mt-1">{errors.jenis_pekerjaan_lain}</p>}
+                                </div>
+                            )}
 
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">

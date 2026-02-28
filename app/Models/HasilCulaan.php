@@ -29,6 +29,8 @@ class HasilCulaan extends Model
         'bil_isi_rumah',
         'pendapatan_isi_rumah',
         'pekerjaan',
+        'jenis_pekerjaan',
+        'jenis_pekerjaan_lain',
         'pemilik_rumah',
         'jenis_sumbangan',
         'tujuan_sumbangan',
