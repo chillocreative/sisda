@@ -40,6 +40,7 @@ class HasilCulaan extends Model
         'bkb_program',
         'jumlah_bantuan_tunai',
         'jumlah_wang_tunai',
+        'jkm_program',
         'keahlian_parti',
         'kecenderungan_politik',
         'kad_pengenalan',

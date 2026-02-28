@@ -66,6 +66,7 @@ export default function Edit({
         zpp_jenis_bantuan: hasilCulaan.zpp_jenis_bantuan || '',
         isejahtera_program: hasilCulaan.isejahtera_program || '',
         bkb_program: hasilCulaan.bkb_program || '',
+        jkm_program: hasilCulaan.jkm_program || '',
         jumlah_bantuan_tunai: hasilCulaan.jumlah_bantuan_tunai || '',
         jumlah_wang_tunai: hasilCulaan.jumlah_wang_tunai || '',
         keahlian_parti: hasilCulaan.keahlian_parti || '',
@@ -883,6 +884,27 @@ export default function Edit({
                                             <option value="Bantuan Am Persekutuan (BA)">Bantuan Am Persekutuan (BA)</option>
                                         </select>
                                         {errors.bkb_program && <p className="text-sm text-rose-600 mt-1">{errors.bkb_program}</p>}
+                                    </div>
+                                )}
+                                {data.bantuan_lain && data.bantuan_lain.includes('JABATAN KEBAJIKAN MASYARAKAT (JKM)') && (
+                                    <div className="mt-3">
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                                            Program JKM <span className="text-rose-500">*</span>
+                                        </label>
+                                        <select
+                                            value={data.jkm_program}
+                                            onChange={(e) => setData('jkm_program', e.target.value)}
+                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                        >
+                                            <option value="">Pilih Program</option>
+                                            <option value="Bantuan Kanak-Kanak (BKK)">Bantuan Kanak-Kanak (BKK)</option>
+                                            <option value="Bantuan Warga Emas (BWE)">Bantuan Warga Emas (BWE)</option>
+                                            <option value="Elaun Pekerja Orang Kurang Upaya (EPOKU)">Elaun Pekerja Orang Kurang Upaya (EPOKU)</option>
+                                            <option value="Bantuan OKU Tidak Berupaya Bekerja (BTB)">Bantuan OKU Tidak Berupaya Bekerja (BTB)</option>
+                                            <option value="Bantuan Penjagaan OKU / Pesakit Terlantar (BPT)">Bantuan Penjagaan OKU / Pesakit Terlantar (BPT)</option>
+                                            <option value="Bantuan Am Persekutuan (BA)">Bantuan Am Persekutuan (BA)</option>
+                                        </select>
+                                        {errors.jkm_program && <p className="text-sm text-rose-600 mt-1">{errors.jkm_program}</p>}
                                     </div>
                                 )}
                                 {data.bantuan_lain && data.bantuan_lain.includes('Bantuan Kewangan / Tunai') && (
