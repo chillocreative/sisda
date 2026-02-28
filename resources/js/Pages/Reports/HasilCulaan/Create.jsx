@@ -66,6 +66,7 @@ export default function Create({
         isejahtera_program: '',
         bkb_program: '',
         jumlah_bantuan_tunai: '',
+        jumlah_wang_tunai: '',
         keahlian_parti: '',
         kecenderungan_politik: '',
         kad_pengenalan: null,
@@ -796,6 +797,23 @@ export default function Create({
                                         placeholder="Nyatakan jenis sumbangan lain"
                                         className="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                                     />
+                                )}
+                                {data.jenis_sumbangan.some(item => item === 'Wang Tunai') && (
+                                    <div className="mt-3">
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                                            Jumlah Bantuan (RM)
+                                        </label>
+                                        <input
+                                            type="number"
+                                            value={data.jumlah_wang_tunai}
+                                            onChange={(e) => setData('jumlah_wang_tunai', e.target.value)}
+                                            min="0"
+                                            step="0.01"
+                                            placeholder="0.00"
+                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                        />
+                                        {errors.jumlah_wang_tunai && <p className="text-sm text-rose-600 mt-1">{errors.jumlah_wang_tunai}</p>}
+                                    </div>
                                 )}
                                 {errors.jenis_sumbangan && <p className="text-sm text-rose-600 mt-1">{errors.jenis_sumbangan}</p>}
                             </div>

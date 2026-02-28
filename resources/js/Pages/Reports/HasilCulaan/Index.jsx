@@ -526,6 +526,14 @@ export default function Index({ hasilCulaan, filters, currentUserId }) {
                                         </div>
                                     </div>
                                 )}
+                                {viewingItem.jenis_sumbangan && viewingItem.jenis_sumbangan.includes('Wang Tunai') && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-500">Jumlah Wang Tunai</label>
+                                        <div className="mt-1 text-slate-900">
+                                            {viewingItem.jumlah_wang_tunai ? `RM ${parseFloat(viewingItem.jumlah_wang_tunai).toLocaleString('ms-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
+                                        </div>
+                                    </div>
+                                )}
                                 <div>
                                     <label className="block text-sm font-medium text-slate-500">Dikemukakan Oleh</label>
                                     <div className="mt-1 text-slate-900">{viewingItem.submitted_by?.name || '-'}</div>

@@ -67,6 +67,7 @@ export default function Edit({
         isejahtera_program: hasilCulaan.isejahtera_program || '',
         bkb_program: hasilCulaan.bkb_program || '',
         jumlah_bantuan_tunai: hasilCulaan.jumlah_bantuan_tunai || '',
+        jumlah_wang_tunai: hasilCulaan.jumlah_wang_tunai || '',
         keahlian_parti: hasilCulaan.keahlian_parti || '',
         kecenderungan_politik: hasilCulaan.kecenderungan_politik || '',
         kad_pengenalan: null,
@@ -767,6 +768,23 @@ export default function Edit({
                                         </option>
                                     ))}
                                 </select>
+                                {data.jenis_sumbangan && data.jenis_sumbangan.includes('Wang Tunai') && (
+                                    <div className="mt-3">
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                                            Jumlah Bantuan (RM)
+                                        </label>
+                                        <input
+                                            type="number"
+                                            value={data.jumlah_wang_tunai}
+                                            onChange={(e) => setData('jumlah_wang_tunai', e.target.value)}
+                                            min="0"
+                                            step="0.01"
+                                            placeholder="0.00"
+                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                        />
+                                        {errors.jumlah_wang_tunai && <p className="text-sm text-rose-600 mt-1">{errors.jumlah_wang_tunai}</p>}
+                                    </div>
+                                )}
                                 {errors.jenis_sumbangan && <p className="text-sm text-rose-600 mt-1">{errors.jenis_sumbangan}</p>}
                             </div>
 
