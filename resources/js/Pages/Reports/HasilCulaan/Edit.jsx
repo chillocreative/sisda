@@ -875,10 +875,12 @@ export default function Edit({
                                             className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                                         >
                                             <option value="">Pilih Program</option>
-                                            <option value="Program Penghargaan Warga Emas">Program Penghargaan Warga Emas</option>
-                                            <option value="Program Bantuan Ibu Tunggal">Program Bantuan Ibu Tunggal</option>
-                                            <option value="Program Bantuan Orang Kurang Upaya (OKU)">Program Bantuan Orang Kurang Upaya (OKU)</option>
-                                            <option value="Program Suri Emas / Surirumah Emas">Program Suri Emas / Surirumah Emas</option>
+                                            <option value="Bantuan Kanak-Kanak (BKK)">Bantuan Kanak-Kanak (BKK)</option>
+                                            <option value="Bantuan Warga Emas (BWE)">Bantuan Warga Emas (BWE)</option>
+                                            <option value="Elaun Pekerja Orang Kurang Upaya (EPOKU)">Elaun Pekerja Orang Kurang Upaya (EPOKU)</option>
+                                            <option value="Bantuan OKU Tidak Berupaya Bekerja (BTB)">Bantuan OKU Tidak Berupaya Bekerja (BTB)</option>
+                                            <option value="Bantuan Penjagaan OKU / Pesakit Terlantar (BPT)">Bantuan Penjagaan OKU / Pesakit Terlantar (BPT)</option>
+                                            <option value="Bantuan Am Persekutuan (BA)">Bantuan Am Persekutuan (BA)</option>
                                         </select>
                                         {errors.bkb_program && <p className="text-sm text-rose-600 mt-1">{errors.bkb_program}</p>}
                                     </div>
