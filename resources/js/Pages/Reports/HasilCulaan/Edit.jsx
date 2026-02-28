@@ -65,6 +65,7 @@ export default function Edit({
         bantuan_lain: hasilCulaan.bantuan_lain || '',
         zpp_jenis_bantuan: hasilCulaan.zpp_jenis_bantuan || '',
         isejahtera_program: hasilCulaan.isejahtera_program || '',
+        bkb_program: hasilCulaan.bkb_program || '',
         keahlian_parti: hasilCulaan.keahlian_parti || '',
         kecenderungan_politik: hasilCulaan.kecenderungan_politik || '',
         kad_pengenalan: null,
@@ -842,6 +843,25 @@ export default function Edit({
                                             <option value="Program Suri Emas / Surirumah Emas">Program Suri Emas / Surirumah Emas</option>
                                         </select>
                                         {errors.isejahtera_program && <p className="text-sm text-rose-600 mt-1">{errors.isejahtera_program}</p>}
+                                    </div>
+                                )}
+                                {data.bantuan_lain && data.bantuan_lain.includes('Bantuan Kewangan Bulanan') && (
+                                    <div className="mt-3">
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                                            Program Bantuan Kewangan Bulanan <span className="text-rose-500">*</span>
+                                        </label>
+                                        <select
+                                            value={data.bkb_program}
+                                            onChange={(e) => setData('bkb_program', e.target.value)}
+                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                        >
+                                            <option value="">Pilih Program</option>
+                                            <option value="Program Penghargaan Warga Emas">Program Penghargaan Warga Emas</option>
+                                            <option value="Program Bantuan Ibu Tunggal">Program Bantuan Ibu Tunggal</option>
+                                            <option value="Program Bantuan Orang Kurang Upaya (OKU)">Program Bantuan Orang Kurang Upaya (OKU)</option>
+                                            <option value="Program Suri Emas / Surirumah Emas">Program Suri Emas / Surirumah Emas</option>
+                                        </select>
+                                        {errors.bkb_program && <p className="text-sm text-rose-600 mt-1">{errors.bkb_program}</p>}
                                     </div>
                                 )}
                             </div>

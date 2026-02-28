@@ -37,6 +37,7 @@ class HasilCulaan extends Model
         'bantuan_lain',
         'zpp_jenis_bantuan',
         'isejahtera_program',
+        'bkb_program',
         'keahlian_parti',
         'kecenderungan_politik',
         'kad_pengenalan',

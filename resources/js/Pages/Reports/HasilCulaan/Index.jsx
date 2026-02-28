@@ -512,6 +512,12 @@ export default function Index({ hasilCulaan, filters, currentUserId }) {
                                         <div className="mt-1 text-slate-900">{viewingItem.isejahtera_program || '-'}</div>
                                     </div>
                                 )}
+                                {viewingItem.bantuan_lain && viewingItem.bantuan_lain.includes('Bantuan Kewangan Bulanan') && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-500">Program Bantuan Kewangan Bulanan</label>
+                                        <div className="mt-1 text-slate-900">{viewingItem.bkb_program || '-'}</div>
+                                    </div>
+                                )}
                                 <div>
                                     <label className="block text-sm font-medium text-slate-500">Dikemukakan Oleh</label>
                                     <div className="mt-1 text-slate-900">{viewingItem.submitted_by?.name || '-'}</div>
