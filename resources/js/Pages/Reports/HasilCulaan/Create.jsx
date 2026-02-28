@@ -65,6 +65,7 @@ export default function Create({
         zpp_jenis_bantuan: '',
         isejahtera_program: '',
         bkb_program: '',
+        jumlah_bantuan_tunai: '',
         keahlian_parti: '',
         kecenderungan_politik: '',
         kad_pengenalan: null,
@@ -911,6 +912,23 @@ export default function Create({
                                             <option value="Program Suri Emas / Surirumah Emas">Program Suri Emas / Surirumah Emas</option>
                                         </select>
                                         {errors.bkb_program && <p className="text-sm text-rose-600 mt-1">{errors.bkb_program}</p>}
+                                    </div>
+                                )}
+                                {data.bantuan_lain.some(item => item === 'Bantuan Kewangan / Tunai') && (
+                                    <div className="mt-3">
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                                            Jumlah Bantuan (RM)
+                                        </label>
+                                        <input
+                                            type="number"
+                                            value={data.jumlah_bantuan_tunai}
+                                            onChange={(e) => setData('jumlah_bantuan_tunai', e.target.value)}
+                                            min="0"
+                                            step="0.01"
+                                            placeholder="0.00"
+                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                        />
+                                        {errors.jumlah_bantuan_tunai && <p className="text-sm text-rose-600 mt-1">{errors.jumlah_bantuan_tunai}</p>}
                                     </div>
                                 )}
                                 {errors.bantuan_lain && <p className="text-sm text-rose-600 mt-1">{errors.bantuan_lain}</p>}

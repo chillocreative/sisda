@@ -518,6 +518,14 @@ export default function Index({ hasilCulaan, filters, currentUserId }) {
                                         <div className="mt-1 text-slate-900">{viewingItem.bkb_program || '-'}</div>
                                     </div>
                                 )}
+                                {viewingItem.bantuan_lain && viewingItem.bantuan_lain.includes('Bantuan Kewangan / Tunai') && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-500">Jumlah Bantuan Kewangan / Tunai</label>
+                                        <div className="mt-1 text-slate-900">
+                                            {viewingItem.jumlah_bantuan_tunai ? `RM ${parseFloat(viewingItem.jumlah_bantuan_tunai).toLocaleString('ms-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
+                                        </div>
+                                    </div>
+                                )}
                                 <div>
                                     <label className="block text-sm font-medium text-slate-500">Dikemukakan Oleh</label>
                                     <div className="mt-1 text-slate-900">{viewingItem.submitted_by?.name || '-'}</div>

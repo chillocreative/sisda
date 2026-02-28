@@ -184,6 +184,7 @@ class ReportsController extends Controller
             'zpp_jenis_bantuan' => 'nullable|string|max:255',
             'isejahtera_program' => 'nullable|string|max:255',
             'bkb_program' => 'nullable|string|max:255',
+            'jumlah_bantuan_tunai' => 'nullable|numeric|min:0',
             'keahlian_parti' => 'nullable|string|max:255',
             'kecenderungan_politik' => 'nullable|string|max:255',
             'kad_pengenalan' => 'nullable|image|max:5120', // 5MB max
@@ -368,6 +369,7 @@ class ReportsController extends Controller
             'zpp_jenis_bantuan' => 'nullable|string|max:255',
             'isejahtera_program' => 'nullable|string|max:255',
             'bkb_program' => 'nullable|string|max:255',
+            'jumlah_bantuan_tunai' => 'nullable|numeric|min:0',
             'keahlian_parti' => 'nullable|string|max:255',
             'kecenderungan_politik' => 'nullable|string|max:255',
             'kad_pengenalan' => 'nullable|image|max:5120', // 5MB max

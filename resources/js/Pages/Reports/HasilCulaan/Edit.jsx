@@ -66,6 +66,7 @@ export default function Edit({
         zpp_jenis_bantuan: hasilCulaan.zpp_jenis_bantuan || '',
         isejahtera_program: hasilCulaan.isejahtera_program || '',
         bkb_program: hasilCulaan.bkb_program || '',
+        jumlah_bantuan_tunai: hasilCulaan.jumlah_bantuan_tunai || '',
         keahlian_parti: hasilCulaan.keahlian_parti || '',
         kecenderungan_politik: hasilCulaan.kecenderungan_politik || '',
         kad_pengenalan: null,
@@ -862,6 +863,23 @@ export default function Edit({
                                             <option value="Program Suri Emas / Surirumah Emas">Program Suri Emas / Surirumah Emas</option>
                                         </select>
                                         {errors.bkb_program && <p className="text-sm text-rose-600 mt-1">{errors.bkb_program}</p>}
+                                    </div>
+                                )}
+                                {data.bantuan_lain && data.bantuan_lain.includes('Bantuan Kewangan / Tunai') && (
+                                    <div className="mt-3">
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                                            Jumlah Bantuan (RM)
+                                        </label>
+                                        <input
+                                            type="number"
+                                            value={data.jumlah_bantuan_tunai}
+                                            onChange={(e) => setData('jumlah_bantuan_tunai', e.target.value)}
+                                            min="0"
+                                            step="0.01"
+                                            placeholder="0.00"
+                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                        />
+                                        {errors.jumlah_bantuan_tunai && <p className="text-sm text-rose-600 mt-1">{errors.jumlah_bantuan_tunai}</p>}
                                     </div>
                                 )}
                             </div>
