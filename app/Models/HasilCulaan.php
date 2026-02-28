@@ -36,6 +36,7 @@ class HasilCulaan extends Model
         'tujuan_sumbangan',
         'bantuan_lain',
         'zpp_jenis_bantuan',
+        'isejahtera_program',
         'keahlian_parti',
         'kecenderungan_politik',
         'kad_pengenalan',
