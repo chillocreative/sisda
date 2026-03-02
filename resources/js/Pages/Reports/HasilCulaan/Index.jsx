@@ -534,7 +534,7 @@ export default function Index({ hasilCulaan, filters, currentUserId }) {
                                         </div>
                                     </div>
                                 )}
-                                {viewingItem.bantuan_lain && viewingItem.bantuan_lain.includes('JABATAN KEBAJIKAN MASYARAKAT (JKM)') && (
+                                {viewingItem.bantuan_lain && viewingItem.bantuan_lain.toLowerCase().includes('jabatan kebajikan masyarakat') && (
                                     <div>
                                         <label className="block text-sm font-medium text-slate-500">Program JKM</label>
                                         <div className="mt-1 text-slate-900">{viewingItem.jkm_program || '-'}</div>

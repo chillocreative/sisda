@@ -886,7 +886,7 @@ export default function Edit({
                                         {errors.bkb_program && <p className="text-sm text-rose-600 mt-1">{errors.bkb_program}</p>}
                                     </div>
                                 )}
-                                {data.bantuan_lain && data.bantuan_lain.includes('JABATAN KEBAJIKAN MASYARAKAT (JKM)') && (
+                                {data.bantuan_lain && data.bantuan_lain.toLowerCase().includes('jabatan kebajikan masyarakat') && (
                                     <div className="mt-3">
                                         <label className="block text-sm font-medium text-slate-700 mb-1">
                                             Program JKM <span className="text-rose-500">*</span>
