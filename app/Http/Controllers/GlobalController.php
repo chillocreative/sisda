@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Bandar;
+use App\Models\DaerahMengundi;
 use App\Models\DataPengundi;
 use App\Models\Kadun;
+use App\Models\Lokaliti;
 use App\Models\MPKK;
 use App\Models\MulaCulaan;
 use App\Models\Parlimen;
@@ -31,6 +33,16 @@ class GlobalController extends Controller
     public function getKadunSpecific(Request $request){
         $kadun = Kadun::where('parlimen_id', $request->id)->get();
         return response()->json($kadun);
+    }
+
+    public function getDaerahMengundiSpecific(Request $request){
+        $daerahMengundi = DaerahMengundi::where('mpkk_id', $request->id)->get();
+        return response()->json($daerahMengundi);
+    }
+
+    public function getLokalitisSpecific(Request $request){
+        $lokaliti = Lokaliti::where('daerah_mengundi_id', $request->id)->get();
+        return response()->json($lokaliti);
     }
 
     public function dataPengundi(Request $request){

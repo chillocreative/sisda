@@ -11,7 +11,7 @@ class DataPengundi extends Model
 
     protected $table = 'data_pengundi';
 
-    protected $fillable = ['name', 'no_kad', 'umur', 'phone', 'bangsa', 'hubungan', 'alamat', 'poskod', 'negeri', 'bandar', 'parlimen', 'kadun', 'keahlian_partai', 'kecenderungan_politik', 'user_id', 'is_draft', 'post_id'];
+    protected $fillable = ['name', 'no_kad', 'umur', 'phone', 'bangsa', 'hubungan', 'alamat', 'poskod', 'negeri', 'bandar', 'parlimen', 'kadun', 'mpkk', 'daerah_mengundi', 'lokaliti', 'keahlian_partai', 'kecenderungan_politik', 'user_id', 'is_draft', 'post_id'];
 
     protected $attributes = [
         'keahlian_partai' => '-',

@@ -4,13 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Models\Bandar;
 use App\Models\BantuanLain;
+use App\Models\DaerahMengundi;
 use App\Models\JenisSumbangan;
 use App\Models\Kadun;
 use App\Models\KeahlianPartai;
 use App\Models\KecenderunganPolitik;
+use App\Models\Lokaliti;
 use App\Models\MPKK;
 use App\Models\MulaCulaan;
 use App\Models\Negeri;
+use App\Models\Parlimen;
 use App\Models\TujuanSumbangan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -50,8 +53,11 @@ class MulaCulaanController extends Controller
         'poskod' => 'required',
         'negeri' => 'required',
         'bandar' => 'required',
+        'parlimen' => 'required',
         'kadun' => 'required',
         'mpkk' => 'required',
+        'daerah_mengundi' => 'nullable',
+        'lokaliti' => 'nullable',
         'bilangan_isi_rumah' => 'required',
         'jumlah_pendapatan_isi_rumah' => 'required',
         'pekerjaan' => 'required',
@@ -83,6 +89,8 @@ class MulaCulaanController extends Controller
         $request['nama'] = $request->name;
         $request['user_id'] = Auth::user()->id;
         $request['negeri'] = Negeri::find($request->negeri)->name;
+        $parlimen = Parlimen::find($request->parlimen);
+        $request['parlimen'] = $parlimen ? $parlimen->name : $request->parlimen;
         $request['kadun'] = Kadun::find($request->kadun)->name;
         $request['jenis_sumbangan'] = implode(',', $request->jenis_sumbangan);
         $request['bantuan_lain'] = implode(',', $request->bantuan_lain);
@@ -92,7 +100,7 @@ class MulaCulaanController extends Controller
 
         // $request['keahlian_partai'] = implode(',', $request->keahlian_partai);
         // $request['kecenderungan_politik'] = implode(',', $request->kecenderungan_politik);
-        
+
         MulaCulaan::create($request->all());
         return back()->with('success', 'Mula culaan berjaya disimpan');
     }
@@ -111,6 +119,7 @@ class MulaCulaanController extends Controller
         $kadun_id = Kadun::where('name', $culaan->kadun)->first()->id;
 
         $data['bandar'] = Bandar::where('negeri_id', $negeri_id)->get();
+        $data['parlimen'] = Parlimen::where('negeri_id', $negeri_id)->get();
         $data['mpkk'] = MPKK::where('kadun_id', $kadun_id)->get();
         $data['culaan'] = $culaan;
 
@@ -139,6 +148,8 @@ class MulaCulaanController extends Controller
         
         $request['nama'] = $request->name;
         $request['negeri'] = Negeri::find($request->negeri)->name;
+        $parlimen = Parlimen::find($request->parlimen);
+        $request['parlimen'] = $parlimen ? $parlimen->name : $request->parlimen;
         $request['kadun'] = Kadun::find($request->kadun)->name;
         $request['jenis_sumbangan'] = implode(',', $request->jenis_sumbangan);
         $request['bantuan_lain'] = implode(',', $request->bantuan_lain);

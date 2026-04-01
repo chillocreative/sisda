@@ -8,9 +8,9 @@ use App\Models\Hubungan;
 use App\Models\Kadun;
 use App\Models\KeahlianPartai;
 use App\Models\KecenderunganPolitik;
+use App\Models\MPKK;
 use App\Models\Negeri;
 use App\Models\Parlimen;
-use Dflydev\DotAccessData\Data;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -93,6 +93,9 @@ class DataPengundiController extends Controller
             'bandar' => $request->bandar,
             'parlimen' => $parlimen->name,
             'kadun' => strtoupper($request->kadun),
+            'mpkk' => $request->mpkk,
+            'daerah_mengundi' => $request->daerah_mengundi,
+            'lokaliti' => $request->lokaliti,
             'keahlian_partai' => $request->umur > 17 ? strtoupper($request->keahlian_partai) : '',
             'kecenderungan_politik' => $request->umur > 17 ? strtoupper($request->kecenderungan_politik) : '',
             'user_id' => Auth::user()->id,
@@ -134,6 +137,9 @@ class DataPengundiController extends Controller
             'bandar' => $request->bandar,
             'parlimen' => $parlimen->name,
             'kadun' => $request->kadun,
+            'mpkk' => $request->mpkk,
+            'daerah_mengundi' => $request->daerah_mengundi,
+            'lokaliti' => $request->lokaliti,
             'keahlian_partai' => $request->umur > 17 ? strtoupper($request->keahlian_partai) : NULL,
             'kecenderungan_politik' => $request->umur > 17 ? strtoupper($request->kecenderungan_politik) : NULL,
             'user_id' => Auth::user()->id,

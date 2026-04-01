@@ -114,6 +114,8 @@ Route::middleware('auth')->group(function(){
     Route::post('/get-bandar-specific', [GlobalController::class, 'getBandarSpecific'])->name('get-bandar-specific');
     Route::post('/get-parlimen-specific', [GlobalController::class, 'getParlimenSpecific'])->name('get-parlimen-specific');
     Route::post('/get-kadun-specific', [GlobalController::class, 'getKadunSpecific'])->name('get-kadun-specific');
+    Route::post('/get-daerah-mengundi-specific', [GlobalController::class, 'getDaerahMengundiSpecific'])->name('get-daerah-mengundi-specific');
+    Route::post('/get-lokaliti-specific', [GlobalController::class, 'getLokalitisSpecific'])->name('get-lokaliti-specific');
 
     Route::post('/data-pengundi', [GlobalController::class, 'dataPengundi'])->name('global.data-pengundi');
     Route::post('/mula-culaan', [GlobalController::class, 'mulaCulaan'])->name('global.mula-culaan');

@@ -20,21 +20,15 @@
                             <div class="row">
                                 <div class="col-lg-6">
                                     <div class="form-group">
-                                        <label for="name" class="form-control-label">Nama<span class="text-danger">
-                                                *</span></label>
-                                        <input value={{ $data->name }} type="text" name="name" id="name"
-                                            class="form-control text-uppercase @error('name') is-invalid @enderror" required>
+                                        <label for="name" class="form-control-label">Nama<span class="text-danger"> *</span></label>
+                                        <input value={{ $data->name }} type="text" name="name" id="name" class="form-control text-uppercase @error('name') is-invalid @enderror" required>
                                         @error('name') <small class="text-danger">{{ $message }}</small>@enderror
                                     </div>
                                     <div class="row">
                                         <div class="col-lg-6 form-group">
-                                            <label for="no_kad" class="form-control-label">No Kad Pengenalan<span
-                                                    class="text-danger"> *</span></label>
-                                            <input value={{ $data->no_kad }} type="text" maxlength="12" name="no_kad" id="no_kad"
-                                                class="form-control text-uppercase @error('no_kad') is-invalid @enderror no_kad"
-                                                oninput="nextHomeSectionAdd(this)" onchange="nextSection()" required>
-                                            @error('no_kad') <small
-                                                class="text-danger">{{ $message }}</small>@enderror
+                                            <label for="no_kad" class="form-control-label">No Kad Pengenalan<span class="text-danger"> *</span></label>
+                                            <input value={{ $data->no_kad }} type="text" maxlength="12" name="no_kad" id="no_kad" class="form-control text-uppercase @error('no_kad') is-invalid @enderror no_kad" oninput="nextHomeSectionAdd(this)" onchange="nextSection()" required>
+                                            @error('no_kad') <small class="text-danger">{{ $message }}</small>@enderror
                                         </div>
                                         <div class="col-lg-6 form-group form-umur" id="form-umur">
                                             <label for="umur" class="form-control-label">Umur</label>
@@ -47,15 +41,12 @@
                                         </div>
                                     </div>
                                     <div class="form-group">
-                                        <label for="phone" class="form-control-label">No Tel<span class="text-danger">
-                                                *</span></label>
-                                        <input value={{ $data->phone }} type="number" name="phone" pattern="/^-?\d+\.?\d*$/" onKeyPress="if(this.value.length==13) return false;" id="phone"
-                                            class="form-control text-uppercase @error('phone') is-invalid @enderror" required>
+                                        <label for="phone" class="form-control-label">No Tel<span class="text-danger"> *</span></label>
+                                        <input value={{ $data->phone }} type="number" name="phone" pattern="/^-?\d+\.?\d*$/" onKeyPress="if(this.value.length==13) return false;" id="phone" class="form-control text-uppercase @error('phone') is-invalid @enderror" required>
                                         @error('phone') <small class="text-danger">{{ $message }}</small>@enderror
                                     </div>
                                     <div class="form-group">
-                                        <label for="bangsa" class="form-control-label">Bangsa<span class="text-danger">
-                                                *</span></label>
+                                        <label for="bangsa" class="form-control-label">Bangsa<span class="text-danger"> *</span></label>
                                         <select name="bangsa" id="bangsa" class="form-control py-1" required>
                                             <option value="" disabled>Pilih Bangsa</option>
                                             <option value="Melayu">Melayu</option>
@@ -81,116 +72,110 @@
                                     @endif
                                 </div>
                                 <div class="col-lg-6">
+                                    <h6 class="font-weight-bold mb-3">Maklumat Alamat</h6>
                                     <div class="form-group">
                                         <label for="alamat" class="form-control-label">
                                             Alamat<span class="text-danger"> *</span>
-                                            <button type="button" class="btn-tooltip fa fa-question-circle text-dark ml-2"
-                                                data-toggle="tooltip" data-placement="right"
-                                                title="Alamat tempat tinggal yang terkini."></button>
+                                            <button type="button" class="btn-tooltip fa fa-question-circle text-dark ml-2" data-toggle="tooltip" data-placement="right" title="Alamat tempat tinggal yang terkini."></button>
                                         </label>
-                                        <textarea name="alamat" id="alamat" rows="2" class="form-control text-uppercase"
-                                            required>{{ $data->alamat }}</textarea>
+                                        <textarea name="alamat" id="alamat" rows="2" class="form-control text-uppercase" required>{{ $data->alamat }}</textarea>
                                         @error('alamat') <small class="text-danger">{{ $message }}</small>@enderror
                                     </div>
                                     <div class="row">
                                         <div class="col-lg-4 form-group">
-                                            <label for="poskod" class="form-control-label">Poskod<span
-                                                    class="text-danger"> *</span></label>
-                                            <input type="number" name="poskod" id="poskod" pattern="/^-?\d+\.?\d*$/" onKeyPress="if(this.value.length==5) return false;"
-                                                class="form-control @error('poskod') is-invalid @enderror"
-                                                 value={{ $data->poskod }} required>
-                                            @error('poskod') <small
-                                                class="text-danger">{{ $message }}</small>@enderror
+                                            <label for="poskod" class="form-control-label">Poskod<span class="text-danger"> *</span></label>
+                                            <input type="number" name="poskod" id="poskod" pattern="/^-?\d+\.?\d*$/" onKeyPress="if(this.value.length==5) return false;" class="form-control @error('poskod') is-invalid @enderror" value={{ $data->poskod }} required>
+                                            @error('poskod') <small class="text-danger">{{ $message }}</small>@enderror
                                         </div>
                                         <div class="col-md-4 form-group">
-                                            <label for="negeri" class="form-control-label">Negeri<span
-                                                    class="text-danger"> *</span></label>
-                                            <select name="negeri" id="negeri" class="form-control py-0 negeri"
-                                                required>
+                                            <label for="negeri" class="form-control-label">Negeri<span class="text-danger"> *</span></label>
+                                            <select name="negeri" id="negeri" class="form-control py-0 negeri" required>
                                                 <option value="" disabled selected>Pilih Negeri</option>
                                                 @foreach ($negeri as $n)
                                                     <option value="{{ $n->id }}" {{ $data->negeri === $n->name ? 'selected' : '' }}>{{ $n->name }}</option>
                                                 @endforeach
                                             </select>
-                                            @error('negeri') <small
-                                                class="text-danger">{{ $message }}</small>@enderror
+                                            @error('negeri') <small class="text-danger">{{ $message }}</small>@enderror
                                         </div>
                                         <div class="col-md-4 form-group">
-                                            <label for="bandar" class="form-control-label">
-                                                Bandar<span class="text-danger"> *</span>
-                                            </label>
-                                            <select name="bandar" id="bandar" class="form-control py-0 bandar"
-                                               required>
+                                            <label for="bandar" class="form-control-label">Bandar<span class="text-danger"> *</span></label>
+                                            <select name="bandar" id="bandar" class="form-control py-0 bandar" required>
                                                 <option value="" disabled>Pilih Bandar</option>
                                                 @foreach ($bandar as $b)
                                                   <option value="{{ $b->name }}" {{ $b->name === $data->bandar ? 'selected' : '' }}>{{ $b->name }}</option>
                                                 @endforeach
                                             </select>
-                                            @error('bandar') <small
-                                                class="text-danger">{{ $message }}</small>@enderror
+                                            @error('bandar') <small class="text-danger">{{ $message }}</small>@enderror
                                         </div>
                                     </div>
+
+                                    <h6 class="font-weight-bold mb-3 mt-2">Maklumat Kawasan Mengundi</h6>
                                     <div class="row">
                                         <div class="col-md-6 form-group">
-                                            <label for="parlimen" class="form-control-label">Parlimen<span
-                                                    class="text-danger"> *</span></label>
-                                            <select name="parlimen" id="parlimen" class="form-control py-0 parlimen"
-                                                required>
+                                            <label for="parlimen" class="form-control-label">Parlimen<span class="text-danger"> *</span></label>
+                                            <select name="parlimen" id="parlimen" class="form-control py-0 parlimen" required>
                                                 <option value="" disabled>Pilih Parlimen</option>
                                                 @foreach ($parlimen as $p)
                                                   <option value="{{ $p->id }}" {{ $p->name === $data->parlimen ? 'selected' : '' }}>{{ $p->name }}</option>
                                                 @endforeach
                                             </select>
-                                            @error('kadun') <small
-                                                class="text-danger">{{ $message }}</small>@enderror
+                                            @error('parlimen') <small class="text-danger">{{ $message }}</small>@enderror
                                         </div>
                                         <div class="col-md-6 form-group">
-                                            <label for="kadun" class="form-control-label">KADUN<span class="text-danger">
-                                                    *</span></label>
-                                            <select name="kadun" id="kadun" class="form-control py-0 kadun"
-                                               required>
+                                            <label for="kadun" class="form-control-label">KADUN<span class="text-danger"> *</span></label>
+                                            <select name="kadun" id="kadun" class="form-control py-0 kadun" required>
                                                 <option value="" disabled>Pilih KADUN</option>
                                                 @foreach ($kadun as $k)
                                                   <option class="text-uppercase" value="{{ strtoupper($k->name) }}" {{ strtoupper($k->name) === $data->kadun ? 'selected' : '' }}>{{ strtoupper($k->name) }}</option>
                                                 @endforeach
                                             </select>
-                                            @error('kadun') <small
-                                                class="text-danger">{{ $message }}</small>@enderror
+                                            @error('kadun') <small class="text-danger">{{ $message }}</small>@enderror
                                         </div>
                                     </div>
+                                    <div class="row">
+                                        <div class="col-md-4 form-group">
+                                            <label for="mpkk" class="form-control-label">MPKK</label>
+                                            <select name="mpkk" id="mpkk" class="form-control py-0" disabled>
+                                                <option value="" disabled selected>Pilih MPKK</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4 form-group">
+                                            <label for="daerah_mengundi" class="form-control-label">Daerah Mengundi</label>
+                                            <select name="daerah_mengundi" id="daerah_mengundi" class="form-control py-0" disabled>
+                                                <option value="" disabled selected>Pilih Daerah Mengundi</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4 form-group">
+                                            <label for="lokaliti" class="form-control-label">Lokaliti</label>
+                                            <select name="lokaliti" id="lokaliti" class="form-control py-0" disabled>
+                                                <option value="" disabled selected>Pilih Lokaliti</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
                                     <div class="old-validate {{ $data->umur > 17 ? '' : 'd-none' }}">
                                         <div class="form-group">
                                             <label for="keahlian-partai" class="form-control-label">
                                                 Keahlian Parti<span class="text-danger"> *</span>
-                                                <button type="button"
-                                                    class="btn-tooltip fa fa-question-circle text-dark ml-2"
-                                                    data-toggle="tooltip" data-placement="right"
-                                                    title="Tooltip on keahlian partai"></button>
+                                                <button type="button" class="btn-tooltip fa fa-question-circle text-dark ml-2" data-toggle="tooltip" data-placement="right" title="Tooltip on keahlian partai"></button>
                                             </label>
-                                            <select id="keahlian_partai" name="keahlian_partai"
-                                                class="form-control keahlian-partai py-1" {{ $data->umur > 17 ? 'required' : '' }}>
+                                            <select id="keahlian_partai" name="keahlian_partai" class="form-control keahlian-partai py-1" {{ $data->umur > 17 ? 'required' : '' }}>
                                                 <option value="" selected disabled>Pilih Keahlian Parti</option>
                                                 @foreach ($keahlianPartai as $k)
-                                                    <option value="{{ $k->name }}" {{ $k->name === $data->keahlian_partai ? 'selected' : '' }}>{{ Str::upper($k->name) }}
-                                                    </option>
+                                                    <option value="{{ $k->name }}" {{ $k->name === $data->keahlian_partai ? 'selected' : '' }}>{{ Str::upper($k->name) }}</option>
                                                 @endforeach
                                             </select>
-                                            @error('keahlian_partai') <small
-                                                class="text-danger">{{ $message }}</small>@enderror
+                                            @error('keahlian_partai') <small class="text-danger">{{ $message }}</small>@enderror
                                         </div>
                                         <div class="form-group">
-                                            <label for="kecenderungan-politik" class="form-control-label">Kecenderungan
-                                                Politik<span class="text-danger"> *</span></label>
-                                            <select id="kecenderungan_politik" name="kecenderungan_politik"
-                                                class="form-control kecenderungan-politik py-1" {{ $data->umur > 17 ? 'required' : '' }}>
+                                            <label for="kecenderungan-politik" class="form-control-label">Kecenderungan Politik<span class="text-danger"> *</span></label>
+                                            <select id="kecenderungan_politik" name="kecenderungan_politik" class="form-control kecenderungan-politik py-1" {{ $data->umur > 17 ? 'required' : '' }}>
                                                 <option value="" selected disabled>Pilih Kecenderungan Politik</option>
                                                 @foreach ($kecenderunganPolitik as $k)
-                                                    <option value="{{ $k->name }}" {{ $k->name === $data->kecenderungan_politik ? 'selected' : '' }}>{{ Str::upper($k->name) }}
-                                                    </option>
+                                                    <option value="{{ $k->name }}" {{ $k->name === $data->kecenderungan_politik ? 'selected' : '' }}>{{ Str::upper($k->name) }}</option>
                                                 @endforeach
                                             </select>
-                                            @error('kecenderungan_politik') <small
-                                                class="text-danger">{{ $message }}</small>@enderror
+                                            @error('kecenderungan_politik') <small class="text-danger">{{ $message }}</small>@enderror
                                         </div>
                                     </div>
                                 </div>
@@ -214,7 +199,7 @@
 @section('script')
     <script type="text/javascript" defer>
         const hubunganSelect = $('#hubungan option:selected').val()
-        
+
         if(hubunganSelect === 'lain'){
             const custom = $('#hubungan-custom')
             custom.removeClass('d-none')
@@ -244,11 +229,6 @@
                 let oldValidateElm = $('.old-validate')
                 let keahlianPartaiElm = $('.keahlian-partai')
                 let kecenderunganPolitikElm = $('.kecenderungan-politik')
-                formUmurElm = $(formUmurElm)
-                umurElm = $(umurElm)
-                oldValidateElm = $(oldValidateElm)
-                keahlianPartaiElm = $(keahlianPartaiElm)
-                kecenderunganPolitikElm = $(kecenderunganPolitikElm)
 
                 formUmurElm.removeClass('d-none')
 
@@ -273,141 +253,96 @@
                     kecenderunganPolitikElm.prop('required', false);
                 }
             })
-
-            console.log('sukses')
         }
 
         function negeriOnChange() {
             $('.negeri').on('change', function() {
-                let bandarElm, parlimenElm, kadunElm;
+                let bandarElm = $('.bandar')
+                let parlimenElm = $('.parlimen')
+                let kadunElm = $('.kadun')
 
-                bandarElm = $('.bandar')
-                parlimenElm = $('.parlimen')
-                kadunElm = $('.kadun')
-
-                bandarElm = $(bandarElm)
-                parlimenElm = $(parlimenElm)
-                kadunElm = $(kadunElm)
-                
                 bandarElm.prop('disabled', true)
-                bandarElm.empty().append(
-                    `<option value="" disabled selected>Sila Tunggu ...</option>`);
+                bandarElm.empty().append(`<option value="" disabled selected>Sila Tunggu ...</option>`);
 
                 parlimenElm.prop('disabled', true)
-                parlimenElm.empty().append(
-                    `<option value="" disabled selected>Sila Tunggu ...</option>`);
+                parlimenElm.empty().append(`<option value="" disabled selected>Sila Tunggu ...</option>`);
 
                 kadunElm.prop('disabled', true)
-                kadunElm.empty().append(
-                    `<option value="" disabled selected>Pilih Parlimen dulu</option>`);
+                kadunElm.empty().append(`<option value="" disabled selected>Pilih Parlimen dulu</option>`);
 
                 $.ajax({
                     url: '{{ route('get-bandar-specific') }}',
                     method: 'POST',
-                    data: {
-                        _token: '{{ csrf_token() }}',
-                        id: $(this).val(),
-                    },
+                    data: { _token: '{{ csrf_token() }}', id: $(this).val() },
                     success: function(response) {
                         if(response.length > 0){
                             bandarElm.removeAttr('disabled')
-                            bandarElm.empty().append(
-                                `<option value="" disabled selected>Pilih Bandar</option>`);
-                                
+                            bandarElm.empty().append(`<option value="" disabled selected>Pilih Bandar</option>`);
                             $.each(response, function(index, data) {
                                 bandarElm.append(new Option(data.name, data.name))
                             })
                         }else{
-                            bandarElm.empty().append(
-                                `<option value="" disabled selected>Bandar tak jumpa, tolong undi negeri lain</option>`);
+                            bandarElm.empty().append(`<option value="" disabled selected>Bandar tak jumpa</option>`);
                         }
                     },
-                    error: err => {
-                        console.log(err);
-                    }
+                    error: err => console.log(err)
                 })
 
                 $.ajax({
                     url: '{{ route('get-parlimen-specific') }}',
                     method: 'POST',
-                    data: {
-                        _token: '{{ csrf_token() }}',
-                        id: $(this).val(),
-                    },
+                    data: { _token: '{{ csrf_token() }}', id: $(this).val() },
                     success: function(response) {
                         if(response.length > 0){
                             parlimenElm.removeAttr('disabled')
-                            parlimenElm.empty().append(
-                                `<option value="" disabled selected>Pilih Parlimen</option>`);
+                            parlimenElm.empty().append(`<option value="" disabled selected>Pilih Parlimen</option>`);
                             $.each(response, function(index, data) {
                                 parlimenElm.append(new Option(data.name, data.id))
                             })
                         }else{
-                            parlimenElm.empty().append(
-                                `<option value="" disabled selected>Parlimen tak jumpa, tolong undi negeri lain</option>`);
+                            parlimenElm.empty().append(`<option value="" disabled selected>Parlimen tak jumpa</option>`);
                         }
                     },
-                    error: err => {
-                        console.log(err);
-                    }
+                    error: err => console.log(err)
                 })
             });
         }
 
         function parlimenOnChange() {
             $('.parlimen').on('change', function() {
-                let id = $(this).data('id')
-                let kadunElm;
+                let kadunElm = $('.kadun')
 
-                kadunElm = $('.kadun')
-                kadunElm = $(kadunElm)
-                
                 kadunElm.prop('disabled', true);
-                kadunElm.empty().append(
-                    `<option value="" disabled selected>Sila Tunggu ...</option>`);
+                kadunElm.empty().append(`<option value="" disabled selected>Sila Tunggu ...</option>`);
 
                 $.ajax({
                     url: '{{ route('get-kadun-specific') }}',
                     method: 'POST',
-                    data: {
-                        _token: '{{ csrf_token() }}',
-                        id: $(this).val(),
-                    },
+                    data: { _token: '{{ csrf_token() }}', id: $(this).val() },
                     success: function(response) {
                         if(response.length > 0){
                             kadunElm.removeAttr('disabled');
-                            kadunElm.empty().append(
-                                `<option value="" disabled selected>Pilih KADUN</option>`);
+                            kadunElm.empty().append(`<option value="" disabled selected>Pilih KADUN</option>`);
                             $.each(response, function(index, data) {
                                 kadunElm.append(new Option(data.name.toUpperCase(), data.name.toUpperCase()))
                             })
                         }else{
-                            kadunElm.empty().append(
-                                `<option value="" disabled selected>Kadun tak jumpa, tolong undi parlimen lain</option>`);
+                            kadunElm.empty().append(`<option value="" disabled selected>KADUN tak jumpa</option>`);
                         }
                     },
-                    error: err => {
-                        console.log(err);
-                    }
+                    error: err => console.log(err)
                 })
             });
         }
     </script>
     <script>
         $(document).ready(function() {
-
             $('.no_kad').on('keyup', function() {
-                let id = $(this).data('id')
                 let formUmurElm = $('.form-umur')
                 let umurElm = $('.umur')
-                let oldValidateElm = $('.old-validate');
+                let oldValidateElm = $('.old-validate')
                 let keahlianPartaiElm = $('.keahlian-partai')
                 let kecenderunganPolitikElm = $('.kecenderungan-politik')
-                formUmurElm = $(formUmurElm)
-                umurElm = $(umurElm)
-                oldValidateElm = $(oldValidateElm)
-                keahlianPartaiElm = $(keahlianPartaiElm)
-                kecenderunganPolitikElm = $(kecenderunganPolitikElm)
 
                 formUmurElm.removeClass('d-none')
 

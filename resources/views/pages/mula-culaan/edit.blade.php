@@ -11,11 +11,12 @@
 @section('content')
   <div class="row mt-3">
     <div class="col-lg-12">
-      <div class="card">
-        <div class="card-body">
-          <form action="{{ route('mula-culaan.update', $culaan->id) }}" method="POST" enctype="multipart/form-data">
-          @csrf
-          @method('PUT')
+      <form action="{{ route('mula-culaan.update', $culaan->id) }}" method="POST" enctype="multipart/form-data">
+      @csrf
+      @method('PUT')
+
+        <div class="card">
+          <div class="card-body">
             <div class="row">
               <div class="col-lg-6">
                 <div class="form-group">
@@ -44,6 +45,8 @@
                   <input type="text" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');" name="no_telp" id="no_telp" class="form-control text-uppercase @error('no_telp') is-invalid @enderror" value="{{ $culaan->no_telp }}" required>
                   @error('no_telp') <small class="text-danger">{{ $message }}</small>@enderror
                 </div>
+              </div>
+              <div class="col-lg-6">
                 <div class="form-group">
                   <label for="bangsa" class="form-control-label">Bangsa<span class="text-danger"> *</span></label>
                   <select name="bangsa" id="bangsa" class="form-control py-1" required>
@@ -57,95 +60,127 @@
                   @error('bangsa') <small class="text-danger">{{ $message }}</small>@enderror
                   <input id="bangsa_custom" class="form-control mt-3 d-none" name="bangsa_custom" value="{{ $culaan->bangsa }}">
                 </div>
-                <div class="form-group">
-                  <label for="alamat" class="form-control-label">
-                    Alamat<span class="text-danger"> *</span>
-                    <button type="button" class="btn-tooltip fa fa-question-circle text-dark ml-2" data-toggle="tooltip" data-placement="right" title="Alamat tempat tinggal yang terkini."></button>  
-                  </label>
-                  <textarea name="alamat" id="alamat" rows="2" class="form-control text-uppercase" required>{{ $culaan->alamat }}</textarea>
-                  @error('alamat') <small class="text-danger">{{ $message }}</small>@enderror
-                </div>
-                <div class="row">
-                  <div class="col-md-4 form-group">
-                    <label for="negeri" class="form-control-label">Negeri<span class="text-danger"> *</span></label>
-                    <select name="negeri" id="negeri" class="form-control py-0" required>
-                      <option value="" disabled>Pilih Negeri</option>
-                      @foreach($negeri as $n)
-                        <option value="{{ $n->id }}" {{ $n->name === $culaan->negeri ? 'selected' : '' }}>{{ $n->name }}</option>
-                      @endforeach
-                    </select>
-                    @error('negeri') <small class="text-danger">{{ $message }}</small>@enderror
-                  </div>
-                  <div class="col-md-4 form-group">
-                    <label for="bandar" class="form-control-label">
-                      Bandar<span class="text-danger"> *</span>
-                    </label>
-                    <select name="bandar" id="bandar" class="form-control py-0" required>
-                      <option value="" disabled>Pilih Bandar</option>
-                      @foreach($bandar as $b)
-                        <option value="{{ $b->name }}" {{ $b->name === $culaan->bandar ? 'selected' : '' }}>{{ $b->name }}</option>
-                      @endforeach
-                    </select>
-                    @error('bandar') <small class="text-danger">{{ $message }}</small>@enderror
-                  </div>
-                  <div class="col-lg-4 form-group">
-                    <label for="poskod" class="form-control-label">Poskod<span class="text-danger"> *</span></label>
-                    <input type="text" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');" maxlength="5" name="poskod" id="poskod" class="form-control @error('no_telp') is-invalid @enderror" value="{{ $culaan->poskod }}" maxlength="5" required>
-                    @error('poskod') <small class="text-danger">{{ $message }}</small>@enderror
-                  </div>
-                </div>
-                <div class="row">
-                  <div class="col-md-6 form-group">
-                    <label for="kadun" class="form-control-label">KADUN<span class="text-danger"> *</span></label>
-                    <select name="kadun" id="kadun" class="form-control py-0" required>
-                      <option value="" disabled selected>Pilih KADUN</option>
-                      @foreach($kadun as $k)
-                        <option value="{{ $k->id }}" class="text-uppercase" {{ $k->name === $culaan->kadun ? 'selected' : '' }}>{{ $k->name }}</option>
-                      @endforeach
-                    </select>
-                    @error('kadun') <small class="text-danger">{{ $message }}</small>@enderror
-                  </div>
-                  <div class="col-md-6 form-group">
-                    <label for="mpkk" class="form-control-label">
-                      MPKK<span class="text-danger"> *</span>
-                    </label>
-                    <select name="mpkk" id="mpkk" class="form-control py-0" required>
-                      <option value="" disabled>Pilih MPKK</option>
-                      @foreach($mpkk as $m)
-                        <option value="{{ $m->name }}" {{ $m->name === $culaan->bandar ? 'selected' : '' }}>{{ $m->name }}</option>
-                      @endforeach
-                    </select>
-                    @error('mpkk') <small class="text-danger">{{ $message }}</small>@enderror
-                  </div>
-                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mt-3">
+          <div class="card-body">
+            <h5 class="font-weight-bold mb-3">Maklumat Alamat</h5>
+            <div class="form-group">
+              <label for="alamat" class="form-control-label">
+                Alamat<span class="text-danger"> *</span>
+                <button type="button" class="btn-tooltip fa fa-question-circle text-dark ml-2" data-toggle="tooltip" data-placement="right" title="Alamat tempat tinggal yang terkini."></button>
+              </label>
+              <textarea name="alamat" id="alamat" rows="2" class="form-control text-uppercase" required>{{ $culaan->alamat }}</textarea>
+              @error('alamat') <small class="text-danger">{{ $message }}</small>@enderror
+            </div>
+            <div class="row">
+              <div class="col-md-4 form-group">
+                <label for="poskod" class="form-control-label">Poskod<span class="text-danger"> *</span></label>
+                <input type="text" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');" maxlength="5" name="poskod" id="poskod" class="form-control @error('poskod') is-invalid @enderror" value="{{ $culaan->poskod }}" required>
+                @error('poskod') <small class="text-danger">{{ $message }}</small>@enderror
+              </div>
+              <div class="col-md-4 form-group">
+                <label for="negeri" class="form-control-label">Negeri<span class="text-danger"> *</span></label>
+                <select name="negeri" id="negeri" class="form-control py-0" required>
+                  <option value="" disabled>Pilih Negeri</option>
+                  @foreach($negeri as $n)
+                    <option value="{{ $n->id }}" {{ $n->name === $culaan->negeri ? 'selected' : '' }}>{{ $n->name }}</option>
+                  @endforeach
+                </select>
+                @error('negeri') <small class="text-danger">{{ $message }}</small>@enderror
+              </div>
+              <div class="col-md-4 form-group">
+                <label for="bandar" class="form-control-label">Bandar<span class="text-danger"> *</span></label>
+                <select name="bandar" id="bandar" class="form-control py-0" required>
+                  <option value="" disabled>Pilih Bandar</option>
+                  @foreach($bandar as $b)
+                    <option value="{{ $b->name }}" {{ $b->name === $culaan->bandar ? 'selected' : '' }}>{{ $b->name }}</option>
+                  @endforeach
+                </select>
+                @error('bandar') <small class="text-danger">{{ $message }}</small>@enderror
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mt-3">
+          <div class="card-body">
+            <h5 class="font-weight-bold mb-3">Maklumat Kawasan Mengundi</h5>
+            <div class="row">
+              <div class="col-md-6 form-group">
+                <label for="parlimen" class="form-control-label">Parlimen<span class="text-danger"> *</span></label>
+                <select name="parlimen" id="parlimen" class="form-control py-0" required>
+                  <option value="" disabled>Pilih Parlimen</option>
+                  @foreach($parlimen as $p)
+                    <option value="{{ $p->id }}" {{ $p->name === $culaan->parlimen ? 'selected' : '' }}>{{ $p->name }}</option>
+                  @endforeach
+                </select>
+                @error('parlimen') <small class="text-danger">{{ $message }}</small>@enderror
+              </div>
+              <div class="col-md-6 form-group">
+                <label for="kadun" class="form-control-label">KADUN<span class="text-danger"> *</span></label>
+                <select name="kadun" id="kadun" class="form-control py-0" required>
+                  <option value="" disabled>Pilih KADUN</option>
+                  @foreach($kadun as $k)
+                    <option value="{{ $k->id }}" class="text-uppercase" {{ $k->name === $culaan->kadun ? 'selected' : '' }}>{{ $k->name }}</option>
+                  @endforeach
+                </select>
+                @error('kadun') <small class="text-danger">{{ $message }}</small>@enderror
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-4 form-group">
+                <label for="mpkk" class="form-control-label">MPKK<span class="text-danger"> *</span></label>
+                <select name="mpkk" id="mpkk" class="form-control py-0" required>
+                  <option value="" disabled>Pilih MPKK</option>
+                  @foreach($mpkk as $m)
+                    <option value="{{ $m->name }}" {{ $m->name === $culaan->mpkk ? 'selected' : '' }}>{{ $m->name }}</option>
+                  @endforeach
+                </select>
+                @error('mpkk') <small class="text-danger">{{ $message }}</small>@enderror
+              </div>
+              <div class="col-md-4 form-group">
+                <label for="daerah_mengundi" class="form-control-label">Daerah Mengundi</label>
+                <select name="daerah_mengundi" id="daerah_mengundi" class="form-control py-0" disabled>
+                  <option value="" disabled selected>Pilih Daerah Mengundi</option>
+                </select>
+                @error('daerah_mengundi') <small class="text-danger">{{ $message }}</small>@enderror
+              </div>
+              <div class="col-md-4 form-group">
+                <label for="lokaliti" class="form-control-label">Lokaliti</label>
+                <select name="lokaliti" id="lokaliti" class="form-control py-0" disabled>
+                  <option value="" disabled selected>Pilih Lokaliti</option>
+                </select>
+                @error('lokaliti') <small class="text-danger">{{ $message }}</small>@enderror
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mt-3">
+          <div class="card-body">
+            <div class="row">
+              <div class="col-lg-6">
                 <div class="form-group">
                   <label for="bilangan-isi-rumah" class="form-control-label">
                     Bilangan Isi Rumah <span class="text-danger"> *</span><br><i><p>(Semua individu yang tinggal dalam rumah yang sama.)</p></i>
                   </label>
-                    <select id="bilangan-isi-rumah" name="bilangan_isi_rumah" class="form-control py-0" required>
+                  <select id="bilangan-isi-rumah" name="bilangan_isi_rumah" class="form-control py-0" required>
                     <option value="" selected disabled>Pilih Bilangan Isi Rumah</option>
                     @for($i = 1; $i <= 20; $i++)
                       <option value="{{ $i }}" {{ $i === $culaan->bilangan_isi_rumah ? 'selected' : '' }}>{{ $i }}</option>
                     @endfor
                   </select>
-                  {{-- <input type="number" name="bilangan_isi_rumah" id="bilangan-isi-rumah" class="form-control @error('bilangan_isi_rumah') is-invalid @enderror" value="{{ old('bilangan_isi_rumah') }}"> --}}
                   @error('bilangan_isi_rumah') <small class="text-danger">{{ $message }}</small>@enderror
                 </div>
                 <div class="form-group">
                   <label for="jumlah-pendapatan" class="form-control-label">
                     Jumlah Pendapatan Isi Rumah<span class="text-danger"> *</span>
-                    <button type="button" class="btn-tooltip fa fa-question-circle text-dark ml-2" data-toggle="tooltip" data-placement="right" title="Pendapatan keseluruhan isi rumah, sama ada secara tunai atau sebagainya dan boleh dirujuk sebagai pendapatan kasar."></button>  
+                    <button type="button" class="btn-tooltip fa fa-question-circle text-dark ml-2" data-toggle="tooltip" data-placement="right" title="Pendapatan keseluruhan isi rumah, sama ada secara tunai atau sebagainya dan boleh dirujuk sebagai pendapatan kasar."></button>
                   </label>
-                {{-- <select name="jumlah_pendapatan_isi_rumah" id="jumlah-pendapatan" class="form-control py-0">
-                    <option value="" selected disabled>Pilih Pendapatan Isi Rumah</option>
-                    <option value="RM0 - RM1,500">RM0 - RM1,500</option>
-                    <option value="RM1,500 - RM2,500">RM1,500 - RM2,500</option>
-                    <option value="RM2,500 - RM5,000">RM2,500 - RM5,000</option>
-                    <option value="RM5,000 - RM10,000">RM5,000 - RM10,000</option>
-                    <option value="RM10,000 - RM15,000">RM10,000 - RM15,000</option>
-                    <option value="RM15,000 - RM20,000">RM15,000 - RM20,000</option>
-                    <option value="RM20,000 ke atas">RM20,000 ke atas</option>
-                  </select> --}}
                   <input type="number" name="jumlah_pendapatan_isi_rumah" id="jumlah-pendapatan" class="form-control @error('jumlah_pendapatan_isi_rumah') is-invalid @enderror" value="{{ $culaan->jumlah_pendapatan_isi_rumah }}" required>
                   @error('jumlah_pendapatan_isi_rumah') <small class="text-danger">{{ $message }}</small>@enderror
                 </div>
@@ -154,7 +189,7 @@
                 <div class="form-group">
                   <label for="pekerjaan" class="form-control-label">Kategori Pekerjaan<span class="text-danger"> *</span></label>
                   <select name="pekerjaan" id="pekerjaan" class="form-control py-0" required>
-                    <option value="" disabled >Pilih Pekerjaan</option>
+                    <option value="" disabled>Pilih Pekerjaan</option>
                     <option value="lain" selected>Lain-Lain</option>
                     <option value="Bekerja Sendiri" {{ $culaan->pekerjaan === 'Bekerja Sendiri' ? 'selected' : '' }}>Bekerja Sendiri</option>
                     <option value="Swasta" {{ $culaan->pekerjaan === 'Swasta' ? 'selected' : '' }}>Swasta</option>
@@ -188,22 +223,13 @@
                   @error('tujuan_sumbangan') <small class="text-danger">{{ $message }}</small>@enderror
                   <input id="tujuan_sumbangan_custom" class="form-control mt-3 d-none" name="tujuan_sumbangan_custom" value="{{ $culaan->tujuan_sumbangan }}">
                 </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-lg-6">
                 <div class="form-group">
                   <label for="jenis-sumbangan" class="form-control-label">Jenis Sumbangan <span class="text-danger"> *</span></label>
-                  {{-- <select id="jenis-sumbangan" name="jenis_sumbangan[]" class="form-control select2-multiple" multiple="multiple" data-placeholder="Pilih Jenis Sumbangan">
-                    @foreach($jenisSumbangan as $s)
-                      <option value="{{ $s->name }}" class="text-upp">{{ Str::upper($s->name) }}</option>
-                    @endforeach
-                  </select> --}}
-                  {{-- <select id="jenis-sumbangan" name="jenis_sumbangan" class="form-control py-1">
-                    <option value="" selected disabled>Pilih Jenis Sumbangan</option>
-                    @foreach($jenisSumbangan as $s)
-                      <option value="{{ $s->name }}">{{ Str::upper($s->name) }}</option>
-                    @endforeach
-                  </select> --}}
-                  @php 
-                    $jenis_sumbangan = explode(',', $culaan->jenis_sumbangan);
-                  @endphp 
+                  @php $jenis_sumbangan = explode(',', $culaan->jenis_sumbangan); @endphp
                   @foreach($jenisSumbangan as $j)
                     <div class="form-check">
                       <input class="form-check-input" type="checkbox" value="{{ $j->name }}" id="jenisSumbangan{{ $j->id }}" name="jenis_sumbangan[]" {{ in_array($j->name, $jenis_sumbangan) ? 'checked' : '' }}>
@@ -219,22 +245,11 @@
                   </div>
                   @error('jenis_sumbangan') <small class="text-danger">{{ $message }}</small>@enderror
                 </div>
+              </div>
+              <div class="col-lg-6">
                 <div class="form-group">
                   <label for="bantuan-lain" class="form-control-label">Bantuan Lain Yang Sedang Diterima<span class="text-danger"> *</span></label>
-                  {{-- <select id="bantuan-lain" name="bantuan_lain[]" class="form-control select2-multiple" multiple="multiple" data-placeholder="Pilih Bantuan Lain">
-                    @foreach($bantuanLain as $b)
-                      <option value="{{ $b->name }}" class="text-upp">{{ Str::upper($b->name) }}</option>
-                    @endforeach
-                  </select> --}}
-                  {{-- <select id="bantuan-lain" name="bantuan_lain" class="form-control py-1">
-                    <option value="" selected disabled>Pilih Bantuan Lain</option>
-                    @foreach($bantuanLain as $b)
-                      <option value="{{ $b->name }}">{{ Str::upper($b->name) }}</option>
-                    @endforeach
-                  </select> --}}
-                  @php 
-                    $bantuan_lain = explode(',', $culaan->bantuan_lain);
-                  @endphp 
+                  @php $bantuan_lain = explode(',', $culaan->bantuan_lain); @endphp
                   @foreach($bantuanLain as $b)
                     <div class="form-check">
                       <input class="form-check-input" type="checkbox" value="{{ $b->name }}" id="bantuanLain{{ $b->id }}" name="bantuan_lain[]" {{ in_array($b->name, $bantuan_lain) ? 'checked' : '' }}>
@@ -245,20 +260,19 @@
                   @endforeach
                   <div class="row mt-2">
                     <div class="col-lg-6">
-                      <input type="text" name="bantuan_lain[]" class="form-control form-control-sm"value={{ $bantuan_lain[count($bantuan_lain) - 1] }}>
+                      <input type="text" name="bantuan_lain[]" class="form-control form-control-sm" value={{ $bantuan_lain[count($bantuan_lain) - 1] }}>
                     </div>
                   </div>
                   @error('bantuan_lain') <small class="text-danger">{{ $message }}</small>@enderror
                 </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-lg-6">
                 <div class="form-group">
                   <label for="keahlian-partai" class="form-control-label">
                     Keanggotaan Parti Penerima Sumbangan<span class="text-danger"> *</span>
                   </label>
-                  {{-- <select id="keahlian-partai" name="keahlian_partai[]" class="form-control select2-multiple" multiple="multiple" data-placeholder="Pilih Keahlian Parti">
-                    @foreach($keahlianPartai as $k)
-                      <option value="{{ $k->name }}" class="text-upp">{{ Str::upper($k->name) }}</option>
-                    @endforeach
-                  </select> --}}
                   <select id="keahlian-partai" name="keahlian_partai" class="form-control py-1">
                     <option value="" disabled>Pilih Keahlian Parti</option>
                     @foreach($keahlianPartai as $k)
@@ -267,13 +281,10 @@
                   </select>
                   @error('keahlian_partai') <small class="text-danger">{{ $message }}</small>@enderror
                 </div>
+              </div>
+              <div class="col-lg-6">
                 <div class="form-group">
                   <label for="kecenderungan-politik" class="form-control-label">Kecenderungan Politik<span class="text-danger"> *</span></label>
-                  {{-- <select id="kecenderungan-politik" name="kecenderungan_politik[]" class="form-control select2-multiple" multiple="multiple" data-placeholder="Pilih Kecenderungan Politik">
-                    @foreach($kecenderunganPolitik as $k)
-                      <option value="{{ $k->name }}" class="text-upp">{{ Str::upper($k->name) }}</option>
-                    @endforeach
-                  </select> --}}
                   <select id="kecenderungan-politik" name="kecenderungan_politik" class="form-control py-1" required>
                     <option value="" disabled>Pilih Kecenderungan Politik</option>
                     @foreach($kecenderunganPolitik as $k)
@@ -282,13 +293,19 @@
                   </select>
                   @error('kecenderungan_politik') <small class="text-danger">{{ $message }}</small>@enderror
                 </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-lg-6">
                 <div class="form-group">
                   <label for="nota" class="form-control-label">
                     Nota
                     <button type="button" class="btn-tooltip fa fa-question-circle text-dark ml-2" data-toggle="tooltip" data-placement="right" title="Untuk rujukan bagi tindakan Pusat Khidmat ADUN KEADILAN / CABANG."></button>
                   </label>
-                  <input type="text" name="nota" id="nota" class="form-control @error('nota') is-invalid @enderror"  value="{{ $culaan->nota }}">
+                  <input type="text" name="nota" id="nota" class="form-control @error('nota') is-invalid @enderror" value="{{ $culaan->nota }}">
                 </div>
+              </div>
+              <div class="col-lg-6">
                 <div class="form-group">
                   <label for="tarikh-dan-masa" class="form-control-label">
                     Tarikh dan Masa<span class="text-danger"> *</span>
@@ -296,19 +313,20 @@
                   <input type="datetime-local" name="tarikh_dan_masa" id="tarikh-dan-masa" class="form-control" value="{{ $culaan->tarikh_dan_masa }}" required>
                   @error('tarikh_dan_masa') <small class="text-danger">{{ $message }}</small>@enderror
                 </div>
-                <div class="form-group">
-                  <label for="gambar_ic" class="form-control-label">Muat Naik Salinan Kad Pengenalan</label>
-                  <a href="{{ $culaan->ic_url }}" target="_blank"><img src="{{ asset('ic') }}/{{ $culaan->ic }}" style="height: 200px; display: block"></a>
-                  <input type="file" name="gambar_ic" id="gambar_ic" class="form-control-file mt-3" accept=".jpg, .jpeg, .png, .pdf">
-                </div>
-                <div class="form-group">
-                  <button type="submit" class="btn btn-primary btn-block btn-rounded">Update</button>
-                </div>
               </div>
             </div>
-          </form>
+            <div class="form-group">
+              <label for="gambar_ic" class="form-control-label">Muat Naik Salinan Kad Pengenalan</label>
+              <a href="{{ $culaan->ic_url }}" target="_blank"><img src="{{ asset('ic') }}/{{ $culaan->ic }}" style="height: 200px; display: block"></a>
+              <input type="file" name="gambar_ic" id="gambar_ic" class="form-control-file mt-3" accept=".jpg, .jpeg, .png, .pdf">
+            </div>
+            <div class="form-group">
+              <button type="submit" class="btn btn-primary btn-block btn-rounded">Update</button>
+            </div>
+          </div>
         </div>
-      </div>
+
+      </form>
     </div>
   </div>
 @endsection
@@ -337,8 +355,6 @@
   </script>
   <script>
     $(document).ready(function(){
-      const jenis_sumbangan = "{{ $culaan->jenis_sumbangan }}".split(',')
-
       $('[data-toggle="tooltip"]').tooltip()
       $('.select2-multiple').select2();
 
@@ -358,31 +374,77 @@
       $('#negeri').on('change', function(){
         $('#bandar').prop('disabled', true);
         $('#bandar').empty().append(`<option value="" disabled selected>Sila Tunggu ...</option>`)
-        
+
+        $('#parlimen').prop('disabled', true);
+        $('#parlimen').empty().append(`<option value="" disabled selected>Sila Tunggu ...</option>`)
+
+        $('#kadun').prop('disabled', true);
+        $('#kadun').empty().append(`<option value="" disabled selected>Pilih Parlimen dulu</option>`)
+
+        $('#mpkk').prop('disabled', true);
+        $('#mpkk').empty().append(`<option value="" disabled selected>Pilih KADUN dulu</option>`)
+
         $.ajax({
           url: '{{ route('get-bandar-specific') }}',
           method: 'POST',
-          data: {
-              _token: '{{ csrf_token() }}',
-              id: $(this).val(),
-          },
+          data: { _token: '{{ csrf_token() }}', id: $(this).val() },
           success: function (response) {
               if(response.length > 0){
                 $('#bandar').removeAttr('disabled');
                 $('#bandar').empty().append(`<option value="" disabled selected>Pilih Bandar</option>`);
-  
                 $.each(response, function (index, data) {
                     $('#bandar').append(new Option(data.name, data.name))
                 })
               }else{
-                $('#bandar').empty().append(`<option value="" disabled selected>Bandar tak jumpa, tolong undi Negeri lain</option>`);
+                $('#bandar').empty().append(`<option value="" disabled selected>Bandar tak jumpa</option>`);
               }
           },
-          error: err => {
-              console.log(err);
-          }
+          error: err => console.log(err)
+        })
+
+        $.ajax({
+          url: '{{ route('get-parlimen-specific') }}',
+          method: 'POST',
+          data: { _token: '{{ csrf_token() }}', id: $(this).val() },
+          success: function (response) {
+              if(response.length > 0){
+                $('#parlimen').removeAttr('disabled');
+                $('#parlimen').empty().append(`<option value="" disabled selected>Pilih Parlimen</option>`);
+                $.each(response, function (index, data) {
+                    $('#parlimen').append(new Option(data.name, data.id))
+                })
+              }else{
+                $('#parlimen').empty().append(`<option value="" disabled selected>Parlimen tak jumpa</option>`);
+              }
+          },
+          error: err => console.log(err)
         })
       });
+
+      $('#parlimen').on('change', function(){
+        $('#kadun').prop('disabled', true);
+        $('#kadun').empty().append(`<option value="" disabled selected>Sila Tunggu ...</option>`)
+        $('#mpkk').prop('disabled', true);
+        $('#mpkk').empty().append(`<option value="" disabled selected>Pilih KADUN dulu</option>`)
+
+        $.ajax({
+          url: '{{ route('get-kadun-specific') }}',
+          method: 'POST',
+          data: { _token: '{{ csrf_token() }}', id: $(this).val() },
+          success: function (response) {
+              if(response.length > 0){
+                $('#kadun').removeAttr('disabled');
+                $('#kadun').empty().append(`<option value="" disabled selected>Pilih KADUN</option>`);
+                $.each(response, function (index, data) {
+                    $('#kadun').append(new Option(data.name, data.id))
+                })
+              }else{
+                $('#kadun').empty().append(`<option value="" disabled selected>KADUN tak jumpa</option>`);
+              }
+          },
+          error: err => console.log(err)
+        })
+      })
 
       $('#kadun').on('change', function(){
         $('#mpkk').prop('disabled', true)
@@ -391,31 +453,24 @@
         $.ajax({
           url: '{{ route('get-mpkk-specific') }}',
           method: 'POST',
-          data: {
-              _token: '{{ csrf_token() }}',
-              id: $(this).val(),
-          },
+          data: { _token: '{{ csrf_token() }}', id: $(this).val() },
           success: function (response) {
               if(response.length > 0){
                 $('#mpkk').prop('disabled', false)
                 $('#mpkk').empty().append(`<option value="" disabled selected>Pilih MPKK</option>`);
-  
                 $.each(response, function (index, data) {
                     $('#mpkk').append(new Option(data.name, data.name))
                 })
               }else{
-                $('#mpkk').empty().append(`<option value="" disabled selected>MPKK tak jumpa, tolong undi KADUN lain</option>`)
+                $('#mpkk').empty().append(`<option value="" disabled selected>MPKK tak jumpa</option>`)
               }
           },
-          error: err => {
-              console.log(err);
-          }
+          error: err => console.log(err)
         })
       })
 
       $('#tujuan-sumbangan').on('change', function () {
         const tujuan_sumbangan_custom = $('#tujuan_sumbangan_custom')
-
         if(this.value === 'lain'){
           tujuan_sumbangan_custom.removeClass('d-none');
           tujuan_sumbangan_custom.prop('required', true)
@@ -427,7 +482,6 @@
 
       $('#bangsa').on('change', function () {
         const bangsa_custom = $('#bangsa_custom')
-
         if(this.value === 'lain'){
           bangsa_custom.removeClass('d-none');
           bangsa_custom.prop('required', true)
@@ -439,7 +493,6 @@
 
       $('#pekerjaan').on('change', function() {
         const pekerjaan_custom = $('#pekerjaan_custom')
-
         if(this.value === 'lain'){
           pekerjaan_custom.removeClass('d-none')
           pekerjaan_custom.prop('required', true)
