@@ -232,7 +232,6 @@ export default function Create({
                             ...data,
                             negeri: postcodeData.negeri_nama || '',
                             bandar: postcodeData.city || '',
-                            parlimen: postcodeData.bandar_nama || '',
                         });
                     }
                 } catch (error) {

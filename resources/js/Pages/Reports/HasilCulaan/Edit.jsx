@@ -189,7 +189,6 @@ export default function Edit({
                             ...data,
                             negeri: postcodeData.negeri_nama || '',
                             bandar: postcodeData.city || '',
-                            parlimen: postcodeData.bandar_nama || '',
                         });
                     }
                 } catch (error) {
