@@ -556,7 +556,14 @@ export default function Create({
                                     />
                                     {errors.bandar && <p className="text-sm text-rose-600 mt-1">{errors.bandar}</p>}
                                 </div>
+                            </div>
+                        </div>
+                    </div>
 
+                    {/* Maklumat Kawasan Mengundi */}
+                    <div className="bg-white rounded-xl border border-slate-200 p-6">
+                        <h2 className="text-lg font-semibold text-slate-900 mb-4">Maklumat Kawasan Mengundi</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">
                                         Parlimen <span className="text-rose-500">*</span>
@@ -651,7 +658,6 @@ export default function Create({
                                     </select>
                                     {errors.lokaliti && <p className="text-sm text-rose-600 mt-1">{errors.lokaliti}</p>}
                                 </div>
-                            </div>
                         </div>
                     </div>
 
