@@ -18,4 +18,9 @@ class DaerahMengundi extends Model
     {
         return $this->belongsTo(Bandar::class);
     }
+
+    public function lokaliti()
+    {
+        return $this->hasMany(Lokaliti::class);
+    }
 }

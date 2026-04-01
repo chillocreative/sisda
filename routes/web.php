@@ -200,6 +200,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/parlimen/by-negeri', [\App\Http\Controllers\ReportsController::class, 'getParlimenByNegeri'])->name('api.parlimen.by-negeri');
     Route::get('/api/mpkk/by-kadun', [\App\Http\Controllers\ReportsController::class, 'getMpkkByKadun'])->name('api.mpkk.by-kadun');
     Route::get('/api/lokaliti', [\App\Http\Controllers\MasterDataController::class, 'getAllLokaliti'])->name('api.lokaliti.index');
+    Route::get('/api/lokaliti/by-daerah-mengundi', [\App\Http\Controllers\ReportsController::class, 'getLokalitiBydaerahMengundi'])->name('api.lokaliti.by-daerah-mengundi');
 
     // Upload Database (Super Admin only)
     Route::get('/upload-database', [\App\Http\Controllers\UploadDatabaseController::class, 'index'])->name('upload-database.index');

@@ -46,6 +46,8 @@ export default function Create({
     const [loadingDaerahMengundi, setLoadingDaerahMengundi] = useState(false);
     const [mpkkOptions, setMpkkOptions] = useState([]);
     const [loadingMpkk, setLoadingMpkk] = useState(false);
+    const [lokalitiOptions, setLokalitiOptions] = useState([]);
+    const [loadingLokaliti, setLoadingLokaliti] = useState(false);
     const [icSuggestions, setIcSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const icDebounceRef = useRef(null);
@@ -76,25 +78,31 @@ export default function Create({
         fetchParlimen();
     }, [data.negeri]);
 
-    // Fetch KADUN options when Parlimen changes
+    // Fetch KADUN and Daerah Mengundi when Parlimen changes
     useEffect(() => {
         const fetchKadun = async () => {
             if (!data.parlimen) {
                 setKadunOptions([]);
+                setDaerahMengundiOptions([]);
                 return;
             }
 
             setLoadingKadun(true);
+            setLoadingDaerahMengundi(true);
             try {
-                const response = await axios.get(route('api.kadun.by-bandar'), {
-                    params: { bandar: data.parlimen }
-                });
-                setKadunOptions(response.data);
+                const [kadunRes, dmRes] = await Promise.all([
+                    axios.get(route('api.kadun.by-bandar'), { params: { bandar: data.parlimen } }),
+                    axios.get(route('api.daerah-mengundi.by-bandar'), { params: { bandar: data.parlimen } }),
+                ]);
+                setKadunOptions(kadunRes.data);
+                setDaerahMengundiOptions(dmRes.data);
             } catch (error) {
-                console.error('Error fetching KADUN:', error);
+                console.error('Error fetching KADUN/DM:', error);
                 setKadunOptions([]);
+                setDaerahMengundiOptions([]);
             } finally {
                 setLoadingKadun(false);
+                setLoadingDaerahMengundi(false);
             }
         };
 
@@ -126,30 +134,30 @@ export default function Create({
         fetchMpkk();
     }, [data.kadun]);
 
-    // Fetch Daerah Mengundi options when Parlimen changes
+    // Fetch Lokaliti options when Daerah Mengundi changes
     useEffect(() => {
-        const fetchDaerahMengundi = async () => {
-            if (!data.parlimen) {
-                setDaerahMengundiOptions([]);
+        const fetchLokaliti = async () => {
+            if (!data.daerah_mengundi) {
+                setLokalitiOptions([]);
                 return;
             }
 
-            setLoadingDaerahMengundi(true);
+            setLoadingLokaliti(true);
             try {
-                const response = await axios.get(route('api.daerah-mengundi.by-bandar'), {
-                    params: { bandar: data.parlimen }
+                const response = await axios.get(route('api.lokaliti.by-daerah-mengundi'), {
+                    params: { daerah_mengundi: data.daerah_mengundi }
                 });
-                setDaerahMengundiOptions(response.data);
+                setLokalitiOptions(response.data);
             } catch (error) {
-                console.error('Error fetching Daerah Mengundi:', error);
-                setDaerahMengundiOptions([]);
+                console.error('Error fetching Lokaliti:', error);
+                setLokalitiOptions([]);
             } finally {
-                setLoadingDaerahMengundi(false);
+                setLoadingLokaliti(false);
             }
         };
 
-        fetchDaerahMengundi();
-    }, [data.parlimen]);
+        fetchLokaliti();
+    }, [data.daerah_mengundi]);
 
     const handleIcChange = (e) => {
         const value = e.target.value;
@@ -509,7 +517,7 @@ export default function Create({
                                     </label>
                                     <select
                                         value={data.parlimen}
-                                        onChange={(e) => setData('parlimen', e.target.value)}
+                                        onChange={(e) => setData({...data, parlimen: e.target.value, kadun: '', mpkk: '', daerah_mengundi: '', lokaliti: ''})}
                                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                                         required
                                     >
@@ -527,7 +535,7 @@ export default function Create({
                                     </label>
                                     <select
                                         value={data.kadun}
-                                        onChange={(e) => setData('kadun', e.target.value)}
+                                        onChange={(e) => setData({...data, kadun: e.target.value, mpkk: ''})}
                                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                                         required
                                     >
@@ -563,14 +571,11 @@ export default function Create({
                                     </label>
                                     <select
                                         value={data.daerah_mengundi}
-                                        onChange={(e) => setData('daerah_mengundi', e.target.value)}
+                                        onChange={(e) => setData({...data, daerah_mengundi: e.target.value, lokaliti: ''})}
                                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                                         required
                                     >
                                         <option value="">{loadingDaerahMengundi ? "Memuat..." : "Pilih Daerah Mengundi"}</option>
-                                        {data.daerah_mengundi && !daerahMengundiOptions.some(o => o.nama === data.daerah_mengundi) && (
-                                            <option value={data.daerah_mengundi}>{data.daerah_mengundi}</option>
-                                        )}
                                         {daerahMengundiOptions.map((item) => (
                                             <option key={item.id} value={item.nama}>{item.nama}</option>
                                         ))}
@@ -587,11 +592,8 @@ export default function Create({
                                         onChange={(e) => setData('lokaliti', e.target.value)}
                                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                                     >
-                                        <option value="">Pilih Lokaliti</option>
-                                        {data.lokaliti && !(lokalitiList || []).some(o => o.nama === data.lokaliti) && (
-                                            <option value={data.lokaliti}>{data.lokaliti}</option>
-                                        )}
-                                        {lokalitiList && lokalitiList.map((item) => (
+                                        <option value="">{loadingLokaliti ? "Memuat..." : "Pilih Lokaliti"}</option>
+                                        {lokalitiOptions.map((item) => (
                                             <option key={item.id} value={item.nama}>{item.nama}</option>
                                         ))}
                                     </select>

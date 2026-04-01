@@ -982,6 +982,30 @@ class ReportsController extends Controller
     }
 
     /**
+     * Get Lokaliti by Daerah Mengundi name.
+     */
+    public function getLokalitiBydaerahMengundi(Request $request)
+    {
+        $dmNama = $request->input('daerah_mengundi');
+
+        if (!$dmNama) {
+            return response()->json([]);
+        }
+
+        $dm = \App\Models\DaerahMengundi::where('nama', $dmNama)->first();
+
+        if (!$dm) {
+            return response()->json([]);
+        }
+
+        $lokalitiList = \App\Models\Lokaliti::where('daerah_mengundi_id', $dm->id)
+            ->orderBy('nama')
+            ->get();
+
+        return response()->json($lokalitiList);
+    }
+
+    /**
      * Check if user can modify Hasil Culaan record.
      */
     private function canModifyHasilCulaan($hasilCulaan, $user = null)
