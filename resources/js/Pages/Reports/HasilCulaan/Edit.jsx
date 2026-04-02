@@ -10,6 +10,7 @@ export default function Edit({
     bangsaList,
     negeriList,
     bandarList,
+    parlimenList,
     kadunList,
     daerahMengundiList,
     jenisSumbanganList,
@@ -25,8 +26,6 @@ export default function Edit({
         hasilCulaan.kad_pengenalan ? `/storage/${hasilCulaan.kad_pengenalan}` : null
     );
     const [newFile, setNewFile] = useState(null);
-    const [parlimenOptions, setParlimenOptions] = useState([]);
-    const [loadingParlimen, setLoadingParlimen] = useState(false);
     const [kadunOptions, setKadunOptions] = useState([]);
     const [loadingKadun, setLoadingKadun] = useState(false);
     const [daerahMengundiOptions, setDaerahMengundiOptions] = useState([]);
@@ -76,31 +75,6 @@ export default function Edit({
         kad_pengenalan: null,
         nota: hasilCulaan.nota || '',
     });
-
-    // Fetch Parlimen options when Negeri changes
-    useEffect(() => {
-        const fetchParlimen = async () => {
-            if (!data.negeri) {
-                setParlimenOptions([]);
-                return;
-            }
-
-            setLoadingParlimen(true);
-            try {
-                const response = await axios.get(route('api.parlimen.by-negeri'), {
-                    params: { negeri: data.negeri }
-                });
-                setParlimenOptions(response.data);
-            } catch (error) {
-                console.error('Error fetching Parlimen:', error);
-                setParlimenOptions([]);
-            } finally {
-                setLoadingParlimen(false);
-            }
-        };
-
-        fetchParlimen();
-    }, [data.negeri]);
 
     // Fetch KADUN and Daerah Mengundi when Parlimen changes
     useEffect(() => {
@@ -560,8 +534,8 @@ export default function Edit({
                                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                                         required
                                     >
-                                        <option value="">{loadingParlimen ? "Memuat..." : "Pilih Parlimen"}</option>
-                                        {parlimenOptions.map((item) => (
+                                        <option value="">Pilih Parlimen</option>
+                                        {parlimenList.map((item) => (
                                             <option key={item.id} value={item.nama}>{item.nama}</option>
                                         ))}
                                     </select>
