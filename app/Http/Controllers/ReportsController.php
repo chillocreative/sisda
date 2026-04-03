@@ -172,8 +172,9 @@ class ReportsController extends Controller
             'bil_isi_rumah' => 'required|integer|min:1',
             'pendapatan_isi_rumah' => 'nullable|numeric|min:0',
             'pekerjaan' => 'required|in:Kerajaan,Swasta,Bekerja Sendiri,Tidak Bekerja',
-            'jenis_pekerjaan' => 'required|string|max:255',
-            'jenis_pekerjaan_lain' => 'nullable|string|max:255|required_if:jenis_pekerjaan,Lain-lain',
+            'jenis_pekerjaan' => $request->pekerjaan === 'Kerajaan' ? 'required|array|min:1' : 'required|string|max:255',
+            'jenis_pekerjaan.*' => 'string|max:255',
+            'jenis_pekerjaan_lain' => 'nullable|string|max:255',
             'pemilik_rumah' => 'required|string|max:255',
             'jenis_sumbangan' => 'nullable|array',
             'jenis_sumbangan_lain' => 'nullable|string|max:255',
@@ -203,6 +204,17 @@ class ReportsController extends Controller
                 // For now, we'll enforce it matches the user's bandar name
                  abort(403, 'You can only create records for your Parlimen (' . ($user->bandar->nama ?? 'Unknown') . ').');
             }
+        }
+
+        // Process jenis_pekerjaan checkbox array (Kerajaan) into comma-separated string
+        if (isset($validated['jenis_pekerjaan']) && is_array($validated['jenis_pekerjaan'])) {
+            $sektorKerajaan = $validated['jenis_pekerjaan'];
+            if (in_array('Lain-lain', $sektorKerajaan) && !empty($validated['jenis_pekerjaan_lain'])) {
+                $sektorKerajaan = array_filter($sektorKerajaan, fn($item) => $item !== 'Lain-lain');
+                $sektorKerajaan[] = $validated['jenis_pekerjaan_lain'];
+            }
+            $validated['jenis_pekerjaan'] = implode(', ', $sektorKerajaan);
+            $validated['jenis_pekerjaan_lain'] = null;
         }
 
         // Process checkbox arrays into comma-separated strings
@@ -359,8 +371,9 @@ class ReportsController extends Controller
             'bil_isi_rumah' => 'required|integer|min:1',
             'pendapatan_isi_rumah' => 'nullable|numeric|min:0',
             'pekerjaan' => 'required|in:Kerajaan,Swasta,Bekerja Sendiri,Tidak Bekerja',
-            'jenis_pekerjaan' => 'required|string|max:255',
-            'jenis_pekerjaan_lain' => 'nullable|string|max:255|required_if:jenis_pekerjaan,Lain-lain',
+            'jenis_pekerjaan' => $request->pekerjaan === 'Kerajaan' ? 'required|array|min:1' : 'required|string|max:255',
+            'jenis_pekerjaan.*' => 'string|max:255',
+            'jenis_pekerjaan_lain' => 'nullable|string|max:255',
             'pemilik_rumah' => 'required|string|max:255',
             'jenis_sumbangan' => 'nullable|array',
             'jenis_sumbangan_lain' => 'nullable|string|max:255',
@@ -388,6 +401,17 @@ class ReportsController extends Controller
         }
         if ($user->isUser() && $request->kadun !== ($user->kadun->nama ?? '')) {
             abort(403, 'Anda tidak boleh memindahkan rekod ke luar kawasan anda.');
+        }
+
+        // Process jenis_pekerjaan checkbox array (Kerajaan) into comma-separated string
+        if (isset($validated['jenis_pekerjaan']) && is_array($validated['jenis_pekerjaan'])) {
+            $sektorKerajaan = $validated['jenis_pekerjaan'];
+            if (in_array('Lain-lain', $sektorKerajaan) && !empty($validated['jenis_pekerjaan_lain'])) {
+                $sektorKerajaan = array_filter($sektorKerajaan, fn($item) => $item !== 'Lain-lain');
+                $sektorKerajaan[] = $validated['jenis_pekerjaan_lain'];
+            }
+            $validated['jenis_pekerjaan'] = implode(', ', $sektorKerajaan);
+            $validated['jenis_pekerjaan_lain'] = null;
         }
 
         // Process checkbox arrays into comma-separated strings
