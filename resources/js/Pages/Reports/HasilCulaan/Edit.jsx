@@ -652,7 +652,7 @@ export default function Edit({
 
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Pekerjaan <span className="text-rose-500">*</span>
+                                    Kategori Pekerjaan <span className="text-rose-500">*</span>
                                 </label>
                                 <select
                                     value={data.pekerjaan}
@@ -660,16 +660,18 @@ export default function Edit({
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                                     required
                                 >
-                                    <option value="">Pilih Sektor</option>
-                                    <option value="Penjawat Awam">Penjawat Awam</option>
+                                    <option value="">Pilih Kategori</option>
+                                    <option value="Kerajaan">Kerajaan</option>
                                     <option value="Swasta">Swasta</option>
+                                    <option value="Bekerja Sendiri">Bekerja Sendiri</option>
+                                    <option value="Tidak Bekerja">Tidak Bekerja</option>
                                 </select>
                                 {errors.pekerjaan && <p className="text-sm text-rose-600 mt-1">{errors.pekerjaan}</p>}
                             </div>
 
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Jenis Pekerjaan <span className="text-rose-500">*</span>
+                                    Sektor Pekerjaan <span className="text-rose-500">*</span>
                                 </label>
                                 <select
                                     value={data.jenis_pekerjaan}
@@ -677,7 +679,7 @@ export default function Edit({
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                                     required
                                 >
-                                    <option value="">Pilih Jenis Pekerjaan</option>
+                                    <option value="">Pilih Sektor Pekerjaan</option>
                                     <option value="Bekerja Sendiri / Usahawan / Peniaga">Bekerja Sendiri / Usahawan / Peniaga</option>
                                     <option value="Petani">Petani</option>
                                     <option value="Nelayan">Nelayan</option>
@@ -696,7 +698,7 @@ export default function Edit({
                             {data.jenis_pekerjaan === 'Lain-lain' && (
                                 <div className="md:col-span-2">
                                     <label className="block text-sm font-medium text-slate-700 mb-1">
-                                        Jenis Pekerjaan (Lain-lain) <span className="text-rose-500">*</span>
+                                        Sektor Pekerjaan (Lain-lain) <span className="text-rose-500">*</span>
                                     </label>
                                     <input
                                         type="text"

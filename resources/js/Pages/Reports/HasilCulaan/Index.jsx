@@ -477,11 +477,11 @@ export default function Index({ hasilCulaan, filters, currentUserId }) {
                                     <div className="mt-1 text-slate-900">{formatCurrency(viewingItem.pendapatan_isi_rumah)}</div>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-500">Pekerjaan</label>
+                                    <label className="block text-sm font-medium text-slate-500">Kategori Pekerjaan</label>
                                     <div className="mt-1 text-slate-900">{viewingItem.pekerjaan || '-'}</div>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-500">Jenis Pekerjaan</label>
+                                    <label className="block text-sm font-medium text-slate-500">Sektor Pekerjaan</label>
                                     <div className="mt-1 text-slate-900">
                                         {viewingItem.jenis_pekerjaan === 'Lain-lain' && viewingItem.jenis_pekerjaan_lain
                                             ? viewingItem.jenis_pekerjaan_lain
