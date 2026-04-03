@@ -58,9 +58,7 @@ export default function Edit({
         bil_isi_rumah: hasilCulaan.bil_isi_rumah || '',
         pendapatan_isi_rumah: hasilCulaan.pendapatan_isi_rumah || '',
         pekerjaan: hasilCulaan.pekerjaan || '',
-        jenis_pekerjaan: ['Kerajaan', 'Swasta', 'Bekerja Sendiri'].includes(hasilCulaan.pekerjaan)
-            ? (hasilCulaan.jenis_pekerjaan ? hasilCulaan.jenis_pekerjaan.split(', ') : [])
-            : (hasilCulaan.jenis_pekerjaan || ''),
+        jenis_pekerjaan: hasilCulaan.jenis_pekerjaan ? hasilCulaan.jenis_pekerjaan.split(', ') : [],
         jenis_pekerjaan_lain: hasilCulaan.jenis_pekerjaan_lain || '',
         pemilik_rumah: hasilCulaan.pemilik_rumah || '',
         jenis_sumbangan: hasilCulaan.jenis_sumbangan || '',
@@ -671,7 +669,7 @@ export default function Edit({
                                         setData(data => ({
                                             ...data,
                                             pekerjaan: val,
-                                            jenis_pekerjaan: ['Kerajaan', 'Swasta', 'Bekerja Sendiri'].includes(val) ? [] : '',
+                                            jenis_pekerjaan: [],
                                             jenis_pekerjaan_lain: '',
                                         }));
                                     }}
@@ -938,51 +936,68 @@ export default function Edit({
                                     {errors.jenis_pekerjaan && <p className="text-sm text-rose-600 mt-1">{errors.jenis_pekerjaan}</p>}
                                     {errors.jenis_pekerjaan_lain && <p className="text-sm text-rose-600 mt-1">{errors.jenis_pekerjaan_lain}</p>}
                                 </div>
-                            ) : (
-                                <>
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                                            Sektor Pekerjaan <span className="text-rose-500">*</span>
-                                        </label>
-                                        <select
-                                            value={data.jenis_pekerjaan}
-                                            onChange={(e) => setData('jenis_pekerjaan', e.target.value)}
-                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                            required
-                                        >
-                                            <option value="">Pilih Sektor Pekerjaan</option>
-                                            <option value="Bekerja Sendiri / Usahawan / Peniaga">Bekerja Sendiri / Usahawan / Peniaga</option>
-                                            <option value="Petani">Petani</option>
-                                            <option value="Nelayan">Nelayan</option>
-                                            <option value="Penternak">Penternak</option>
-                                            <option value="Pekerja Am / Buruh">Pekerja Am / Buruh</option>
-                                            <option value="Pekerja Kontrak / Sambilan / Gig">Pekerja Kontrak / Sambilan / Gig</option>
-                                            <option value="Pesara">Pesara</option>
-                                            <option value="Tidak Bekerja / Menganggur">Tidak Bekerja / Menganggur</option>
-                                            <option value="Suri Rumah">Suri Rumah</option>
-                                            <option value="Pelajar">Pelajar</option>
-                                            <option value="Lain-lain">Lain-lain (nyatakan)</option>
-                                        </select>
-                                        {errors.jenis_pekerjaan && <p className="text-sm text-rose-600 mt-1">{errors.jenis_pekerjaan}</p>}
-                                    </div>
-
-                                    {data.jenis_pekerjaan === 'Lain-lain' && (
-                                        <div className="md:col-span-2">
-                                            <label className="block text-sm font-medium text-slate-700 mb-1">
-                                                Sektor Pekerjaan (Lain-lain) <span className="text-rose-500">*</span>
+                            ) : data.pekerjaan === 'Tidak Bekerja' ? (
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                                        Sektor Pekerjaan <span className="text-rose-500">*</span>
+                                    </label>
+                                    <div className="space-y-4">
+                                        {[
+                                            {
+                                                category: 'Status',
+                                                items: [
+                                                    'Pelajar Sekolah',
+                                                    'Pelajar IPT (IPTA / IPTS)',
+                                                    'Suri Rumah',
+                                                    'Pesara Kerajaan',
+                                                    'Pesara Swasta',
+                                                    'Tidak Bekerja / Menganggur',
+                                                ],
+                                            },
+                                        ].map((group) => (
+                                            <div key={group.category}>
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">{group.category}</p>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
+                                                    {group.items.map((item) => (
+                                                        <label key={item} className="flex items-center space-x-2 cursor-pointer">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={Array.isArray(data.jenis_pekerjaan) && data.jenis_pekerjaan.includes(item)}
+                                                                onChange={() => handleCheckboxChange('jenis_pekerjaan', item)}
+                                                                className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                                                            />
+                                                            <span className="text-sm text-slate-700">{item}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                        <div>
+                                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Lain-lain</p>
+                                            <label className="flex items-center space-x-2 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={Array.isArray(data.jenis_pekerjaan) && data.jenis_pekerjaan.includes('Lain-lain')}
+                                                    onChange={() => handleCheckboxChange('jenis_pekerjaan', 'Lain-lain')}
+                                                    className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                                                />
+                                                <span className="text-sm text-slate-700">Lain-lain</span>
                                             </label>
-                                            <input
-                                                type="text"
-                                                value={data.jenis_pekerjaan_lain}
-                                                onChange={(e) => setData('jenis_pekerjaan_lain', e.target.value)}
-                                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                                placeholder="Sila nyatakan jenis pekerjaan"
-                                            />
-                                            {errors.jenis_pekerjaan_lain && <p className="text-sm text-rose-600 mt-1">{errors.jenis_pekerjaan_lain}</p>}
+                                            {Array.isArray(data.jenis_pekerjaan) && data.jenis_pekerjaan.includes('Lain-lain') && (
+                                                <input
+                                                    type="text"
+                                                    value={data.jenis_pekerjaan_lain}
+                                                    onChange={(e) => setData('jenis_pekerjaan_lain', e.target.value)}
+                                                    placeholder="Sila nyatakan sektor pekerjaan"
+                                                    className="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                                />
+                                            )}
                                         </div>
-                                    )}
-                                </>
-                            )}
+                                    </div>
+                                    {errors.jenis_pekerjaan && <p className="text-sm text-rose-600 mt-1">{errors.jenis_pekerjaan}</p>}
+                                    {errors.jenis_pekerjaan_lain && <p className="text-sm text-rose-600 mt-1">{errors.jenis_pekerjaan_lain}</p>}
+                                </div>
+                            ) : null}
 
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
