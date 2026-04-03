@@ -176,6 +176,7 @@ class ReportsController extends Controller
             'jenis_pekerjaan.*' => 'string|max:255',
             'jenis_pekerjaan_lain' => 'nullable|string|max:255',
             'pemilik_rumah' => 'required|string|max:255',
+            'pemilik_rumah_lain' => 'nullable|string|max:255',
             'jenis_sumbangan' => 'nullable|array',
             'jenis_sumbangan_lain' => 'nullable|string|max:255',
             'tujuan_sumbangan' => 'nullable|array',
@@ -205,6 +206,12 @@ class ReportsController extends Controller
                  abort(403, 'You can only create records for your Parlimen (' . ($user->bandar->nama ?? 'Unknown') . ').');
             }
         }
+
+        // Process pemilik_rumah Lain-lain
+        if ($validated['pemilik_rumah'] === 'Lain-lain' && !empty($validated['pemilik_rumah_lain'])) {
+            $validated['pemilik_rumah'] = $validated['pemilik_rumah_lain'];
+        }
+        unset($validated['pemilik_rumah_lain']);
 
         // Process jenis_pekerjaan checkbox array (Kerajaan/Swasta) into comma-separated string
         if (isset($validated['jenis_pekerjaan']) && is_array($validated['jenis_pekerjaan'])) {
@@ -375,6 +382,7 @@ class ReportsController extends Controller
             'jenis_pekerjaan.*' => 'string|max:255',
             'jenis_pekerjaan_lain' => 'nullable|string|max:255',
             'pemilik_rumah' => 'required|string|max:255',
+            'pemilik_rumah_lain' => 'nullable|string|max:255',
             'jenis_sumbangan' => 'nullable|array',
             'jenis_sumbangan_lain' => 'nullable|string|max:255',
             'tujuan_sumbangan' => 'nullable|array',
@@ -402,6 +410,12 @@ class ReportsController extends Controller
         if ($user->isUser() && $request->kadun !== ($user->kadun->nama ?? '')) {
             abort(403, 'Anda tidak boleh memindahkan rekod ke luar kawasan anda.');
         }
+
+        // Process pemilik_rumah Lain-lain
+        if ($validated['pemilik_rumah'] === 'Lain-lain' && !empty($validated['pemilik_rumah_lain'])) {
+            $validated['pemilik_rumah'] = $validated['pemilik_rumah_lain'];
+        }
+        unset($validated['pemilik_rumah_lain']);
 
         // Process jenis_pekerjaan checkbox array (Kerajaan/Swasta) into comma-separated string
         if (isset($validated['jenis_pekerjaan']) && is_array($validated['jenis_pekerjaan'])) {

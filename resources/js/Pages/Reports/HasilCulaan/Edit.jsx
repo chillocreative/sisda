@@ -61,6 +61,7 @@ export default function Edit({
         jenis_pekerjaan: hasilCulaan.jenis_pekerjaan ? hasilCulaan.jenis_pekerjaan.split(', ') : [],
         jenis_pekerjaan_lain: hasilCulaan.jenis_pekerjaan_lain || '',
         pemilik_rumah: hasilCulaan.pemilik_rumah || '',
+        pemilik_rumah_lain: '',
         jenis_sumbangan: hasilCulaan.jenis_sumbangan || '',
         tujuan_sumbangan: hasilCulaan.tujuan_sumbangan || '',
         bantuan_lain: hasilCulaan.bantuan_lain || '',
@@ -1005,7 +1006,14 @@ export default function Edit({
                                 </label>
                                 <select
                                     value={data.pemilik_rumah}
-                                    onChange={(e) => setData('pemilik_rumah', e.target.value)}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setData(data => ({
+                                            ...data,
+                                            pemilik_rumah: val,
+                                            pemilik_rumah_lain: val === 'Lain-lain' ? data.pemilik_rumah_lain : '',
+                                        }));
+                                    }}
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                                     required
                                 >
@@ -1017,6 +1025,22 @@ export default function Edit({
                                 </select>
                                 {errors.pemilik_rumah && <p className="text-sm text-rose-600 mt-1">{errors.pemilik_rumah}</p>}
                             </div>
+
+                            {data.pemilik_rumah === 'Lain-lain' && (
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                                        Pemilik Rumah (Lain-lain) <span className="text-rose-500">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={data.pemilik_rumah_lain}
+                                        onChange={(e) => setData('pemilik_rumah_lain', e.target.value)}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                        placeholder="Sila nyatakan"
+                                    />
+                                    {errors.pemilik_rumah_lain && <p className="text-sm text-rose-600 mt-1">{errors.pemilik_rumah_lain}</p>}
+                                </div>
+                            )}
                         </div>
                     </div>
 
