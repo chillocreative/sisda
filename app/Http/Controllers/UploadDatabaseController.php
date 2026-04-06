@@ -60,48 +60,8 @@ class UploadDatabaseController extends Controller
         UploadBatch::where('id', '!=', $batch->id)->update(['is_active' => false]);
         $batch->update(['is_active' => true]);
 
-        // Sync unique lokaliti values from this batch to master table with daerah_mengundi linkage
-        $batchLokaliti = PangkalanDataPengundi::where('upload_batch_id', $batch->id)
-            ->whereNotNull('lokaliti')
-            ->where('lokaliti', '!=', '')
-            ->select('lokaliti', 'daerah_mengundi', \Illuminate\Support\Facades\DB::raw('COUNT(*) as cnt'))
-            ->groupBy('lokaliti', 'daerah_mengundi')
-            ->orderByDesc('cnt')
-            ->get();
-
-        $lokalitiToDm = [];
-        foreach ($batchLokaliti as $row) {
-            if (!isset($lokalitiToDm[$row->lokaliti]) && $row->daerah_mengundi) {
-                $lokalitiToDm[$row->lokaliti] = $row->daerah_mengundi;
-            }
-        }
-
-        $dmRecords = \App\Models\DaerahMengundi::pluck('id', 'nama');
-        $existingNames = Lokaliti::pluck('nama')
-            ->map(fn($n) => strtoupper(trim($n)))
-            ->toArray();
-
-        $newNames = array_values(array_diff(array_keys($lokalitiToDm), $existingNames));
-
-        if (!empty($newNames)) {
-            $now = now();
-            Lokaliti::insert(array_map(fn($nama) => [
-                'nama'              => $nama,
-                'daerah_mengundi_id' => $dmRecords[$lokalitiToDm[$nama]] ?? null,
-                'created_at'        => $now,
-                'updated_at'        => $now,
-            ], $newNames));
-        }
-
-        // Update existing lokaliti records that have no daerah_mengundi_id
-        foreach ($lokalitiToDm as $lokalitiName => $dmName) {
-            $dmId = $dmRecords[$dmName] ?? null;
-            if ($dmId) {
-                Lokaliti::where('nama', $lokalitiName)
-                    ->whereNull('daerah_mengundi_id')
-                    ->update(['daerah_mengundi_id' => $dmId]);
-            }
-        }
+        // Sync master data tables from voter database
+        \App\Jobs\ProcessVoterUpload::syncMasterData($batch->id);
 
         return redirect()->route('upload-database.index')
             ->with('success', "Batch '{$batch->nama_fail}' telah dijadikan aktif.");
