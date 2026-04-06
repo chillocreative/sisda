@@ -257,17 +257,35 @@ export default function Create({
         setData({
             ...data,
             no_ic: voter.no_ic,
-            nama: voter.nama || data.nama,
             lokaliti: voter.lokaliti ? toTitleCase(voter.lokaliti) : data.lokaliti,
             daerah_mengundi: voter.daerah_mengundi ? toTitleCase(voter.daerah_mengundi) : data.daerah_mengundi,
             kadun: voter.kadun ? toTitleCase(voter.kadun) : data.kadun,
             parlimen: voter.parlimen ? toTitleCase(voter.parlimen) : data.parlimen,
             negeri: voter.negeri ? toTitleCase(voter.negeri) : data.negeri,
-            bangsa: voter.bangsa || data.bangsa,
         });
         setShowSuggestions(false);
         setIcSuggestions([]);
     };
+
+    // Auto-lookup voter database when IC is 12 digits - populate Maklumat Kawasan Mengundi only
+    useEffect(() => {
+        if (data.no_ic.length === 12) {
+            axios.get(route('api.voter.search-ic'), { params: { ic: data.no_ic } })
+                .then(res => {
+                    if (res.data) {
+                        setData(prev => ({
+                            ...prev,
+                            lokaliti: res.data.lokaliti ? toTitleCase(res.data.lokaliti) : prev.lokaliti,
+                            daerah_mengundi: res.data.daerah_mengundi ? toTitleCase(res.data.daerah_mengundi) : prev.daerah_mengundi,
+                            kadun: res.data.kadun ? toTitleCase(res.data.kadun) : prev.kadun,
+                            parlimen: res.data.parlimen ? toTitleCase(res.data.parlimen) : prev.parlimen,
+                            negeri: res.data.negeri ? toTitleCase(res.data.negeri) : prev.negeri,
+                        }));
+                    }
+                })
+                .catch(() => {});
+        }
+    }, [data.no_ic]);
 
     const handlePostcodeChange = (e) => {
         const value = e.target.value.replace(/\D/g, '');
