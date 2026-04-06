@@ -330,7 +330,7 @@ export default function Create({
                                     onChange={handleIcChange}
                                     placeholder="900101145678"
                                     maxLength="12"
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400 placeholder:text-slate-300"
                                     required
                                 />
                                 {errors.no_ic && <p className="text-sm text-rose-600 mt-1">{errors.no_ic}</p>}
@@ -379,7 +379,7 @@ export default function Create({
                                     value={data.no_tel}
                                     onChange={handleTelChange}
                                     placeholder="0123456789"
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400 placeholder:text-slate-300"
                                     required
                                 />
                                 {errors.no_tel && <p className="text-sm text-rose-600 mt-1">{errors.no_tel}</p>}

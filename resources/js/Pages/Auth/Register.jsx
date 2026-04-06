@@ -120,7 +120,7 @@ export default function Register({ negeriList = [], bandarList = [], kadunList =
                         type="tel"
                         name="telephone"
                         value={data.telephone}
-                        className="mt-1 block w-full border-slate-300 focus:border-slate-400 focus:ring-slate-400 rounded-lg"
+                        className="mt-1 block w-full border-slate-300 focus:border-slate-400 focus:ring-slate-400 rounded-lg placeholder:text-slate-300"
                         autoComplete="tel"
                         onChange={handleTelephoneChange}
                         placeholder="0123456789"
