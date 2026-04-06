@@ -1046,7 +1046,7 @@ export default function Edit({
 
                     {/* Assistance & Political Information */}
                     <div className="bg-white rounded-xl border border-slate-200 p-6">
-                        <h2 className="text-lg font-semibold text-slate-900 mb-4">Maklumat Bantuan & Politik</h2>
+                        <h2 className="text-lg font-semibold text-slate-900 mb-4">Maklumat Bantuan</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -1220,7 +1220,13 @@ export default function Edit({
                                     </div>
                                 )}
                             </div>
+                        </div>
+                    </div>
 
+                    {/* Political Information */}
+                    <div className="bg-white rounded-xl border border-slate-200 p-6">
+                        <h2 className="text-lg font-semibold text-slate-900 mb-4">Maklumat Politik</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
                                     Keahlian Parti
