@@ -51,7 +51,7 @@ export default function AuthenticatedLayout({ children }) {
         { name: 'Tujuan Sumbangan', href: route('master-data.tujuan-sumbangan.index'), icon: Gift },
         { name: 'Jenis Sumbangan', href: route('master-data.jenis-sumbangan.index'), icon: Package },
         { name: 'Bantuan Lain', href: route('master-data.bantuan-lain.index'), icon: HandHeart },
-        { name: 'Keahlian Parti', href: route('master-data.keahlian-parti.index'), icon: Flag },
+        { name: 'Keanggotaan Parti', href: route('master-data.keahlian-parti.index'), icon: Flag },
         { name: 'Kecenderungan Politik', href: route('master-data.kecenderungan-politik.index'), icon: TrendingUp },
 
         { name: 'Bangsa', href: route('master-data.bangsa.index'), icon: UserCircle },

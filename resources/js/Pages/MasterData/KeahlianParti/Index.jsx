@@ -117,7 +117,7 @@ export default function Index({ keahlianParti, filters }) {
     };
 
     const handleDelete = (id) => {
-        if (confirm('Adakah anda pasti mahu memadam Keahlian Parti ini?')) {
+        if (confirm('Adakah anda pasti mahu memadam Keanggotaan Parti ini?')) {
             router.delete(route('master-data.keahlian-parti.destroy', id));
         }
     };
@@ -129,13 +129,13 @@ export default function Index({ keahlianParti, filters }) {
 
     return (
         <AuthenticatedLayout>
-            <Head title="Keahlian Parti" />
+            <Head title="Keanggotaan Parti" />
 
             <div className="space-y-6">
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900">Keahlian Parti</h1>
+                        <h1 className="text-2xl font-bold text-slate-900">Keanggotaan Parti</h1>
                         <p className="text-sm text-slate-600 mt-1">Urus senarai keahlian parti</p>
                     </div>
                     <button
@@ -156,7 +156,7 @@ export default function Index({ keahlianParti, filters }) {
                                 type="text"
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
-                                placeholder="Cari Keahlian Parti..."
+                                placeholder="Cari Keanggotaan Parti..."
                                 className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                             />
                         </div>
@@ -328,7 +328,7 @@ export default function Index({ keahlianParti, filters }) {
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-xl max-w-md w-full p-6">
                         <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-xl font-bold text-slate-900">Tambah Keahlian Parti</h2>
+                            <h2 className="text-xl font-bold text-slate-900">Tambah Keanggotaan Parti</h2>
                             <button
                                 onClick={() => {
                                     setShowAddModal(false);

@@ -554,14 +554,14 @@ export default function Edit({
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Keahlian Parti
+                                    Keanggotaan Parti
                                 </label>
                                 <select
                                     value={data.keahlian_parti}
                                     onChange={(e) => setData('keahlian_parti', e.target.value)}
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                                 >
-                                    <option value="">Pilih Keahlian Parti</option>
+                                    <option value="">Pilih Keanggotaan Parti</option>
                                     {keahlianPartiList.map((item) => (
                                         <option key={item.id} value={item.nama}>
                                             {item.nama}

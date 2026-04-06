@@ -234,7 +234,7 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Parlimen</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">KADUN</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Lokaliti</th>
-                                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Keahlian Parti</th>
+                                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Keanggotaan Parti</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Tarikh</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Dikemukakan</th>
                                     <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Tindakan</th>
@@ -449,7 +449,7 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
                                     <div className="mt-1 text-slate-900">{viewingItem.saluran || '-'}</div>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-500">Keahlian Parti</label>
+                                    <label className="block text-sm font-medium text-slate-500">Keanggotaan Parti</label>
                                     <div className="mt-1 text-slate-900">{viewingItem.keahlian_parti || '-'}</div>
                                 </div>
                                 <div>
