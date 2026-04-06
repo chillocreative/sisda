@@ -65,7 +65,10 @@ export default function Edit({
         jenis_sumbangan: hasilCulaan.jenis_sumbangan ? hasilCulaan.jenis_sumbangan.split(', ') : [],
         jenis_sumbangan_lain: hasilCulaan.jenis_sumbangan_lain || '',
         tujuan_sumbangan: hasilCulaan.tujuan_sumbangan || '',
-        bantuan_lain: hasilCulaan.bantuan_lain || '',
+        bantuan_lain: hasilCulaan.bantuan_lain ? hasilCulaan.bantuan_lain.split(', ') : [],
+        bantuan_lain_lain: hasilCulaan.bantuan_lain_lain || '',
+        perkeso_bantuan: hasilCulaan.perkeso_bantuan ? hasilCulaan.perkeso_bantuan.split(', ') : [],
+        perkeso_bantuan_lain: hasilCulaan.perkeso_bantuan_lain || '',
         zpp_jenis_bantuan: hasilCulaan.zpp_jenis_bantuan || '',
         isejahtera_program: hasilCulaan.isejahtera_program || '',
         bkb_program: hasilCulaan.bkb_program || '',
@@ -1128,24 +1131,76 @@ export default function Edit({
                                 {errors.tujuan_sumbangan && <p className="text-sm text-rose-600 mt-1">{errors.tujuan_sumbangan}</p>}
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Bantuan Lain
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-medium text-slate-700 mb-2">
+                                    Bantuan Lain Yang Diterima
                                 </label>
-                                <select
-                                    value={data.bantuan_lain}
-                                    onChange={(e) => setData('bantuan_lain', e.target.value)}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                >
-                                    <option value="">Pilih Bantuan Lain</option>
-                                    {bantuanLainList.map((item) => (
-                                        <option key={item.id} value={item.nama}>
-                                            {item.nama}
-                                        </option>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    {[
+                                        'Jabatan Kebajikan Masyarakat (JKM)',
+                                        'i-Sejahtera',
+                                        'Zakat Pulau Pinang (ZPP)',
+                                        'PERKESO',
+                                        'Tiada',
+                                        'LAIN-LAIN',
+                                    ].map((item) => (
+                                        <label key={item} className="flex items-center space-x-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={data.bantuan_lain.includes(item)}
+                                                onChange={() => handleCheckboxChange('bantuan_lain', item)}
+                                                className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                                            />
+                                            <span className="text-sm text-slate-700">{item}</span>
+                                        </label>
                                     ))}
-                                </select>
-                                {errors.bantuan_lain && <p className="text-sm text-rose-600 mt-1">{errors.bantuan_lain}</p>}
-                                {data.bantuan_lain && data.bantuan_lain.includes('ZAKAT PULAU PINANG') && (
+                                </div>
+                                {data.bantuan_lain.includes('LAIN-LAIN') && (
+                                    <input
+                                        type="text"
+                                        value={data.bantuan_lain_lain}
+                                        onChange={(e) => setData('bantuan_lain_lain', e.target.value)}
+                                        placeholder="Nyatakan bantuan lain"
+                                        className="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                    />
+                                )}
+                                {data.bantuan_lain.includes('PERKESO') && (
+                                    <div className="mt-3 ml-6 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                                            Jenis Bantuan PERKESO
+                                        </label>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                            {[
+                                                'Bantuan Perubatan',
+                                                'Pampasan Hilang Upaya',
+                                                'Faedah Kematian / Orang Tanggungan',
+                                                'Elaun Hilang Pekerjaan (EIS)',
+                                                'Bantuan Latihan / Penempatan Kerja',
+                                                'Lain-lain',
+                                            ].map((item) => (
+                                                <label key={item} className="flex items-center space-x-2 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={data.perkeso_bantuan.includes(item)}
+                                                        onChange={() => handleCheckboxChange('perkeso_bantuan', item)}
+                                                        className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                                                    />
+                                                    <span className="text-sm text-slate-700">{item}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                        {data.perkeso_bantuan.includes('Lain-lain') && (
+                                            <input
+                                                type="text"
+                                                value={data.perkeso_bantuan_lain}
+                                                onChange={(e) => setData('perkeso_bantuan_lain', e.target.value)}
+                                                placeholder="Nyatakan bantuan PERKESO lain"
+                                                className="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                            />
+                                        )}
+                                    </div>
+                                )}
+                                {data.bantuan_lain.includes('Zakat Pulau Pinang (ZPP)') && (
                                     <div className="mt-3">
                                         <label className="block text-sm font-medium text-slate-700 mb-1">
                                             Jenis Bantuan ZPP <span className="text-rose-500">*</span>
@@ -1166,7 +1221,7 @@ export default function Edit({
                                         {errors.zpp_jenis_bantuan && <p className="text-sm text-rose-600 mt-1">{errors.zpp_jenis_bantuan}</p>}
                                     </div>
                                 )}
-                                {data.bantuan_lain && data.bantuan_lain.includes('i-Sejahtera') && (
+                                {data.bantuan_lain.includes('i-Sejahtera') && (
                                     <div className="mt-3">
                                         <label className="block text-sm font-medium text-slate-700 mb-1">
                                             Program i-Sejahtera <span className="text-rose-500">*</span>
@@ -1185,28 +1240,7 @@ export default function Edit({
                                         {errors.isejahtera_program && <p className="text-sm text-rose-600 mt-1">{errors.isejahtera_program}</p>}
                                     </div>
                                 )}
-                                {data.bantuan_lain && data.bantuan_lain.includes('Bantuan Kewangan Bulanan') && (
-                                    <div className="mt-3">
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                                            Program Bantuan Kewangan Bulanan <span className="text-rose-500">*</span>
-                                        </label>
-                                        <select
-                                            value={data.bkb_program}
-                                            onChange={(e) => setData('bkb_program', e.target.value)}
-                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                        >
-                                            <option value="">Pilih Program</option>
-                                            <option value="Bantuan Kanak-Kanak (BKK)">Bantuan Kanak-Kanak (BKK)</option>
-                                            <option value="Bantuan Warga Emas (BWE)">Bantuan Warga Emas (BWE)</option>
-                                            <option value="Elaun Pekerja Orang Kurang Upaya (EPOKU)">Elaun Pekerja Orang Kurang Upaya (EPOKU)</option>
-                                            <option value="Bantuan OKU Tidak Berupaya Bekerja (BTB)">Bantuan OKU Tidak Berupaya Bekerja (BTB)</option>
-                                            <option value="Bantuan Penjagaan OKU / Pesakit Terlantar (BPT)">Bantuan Penjagaan OKU / Pesakit Terlantar (BPT)</option>
-                                            <option value="Bantuan Am Persekutuan (BA)">Bantuan Am Persekutuan (BA)</option>
-                                        </select>
-                                        {errors.bkb_program && <p className="text-sm text-rose-600 mt-1">{errors.bkb_program}</p>}
-                                    </div>
-                                )}
-                                {data.bantuan_lain && data.bantuan_lain.toLowerCase().includes('jabatan kebajikan masyarakat') && (
+                                {data.bantuan_lain.includes('Jabatan Kebajikan Masyarakat (JKM)') && (
                                     <div className="mt-3">
                                         <label className="block text-sm font-medium text-slate-700 mb-1">
                                             Program JKM <span className="text-rose-500">*</span>
@@ -1227,23 +1261,7 @@ export default function Edit({
                                         {errors.jkm_program && <p className="text-sm text-rose-600 mt-1">{errors.jkm_program}</p>}
                                     </div>
                                 )}
-                                {data.bantuan_lain && data.bantuan_lain.includes('Bantuan Kewangan / Tunai') && (
-                                    <div className="mt-3">
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                                            Jumlah Bantuan (RM)
-                                        </label>
-                                        <input
-                                            type="number"
-                                            value={data.jumlah_bantuan_tunai}
-                                            onChange={(e) => setData('jumlah_bantuan_tunai', e.target.value)}
-                                            min="0"
-                                            step="0.01"
-                                            placeholder="0.00"
-                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                        />
-                                        {errors.jumlah_bantuan_tunai && <p className="text-sm text-rose-600 mt-1">{errors.jumlah_bantuan_tunai}</p>}
-                                    </div>
-                                )}
+                                {errors.bantuan_lain && <p className="text-sm text-rose-600 mt-1">{errors.bantuan_lain}</p>}
                             </div>
                         </div>
                     </div>
