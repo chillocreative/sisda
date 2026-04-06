@@ -1065,19 +1065,30 @@ export default function Create({
                                     Jenis Sumbangan
                                 </label>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                    {jenisSumbanganList.map((item) => (
-                                        <label key={item.id} className="flex items-center space-x-2 cursor-pointer">
+                                    {[
+                                        'Barangan Keperluan Dapur',
+                                        'Hamper / Sumbangan Perayaan',
+                                        'Wang Tunai / Kewangan',
+                                        'Bantuan Perumahan (baik pulih)',
+                                        'Bantuan Perumahan (bina baharu)',
+                                        'Bantuan Pendidikan (yuran / kelengkapan sekolah)',
+                                        'Bantuan Perubatan / Kesihatan',
+                                        'Bantuan Perniagaan / Ekonomi (modal / peralatan)',
+                                        'Bantuan Bencana / Kecemasan',
+                                        'Lain-lain',
+                                    ].map((item) => (
+                                        <label key={item} className="flex items-center space-x-2 cursor-pointer">
                                             <input
                                                 type="checkbox"
-                                                checked={data.jenis_sumbangan.includes(item.nama)}
-                                                onChange={() => handleCheckboxChange('jenis_sumbangan', item.nama)}
+                                                checked={data.jenis_sumbangan.includes(item)}
+                                                onChange={() => handleCheckboxChange('jenis_sumbangan', item)}
                                                 className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
                                             />
-                                            <span className="text-sm text-slate-700">{item.nama}</span>
+                                            <span className="text-sm text-slate-700">{item}</span>
                                         </label>
                                     ))}
                                 </div>
-                                {data.jenis_sumbangan.some(item => item.toLowerCase().includes('lain')) && (
+                                {data.jenis_sumbangan.includes('Lain-lain') && (
                                     <input
                                         type="text"
                                         value={data.jenis_sumbangan_lain}
@@ -1085,23 +1096,6 @@ export default function Create({
                                         placeholder="Nyatakan jenis sumbangan lain"
                                         className="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                                     />
-                                )}
-                                {data.jenis_sumbangan.some(item => item === 'Wang Tunai') && (
-                                    <div className="mt-3">
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                                            Jumlah Bantuan (RM)
-                                        </label>
-                                        <input
-                                            type="number"
-                                            value={data.jumlah_wang_tunai}
-                                            onChange={(e) => setData('jumlah_wang_tunai', e.target.value)}
-                                            min="0"
-                                            step="0.01"
-                                            placeholder="0.00"
-                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                        />
-                                        {errors.jumlah_wang_tunai && <p className="text-sm text-rose-600 mt-1">{errors.jumlah_wang_tunai}</p>}
-                                    </div>
                                 )}
                                 {errors.jenis_sumbangan && <p className="text-sm text-rose-600 mt-1">{errors.jenis_sumbangan}</p>}
                             </div>

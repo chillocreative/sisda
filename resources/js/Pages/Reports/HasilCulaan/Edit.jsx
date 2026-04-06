@@ -62,7 +62,8 @@ export default function Edit({
         jenis_pekerjaan_lain: hasilCulaan.jenis_pekerjaan_lain || '',
         pemilik_rumah: hasilCulaan.pemilik_rumah || '',
         pemilik_rumah_lain: '',
-        jenis_sumbangan: hasilCulaan.jenis_sumbangan || '',
+        jenis_sumbangan: hasilCulaan.jenis_sumbangan ? hasilCulaan.jenis_sumbangan.split(', ') : [],
+        jenis_sumbangan_lain: hasilCulaan.jenis_sumbangan_lain || '',
         tujuan_sumbangan: hasilCulaan.tujuan_sumbangan || '',
         bantuan_lain: hasilCulaan.bantuan_lain || '',
         zpp_jenis_bantuan: hasilCulaan.zpp_jenis_bantuan || '',
@@ -1048,38 +1049,42 @@ export default function Edit({
                     <div className="bg-white rounded-xl border border-slate-200 p-6">
                         <h2 className="text-lg font-semibold text-slate-900 mb-4">Maklumat Bantuan</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-medium text-slate-700 mb-2">
                                     Jenis Sumbangan
                                 </label>
-                                <select
-                                    value={data.jenis_sumbangan}
-                                    onChange={(e) => setData('jenis_sumbangan', e.target.value)}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                >
-                                    <option value="">Pilih Jenis Sumbangan</option>
-                                    {jenisSumbanganList.map((item) => (
-                                        <option key={item.id} value={item.nama}>
-                                            {item.nama}
-                                        </option>
-                                    ))}
-                                </select>
-                                {data.jenis_sumbangan && data.jenis_sumbangan.includes('Wang Tunai') && (
-                                    <div className="mt-3">
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                                            Jumlah Bantuan (RM)
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    {[
+                                        'Barangan Keperluan Dapur',
+                                        'Hamper / Sumbangan Perayaan',
+                                        'Wang Tunai / Kewangan',
+                                        'Bantuan Perumahan (baik pulih)',
+                                        'Bantuan Perumahan (bina baharu)',
+                                        'Bantuan Pendidikan (yuran / kelengkapan sekolah)',
+                                        'Bantuan Perubatan / Kesihatan',
+                                        'Bantuan Perniagaan / Ekonomi (modal / peralatan)',
+                                        'Bantuan Bencana / Kecemasan',
+                                        'Lain-lain',
+                                    ].map((item) => (
+                                        <label key={item} className="flex items-center space-x-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={data.jenis_sumbangan.includes(item)}
+                                                onChange={() => handleCheckboxChange('jenis_sumbangan', item)}
+                                                className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                                            />
+                                            <span className="text-sm text-slate-700">{item}</span>
                                         </label>
-                                        <input
-                                            type="number"
-                                            value={data.jumlah_wang_tunai}
-                                            onChange={(e) => setData('jumlah_wang_tunai', e.target.value)}
-                                            min="0"
-                                            step="0.01"
-                                            placeholder="0.00"
-                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                        />
-                                        {errors.jumlah_wang_tunai && <p className="text-sm text-rose-600 mt-1">{errors.jumlah_wang_tunai}</p>}
-                                    </div>
+                                    ))}
+                                </div>
+                                {data.jenis_sumbangan.includes('Lain-lain') && (
+                                    <input
+                                        type="text"
+                                        value={data.jenis_sumbangan_lain}
+                                        onChange={(e) => setData('jenis_sumbangan_lain', e.target.value)}
+                                        placeholder="Nyatakan jenis sumbangan lain"
+                                        className="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                    />
                                 )}
                                 {errors.jenis_sumbangan && <p className="text-sm text-rose-600 mt-1">{errors.jenis_sumbangan}</p>}
                             </div>
