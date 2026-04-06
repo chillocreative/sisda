@@ -1077,6 +1077,26 @@ export default function Edit({
                                         </label>
                                     ))}
                                 </div>
+                                {data.jenis_sumbangan.includes('Wang Tunai / Kewangan') && (
+                                    <div className="mt-3">
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                                            Jumlah Bantuan
+                                        </label>
+                                        <div className="relative">
+                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">RM</span>
+                                            <input
+                                                type="number"
+                                                value={data.jumlah_wang_tunai}
+                                                onChange={(e) => setData('jumlah_wang_tunai', e.target.value)}
+                                                min="0"
+                                                step="0.01"
+                                                placeholder="0.00"
+                                                className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                            />
+                                        </div>
+                                        {errors.jumlah_wang_tunai && <p className="text-sm text-rose-600 mt-1">{errors.jumlah_wang_tunai}</p>}
+                                    </div>
+                                )}
                                 {data.jenis_sumbangan.includes('Lain-lain') && (
                                     <input
                                         type="text"
