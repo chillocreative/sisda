@@ -31,6 +31,7 @@ export default function Edit({
     const [showSuggestions, setShowSuggestions] = useState(false);
     const icDebounceRef = useRef(null);
     const icWrapperRef = useRef(null);
+    const pendingVoterData = useRef(null);
     const { data, setData, put, processing, errors } = useForm({
         nama: dataPengundi.nama || '',
         no_ic: dataPengundi.no_ic || '',
@@ -69,6 +70,21 @@ export default function Edit({
                 ]);
                 setKadunOptions(kadunRes.data);
                 setDaerahMengundiOptions(dmRes.data);
+
+                // Apply pending voter data if available
+                if (pendingVoterData.current) {
+                    const pending = pendingVoterData.current;
+                    const updates = {};
+                    if (pending.kadun && kadunRes.data.some(k => k.nama === pending.kadun)) {
+                        updates.kadun = pending.kadun;
+                    }
+                    if (pending.daerah_mengundi && dmRes.data.some(d => d.nama === pending.daerah_mengundi)) {
+                        updates.daerah_mengundi = pending.daerah_mengundi;
+                    }
+                    if (Object.keys(updates).length > 0) {
+                        setData(prev => ({ ...prev, ...updates }));
+                    }
+                }
             } catch (error) {
                 console.error('Error fetching KADUN/DM:', error);
                 setKadunOptions([]);
@@ -121,6 +137,15 @@ export default function Edit({
                     params: { daerah_mengundi: data.daerah_mengundi }
                 });
                 setLokalitiOptions(response.data);
+
+                // Apply pending voter lokaliti if available
+                if (pendingVoterData.current?.lokaliti) {
+                    const pending = pendingVoterData.current;
+                    if (response.data.some(l => l.nama === pending.lokaliti)) {
+                        setData(prev => ({ ...prev, lokaliti: pending.lokaliti }));
+                        pendingVoterData.current = null;
+                    }
+                }
             } catch (error) {
                 console.error('Error fetching Lokaliti:', error);
                 setLokalitiOptions([]);
@@ -172,13 +197,17 @@ export default function Edit({
         : '';
 
     const handleSuggestionClick = (voter) => {
+        const voterData = {
+            parlimen: voter.parlimen ? toTitleCase(voter.parlimen) : null,
+            kadun: voter.kadun ? toTitleCase(voter.kadun) : null,
+            daerah_mengundi: voter.daerah_mengundi ? toTitleCase(voter.daerah_mengundi) : null,
+            lokaliti: voter.lokaliti ? toTitleCase(voter.lokaliti) : null,
+        };
+        pendingVoterData.current = voterData;
         setData({
             ...data,
             no_ic: voter.no_ic,
-            lokaliti: voter.lokaliti ? toTitleCase(voter.lokaliti) : data.lokaliti,
-            daerah_mengundi: voter.daerah_mengundi ? toTitleCase(voter.daerah_mengundi) : data.daerah_mengundi,
-            kadun: voter.kadun ? toTitleCase(voter.kadun) : data.kadun,
-            parlimen: voter.parlimen ? toTitleCase(voter.parlimen) : data.parlimen,
+            parlimen: voterData.parlimen || data.parlimen,
             negeri: voter.negeri ? toTitleCase(voter.negeri) : data.negeri,
         });
         setShowSuggestions(false);
@@ -191,12 +220,16 @@ export default function Edit({
             axios.get(route('api.voter.search-ic'), { params: { ic: data.no_ic } })
                 .then(res => {
                     if (res.data) {
+                        const voterData = {
+                            parlimen: res.data.parlimen ? toTitleCase(res.data.parlimen) : null,
+                            kadun: res.data.kadun ? toTitleCase(res.data.kadun) : null,
+                            daerah_mengundi: res.data.daerah_mengundi ? toTitleCase(res.data.daerah_mengundi) : null,
+                            lokaliti: res.data.lokaliti ? toTitleCase(res.data.lokaliti) : null,
+                        };
+                        pendingVoterData.current = voterData;
                         setData(prev => ({
                             ...prev,
-                            lokaliti: res.data.lokaliti ? toTitleCase(res.data.lokaliti) : prev.lokaliti,
-                            daerah_mengundi: res.data.daerah_mengundi ? toTitleCase(res.data.daerah_mengundi) : prev.daerah_mengundi,
-                            kadun: res.data.kadun ? toTitleCase(res.data.kadun) : prev.kadun,
-                            parlimen: res.data.parlimen ? toTitleCase(res.data.parlimen) : prev.parlimen,
+                            parlimen: voterData.parlimen || prev.parlimen,
                             negeri: res.data.negeri ? toTitleCase(res.data.negeri) : prev.negeri,
                         }));
                     }
