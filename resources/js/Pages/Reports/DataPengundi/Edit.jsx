@@ -75,11 +75,13 @@ export default function Edit({
                 if (pendingVoterData.current) {
                     const pending = pendingVoterData.current;
                     const updates = {};
-                    if (pending.kadun && kadunRes.data.some(k => k.nama === pending.kadun)) {
-                        updates.kadun = pending.kadun;
+                    if (pending.kadun) {
+                        const match = kadunRes.data.find(k => k.nama.toLowerCase() === pending.kadun.toLowerCase());
+                        if (match) updates.kadun = match.nama;
                     }
-                    if (pending.daerah_mengundi && dmRes.data.some(d => d.nama === pending.daerah_mengundi)) {
-                        updates.daerah_mengundi = pending.daerah_mengundi;
+                    if (pending.daerah_mengundi) {
+                        const match = dmRes.data.find(d => d.nama.toLowerCase() === pending.daerah_mengundi.toLowerCase());
+                        if (match) updates.daerah_mengundi = match.nama;
                     }
                     if (Object.keys(updates).length > 0) {
                         setData(prev => ({ ...prev, ...updates }));
@@ -140,11 +142,11 @@ export default function Edit({
 
                 // Apply pending voter lokaliti if available
                 if (pendingVoterData.current?.lokaliti) {
-                    const pending = pendingVoterData.current;
-                    if (response.data.some(l => l.nama === pending.lokaliti)) {
-                        setData(prev => ({ ...prev, lokaliti: pending.lokaliti }));
-                        pendingVoterData.current = null;
+                    const match = response.data.find(l => l.nama.toLowerCase() === pendingVoterData.current.lokaliti.toLowerCase());
+                    if (match) {
+                        setData(prev => ({ ...prev, lokaliti: match.nama }));
                     }
+                    pendingVoterData.current = null;
                 }
             } catch (error) {
                 console.error('Error fetching Lokaliti:', error);
