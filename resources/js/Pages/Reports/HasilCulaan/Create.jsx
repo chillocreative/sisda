@@ -1162,7 +1162,7 @@ export default function Create({
                                         'Zakat Pulau Pinang (ZPP)',
                                         'PERKESO',
                                         'Tiada',
-                                        'LAIN-LAIN',
+                                        'Lain-lain',
                                     ].map((item) => (
                                         <label key={item} className="flex items-center space-x-2 cursor-pointer">
                                             <input
@@ -1175,7 +1175,7 @@ export default function Create({
                                         </label>
                                     ))}
                                 </div>
-                                {data.bantuan_lain.includes('LAIN-LAIN') && (
+                                {data.bantuan_lain.includes('Lain-lain') && (
                                     <input
                                         type="text"
                                         value={data.bantuan_lain_lain}
