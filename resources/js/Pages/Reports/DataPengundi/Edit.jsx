@@ -199,18 +199,17 @@ export default function Edit({
         : '';
 
     const handleSuggestionClick = (voter) => {
-        const voterData = {
-            parlimen: voter.parlimen ? toTitleCase(voter.parlimen) : null,
-            kadun: voter.kadun ? toTitleCase(voter.kadun) : null,
-            daerah_mengundi: voter.daerah_mengundi ? toTitleCase(voter.daerah_mengundi) : null,
-            lokaliti: voter.lokaliti ? toTitleCase(voter.lokaliti) : null,
+        pendingVoterData.current = {
+            parlimen: voter.parlimen || null,
+            kadun: voter.kadun || null,
+            daerah_mengundi: voter.daerah_mengundi || null,
+            lokaliti: voter.lokaliti || null,
         };
-        pendingVoterData.current = voterData;
+        const parlimenMatch = parlimenList.find(p => p.nama.toLowerCase() === (voter.parlimen || '').toLowerCase());
         setData({
             ...data,
             no_ic: voter.no_ic,
-            parlimen: voterData.parlimen || data.parlimen,
-            negeri: voter.negeri ? toTitleCase(voter.negeri) : data.negeri,
+            parlimen: parlimenMatch ? parlimenMatch.nama : data.parlimen,
         });
         setShowSuggestions(false);
         setIcSuggestions([]);
@@ -222,17 +221,16 @@ export default function Edit({
             axios.get(route('api.voter.search-ic'), { params: { ic: data.no_ic } })
                 .then(res => {
                     if (res.data) {
-                        const voterData = {
-                            parlimen: res.data.parlimen ? toTitleCase(res.data.parlimen) : null,
-                            kadun: res.data.kadun ? toTitleCase(res.data.kadun) : null,
-                            daerah_mengundi: res.data.daerah_mengundi ? toTitleCase(res.data.daerah_mengundi) : null,
-                            lokaliti: res.data.lokaliti ? toTitleCase(res.data.lokaliti) : null,
+                        pendingVoterData.current = {
+                            parlimen: res.data.parlimen || null,
+                            kadun: res.data.kadun || null,
+                            daerah_mengundi: res.data.daerah_mengundi || null,
+                            lokaliti: res.data.lokaliti || null,
                         };
-                        pendingVoterData.current = voterData;
+                        const parlimenMatch = parlimenList.find(p => p.nama.toLowerCase() === (res.data.parlimen || '').toLowerCase());
                         setData(prev => ({
                             ...prev,
-                            parlimen: voterData.parlimen || prev.parlimen,
-                            negeri: res.data.negeri ? toTitleCase(res.data.negeri) : prev.negeri,
+                            parlimen: parlimenMatch ? parlimenMatch.nama : prev.parlimen,
                         }));
                     }
                 })
