@@ -1030,13 +1030,13 @@ class ReportsController extends Controller
             return response()->json([]);
         }
 
-        $dm = \App\Models\DaerahMengundi::whereRaw('LOWER(nama) = ?', [strtolower($dmNama)])->first();
+        $dmIds = \App\Models\DaerahMengundi::whereRaw('LOWER(nama) = ?', [strtolower($dmNama)])->pluck('id');
 
-        if (!$dm) {
+        if ($dmIds->isEmpty()) {
             return response()->json([]);
         }
 
-        $lokalitiList = \App\Models\Lokaliti::where('daerah_mengundi_id', $dm->id)
+        $lokalitiList = \App\Models\Lokaliti::whereIn('daerah_mengundi_id', $dmIds)
             ->orderBy('nama')
             ->get();
 

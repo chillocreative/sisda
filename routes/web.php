@@ -242,6 +242,36 @@ Route::middleware('auth')->group(function () {
 
         return implode("<br>", $messages);
     });
+
+    // Diagnostic: check Lokaliti linkage for a DM
+    Route::get('/check-lokaliti', function () {
+        set_time_limit(0);
+        $messages = [];
+
+        // Show all DM records with name containing "BUMBUNG"
+        $dms = \App\Models\DaerahMengundi::whereRaw('LOWER(nama) LIKE ?', ['%bumbung%'])->get();
+        foreach ($dms as $dm) {
+            $lokCount = \App\Models\Lokaliti::where('daerah_mengundi_id', $dm->id)->count();
+            $messages[] = "DM id={$dm->id} nama='{$dm->nama}' bandar_id={$dm->bandar_id} → {$lokCount} Lokaliti";
+        }
+
+        // Show all Lokaliti with name containing "BUMBONG"
+        $loks = \App\Models\Lokaliti::whereRaw('LOWER(nama) LIKE ?', ['%bumbong%'])->get();
+        foreach ($loks as $lok) {
+            $messages[] = "Lokaliti id={$lok->id} nama='{$lok->nama}' dm_id={$lok->daerah_mengundi_id}";
+        }
+
+        // Show total Lokaliti with null daerah_mengundi_id
+        $nullCount = \App\Models\Lokaliti::whereNull('daerah_mengundi_id')->count();
+        $messages[] = "Lokaliti with NULL daerah_mengundi_id: {$nullCount}";
+
+        // Show total counts
+        $messages[] = "---";
+        $messages[] = "Total Lokaliti: " . \App\Models\Lokaliti::count();
+        $messages[] = "Total DM: " . \App\Models\DaerahMengundi::count();
+
+        return implode("<br>", $messages);
+    });
 });
 
 require __DIR__.'/auth.php';
