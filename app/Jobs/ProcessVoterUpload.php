@@ -81,16 +81,33 @@ class ProcessVoterUpload implements ShouldQueue
     {
         $now = now();
 
+        // Helper: find or create/update with consistent naming from voter DB
+        $findOrSync = function ($model, string $voterName, array $extraAttrs = [], string $kodField = null) {
+            $existing = $model::whereRaw('UPPER(TRIM(nama)) = ?', [strtoupper(trim($voterName))])->first();
+            if ($existing) {
+                // Update name to match voter DB casing and fill missing parent links
+                $updates = ['nama' => $voterName];
+                foreach ($extraAttrs as $k => $v) {
+                    if ($v !== null && (empty($existing->$k) || $existing->$k === null)) {
+                        $updates[$k] = $v;
+                    }
+                }
+                $existing->update($updates);
+                return $existing;
+            }
+            $attrs = array_merge(['nama' => $voterName], $extraAttrs);
+            if ($kodField) {
+                $attrs[$kodField] = '';
+            }
+            return $model::create($attrs);
+        };
+
         // 1. Sync Negeri
         $voterNegeri = PangkalanDataPengundi::where('upload_batch_id', $batchId)
             ->whereNotNull('negeri')->where('negeri', '!=', '')
             ->distinct()->pluck('negeri');
-        $existingNegeri = \App\Models\Negeri::pluck('nama')->map(fn($n) => strtoupper(trim($n)))->toArray();
         foreach ($voterNegeri as $nama) {
-            if (!in_array(strtoupper(trim($nama)), $existingNegeri)) {
-                \App\Models\Negeri::create(['nama' => $nama]);
-                $existingNegeri[] = strtoupper(trim($nama));
-            }
+            $findOrSync(\App\Models\Negeri::class, $nama);
         }
 
         // 2. Sync Bandar (Parlimen) - linked to Negeri
@@ -98,23 +115,9 @@ class ProcessVoterUpload implements ShouldQueue
             ->whereNotNull('parlimen')->where('parlimen', '!=', '')
             ->select('parlimen', 'negeri')
             ->distinct()->get();
-        $existingBandar = \App\Models\Bandar::pluck('nama')->map(fn($n) => strtoupper(trim($n)))->toArray();
-        $negeriMap = \App\Models\Negeri::pluck('id', 'nama');
-        // Build case-insensitive negeri map
-        $negeriMapLower = [];
-        foreach ($negeriMap as $nama => $id) {
-            $negeriMapLower[strtoupper(trim($nama))] = $id;
-        }
-
         foreach ($voterParlimen as $row) {
-            if (!in_array(strtoupper(trim($row->parlimen)), $existingBandar)) {
-                $negeriId = $negeriMapLower[strtoupper(trim($row->negeri ?? ''))] ?? null;
-                \App\Models\Bandar::create([
-                    'nama' => $row->parlimen,
-                    'negeri_id' => $negeriId,
-                ]);
-                $existingBandar[] = strtoupper(trim($row->parlimen));
-            }
+            $negeri = \App\Models\Negeri::whereRaw('UPPER(TRIM(nama)) = ?', [strtoupper(trim($row->negeri ?? ''))])->first();
+            $findOrSync(\App\Models\Bandar::class, $row->parlimen, ['negeri_id' => $negeri?->id]);
         }
 
         // 3. Sync Kadun - linked to Bandar (Parlimen)
@@ -122,22 +125,9 @@ class ProcessVoterUpload implements ShouldQueue
             ->whereNotNull('kadun')->where('kadun', '!=', '')
             ->select('kadun', 'parlimen')
             ->distinct()->get();
-        $existingKadun = \App\Models\Kadun::pluck('nama')->map(fn($n) => strtoupper(trim($n)))->toArray();
-        $bandarMap = \App\Models\Bandar::pluck('id', 'nama');
-        $bandarMapLower = [];
-        foreach ($bandarMap as $nama => $id) {
-            $bandarMapLower[strtoupper(trim($nama))] = $id;
-        }
-
         foreach ($voterKadun as $row) {
-            if (!in_array(strtoupper(trim($row->kadun)), $existingKadun)) {
-                $bandarId = $bandarMapLower[strtoupper(trim($row->parlimen ?? ''))] ?? null;
-                \App\Models\Kadun::create([
-                    'nama' => $row->kadun,
-                    'bandar_id' => $bandarId,
-                ]);
-                $existingKadun[] = strtoupper(trim($row->kadun));
-            }
+            $bandar = \App\Models\Bandar::whereRaw('UPPER(TRIM(nama)) = ?', [strtoupper(trim($row->parlimen ?? ''))])->first();
+            $findOrSync(\App\Models\Kadun::class, $row->kadun, ['bandar_id' => $bandar?->id]);
         }
 
         // 4. Sync DaerahMengundi - linked to Bandar (Parlimen)
@@ -145,68 +135,20 @@ class ProcessVoterUpload implements ShouldQueue
             ->whereNotNull('daerah_mengundi')->where('daerah_mengundi', '!=', '')
             ->select('daerah_mengundi', 'parlimen')
             ->distinct()->get();
-        $existingDM = \App\Models\DaerahMengundi::pluck('nama')->map(fn($n) => strtoupper(trim($n)))->toArray();
-        // Refresh bandar map after inserts
-        $bandarMap = \App\Models\Bandar::pluck('id', 'nama');
-        $bandarMapLower = [];
-        foreach ($bandarMap as $nama => $id) {
-            $bandarMapLower[strtoupper(trim($nama))] = $id;
-        }
-
         foreach ($voterDM as $row) {
-            if (!in_array(strtoupper(trim($row->daerah_mengundi)), $existingDM)) {
-                $bandarId = $bandarMapLower[strtoupper(trim($row->parlimen ?? ''))] ?? null;
-                \App\Models\DaerahMengundi::create([
-                    'nama' => $row->daerah_mengundi,
-                    'kod_dm' => '',
-                    'bandar_id' => $bandarId,
-                ]);
-                $existingDM[] = strtoupper(trim($row->daerah_mengundi));
-            }
+            $bandar = \App\Models\Bandar::whereRaw('UPPER(TRIM(nama)) = ?', [strtoupper(trim($row->parlimen ?? ''))])->first();
+            $findOrSync(\App\Models\DaerahMengundi::class, $row->daerah_mengundi, ['bandar_id' => $bandar?->id], 'kod_dm');
         }
 
         // 5. Sync Lokaliti - linked to DaerahMengundi
-        $batchLokaliti = PangkalanDataPengundi::where('upload_batch_id', $batchId)
+        $voterLokaliti = PangkalanDataPengundi::where('upload_batch_id', $batchId)
             ->whereNotNull('lokaliti')->where('lokaliti', '!=', '')
-            ->select('lokaliti', 'daerah_mengundi', \Illuminate\Support\Facades\DB::raw('COUNT(*) as cnt'))
-            ->groupBy('lokaliti', 'daerah_mengundi')
-            ->orderByDesc('cnt')
-            ->get();
+            ->select('lokaliti', 'daerah_mengundi')
+            ->distinct()->get();
 
-        $lokalitiToDm = [];
-        foreach ($batchLokaliti as $row) {
-            if (!isset($lokalitiToDm[$row->lokaliti]) && $row->daerah_mengundi) {
-                $lokalitiToDm[$row->lokaliti] = $row->daerah_mengundi;
-            }
-        }
-
-        $dmRecords = \App\Models\DaerahMengundi::pluck('id', 'nama');
-        // Build case-insensitive DM map
-        $dmMapLower = [];
-        foreach ($dmRecords as $nama => $id) {
-            $dmMapLower[strtoupper(trim($nama))] = $id;
-        }
-
-        $existingLokaliti = Lokaliti::pluck('nama')->map(fn($n) => strtoupper(trim($n)))->toArray();
-        $newNames = array_values(array_diff(array_keys($lokalitiToDm), $existingLokaliti));
-
-        if (!empty($newNames)) {
-            Lokaliti::insert(array_map(fn($nama) => [
-                'nama'               => $nama,
-                'daerah_mengundi_id' => $dmMapLower[strtoupper(trim($lokalitiToDm[$nama]))] ?? null,
-                'created_at'         => $now,
-                'updated_at'         => $now,
-            ], $newNames));
-        }
-
-        // Update existing lokaliti records that have no daerah_mengundi_id
-        foreach ($lokalitiToDm as $lokalitiName => $dmName) {
-            $dmId = $dmMapLower[strtoupper(trim($dmName))] ?? null;
-            if ($dmId) {
-                Lokaliti::where('nama', $lokalitiName)
-                    ->whereNull('daerah_mengundi_id')
-                    ->update(['daerah_mengundi_id' => $dmId]);
-            }
+        foreach ($voterLokaliti as $row) {
+            $dm = \App\Models\DaerahMengundi::whereRaw('UPPER(TRIM(nama)) = ?', [strtoupper(trim($row->daerah_mengundi ?? ''))])->first();
+            $findOrSync(Lokaliti::class, $row->lokaliti, ['daerah_mengundi_id' => $dm?->id]);
         }
     }
 
