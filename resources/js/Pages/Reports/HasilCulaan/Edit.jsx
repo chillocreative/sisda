@@ -430,20 +430,6 @@ export default function Edit({
                     <div className="bg-white rounded-xl border border-slate-200 p-6">
                         <h2 className="text-lg font-semibold text-slate-900 mb-4">Maklumat Peribadi</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Nama <span className="text-rose-500">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    value={data.nama}
-                                    onChange={(e) => setData('nama', e.target.value)}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                    required
-                                />
-                                {errors.nama && <p className="text-sm text-rose-600 mt-1">{errors.nama}</p>}
-                            </div>
-
                             <div ref={icWrapperRef} className="relative">
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
                                     No. IC <span className="text-rose-500">*</span>
@@ -472,6 +458,20 @@ export default function Edit({
                                         ))}
                                     </div>
                                 )}
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">
+                                    Nama <span className="text-rose-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={data.nama}
+                                    onChange={(e) => setData('nama', e.target.value)}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                    required
+                                />
+                                {errors.nama && <p className="text-sm text-rose-600 mt-1">{errors.nama}</p>}
                             </div>
 
                             <div>
