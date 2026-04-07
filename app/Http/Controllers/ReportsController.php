@@ -953,8 +953,8 @@ class ReportsController extends Controller
         }
 
         // Find KADUN
-        $kadun = \App\Models\Kadun::where('nama', $kadunNama)->first();
-        
+        $kadun = \App\Models\Kadun::whereRaw('LOWER(nama) = ?', [strtolower($kadunNama)])->first();
+
         if (!$kadun) {
             return response()->json([]);
         }
@@ -979,8 +979,8 @@ class ReportsController extends Controller
         }
 
         // Find Bandar
-        $bandar = \App\Models\Bandar::where('nama', $bandarNama)->first();
-        
+        $bandar = \App\Models\Bandar::whereRaw('LOWER(nama) = ?', [strtolower($bandarNama)])->first();
+
         if (!$bandar) {
             return response()->json([]);
         }
@@ -1005,8 +1005,8 @@ class ReportsController extends Controller
         }
 
         // Find Bandar
-        $bandar = \App\Models\Bandar::where('nama', $bandarNama)->first();
-        
+        $bandar = \App\Models\Bandar::whereRaw('LOWER(nama) = ?', [strtolower($bandarNama)])->first();
+
         if (!$bandar) {
             return response()->json([]);
         }
@@ -1030,7 +1030,7 @@ class ReportsController extends Controller
             return response()->json([]);
         }
 
-        $dm = \App\Models\DaerahMengundi::where('nama', $dmNama)->first();
+        $dm = \App\Models\DaerahMengundi::whereRaw('LOWER(nama) = ?', [strtolower($dmNama)])->first();
 
         if (!$dm) {
             return response()->json([]);
