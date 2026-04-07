@@ -6,6 +6,15 @@ import axios from 'axios';
 
 import SearchableSelect from '@/Components/SearchableSelect';
 
+const formatCurrency = (value) => {
+    if (!value && value !== 0) return '';
+    const str = value.toString().replace(/,/g, '');
+    if (str === '' || str === '.') return str;
+    const parts = str.split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return parts.length > 1 ? parts[0] + '.' + parts[1] : parts[0];
+};
+
 export default function Create({
     bangsaList,
     negeriList,
@@ -717,11 +726,15 @@ export default function Create({
                                     Pendapatan Isi Rumah (RM)
                                 </label>
                                 <input
-                                    type="number"
-                                    value={data.pendapatan_isi_rumah}
-                                    onChange={(e) => setData('pendapatan_isi_rumah', e.target.value)}
-                                    min="0"
-                                    step="0.01"
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={formatCurrency(data.pendapatan_isi_rumah)}
+                                    onChange={(e) => {
+                                        const raw = e.target.value.replace(/[^0-9.]/g, '');
+                                        const parts = raw.split('.');
+                                        setData('pendapatan_isi_rumah', parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : raw);
+                                    }}
+                                    placeholder="0.00"
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                                 />
                                 {errors.pendapatan_isi_rumah && <p className="text-sm text-rose-600 mt-1">{errors.pendapatan_isi_rumah}</p>}
@@ -1152,11 +1165,14 @@ export default function Create({
                                         <div className="relative">
                                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">RM</span>
                                             <input
-                                                type="number"
-                                                value={data.jumlah_wang_tunai}
-                                                onChange={(e) => setData('jumlah_wang_tunai', e.target.value)}
-                                                min="0"
-                                                step="0.01"
+                                                type="text"
+                                                inputMode="decimal"
+                                                value={formatCurrency(data.jumlah_wang_tunai)}
+                                                onChange={(e) => {
+                                                    const raw = e.target.value.replace(/[^0-9.]/g, '');
+                                                    const parts = raw.split('.');
+                                                    setData('jumlah_wang_tunai', parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : raw);
+                                                }}
                                                 placeholder="0.00"
                                                 className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                                             />
