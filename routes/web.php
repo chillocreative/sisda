@@ -243,6 +243,40 @@ Route::middleware('auth')->group(function () {
         return implode("<br>", $messages);
     });
 
+    // Debug: test Lokaliti API directly
+    Route::get('/debug-lokaliti', function (\Illuminate\Http\Request $request) {
+        $dm = $request->input('dm', 'BERTAM PERDANA');
+        $messages = [];
+        $messages[] = "Looking up DM: '{$dm}'";
+
+        // Check master data
+        $dmRecords = \App\Models\DaerahMengundi::whereRaw('LOWER(nama) = ?', [strtolower($dm)])->get();
+        $messages[] = "DM records found in master data: " . $dmRecords->count();
+        foreach ($dmRecords as $r) {
+            $lokCount = \App\Models\Lokaliti::where('daerah_mengundi_id', $r->id)->count();
+            $messages[] = "  DM id={$r->id} nama='{$r->nama}' bandar_id={$r->bandar_id} → {$lokCount} Lokaliti";
+        }
+
+        // Check voter DB
+        $activeBatch = \App\Models\UploadBatch::where('is_active', true)->first();
+        if ($activeBatch) {
+            $voterLokaliti = \App\Models\PangkalanDataPengundi::where('upload_batch_id', $activeBatch->id)
+                ->whereRaw('LOWER(daerah_mengundi) = ?', [strtolower($dm)])
+                ->whereNotNull('lokaliti')
+                ->where('lokaliti', '!=', '')
+                ->distinct()
+                ->pluck('lokaliti');
+            $messages[] = "Voter DB lokaliti for this DM: " . $voterLokaliti->count();
+            foreach ($voterLokaliti as $l) {
+                $messages[] = "  - {$l}";
+            }
+        } else {
+            $messages[] = "No active batch!";
+        }
+
+        return implode("<br>", $messages);
+    });
+
     // Diagnostic: check Lokaliti linkage for a DM
     Route::get('/check-lokaliti', function () {
         set_time_limit(0);
