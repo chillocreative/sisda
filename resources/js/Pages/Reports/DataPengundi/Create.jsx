@@ -291,13 +291,16 @@ export default function Create({
         setData({
             ...data,
             no_ic: voter.no_ic,
+            nama: voter.nama || data.nama,
+            bangsa: voter.bangsa || data.bangsa,
+            negeri: voter.negeri ? toTitleCase(voter.negeri) : data.negeri,
             parlimen: parlimenMatch ? parlimenMatch.nama : data.parlimen,
         });
         setShowSuggestions(false);
         setIcSuggestions([]);
     };
 
-    // Auto-lookup voter database when IC is 12 digits - populate Maklumat Kawasan Mengundi only
+    // Auto-lookup voter database when IC is 12 digits - populate Maklumat Peribadi & Kawasan Mengundi
     useEffect(() => {
         if (data.no_ic.length === 12) {
             axios.get(route('api.voter.search-ic'), { params: { ic: data.no_ic } })
@@ -314,6 +317,9 @@ export default function Create({
                         const parlimenMatch = parlimenList.find(p => p.nama.toLowerCase() === (res.data.parlimen || '').toLowerCase());
                         setData(prev => ({
                             ...prev,
+                            nama: res.data.nama || prev.nama,
+                            bangsa: res.data.bangsa || prev.bangsa,
+                            negeri: res.data.negeri ? toTitleCase(res.data.negeri) : prev.negeri,
                             parlimen: parlimenMatch ? parlimenMatch.nama : prev.parlimen,
                         }));
                     }
