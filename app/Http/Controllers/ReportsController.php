@@ -706,10 +706,12 @@ class ReportsController extends Controller
             'mpkk' => 'nullable|string|max:255',
             'daerah_mengundi' => 'nullable|string|max:255',
             'lokaliti' => 'nullable|string|max:255',
-            'keahlian_parti' => 'nullable|string|max:255',
-            'kecenderungan_politik' => 'nullable|string|max:255',
+            'keahlian_parti' => 'required|string|max:255',
+            'kecenderungan_politik' => 'required|string|max:255',
         ], [
             'no_ic.unique' => 'No. Kad Pengenalan ini telah didaftarkan dalam Data Pengundi.',
+            'keahlian_parti.required' => 'Sila pilih Keanggotaan Parti.',
+            'kecenderungan_politik.required' => 'Sila pilih Kecenderungan Politik.',
         ]);
 
         // Admin Restriction: Ensure data is created for their Parlimen
@@ -802,10 +804,12 @@ class ReportsController extends Controller
             'mpkk' => 'nullable|string|max:255',
             'daerah_mengundi' => 'nullable|string|max:255',
             'lokaliti' => 'nullable|string|max:255',
-            'keahlian_parti' => 'nullable|string|max:255',
-            'kecenderungan_politik' => 'nullable|string|max:255',
+            'keahlian_parti' => 'required|string|max:255',
+            'kecenderungan_politik' => 'required|string|max:255',
         ], [
             'no_ic.unique' => 'No. Kad Pengenalan ini telah didaftarkan dalam Data Pengundi.',
+            'keahlian_parti.required' => 'Sila pilih Keanggotaan Parti.',
+            'kecenderungan_politik.required' => 'Sila pilih Kecenderungan Politik.',
         ]);
 
         // Admin Restriction: Ensure data remains in their Parlimen

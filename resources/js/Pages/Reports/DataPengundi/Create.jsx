@@ -634,7 +634,7 @@ export default function Create({
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Keanggotaan Parti
+                                    Keanggotaan Parti <span className="text-rose-500">*</span>
                                 </label>
                                 <select
                                     value={data.keahlian_parti}
@@ -653,7 +653,7 @@ export default function Create({
 
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Kecenderungan Politik
+                                    Kecenderungan Politik <span className="text-rose-500">*</span>
                                 </label>
                                 <select
                                     value={data.kecenderungan_politik}
