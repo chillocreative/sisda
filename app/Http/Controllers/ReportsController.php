@@ -335,6 +335,7 @@ class ReportsController extends Controller
      */
     public function hasilCulaanEdit(HasilCulaan $hasilCulaan)
     {
+        $user = auth()->user();
 
         $bangsaList = \App\Models\Bangsa::all();
         $negeriList = \App\Models\Negeri::orderBy('nama')->get();
