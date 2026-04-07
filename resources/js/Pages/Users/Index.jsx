@@ -10,6 +10,8 @@ import DangerButton from '@/Components/DangerButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 
 export default function Index({ users, stats, negeriList, bandarList, kadunList, filters: initialFilters }) {
+    const { auth } = usePage().props;
+    const currentUser = auth.user;
     const [selectedUsers, setSelectedUsers] = useState([]);
     const [editingUser, setEditingUser] = useState(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -505,8 +507,12 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
                                             required
                                         >
                                             <option value="user">Pengguna</option>
-                                            <option value="admin">Admin</option>
-                                            <option value="super_admin">Super Admin</option>
+                                            {currentUser.role === 'super_admin' && (
+                                                <>
+                                                    <option value="admin">Admin</option>
+                                                    <option value="super_admin">Super Admin</option>
+                                                </>
+                                            )}
                                         </select>
                                     </div>
                                     <div>
