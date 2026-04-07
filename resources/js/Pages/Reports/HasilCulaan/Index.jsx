@@ -253,6 +253,7 @@ export default function Index({ hasilCulaan, icCounts = {}, filters, currentUser
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Bandar</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Lokaliti</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Pendapatan</th>
+                                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Nota</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Tarikh</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Dikemukakan</th>
                                     <th className="text-center py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Kad Pengenalan</th>
@@ -300,6 +301,7 @@ export default function Index({ hasilCulaan, icCounts = {}, filters, currentUser
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.bandar}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.lokaliti || '—'}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{formatCurrency(item.pendapatan_isi_rumah)}</td>
+                                            <td className="py-3 px-4 text-sm text-slate-600">{item.nota ? <span className="text-emerald-600" title={item.nota}>Ada</span> : <span className="text-slate-400">Tiada</span>}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{formatDate(item.created_at)}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.submitted_by?.name || '-'}</td>
                                             <td className="py-3 px-4">
@@ -556,6 +558,10 @@ export default function Index({ hasilCulaan, icCounts = {}, filters, currentUser
                                         <div className="mt-1 text-slate-900">{viewingItem.jkm_program || '-'}</div>
                                     </div>
                                 )}
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-500">Nota</label>
+                                    <div className="mt-1 text-slate-900">{viewingItem.nota || '-'}</div>
+                                </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-500">Dikemukakan Oleh</label>
                                     <div className="mt-1 text-slate-900">{viewingItem.submitted_by?.name || '-'}</div>

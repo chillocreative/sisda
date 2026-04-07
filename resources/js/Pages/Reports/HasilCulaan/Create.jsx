@@ -1567,16 +1567,40 @@ export default function Create({
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">
+                                <label className="block text-sm font-medium text-slate-700 mb-2">
                                     Nota
                                 </label>
-                                <textarea
-                                    value={data.nota}
-                                    onChange={(e) => setData('nota', e.target.value)}
-                                    rows="4"
-                                    placeholder="Catatan tambahan..."
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                />
+                                <div className="flex items-center space-x-4 mb-2">
+                                    <label className="flex items-center space-x-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="nota_toggle"
+                                            checked={!data.nota}
+                                            onChange={() => setData('nota', '')}
+                                            className="w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500"
+                                        />
+                                        <span className="text-sm text-slate-700">Tiada</span>
+                                    </label>
+                                    <label className="flex items-center space-x-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="nota_toggle"
+                                            checked={!!data.nota}
+                                            onChange={() => setData('nota', data.nota || ' ')}
+                                            className="w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500"
+                                        />
+                                        <span className="text-sm text-slate-700">Ada</span>
+                                    </label>
+                                </div>
+                                {!!data.nota && (
+                                    <textarea
+                                        value={data.nota.trim() === '' ? '' : data.nota}
+                                        onChange={(e) => setData('nota', e.target.value || ' ')}
+                                        rows="4"
+                                        placeholder="Catatan tambahan..."
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                    />
+                                )}
                                 {errors.nota && <p className="text-sm text-rose-600 mt-1">{errors.nota}</p>}
                             </div>
                         </div>
