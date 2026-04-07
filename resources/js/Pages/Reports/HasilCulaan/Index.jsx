@@ -2,7 +2,8 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Modal from '@/Components/Modal';
 import SecondaryButton from '@/Components/SecondaryButton';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 import useDragScroll from '@/Hooks/useDragScroll';
 import {
     Search,
@@ -18,14 +19,29 @@ import {
     FileDown
 } from 'lucide-react';
 
-export default function Index({ hasilCulaan, filters, currentUserId }) {
+export default function Index({ hasilCulaan, icCounts = {}, filters, currentUserId }) {
     const { auth } = usePage().props;
     const user = auth.user;
     const [selectedItems, setSelectedItems] = useState([]);
     const [showFilters, setShowFilters] = useState(false);
     const [viewingItem, setViewingItem] = useState(null);
     const [viewingImage, setViewingImage] = useState(null);
+    const [viewHistory, setViewHistory] = useState([]);
+    const [loadingHistory, setLoadingHistory] = useState(false);
     const scrollRef = useDragScroll();
+
+    // Load bantuan history when viewing a record with multiple entries
+    useEffect(() => {
+        if (viewingItem && icCounts[viewingItem.no_ic]) {
+            setLoadingHistory(true);
+            axios.get(route('api.hasil-culaan.by-ic'), { params: { ic: viewingItem.no_ic } })
+                .then(res => setViewHistory(res.data || []))
+                .catch(() => setViewHistory([]))
+                .finally(() => setLoadingHistory(false));
+        } else {
+            setViewHistory([]);
+        }
+    }, [viewingItem]);
 
     // Helper to check if user can modify a record
     const canModifyRecord = (item) => {
@@ -275,6 +291,11 @@ export default function Index({ hasilCulaan, filters, currentUserId }) {
                                                 >
                                                     {item.nama}
                                                 </button>
+                                                {icCounts[item.no_ic] && (
+                                                    <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                                                        {icCounts[item.no_ic]} rekod
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.no_ic}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.umur}</td>
@@ -569,6 +590,36 @@ export default function Index({ hasilCulaan, filters, currentUserId }) {
                                     )}
                                 </div>
                             </div>
+
+                            {/* Bantuan History Section */}
+                            {viewHistory.length > 1 && (
+                                <div className="pt-6 border-t border-slate-100">
+                                    <h3 className="text-sm font-semibold text-slate-900 mb-3">
+                                        Sejarah Bantuan ({viewHistory.length} rekod)
+                                    </h3>
+                                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                                        {viewHistory.filter(r => r.id !== viewingItem?.id).map((record) => (
+                                            <div key={record.id} className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <p className="text-xs font-medium text-slate-700">
+                                                            {new Date(record.created_at).toLocaleDateString('ms-MY', { year: 'numeric', month: 'long', day: 'numeric' })}
+                                                        </p>
+                                                        <p className="text-xs text-slate-500 mt-1">Sumbangan: {record.jenis_sumbangan || '-'}</p>
+                                                        <p className="text-xs text-slate-500">Tujuan: {record.tujuan_sumbangan || '-'}</p>
+                                                    </div>
+                                                    {record.jumlah_wang_tunai && (
+                                                        <span className="text-xs font-medium text-blue-700">RM {Number(record.jumlah_wang_tunai).toLocaleString('en-MY', { minimumFractionDigits: 2 })}</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            {loadingHistory && (
+                                <div className="pt-4 text-center text-sm text-slate-400">Memuatkan sejarah...</div>
+                            )}
 
                             <div className="flex justify-end pt-6 border-t border-slate-100">
                                 <SecondaryButton onClick={() => setViewingItem(null)}>

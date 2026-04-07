@@ -42,6 +42,8 @@ export default function Create({
     const [loadingLokaliti, setLoadingLokaliti] = useState(false);
     const [icSuggestions, setIcSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
+    const [bantuanHistory, setBantuanHistory] = useState([]);
+    const [showHistory, setShowHistory] = useState(false);
     const icDebounceRef = useRef(null);
     const icWrapperRef = useRef(null);
     const pendingVoterData = useRef(null);
@@ -387,6 +389,37 @@ export default function Create({
                     }
                 })
                 .catch(() => {});
+
+            // Check for existing bantuan records and auto-fill personal data
+            axios.get(route('api.hasil-culaan.by-ic'), { params: { ic: data.no_ic } })
+                .then(res => {
+                    if (res.data && res.data.length > 0) {
+                        setBantuanHistory(res.data);
+                        const latest = res.data[0];
+                        setData(prev => ({
+                            ...prev,
+                            nama: prev.nama || latest.nama || '',
+                            bangsa: prev.bangsa || latest.bangsa || '',
+                            no_tel: prev.no_tel || latest.no_tel || '',
+                            alamat: prev.alamat || latest.alamat || '',
+                            poskod: prev.poskod || latest.poskod || '',
+                            negeri: prev.negeri || latest.negeri || '',
+                            bandar: prev.bandar || latest.bandar || '',
+                            bil_isi_rumah: prev.bil_isi_rumah || latest.bil_isi_rumah || '',
+                            pendapatan_isi_rumah: prev.pendapatan_isi_rumah || latest.pendapatan_isi_rumah || '',
+                            pekerjaan: prev.pekerjaan || latest.pekerjaan || '',
+                            pemilik_rumah: prev.pemilik_rumah || latest.pemilik_rumah || '',
+                            keahlian_parti: prev.keahlian_parti || latest.keahlian_parti || '',
+                            kecenderungan_politik: prev.kecenderungan_politik || latest.kecenderungan_politik || '',
+                        }));
+                    } else {
+                        setBantuanHistory([]);
+                    }
+                })
+                .catch(() => {});
+        } else {
+            setBantuanHistory([]);
+            setShowHistory(false);
         }
     }, [data.no_ic]);
 
@@ -431,6 +464,56 @@ export default function Create({
 
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="space-y-6">
+                    {/* Bantuan History Banner */}
+                    {bantuanHistory.length > 0 && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                            <div className="flex items-start gap-3">
+                                <div className="flex-shrink-0 mt-0.5">
+                                    <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-sm font-medium text-blue-800">
+                                        {bantuanHistory[0].nama} ({data.no_ic}) mempunyai {bantuanHistory.length} rekod bantuan sebelum ini.
+                                    </p>
+                                    <p className="text-xs text-blue-600 mt-1">
+                                        Maklumat peribadi telah diisi automatik dari rekod terkini. Sila isi maklumat bantuan baharu.
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowHistory(!showHistory)}
+                                        className="text-xs font-medium text-blue-700 hover:text-blue-900 mt-2 underline"
+                                    >
+                                        {showHistory ? 'Sembunyikan Sejarah' : 'Lihat Sejarah Bantuan'}
+                                    </button>
+                                    {showHistory && (
+                                        <div className="mt-3 space-y-2">
+                                            {bantuanHistory.map((record) => (
+                                                <div key={record.id} className="bg-white rounded-lg p-3 border border-blue-100">
+                                                    <div className="flex justify-between items-start">
+                                                        <div>
+                                                            <p className="text-xs font-medium text-slate-700">
+                                                                {new Date(record.created_at).toLocaleDateString('ms-MY', { year: 'numeric', month: 'long', day: 'numeric' })}
+                                                            </p>
+                                                            <p className="text-xs text-slate-500 mt-1">
+                                                                Sumbangan: {record.jenis_sumbangan || '-'}
+                                                            </p>
+                                                            <p className="text-xs text-slate-500">
+                                                                Tujuan: {record.tujuan_sumbangan || '-'}
+                                                            </p>
+                                                        </div>
+                                                        {record.jumlah_wang_tunai && (
+                                                            <span className="text-xs font-medium text-blue-700">RM {Number(record.jumlah_wang_tunai).toLocaleString('en-MY', { minimumFractionDigits: 2 })}</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Personal Information */}
                     <div className="bg-white rounded-xl border border-slate-200 p-6">
                         <h2 className="text-lg font-semibold text-slate-900 mb-4">Maklumat Peribadi</h2>

@@ -181,7 +181,8 @@ Route::middleware('auth')->group(function () {
     Route::delete('/reports/hasil-culaan/{hasilCulaan}', [\App\Http\Controllers\ReportsController::class, 'hasilCulaanDestroy'])->name('reports.hasil-culaan.destroy');
     Route::post('/reports/hasil-culaan/bulk-delete', [\App\Http\Controllers\ReportsController::class, 'hasilCulaanBulkDelete'])->name('reports.hasil-culaan.bulk-delete');
     Route::get('/reports/hasil-culaan/export', [\App\Http\Controllers\ReportsController::class, 'exportHasilCulaan'])->name('reports.hasil-culaan.export');
-    
+    Route::get('/api/hasil-culaan/by-ic', [\App\Http\Controllers\ReportsController::class, 'hasilCulaanByIc'])->name('api.hasil-culaan.by-ic');
+
     // Data Pengundi
     Route::get('/reports/data-pengundi', [\App\Http\Controllers\ReportsController::class, 'dataPengundiIndex'])->name('reports.data-pengundi.index');
     Route::get('/reports/data-pengundi/create', [\App\Http\Controllers\ReportsController::class, 'dataPengundiCreate'])->name('reports.data-pengundi.create');

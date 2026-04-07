@@ -66,8 +66,16 @@ class ReportsController extends Controller
 
         $hasilCulaan = $query->orderBy('created_at', 'desc')->paginate(10);
 
+        // Count records per IC for badge display
+        $icCounts = HasilCulaan::selectRaw('no_ic, COUNT(*) as count')
+            ->whereIn('no_ic', $hasilCulaan->pluck('no_ic'))
+            ->groupBy('no_ic')
+            ->having('count', '>', 1)
+            ->pluck('count', 'no_ic');
+
         return Inertia::render('Reports/HasilCulaan/Index', [
             'hasilCulaan' => $hasilCulaan,
+            'icCounts' => $icCounts,
             'filters' => $request->only(['date_from', 'date_to', 'search']),
             'currentUserId' => $user->id,
         ]);
@@ -103,6 +111,20 @@ class ReportsController extends Controller
         }
 
         return Excel::download(new HasilCulaanExport($query), 'hasil-culaan-' . date('Y-m-d') . '.xlsx');
+    }
+
+    /**
+     * Get all Hasil Culaan records for a given IC number.
+     */
+    public function hasilCulaanByIc(Request $request)
+    {
+        $request->validate(['ic' => 'required|string|digits:12']);
+
+        $records = HasilCulaan::where('no_ic', $request->ic)
+            ->orderBy('created_at', 'desc')
+            ->get(['id', 'nama', 'no_ic', 'umur', 'no_tel', 'bangsa', 'alamat', 'poskod', 'negeri', 'bandar', 'parlimen', 'kadun', 'mpkk', 'daerah_mengundi', 'lokaliti', 'bil_isi_rumah', 'pendapatan_isi_rumah', 'pekerjaan', 'jenis_pekerjaan', 'pemilik_rumah', 'jenis_sumbangan', 'tujuan_sumbangan', 'bantuan_lain', 'jumlah_wang_tunai', 'keahlian_parti', 'kecenderungan_politik', 'created_at']);
+
+        return response()->json($records);
     }
 
     /**
@@ -156,7 +178,7 @@ class ReportsController extends Controller
 
         $validated = $request->validate([
             'nama' => 'required|string|max:255',
-            'no_ic' => 'required|string|digits:12|unique:hasil_culaan,no_ic',
+            'no_ic' => 'required|string|digits:12',
             'umur' => 'required|integer|min:1|max:150',
             'no_tel' => 'required|string|max:255',
             'bangsa' => 'required|string|max:255',
@@ -194,7 +216,6 @@ class ReportsController extends Controller
             'kad_pengenalan' => 'nullable|image|max:5120', // 5MB max
             'nota' => 'nullable|string',
         ], [
-            'no_ic.unique' => 'No. Kad Pengenalan ini telah didaftarkan dalam Hasil Culaan.',
             'jenis_sumbangan.required' => 'Sila pilih sekurang-kurangnya satu Jenis Sumbangan.',
             'tujuan_sumbangan.required' => 'Sila pilih sekurang-kurangnya satu Tujuan Sumbangan.',
             'bantuan_lain.required' => 'Sila pilih sekurang-kurangnya satu Bantuan Lain Yang Diterima.',
@@ -371,7 +392,7 @@ class ReportsController extends Controller
 
         $validated = $request->validate([
             'nama' => 'required|string|max:255',
-            'no_ic' => 'required|string|digits:12|unique:hasil_culaan,no_ic,' . $hasilCulaan->id,
+            'no_ic' => 'required|string|digits:12',
             'umur' => 'required|integer|min:1|max:150',
             'no_tel' => 'required|string|max:255',
             'bangsa' => 'required|string|max:255',
@@ -409,7 +430,6 @@ class ReportsController extends Controller
             'kad_pengenalan' => 'nullable|image|max:5120', // 5MB max
             'nota' => 'nullable|string',
         ], [
-            'no_ic.unique' => 'No. Kad Pengenalan ini telah didaftarkan dalam Hasil Culaan.',
             'jenis_sumbangan.required' => 'Sila pilih sekurang-kurangnya satu Jenis Sumbangan.',
             'tujuan_sumbangan.required' => 'Sila pilih sekurang-kurangnya satu Tujuan Sumbangan.',
             'bantuan_lain.required' => 'Sila pilih sekurang-kurangnya satu Bantuan Lain Yang Diterima.',

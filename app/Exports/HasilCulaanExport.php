@@ -49,6 +49,8 @@ class HasilCulaanExport implements FromCollection, WithHeadings, WithMapping
             'Kad Pengenalan',
             'Nota',
             'Tarikh & Masa',
+            'Tahun',
+            'Bulan',
             'Dikemukakan Oleh',
         ];
     }
@@ -78,6 +80,8 @@ class HasilCulaanExport implements FromCollection, WithHeadings, WithMapping
             $hasilCulaan->kad_pengenalan,
             $hasilCulaan->nota,
             $hasilCulaan->created_at->format('d/m/Y H:i:s'),
+            $hasilCulaan->created_at->format('Y'),
+            $hasilCulaan->created_at->format('m'),
             $hasilCulaan->submittedBy->name ?? '-',
         ];
     }
