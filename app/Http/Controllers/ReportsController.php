@@ -177,11 +177,11 @@ class ReportsController extends Controller
             'jenis_pekerjaan_lain' => 'nullable|string|max:255',
             'pemilik_rumah' => 'required|string|max:255',
             'pemilik_rumah_lain' => 'nullable|string|max:255',
-            'jenis_sumbangan' => 'nullable|array',
+            'jenis_sumbangan' => 'required|array|min:1',
             'jenis_sumbangan_lain' => 'nullable|string|max:255',
-            'tujuan_sumbangan' => 'nullable|array',
+            'tujuan_sumbangan' => 'required|array|min:1',
             'tujuan_sumbangan_lain' => 'nullable|string|max:255',
-            'bantuan_lain' => 'nullable|array',
+            'bantuan_lain' => 'required|array|min:1',
             'bantuan_lain_lain' => 'nullable|string|max:255',
             'zpp_jenis_bantuan' => 'nullable|array',
             'isejahtera_program' => 'nullable|string|max:255',
@@ -189,12 +189,17 @@ class ReportsController extends Controller
             'jumlah_bantuan_tunai' => 'nullable|numeric|min:0',
             'jumlah_wang_tunai' => 'nullable|numeric|min:0',
             'jkm_program' => 'nullable|string|max:255',
-            'keahlian_parti' => 'nullable|string|max:255',
-            'kecenderungan_politik' => 'nullable|string|max:255',
+            'keahlian_parti' => 'required|string|max:255',
+            'kecenderungan_politik' => 'required|string|max:255',
             'kad_pengenalan' => 'nullable|image|max:5120', // 5MB max
             'nota' => 'nullable|string',
         ], [
             'no_ic.unique' => 'No. Kad Pengenalan ini telah didaftarkan dalam Hasil Culaan.',
+            'jenis_sumbangan.required' => 'Sila pilih sekurang-kurangnya satu Jenis Sumbangan.',
+            'tujuan_sumbangan.required' => 'Sila pilih sekurang-kurangnya satu Tujuan Sumbangan.',
+            'bantuan_lain.required' => 'Sila pilih sekurang-kurangnya satu Bantuan Lain Yang Diterima.',
+            'keahlian_parti.required' => 'Sila pilih Keanggotaan Parti.',
+            'kecenderungan_politik.required' => 'Sila pilih Kecenderungan Politik.',
         ]);
 
         // Admin Restriction: Ensure data is created for their Parlimen
@@ -387,11 +392,11 @@ class ReportsController extends Controller
             'jenis_pekerjaan_lain' => 'nullable|string|max:255',
             'pemilik_rumah' => 'required|string|max:255',
             'pemilik_rumah_lain' => 'nullable|string|max:255',
-            'jenis_sumbangan' => 'nullable|array',
+            'jenis_sumbangan' => 'required|array|min:1',
             'jenis_sumbangan_lain' => 'nullable|string|max:255',
-            'tujuan_sumbangan' => 'nullable|array',
+            'tujuan_sumbangan' => 'required|array|min:1',
             'tujuan_sumbangan_lain' => 'nullable|string|max:255',
-            'bantuan_lain' => 'nullable|array',
+            'bantuan_lain' => 'required|array|min:1',
             'bantuan_lain_lain' => 'nullable|string|max:255',
             'zpp_jenis_bantuan' => 'nullable|array',
             'isejahtera_program' => 'nullable|string|max:255',
@@ -399,12 +404,17 @@ class ReportsController extends Controller
             'jumlah_bantuan_tunai' => 'nullable|numeric|min:0',
             'jumlah_wang_tunai' => 'nullable|numeric|min:0',
             'jkm_program' => 'nullable|string|max:255',
-            'keahlian_parti' => 'nullable|string|max:255',
-            'kecenderungan_politik' => 'nullable|string|max:255',
+            'keahlian_parti' => 'required|string|max:255',
+            'kecenderungan_politik' => 'required|string|max:255',
             'kad_pengenalan' => 'nullable|image|max:5120', // 5MB max
             'nota' => 'nullable|string',
         ], [
             'no_ic.unique' => 'No. Kad Pengenalan ini telah didaftarkan dalam Hasil Culaan.',
+            'jenis_sumbangan.required' => 'Sila pilih sekurang-kurangnya satu Jenis Sumbangan.',
+            'tujuan_sumbangan.required' => 'Sila pilih sekurang-kurangnya satu Tujuan Sumbangan.',
+            'bantuan_lain.required' => 'Sila pilih sekurang-kurangnya satu Bantuan Lain Yang Diterima.',
+            'keahlian_parti.required' => 'Sila pilih Keanggotaan Parti.',
+            'kecenderungan_politik.required' => 'Sila pilih Kecenderungan Politik.',
         ]);
 
         // Admin/User Restriction: Ensure data remains in their territory

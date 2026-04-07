@@ -1122,7 +1122,7 @@ export default function Edit({
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="md:col-span-2">
                                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                                    Jenis Sumbangan
+                                    Jenis Sumbangan <span className="text-rose-500">*</span>
                                 </label>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                     {[
@@ -1185,7 +1185,7 @@ export default function Edit({
 
                             <div className="md:col-span-2">
                                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                                    Tujuan Sumbangan
+                                    Tujuan Sumbangan <span className="text-rose-500">*</span>
                                 </label>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                     {tujuanSumbanganList.map((item) => (
@@ -1214,7 +1214,7 @@ export default function Edit({
 
                             <div className="md:col-span-2">
                                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                                    Bantuan Lain Yang Diterima
+                                    Bantuan Lain Yang Diterima <span className="text-rose-500">*</span>
                                 </label>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                     {[
@@ -1360,7 +1360,7 @@ export default function Edit({
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Keanggotaan Parti
+                                    Keanggotaan Parti <span className="text-rose-500">*</span>
                                 </label>
                                 <select
                                     value={data.keahlian_parti}
@@ -1379,7 +1379,7 @@ export default function Edit({
 
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Kecenderungan Politik
+                                    Kecenderungan Politik <span className="text-rose-500">*</span>
                                 </label>
                                 <select
                                     value={data.kecenderungan_politik}
