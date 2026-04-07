@@ -505,7 +505,7 @@ export default function Create({
                                                             </p>
                                                             {record.submitted_by && (
                                                                 <p className="text-xs text-slate-400 mt-1">
-                                                                    Dikemukakan Oleh: {record.submitted_by.name}
+                                                                    Dihantar Oleh: {record.submitted_by.name}
                                                                 </p>
                                                             )}
                                                         </div>

@@ -606,7 +606,7 @@ export default function Index({ hasilCulaan, icCounts = {}, filters, currentUser
                                                         <p className="text-xs text-slate-500 mt-1">Sumbangan: {record.jenis_sumbangan || '-'}</p>
                                                         <p className="text-xs text-slate-500">Tujuan: {record.tujuan_sumbangan || '-'}</p>
                                                         {record.submitted_by && (
-                                                            <p className="text-xs text-slate-400 mt-1">Dikemukakan Oleh: {record.submitted_by.name}</p>
+                                                            <p className="text-xs text-slate-400 mt-1">Dihantar Oleh: {record.submitted_by.name}</p>
                                                         )}
                                                     </div>
                                                     {record.jumlah_wang_tunai && (
