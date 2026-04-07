@@ -35,6 +35,7 @@ export default function Create({
     const [showSuggestions, setShowSuggestions] = useState(false);
     const icDebounceRef = useRef(null);
     const icWrapperRef = useRef(null);
+    const pendingVoterData = useRef(null);
 
     const { data, setData, post, processing, errors } = useForm({
         nama: '',
@@ -96,6 +97,23 @@ export default function Create({
                 ]);
                 setKadunOptions(kadunRes.data);
                 setDaerahMengundiOptions(dmRes.data);
+
+                // Apply pending voter data if available
+                if (pendingVoterData.current) {
+                    const pending = pendingVoterData.current;
+                    const updates = {};
+                    if (pending.kadun) {
+                        const match = kadunRes.data.find(k => k.nama.toLowerCase() === pending.kadun.toLowerCase());
+                        if (match) updates.kadun = match.nama;
+                    }
+                    if (pending.daerah_mengundi) {
+                        const match = dmRes.data.find(d => d.nama.toLowerCase() === pending.daerah_mengundi.toLowerCase());
+                        if (match) updates.daerah_mengundi = match.nama;
+                    }
+                    if (Object.keys(updates).length > 0) {
+                        setData(prev => ({ ...prev, ...updates }));
+                    }
+                }
             } catch (error) {
                 console.error('Error fetching KADUN/DM:', error);
                 setKadunOptions([]);
@@ -148,6 +166,15 @@ export default function Create({
                     params: { daerah_mengundi: data.daerah_mengundi }
                 });
                 setLokalitiOptions(response.data);
+
+                // Apply pending voter lokaliti if available
+                if (pendingVoterData.current?.lokaliti) {
+                    const match = response.data.find(l => l.nama.toLowerCase() === pendingVoterData.current.lokaliti.toLowerCase());
+                    if (match) {
+                        setData(prev => ({ ...prev, lokaliti: match.nama }));
+                    }
+                    pendingVoterData.current = null;
+                }
             } catch (error) {
                 console.error('Error fetching Lokaliti:', error);
                 setLokalitiOptions([]);
@@ -312,20 +339,47 @@ export default function Create({
         : '';
 
     const handleSuggestionClick = (voter) => {
+        pendingVoterData.current = {
+            parlimen: voter.parlimen || null,
+            kadun: voter.kadun || null,
+            daerah_mengundi: voter.daerah_mengundi || null,
+            lokaliti: voter.lokaliti || null,
+        };
+        const parlimenMatch = parlimenList.find(p => p.nama.toLowerCase() === (voter.parlimen || '').toLowerCase());
         setData({
             ...data,
             no_ic: voter.no_ic,
             nama: voter.nama || data.nama,
-            lokaliti: voter.lokaliti ? toTitleCase(voter.lokaliti) : data.lokaliti,
-            daerah_mengundi: voter.daerah_mengundi ? toTitleCase(voter.daerah_mengundi) : data.daerah_mengundi,
-            kadun: voter.kadun ? toTitleCase(voter.kadun) : data.kadun,
-            parlimen: voter.parlimen ? toTitleCase(voter.parlimen) : data.parlimen,
+            parlimen: parlimenMatch ? parlimenMatch.nama : data.parlimen,
             negeri: voter.negeri ? toTitleCase(voter.negeri) : data.negeri,
             bangsa: voter.bangsa || data.bangsa,
         });
         setShowSuggestions(false);
         setIcSuggestions([]);
     };
+
+    // Auto-lookup voter database when IC is 12 digits - populate Maklumat Kawasan Mengundi
+    useEffect(() => {
+        if (data.no_ic.length === 12) {
+            axios.get(route('api.voter.search-ic'), { params: { ic: data.no_ic } })
+                .then(res => {
+                    if (res.data) {
+                        pendingVoterData.current = {
+                            parlimen: res.data.parlimen || null,
+                            kadun: res.data.kadun || null,
+                            daerah_mengundi: res.data.daerah_mengundi || null,
+                            lokaliti: res.data.lokaliti || null,
+                        };
+                        const parlimenMatch = parlimenList.find(p => p.nama.toLowerCase() === (res.data.parlimen || '').toLowerCase());
+                        setData(prev => ({
+                            ...prev,
+                            parlimen: parlimenMatch ? parlimenMatch.nama : prev.parlimen,
+                        }));
+                    }
+                })
+                .catch(() => {});
+        }
+    }, [data.no_ic]);
 
     const handlePostcodeChange = (e) => {
         const value = e.target.value.replace(/\D/g, '');
