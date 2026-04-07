@@ -212,17 +212,35 @@ Route::middleware('auth')->group(function () {
 
     // Utility: fix stuck batches and sync master data
     Route::get('/fix-batches', function () {
+        set_time_limit(0);
+
+        $messages = [];
+
         // Mark all stuck "processing" batches as failed
         $fixed = \App\Models\UploadBatch::where('status', 'processing')->update(['status' => 'failed']);
+        $messages[] = "Fixed {$fixed} stuck batch(es).";
 
         // Sync master data from active batch
         $active = \App\Models\UploadBatch::where('is_active', true)->first();
         if ($active) {
-            \App\Jobs\ProcessVoterUpload::syncMasterData($active->id);
-            return "Fixed {$fixed} stuck batch(es). Synced master data from batch: {$active->nama_fail} (ID: {$active->id})";
+            try {
+                \App\Jobs\ProcessVoterUpload::syncMasterData($active->id);
+                $messages[] = "Synced master data from batch: {$active->nama_fail} (ID: {$active->id})";
+
+                // Show counts
+                $messages[] = "Negeri: " . \App\Models\Negeri::count();
+                $messages[] = "Parlimen: " . \App\Models\Bandar::count();
+                $messages[] = "KADUN: " . \App\Models\Kadun::count();
+                $messages[] = "Daerah Mengundi: " . \App\Models\DaerahMengundi::count();
+                $messages[] = "Lokaliti: " . \App\Models\Lokaliti::count();
+            } catch (\Exception $e) {
+                $messages[] = "Error: " . $e->getMessage();
+            }
+        } else {
+            $messages[] = "No active batch found.";
         }
 
-        return "Fixed {$fixed} stuck batch(es). No active batch found.";
+        return implode("<br>", $messages);
     });
 });
 
