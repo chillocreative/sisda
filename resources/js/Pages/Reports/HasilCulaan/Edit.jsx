@@ -74,12 +74,13 @@ export default function Edit({
         pemilik_rumah_lain: '',
         jenis_sumbangan: hasilCulaan.jenis_sumbangan ? hasilCulaan.jenis_sumbangan.split(', ') : [],
         jenis_sumbangan_lain: hasilCulaan.jenis_sumbangan_lain || '',
-        tujuan_sumbangan: hasilCulaan.tujuan_sumbangan || '',
+        tujuan_sumbangan: hasilCulaan.tujuan_sumbangan ? hasilCulaan.tujuan_sumbangan.split(', ') : [],
+        tujuan_sumbangan_lain: hasilCulaan.tujuan_sumbangan_lain || '',
         bantuan_lain: hasilCulaan.bantuan_lain ? hasilCulaan.bantuan_lain.split(', ') : [],
         bantuan_lain_lain: hasilCulaan.bantuan_lain_lain || '',
         perkeso_bantuan: hasilCulaan.perkeso_bantuan ? hasilCulaan.perkeso_bantuan.split(', ') : [],
         perkeso_bantuan_lain: hasilCulaan.perkeso_bantuan_lain || '',
-        zpp_jenis_bantuan: hasilCulaan.zpp_jenis_bantuan || '',
+        zpp_jenis_bantuan: hasilCulaan.zpp_jenis_bantuan ? hasilCulaan.zpp_jenis_bantuan.split(', ') : [],
         isejahtera_program: hasilCulaan.isejahtera_program || '',
         bkb_program: hasilCulaan.bkb_program || '',
         jkm_program: hasilCulaan.jkm_program || '',
@@ -1182,22 +1183,32 @@ export default function Edit({
                                 {errors.jenis_sumbangan && <p className="text-sm text-rose-600 mt-1">{errors.jenis_sumbangan}</p>}
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-medium text-slate-700 mb-2">
                                     Tujuan Sumbangan
                                 </label>
-                                <select
-                                    value={data.tujuan_sumbangan}
-                                    onChange={(e) => setData('tujuan_sumbangan', e.target.value)}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                >
-                                    <option value="">Pilih Tujuan Sumbangan</option>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                     {tujuanSumbanganList.map((item) => (
-                                        <option key={item.id} value={item.nama}>
-                                            {item.nama}
-                                        </option>
+                                        <label key={item.id} className="flex items-center space-x-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={data.tujuan_sumbangan.includes(item.nama)}
+                                                onChange={() => handleCheckboxChange('tujuan_sumbangan', item.nama)}
+                                                className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                                            />
+                                            <span className="text-sm text-slate-700">{item.nama}</span>
+                                        </label>
                                     ))}
-                                </select>
+                                </div>
+                                {data.tujuan_sumbangan.some(item => item.toLowerCase().includes('lain')) && (
+                                    <input
+                                        type="text"
+                                        value={data.tujuan_sumbangan_lain}
+                                        onChange={(e) => setData('tujuan_sumbangan_lain', e.target.value)}
+                                        placeholder="Nyatakan tujuan sumbangan lain"
+                                        className="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                    />
+                                )}
                                 {errors.tujuan_sumbangan && <p className="text-sm text-rose-600 mt-1">{errors.tujuan_sumbangan}</p>}
                             </div>
 
@@ -1271,23 +1282,30 @@ export default function Edit({
                                     </div>
                                 )}
                                 {data.bantuan_lain.includes('Zakat Pulau Pinang (ZPP)') && (
-                                    <div className="mt-3">
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                                            Jenis Bantuan ZPP <span className="text-rose-500">*</span>
+                                    <div className="mt-3 p-3 bg-slate-50 rounded-lg">
+                                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                                            Jenis Bantuan ZPP
                                         </label>
-                                        <select
-                                            value={data.zpp_jenis_bantuan}
-                                            onChange={(e) => setData('zpp_jenis_bantuan', e.target.value)}
-                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                        >
-                                            <option value="">Pilih Jenis Bantuan ZPP</option>
-                                            <option value="Bantuan kewangan asnaf">Bantuan kewangan asnaf</option>
-                                            <option value="Bantuan makanan / sara hidup">Bantuan makanan / sara hidup</option>
-                                            <option value="Bantuan perubatan">Bantuan perubatan</option>
-                                            <option value="Bantuan pendidikan">Bantuan pendidikan</option>
-                                            <option value="Bantuan perumahan">Bantuan perumahan</option>
-                                            <option value="Modal perniagaan asnaf">Modal perniagaan asnaf</option>
-                                        </select>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                            {[
+                                                'Bantuan kewangan asnaf',
+                                                'Bantuan makanan / sara hidup',
+                                                'Bantuan perubatan',
+                                                'Bantuan pendidikan',
+                                                'Bantuan perumahan',
+                                                'Modal perniagaan asnaf',
+                                            ].map((item) => (
+                                                <label key={item} className="flex items-center space-x-2 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={data.zpp_jenis_bantuan.includes(item)}
+                                                        onChange={() => handleCheckboxChange('zpp_jenis_bantuan', item)}
+                                                        className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                                                    />
+                                                    <span className="text-sm text-slate-700">{item}</span>
+                                                </label>
+                                            ))}
+                                        </div>
                                         {errors.zpp_jenis_bantuan && <p className="text-sm text-rose-600 mt-1">{errors.zpp_jenis_bantuan}</p>}
                                     </div>
                                 )}

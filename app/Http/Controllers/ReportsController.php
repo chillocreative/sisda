@@ -183,7 +183,7 @@ class ReportsController extends Controller
             'tujuan_sumbangan_lain' => 'nullable|string|max:255',
             'bantuan_lain' => 'nullable|array',
             'bantuan_lain_lain' => 'nullable|string|max:255',
-            'zpp_jenis_bantuan' => 'nullable|string|max:255',
+            'zpp_jenis_bantuan' => 'nullable|array',
             'isejahtera_program' => 'nullable|string|max:255',
             'bkb_program' => 'nullable|string|max:255',
             'jumlah_bantuan_tunai' => 'nullable|numeric|min:0',
@@ -253,6 +253,10 @@ class ReportsController extends Controller
                 $bantuanLain[] = $validated['bantuan_lain_lain'];
             }
             $validated['bantuan_lain'] = implode(', ', $bantuanLain);
+        }
+
+        if (isset($validated['zpp_jenis_bantuan']) && is_array($validated['zpp_jenis_bantuan'])) {
+            $validated['zpp_jenis_bantuan'] = implode(', ', $validated['zpp_jenis_bantuan']);
         }
 
         // Remove the _lain fields as they're not in the database
@@ -389,7 +393,7 @@ class ReportsController extends Controller
             'tujuan_sumbangan_lain' => 'nullable|string|max:255',
             'bantuan_lain' => 'nullable|array',
             'bantuan_lain_lain' => 'nullable|string|max:255',
-            'zpp_jenis_bantuan' => 'nullable|string|max:255',
+            'zpp_jenis_bantuan' => 'nullable|array',
             'isejahtera_program' => 'nullable|string|max:255',
             'bkb_program' => 'nullable|string|max:255',
             'jumlah_bantuan_tunai' => 'nullable|numeric|min:0',
@@ -457,6 +461,10 @@ class ReportsController extends Controller
                 $bantuanLain[] = $validated['bantuan_lain_lain'];
             }
             $validated['bantuan_lain'] = implode(', ', $bantuanLain);
+        }
+
+        if (isset($validated['zpp_jenis_bantuan']) && is_array($validated['zpp_jenis_bantuan'])) {
+            $validated['zpp_jenis_bantuan'] = implode(', ', $validated['zpp_jenis_bantuan']);
         }
 
         // Remove the _lain fields as they're not in the database

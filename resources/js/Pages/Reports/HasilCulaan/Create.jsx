@@ -76,7 +76,7 @@ export default function Create({
         bantuan_lain_lain: '',
         perkeso_bantuan: [],
         perkeso_bantuan_lain: '',
-        zpp_jenis_bantuan: '',
+        zpp_jenis_bantuan: [],
         isejahtera_program: '',
         bkb_program: '',
         jkm_program: '',
@@ -1291,23 +1291,30 @@ export default function Create({
                                     </div>
                                 )}
                                 {data.bantuan_lain.includes('Zakat Pulau Pinang (ZPP)') && (
-                                    <div className="mt-3">
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                                            Jenis Bantuan ZPP <span className="text-rose-500">*</span>
+                                    <div className="mt-3 p-3 bg-slate-50 rounded-lg">
+                                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                                            Jenis Bantuan ZPP
                                         </label>
-                                        <select
-                                            value={data.zpp_jenis_bantuan}
-                                            onChange={(e) => setData('zpp_jenis_bantuan', e.target.value)}
-                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                        >
-                                            <option value="">Pilih Jenis Bantuan ZPP</option>
-                                            <option value="Bantuan kewangan asnaf">Bantuan kewangan asnaf</option>
-                                            <option value="Bantuan makanan / sara hidup">Bantuan makanan / sara hidup</option>
-                                            <option value="Bantuan perubatan">Bantuan perubatan</option>
-                                            <option value="Bantuan pendidikan">Bantuan pendidikan</option>
-                                            <option value="Bantuan perumahan">Bantuan perumahan</option>
-                                            <option value="Modal perniagaan asnaf">Modal perniagaan asnaf</option>
-                                        </select>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                            {[
+                                                'Bantuan kewangan asnaf',
+                                                'Bantuan makanan / sara hidup',
+                                                'Bantuan perubatan',
+                                                'Bantuan pendidikan',
+                                                'Bantuan perumahan',
+                                                'Modal perniagaan asnaf',
+                                            ].map((item) => (
+                                                <label key={item} className="flex items-center space-x-2 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={data.zpp_jenis_bantuan.includes(item)}
+                                                        onChange={() => handleCheckboxChange('zpp_jenis_bantuan', item)}
+                                                        className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                                                    />
+                                                    <span className="text-sm text-slate-700">{item}</span>
+                                                </label>
+                                            ))}
+                                        </div>
                                         {errors.zpp_jenis_bantuan && <p className="text-sm text-rose-600 mt-1">{errors.zpp_jenis_bantuan}</p>}
                                     </div>
                                 )}
