@@ -158,6 +158,7 @@ class ProcessVoterUpload implements ShouldQueue
                 $bandarId = $bandarMapLower[strtoupper(trim($row->parlimen ?? ''))] ?? null;
                 \App\Models\DaerahMengundi::create([
                     'nama' => $row->daerah_mengundi,
+                    'kod_dm' => '',
                     'bandar_id' => $bandarId,
                 ]);
                 $existingDM[] = strtoupper(trim($row->daerah_mengundi));
