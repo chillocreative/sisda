@@ -973,7 +973,7 @@ class ReportsController extends Controller
     public function getKadunByBandar(Request $request)
     {
         $bandarNama = $request->input('bandar');
-        
+
         if (!$bandarNama) {
             return response()->json([]);
         }
@@ -981,14 +981,29 @@ class ReportsController extends Controller
         // Find Bandar
         $bandar = \App\Models\Bandar::whereRaw('LOWER(nama) = ?', [strtolower($bandarNama)])->first();
 
-        if (!$bandar) {
-            return response()->json([]);
+        $kadunList = collect();
+        if ($bandar) {
+            $kadunList = \App\Models\Kadun::where('bandar_id', $bandar->id)
+                ->orderBy('nama')
+                ->get();
         }
 
-        // Get KADUN for this Bandar
-        $kadunList = \App\Models\Kadun::where('bandar_id', $bandar->id)
-            ->orderBy('nama')
-            ->get();
+        // Fallback: query voter database directly for distinct KADUN values
+        if ($kadunList->isEmpty()) {
+            $activeBatch = \App\Models\UploadBatch::where('is_active', true)->first();
+            if ($activeBatch) {
+                $voterKadun = \App\Models\PangkalanDataPengundi::where('upload_batch_id', $activeBatch->id)
+                    ->whereRaw('LOWER(parlimen) = ?', [strtolower($bandarNama)])
+                    ->whereNotNull('kadun')
+                    ->where('kadun', '!=', '')
+                    ->distinct()
+                    ->pluck('kadun');
+
+                $kadunList = $voterKadun->map(function ($nama, $index) {
+                    return (object) ['id' => $index + 1, 'nama' => $nama];
+                })->sortBy('nama')->values();
+            }
+        }
 
         return response()->json($kadunList);
     }
@@ -999,7 +1014,7 @@ class ReportsController extends Controller
     public function getDaerahMengundiByBandar(Request $request)
     {
         $bandarNama = $request->input('bandar');
-        
+
         if (!$bandarNama) {
             return response()->json([]);
         }
@@ -1007,14 +1022,29 @@ class ReportsController extends Controller
         // Find Bandar
         $bandar = \App\Models\Bandar::whereRaw('LOWER(nama) = ?', [strtolower($bandarNama)])->first();
 
-        if (!$bandar) {
-            return response()->json([]);
+        $daerahMengundiList = collect();
+        if ($bandar) {
+            $daerahMengundiList = \App\Models\DaerahMengundi::where('bandar_id', $bandar->id)
+                ->orderBy('nama')
+                ->get();
         }
 
-        // Get Daerah Mengundi for this Bandar
-        $daerahMengundiList = \App\Models\DaerahMengundi::where('bandar_id', $bandar->id)
-            ->orderBy('nama')
-            ->get();
+        // Fallback: query voter database directly for distinct DM values
+        if ($daerahMengundiList->isEmpty()) {
+            $activeBatch = \App\Models\UploadBatch::where('is_active', true)->first();
+            if ($activeBatch) {
+                $voterDM = \App\Models\PangkalanDataPengundi::where('upload_batch_id', $activeBatch->id)
+                    ->whereRaw('LOWER(parlimen) = ?', [strtolower($bandarNama)])
+                    ->whereNotNull('daerah_mengundi')
+                    ->where('daerah_mengundi', '!=', '')
+                    ->distinct()
+                    ->pluck('daerah_mengundi');
+
+                $daerahMengundiList = $voterDM->map(function ($nama, $index) {
+                    return (object) ['id' => $index + 1, 'nama' => $nama];
+                })->sortBy('nama')->values();
+            }
+        }
 
         return response()->json($daerahMengundiList);
     }
@@ -1030,15 +1060,32 @@ class ReportsController extends Controller
             return response()->json([]);
         }
 
+        // Try master data first
         $dmIds = \App\Models\DaerahMengundi::whereRaw('LOWER(nama) = ?', [strtolower($dmNama)])->pluck('id');
 
-        if ($dmIds->isEmpty()) {
-            return response()->json([]);
+        $lokalitiList = collect();
+        if ($dmIds->isNotEmpty()) {
+            $lokalitiList = \App\Models\Lokaliti::whereIn('daerah_mengundi_id', $dmIds)
+                ->orderBy('nama')
+                ->get();
         }
 
-        $lokalitiList = \App\Models\Lokaliti::whereIn('daerah_mengundi_id', $dmIds)
-            ->orderBy('nama')
-            ->get();
+        // Fallback: query voter database directly for distinct lokaliti values
+        if ($lokalitiList->isEmpty()) {
+            $activeBatch = \App\Models\UploadBatch::where('is_active', true)->first();
+            if ($activeBatch) {
+                $voterLokaliti = \App\Models\PangkalanDataPengundi::where('upload_batch_id', $activeBatch->id)
+                    ->whereRaw('LOWER(daerah_mengundi) = ?', [strtolower($dmNama)])
+                    ->whereNotNull('lokaliti')
+                    ->where('lokaliti', '!=', '')
+                    ->distinct()
+                    ->pluck('lokaliti');
+
+                $lokalitiList = $voterLokaliti->map(function ($nama, $index) {
+                    return (object) ['id' => $index + 1, 'nama' => $nama];
+                })->sortBy('nama')->values();
+            }
+        }
 
         return response()->json($lokalitiList);
     }
