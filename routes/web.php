@@ -209,6 +209,21 @@ Route::middleware('auth')->group(function () {
     Route::delete('/upload-database/{batch}', [\App\Http\Controllers\UploadDatabaseController::class, 'destroy'])->name('upload-database.destroy');
     Route::get('/api/voter/search-ic', [\App\Http\Controllers\UploadDatabaseController::class, 'searchByIc'])->name('api.voter.search-ic');
     Route::get('/api/voter/suggest-ic', [\App\Http\Controllers\UploadDatabaseController::class, 'suggestIc'])->name('api.voter.suggest-ic');
+
+    // Utility: fix stuck batches and sync master data
+    Route::get('/fix-batches', function () {
+        // Mark all stuck "processing" batches as failed
+        $fixed = \App\Models\UploadBatch::where('status', 'processing')->update(['status' => 'failed']);
+
+        // Sync master data from active batch
+        $active = \App\Models\UploadBatch::where('is_active', true)->first();
+        if ($active) {
+            \App\Jobs\ProcessVoterUpload::syncMasterData($active->id);
+            return "Fixed {$fixed} stuck batch(es). Synced master data from batch: {$active->nama_fail} (ID: {$active->id})";
+        }
+
+        return "Fixed {$fixed} stuck batch(es). No active batch found.";
+    });
 });
 
 require __DIR__.'/auth.php';
