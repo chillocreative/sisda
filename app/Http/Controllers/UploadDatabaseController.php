@@ -49,10 +49,11 @@ class UploadDatabaseController extends Controller
             'uploaded_by'  => auth()->id(),
         ]);
 
-        ProcessVoterUpload::dispatch($batch->id, $zipPath);
+        set_time_limit(0);
+        ProcessVoterUpload::dispatchSync($batch->id, $zipPath);
 
         return redirect()->route('upload-database.index')
-            ->with('success', 'Fail ZIP berjaya dimuat naik. Pemprosesan sedang berjalan di latar belakang.');
+            ->with('success', 'Fail ZIP berjaya dimuat naik dan diproses.');
     }
 
     public function restore(UploadBatch $batch)
