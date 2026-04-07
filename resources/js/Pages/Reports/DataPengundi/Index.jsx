@@ -25,13 +25,8 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
     const [viewingItem, setViewingItem] = useState(null);
     const scrollRef = useDragScroll();
 
-    // Helper to check if user can modify a record
-    const canModifyRecord = (item) => {
-        if (user.role === 'super_admin') return true;
-        if (user.role === 'admin') return item.bandar === user.bandar?.nama;
-        if (user.role === 'user') return item.submitted_by?.id === user.id && item.kadun === user.kadun?.nama;
-        return false;
-    };
+    // All users can view and edit all records
+    const canModifyRecord = () => true;
 
     const ownItemsOnPage = dataPengundi.data.filter(canModifyRecord);
 

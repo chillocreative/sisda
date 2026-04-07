@@ -43,13 +43,8 @@ export default function Index({ hasilCulaan, icCounts = {}, filters, currentUser
         }
     }, [viewingItem]);
 
-    // Helper to check if user can modify a record
-    const canModifyRecord = (item) => {
-        if (user.role === 'super_admin') return true;
-        if (user.role === 'admin') return item.bandar === user.bandar?.nama;
-        if (user.role === 'user') return item.submitted_by?.id === user.id && item.kadun === user.kadun?.nama;
-        return false;
-    };
+    // All users can view and edit all records
+    const canModifyRecord = () => true;
 
     const ownItemsOnPage = hasilCulaan.data.filter(canModifyRecord);
 
