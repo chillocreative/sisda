@@ -604,9 +604,15 @@ export default function Index({ hasilCulaan, icCounts = {}, filters, currentUser
                                                     <div>
                                                         <p className="text-xs font-medium text-slate-700">
                                                             {new Date(record.created_at).toLocaleDateString('ms-MY', { year: 'numeric', month: 'long', day: 'numeric' })}
+                                                            <span className="ml-2 text-slate-400">
+                                                                {new Date(record.created_at).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}
+                                                            </span>
                                                         </p>
                                                         <p className="text-xs text-slate-500 mt-1">Sumbangan: {record.jenis_sumbangan || '-'}</p>
                                                         <p className="text-xs text-slate-500">Tujuan: {record.tujuan_sumbangan || '-'}</p>
+                                                        {record.submitted_by && (
+                                                            <p className="text-xs text-slate-400 mt-1">Dikemukakan Oleh: {record.submitted_by.name}</p>
+                                                        )}
                                                     </div>
                                                     {record.jumlah_wang_tunai && (
                                                         <span className="text-xs font-medium text-blue-700">RM {Number(record.jumlah_wang_tunai).toLocaleString('en-MY', { minimumFractionDigits: 2 })}</span>

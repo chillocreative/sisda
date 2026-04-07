@@ -120,9 +120,10 @@ class ReportsController extends Controller
     {
         $request->validate(['ic' => 'required|string|digits:12']);
 
-        $records = HasilCulaan::where('no_ic', $request->ic)
+        $records = HasilCulaan::with('submittedBy:id,name')
+            ->where('no_ic', $request->ic)
             ->orderBy('created_at', 'desc')
-            ->get(['id', 'nama', 'no_ic', 'umur', 'no_tel', 'bangsa', 'alamat', 'poskod', 'negeri', 'bandar', 'parlimen', 'kadun', 'mpkk', 'daerah_mengundi', 'lokaliti', 'bil_isi_rumah', 'pendapatan_isi_rumah', 'pekerjaan', 'jenis_pekerjaan', 'pemilik_rumah', 'jenis_sumbangan', 'tujuan_sumbangan', 'bantuan_lain', 'jumlah_wang_tunai', 'keahlian_parti', 'kecenderungan_politik', 'created_at']);
+            ->get(['id', 'nama', 'no_ic', 'umur', 'no_tel', 'bangsa', 'alamat', 'poskod', 'negeri', 'bandar', 'parlimen', 'kadun', 'mpkk', 'daerah_mengundi', 'lokaliti', 'bil_isi_rumah', 'pendapatan_isi_rumah', 'pekerjaan', 'jenis_pekerjaan', 'pemilik_rumah', 'jenis_sumbangan', 'tujuan_sumbangan', 'bantuan_lain', 'jumlah_wang_tunai', 'keahlian_parti', 'kecenderungan_politik', 'submitted_by', 'created_at']);
 
         return response()->json($records);
     }
