@@ -335,12 +335,6 @@ class ReportsController extends Controller
      */
     public function hasilCulaanEdit(HasilCulaan $hasilCulaan)
     {
-        $user = auth()->user();
-
-        // Check if user can modify this record
-        if (!$this->canModifyHasilCulaan($hasilCulaan, $user)) {
-            abort(403, 'Akses ditolak. Anda tidak dibenarkan mengubah rekod ini.');
-        }
 
         $bangsaList = \App\Models\Bangsa::all();
         $negeriList = \App\Models\Negeri::orderBy('nama')->get();
@@ -385,11 +379,6 @@ class ReportsController extends Controller
     public function hasilCulaanUpdate(Request $request, HasilCulaan $hasilCulaan)
     {
         $user = auth()->user();
-
-        // Check if user can modify this record
-        if (!$this->canModifyHasilCulaan($hasilCulaan, $user)) {
-            abort(403, 'Akses ditolak. Anda tidak dibenarkan mengubah rekod ini.');
-        }
 
         $validated = $request->validate([
             'nama' => 'required|string|max:255',
@@ -437,14 +426,6 @@ class ReportsController extends Controller
             'keahlian_parti.required' => 'Sila pilih Keanggotaan Parti.',
             'kecenderungan_politik.required' => 'Sila pilih Kecenderungan Politik.',
         ]);
-
-        // Admin/User Restriction: Ensure data remains in their territory
-        if ($user->isAdmin() && $request->bandar !== ($user->bandar->nama ?? '')) {
-            abort(403, 'Anda tidak boleh memindahkan rekod ke luar kawasan anda.');
-        }
-        if ($user->isUser() && $request->kadun !== ($user->kadun->nama ?? '')) {
-            abort(403, 'Anda tidak boleh memindahkan rekod ke luar kawasan anda.');
-        }
 
         // Process pemilik_rumah Lain-lain
         if ($validated['pemilik_rumah'] === 'Lain-lain' && !empty($validated['pemilik_rumah_lain'])) {
@@ -525,13 +506,6 @@ class ReportsController extends Controller
      */
     public function hasilCulaanDestroy(HasilCulaan $hasilCulaan)
     {
-        $user = auth()->user();
-
-        // Check if user can modify this record
-        if (!$this->canModifyHasilCulaan($hasilCulaan, $user)) {
-            abort(403, 'Akses ditolak. Anda tidak dibenarkan memadam rekod ini.');
-        }
-
         $hasilCulaan->delete();
 
         return redirect()->route('reports.hasil-culaan.index')->with('success', 'Rekod berjaya dipadam');
@@ -756,13 +730,6 @@ class ReportsController extends Controller
     {
         $user = auth()->user();
 
-        // Admin Restriction: Can only edit records in their Parlimen
-        if ($user->isAdmin()) {
-             if ($dataPengundi->bandar !== ($user->bandar->nama ?? '')) {
-                abort(403, 'You can only edit records in your Parlimen.');
-            }
-        }
-
         $bangsaList = \App\Models\Bangsa::all();
 
         $negeriList = \App\Models\Negeri::orderBy('nama')->get();
@@ -800,15 +767,6 @@ class ReportsController extends Controller
      */
     public function dataPengundiUpdate(Request $request, DataPengundi $dataPengundi)
     {
-        $user = auth()->user();
-
-        // Admin Restriction: Can only update records in their Parlimen
-        if ($user->isAdmin()) {
-             if ($dataPengundi->bandar !== ($user->bandar->nama ?? '')) {
-                abort(403, 'You can only update records in your Parlimen.');
-            }
-        }
-
         $validated = $request->validate([
             'nama' => 'required|string|max:255',
             'no_ic' => 'required|string|digits:12|unique:data_pengundi,no_ic,' . $dataPengundi->id,
@@ -833,13 +791,6 @@ class ReportsController extends Controller
             'kecenderungan_politik.required' => 'Sila pilih Kecenderungan Politik.',
         ]);
 
-        // Admin Restriction: Ensure data remains in their Parlimen
-        if ($user->isAdmin()) {
-            if ($request->bandar !== ($user->bandar->nama ?? '')) {
-                 abort(403, 'You cannot move records outside your Parlimen.');
-            }
-        }
-
         $dataPengundi->update($validated);
 
         return redirect()->route('reports.data-pengundi.index')->with('success', 'Rekod berjaya dikemaskini');
@@ -850,15 +801,6 @@ class ReportsController extends Controller
      */
     public function dataPengundiDestroy(DataPengundi $dataPengundi)
     {
-        $user = auth()->user();
-
-        // Admin Restriction: Can only delete records in their Parlimen
-        if ($user->isAdmin()) {
-             if ($dataPengundi->bandar !== ($user->bandar->nama ?? '')) {
-                abort(403, 'You can only delete records in your Parlimen.');
-            }
-        }
-
         $dataPengundi->delete();
 
         return redirect()->route('reports.data-pengundi.index')->with('success', 'Rekod berjaya dipadam');
