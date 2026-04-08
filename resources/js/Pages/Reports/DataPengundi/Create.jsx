@@ -301,23 +301,23 @@ export default function Create({
         setIcSuggestions([]);
     };
 
-    // Auto-lookup voter database when IC is 12 digits - populate Maklumat Peribadi & Kawasan Mengundi
+    // Auto-lookup voter database when IC is 8 or 12 digits - populate Maklumat Peribadi & Kawasan Mengundi
     useEffect(() => {
-        if (data.no_ic.length === 12) {
-            axios.get(route('api.voter.search-ic'), { params: { ic: data.no_ic } })
+        if (data.no_ic.length === 12 || data.no_ic.length === 8) {
+            const searchIc = data.no_ic.length === 8 ? data.no_ic + '0000' : data.no_ic;
+            axios.get(route('api.voter.search-ic'), { params: { ic: searchIc } })
                 .then(res => {
                     if (res.data) {
-                        // Store raw voter data - cascading useEffects will match against options
                         pendingVoterData.current = {
                             parlimen: res.data.parlimen || null,
                             kadun: res.data.kadun || null,
                             daerah_mengundi: res.data.daerah_mengundi || null,
                             lokaliti: res.data.lokaliti || null,
                         };
-                        // Match parlimen against available options (case-insensitive)
                         const parlimenMatch = parlimenList.find(p => p.nama.toLowerCase() === (res.data.parlimen || '').toLowerCase());
                         setData(prev => ({
                             ...prev,
+                            no_ic: searchIc,
                             nama: res.data.nama || prev.nama,
                             bangsa: res.data.bangsa || prev.bangsa,
                             negeri: res.data.negeri ? toTitleCase(res.data.negeri) : prev.negeri,
