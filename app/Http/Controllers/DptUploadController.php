@@ -94,17 +94,57 @@ class DptUploadController extends Controller
         $count = DB::table('pangkalan_data_pengundi')->count();
         $dptCount = DB::table('pangkalan_data_pengundi')->where('no_ic', 'like', '%0000')->count();
         $sample = DB::table('pangkalan_data_pengundi')->where('no_ic', 'like', '%0000')->limit(5)->get();
-        $lastError = DB::table('dpt_uploads')->latest()->first();
+        $lastUpload = DB::table('dpt_uploads')->latest()->first();
+
+        // Test insert
+        $testResult = 'not tested';
+        try {
+            $testIc = '999999990000';
+            DB::table('pangkalan_data_pengundi')->where('no_ic', $testIc)->delete();
+            DB::table('pangkalan_data_pengundi')->insert([
+                'no_ic' => $testIc,
+                'nama' => 'TEST DPT INSERT',
+                'daerah_mengundi' => 'TEST DM',
+                'lokaliti' => 'TEST LOK',
+                'parlimen' => 'TEST PAR',
+                'negeri' => 'TEST NEG',
+                'kod_lokaliti' => '0000000001',
+                'jantina' => 'LELAKI',
+                'tahun_lahir' => '2000',
+                'is_deceased' => 0,
+                'dpt_upload_id' => 1,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            $testRecord = DB::table('pangkalan_data_pengundi')->where('no_ic', $testIc)->first();
+            DB::table('pangkalan_data_pengundi')->where('no_ic', $testIc)->delete();
+            $testResult = $testRecord ? 'SUCCESS - insert and read OK' : 'FAIL - inserted but not found';
+        } catch (\Exception $e) {
+            $testResult = 'FAIL: ' . $e->getMessage();
+        }
+
+        // Check Laravel logs for DPT errors
+        $logFile = storage_path('logs/laravel.log');
+        $lastLogs = '';
+        if (file_exists($logFile)) {
+            $content = file_get_contents($logFile);
+            // Get last 2000 chars
+            $lastLogs = substr($content, -2000);
+            // Filter for DPT lines
+            $dptLines = array_filter(explode("\n", $lastLogs), fn($l) => stripos($l, 'DPT') !== false);
+            $lastLogs = implode("\n", array_slice($dptLines, -10));
+        }
 
         return response()->json([
             'table_columns' => $columns,
             'total_records' => $count,
             'dpt_records' => $dptCount,
             'sample_dpt' => $sample,
-            'last_upload' => $lastError,
+            'last_upload' => $lastUpload,
+            'test_insert' => $testResult,
+            'dpt_error_logs' => $lastLogs,
             'has_dpt_upload_id' => in_array('dpt_upload_id', $columns),
             'has_is_deceased' => in_array('is_deceased', $columns),
-            'has_kod_lokaliti' => in_array('kod_lokaliti', $columns),
         ]);
     }
 
