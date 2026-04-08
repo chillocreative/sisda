@@ -145,9 +145,10 @@ export default function AuthenticatedLayout({ children }) {
                 submenu: callCenterSubmenu
             }
         ] : []),
-        // Sendora Settings (Super Admin only)
+        // Settings (Super Admin only)
         ...(user.role === 'super_admin' ? [
-            { name: 'Tetapan Sendora', href: route('settings.sendora'), icon: Settings, current: route().current('settings.sendora') }
+            { name: 'Tetapan Sendora', href: route('settings.sendora'), icon: Settings, current: route().current('settings.sendora') },
+            { name: 'Tetapan Claude AI', href: route('settings.claude'), icon: Settings, current: route().current('settings.claude') },
         ] : []),
         { name: 'Profil', href: route('profile.edit'), icon: User, current: route().current('profile.edit') },
     ];

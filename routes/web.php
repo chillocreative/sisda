@@ -317,4 +317,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/sendora/test-connection', [\App\Http\Controllers\SendoraSettingController::class, 'testConnection'])->name('settings.sendora.test');
     Route::post('/settings/sendora/test-send', [\App\Http\Controllers\SendoraSettingController::class, 'testSend'])->name('settings.sendora.test-send');
 
+    // Claude AI Settings (super_admin only)
+    Route::get('/settings/claude', [\App\Http\Controllers\ClaudeSettingController::class, 'index'])->name('settings.claude');
+    Route::post('/settings/claude', [\App\Http\Controllers\ClaudeSettingController::class, 'update'])->name('settings.claude.update');
+    Route::post('/settings/claude/test-connection', [\App\Http\Controllers\ClaudeSettingController::class, 'testConnection'])->name('settings.claude.test');
+
 require __DIR__.'/auth.php';
