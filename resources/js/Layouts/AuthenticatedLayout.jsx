@@ -94,7 +94,8 @@ export default function AuthenticatedLayout({ children }) {
 
         // Upload Database (Super Admin only)
         ...(user.role === 'super_admin' ? [
-            { name: 'Upload Database', href: route('upload-database.index'), icon: Upload, current: route().current('upload-database.*') }
+            { name: 'Upload Database', href: route('upload-database.index'), icon: Upload, current: route().current('upload-database.*') },
+            { name: 'Upload DPT', href: route('dpt-upload.index'), icon: Upload, current: route().current('dpt-upload.*') },
         ] : []),
         // Data Induk menu (Super Admin and Admin only)
         ...(user.role === 'super_admin' || user.role === 'admin' ? [

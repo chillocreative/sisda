@@ -317,6 +317,11 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/sendora/test-connection', [\App\Http\Controllers\SendoraSettingController::class, 'testConnection'])->name('settings.sendora.test');
     Route::post('/settings/sendora/test-send', [\App\Http\Controllers\SendoraSettingController::class, 'testSend'])->name('settings.sendora.test-send');
 
+    // DPT Upload (super_admin only)
+    Route::get('/dpt-upload', [\App\Http\Controllers\DptUploadController::class, 'index'])->name('dpt-upload.index');
+    Route::post('/dpt-upload', [\App\Http\Controllers\DptUploadController::class, 'upload'])->name('dpt-upload.upload');
+    Route::delete('/dpt-upload/{dptUpload}', [\App\Http\Controllers\DptUploadController::class, 'destroy'])->name('dpt-upload.destroy');
+
     // Claude AI Settings (super_admin only)
     Route::get('/settings/claude', [\App\Http\Controllers\ClaudeSettingController::class, 'index'])->name('settings.claude');
     Route::post('/settings/claude', [\App\Http\Controllers\ClaudeSettingController::class, 'update'])->name('settings.claude.update');
