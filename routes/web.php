@@ -320,7 +320,7 @@ Route::middleware('auth')->group(function () {
     // DPT Upload (super_admin only)
     Route::get('/dpt-upload', [\App\Http\Controllers\DptUploadController::class, 'index'])->name('dpt-upload.index');
     Route::post('/dpt-upload', [\App\Http\Controllers\DptUploadController::class, 'upload'])->name('dpt-upload.upload');
-    Route::get('/dpt-upload/debug', [\App\Http\Controllers\DptUploadController::class, 'debug'])->name('dpt-upload.debug');
+    Route::get('/debug-dpt', [\App\Http\Controllers\DptUploadController::class, 'debug'])->name('dpt-upload.debug');
     Route::delete('/dpt-upload/{dptUpload}', [\App\Http\Controllers\DptUploadController::class, 'destroy'])->name('dpt-upload.destroy');
 
     // Claude AI Settings (super_admin only)
