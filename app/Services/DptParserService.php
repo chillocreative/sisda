@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Models\DptUpload;
 use App\Models\PangkalanDataPengundi;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Smalot\PdfParser\Parser;
 
 class DptParserService
@@ -15,10 +17,13 @@ class DptParserService
         $pdf = $parser->parseFile($filePath);
         $pages = $pdf->getPages();
 
-        $stats = ['total' => 0, 'new' => 0, 'deceased' => 0, 'moved' => 0];
+        $stats = ['total' => 0, 'new' => 0, 'deceased' => 0, 'moved' => 0, 'errors' => 0];
         $headerInfo = [];
 
-        // Parse all pages to collect header info (parlimen, negeri, kadun)
+        // Check which columns exist
+        $hasExtraColumns = Schema::hasColumn('pangkalan_data_pengundi', 'dpt_upload_id');
+
+        // Parse all pages to collect header info
         foreach ($pages as $page) {
             $text = $page->getText();
             $pageHeader = self::parseHeader($text);
@@ -31,17 +36,19 @@ class DptParserService
         foreach ($pages as $page) {
             $text = $page->getText();
 
-            // Skip non-voter pages
             if (stripos($text, 'BIL.NO K/P') === false && stripos($text, 'NAMA PEMILIH') === false) {
                 continue;
             }
 
-            $pageStats = self::parseVoterPage($text, $upload, $headerInfo);
+            $pageStats = self::parseVoterPage($text, $upload, $headerInfo, $hasExtraColumns);
             $stats['total'] += $pageStats['total'];
             $stats['new'] += $pageStats['new'];
             $stats['deceased'] += $pageStats['deceased'];
             $stats['moved'] += $pageStats['moved'];
+            $stats['errors'] += $pageStats['errors'];
         }
+
+        Log::info("DPT parse complete: {$stats['total']} total, {$stats['new']} new, {$stats['deceased']} deceased, {$stats['moved']} moved, {$stats['errors']} errors");
 
         return ['stats' => $stats, 'header' => $headerInfo];
     }
@@ -54,30 +61,22 @@ class DptParserService
             $info['bulan'] = $m[1];
             $info['tahun'] = $m[2];
         }
-
         if (preg_match('/DIWARTAKAN\s+PADA\s+(.+?)$/mi', $text, $m)) {
             $info['tarikh_warta'] = trim($m[1]);
         }
-
         if (preg_match('/PARLIMEN\s*:\s*P\.\d+\s+(.+?)$/mi', $text, $m)) {
             $info['parlimen'] = trim($m[1]);
         }
-
         if (preg_match('/NEGERI\s*:\s*(.+?)$/mi', $text, $m)) {
             $info['negeri'] = trim($m[1]);
-        }
-
-        // Extract KADUN (N.XX NAME)
-        if (preg_match('/NEGERI\s*:\s*N\.\d+\s+(.+?)$/mi', $text, $m)) {
-            $info['kadun'] = trim($m[1]);
         }
 
         return $info;
     }
 
-    protected static function parseVoterPage(string $text, DptUpload $upload, array $headerInfo): array
+    protected static function parseVoterPage(string $text, DptUpload $upload, array $headerInfo, bool $hasExtraColumns): array
     {
-        $stats = ['total' => 0, 'new' => 0, 'deceased' => 0, 'moved' => 0];
+        $stats = ['total' => 0, 'new' => 0, 'deceased' => 0, 'moved' => 0, 'errors' => 0];
 
         // Extract Daerah Mengundi
         $daerahMengundi = '';
@@ -85,7 +84,7 @@ class DptParserService
             $daerahMengundi = trim($m[1]);
         }
 
-        // Extract Lokaliti code and name
+        // Extract Lokaliti
         $lokalitiCode = '';
         $lokalitiName = '';
         if (preg_match('/LOKALITI\s*:\s*(\d+)\s+(.+?)$/mi', $text, $m)) {
@@ -93,7 +92,6 @@ class DptParserService
             $lokalitiName = trim($m[2]);
         }
 
-        // Get parlimen, negeri from header
         $parlimen = $headerInfo['parlimen'] ?? '';
         $negeri = $headerInfo['negeri'] ?? '';
 
@@ -116,70 +114,59 @@ class DptParserService
                 continue;
             }
 
-            // Parse voter line
             if (preg_match('/^(\d{1,3})(\d{6}\d{2})\*{4}\s*([A-Z]{0,3}\d*\**)\s*(P|L)\s*(\d{4})(.+?)(?:\t|$)/i', $line, $m)) {
-                $icPartial = $m[2]; // 8 digits
+                $icPartial = $m[2];
                 $gender = $m[4];
                 $yearBorn = $m[5];
                 $nameAndAddress = trim($m[6]);
 
-                // Separate name from address
                 $name = $nameAndAddress;
                 if (preg_match('/^(.+?)\t+(.*)$/', $nameAndAddress, $na)) {
                     $name = trim($na[1]);
                 }
 
-                // Complete IC: 8 visible digits + 0000
                 $noIc = $icPartial . '0000';
-
                 $isDeceased = ($currentSection === 'deceased');
 
                 try {
-                    $data = [
+                    // Use direct DB insert/update for reliability
+                    $existing = DB::table('pangkalan_data_pengundi')->where('no_ic', $noIc)->first();
+
+                    $baseData = [
                         'nama' => strtoupper(trim($name)),
                         'daerah_mengundi' => $daerahMengundi,
                         'lokaliti' => $lokalitiName,
                         'parlimen' => $parlimen,
                         'negeri' => $negeri,
+                        'updated_at' => now(),
                     ];
 
-                    // Add optional fields if columns exist
-                    try {
-                        $data['kod_lokaliti'] = $lokalitiCode;
-                        $data['jantina'] = $gender === 'L' ? 'LELAKI' : 'PEREMPUAN';
-                        $data['tahun_lahir'] = $yearBorn;
-                        $data['is_deceased'] = $isDeceased;
-                        $data['dpt_upload_id'] = $upload->id;
-                    } catch (\Exception $e) {
-                        // Columns may not exist yet
+                    if ($hasExtraColumns) {
+                        $baseData['kod_lokaliti'] = $lokalitiCode;
+                        $baseData['jantina'] = $gender === 'L' ? 'LELAKI' : 'PEREMPUAN';
+                        $baseData['tahun_lahir'] = $yearBorn;
+                        $baseData['is_deceased'] = $isDeceased ? 1 : 0;
+                        $baseData['dpt_upload_id'] = $upload->id;
                     }
 
-                    PangkalanDataPengundi::updateOrCreate(
-                        ['no_ic' => $noIc],
-                        $data
-                    );
+                    if ($existing) {
+                        DB::table('pangkalan_data_pengundi')
+                            ->where('no_ic', $noIc)
+                            ->update($baseData);
+                    } else {
+                        $baseData['no_ic'] = $noIc;
+                        $baseData['created_at'] = now();
+                        DB::table('pangkalan_data_pengundi')->insert($baseData);
+                    }
+
+                    $stats['total']++;
+                    if ($currentSection === 'new') $stats['new']++;
+                    if ($currentSection === 'deceased') $stats['deceased']++;
+                    if ($currentSection === 'moved') $stats['moved']++;
                 } catch (\Exception $e) {
-                    // If it fails with extra columns, try with basic columns only
-                    try {
-                        PangkalanDataPengundi::updateOrCreate(
-                            ['no_ic' => $noIc],
-                            [
-                                'nama' => strtoupper(trim($name)),
-                                'daerah_mengundi' => $daerahMengundi,
-                                'lokaliti' => $lokalitiName,
-                                'parlimen' => $parlimen,
-                                'negeri' => $negeri,
-                            ]
-                        );
-                    } catch (\Exception $e2) {
-                        Log::warning("DPT parse error for IC {$noIc}: " . $e2->getMessage());
-                    }
+                    $stats['errors']++;
+                    Log::error("DPT save error for IC {$noIc}: " . $e->getMessage());
                 }
-
-                $stats['total']++;
-                if ($currentSection === 'new') $stats['new']++;
-                if ($currentSection === 'deceased') $stats['deceased']++;
-                if ($currentSection === 'moved') $stats['moved']++;
             }
         }
 

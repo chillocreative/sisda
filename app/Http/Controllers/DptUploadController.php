@@ -69,7 +69,12 @@ class DptUploadController extends Controller
                 'status' => 'completed',
             ]);
 
-            return redirect()->back()->with('success', "Berjaya! {$stats['total']} rekod diproses ({$stats['new']} baru, {$stats['deceased']} kematian, {$stats['moved']} bertukar alamat).");
+            $errors = $stats['errors'] ?? 0;
+            $msg = "Berjaya! {$stats['total']} rekod disimpan ke pangkalan data ({$stats['new']} baru, {$stats['deceased']} kematian, {$stats['moved']} bertukar alamat).";
+            if ($errors > 0) {
+                $msg .= " {$errors} ralat.";
+            }
+            return redirect()->back()->with('success', $msg);
         } catch (\Exception $e) {
             $upload->update([
                 'label' => $filename,
