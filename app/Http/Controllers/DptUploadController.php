@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\DptUpload;
 use App\Services\DptParserService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class DptUploadController extends Controller
@@ -28,7 +29,10 @@ class DptUploadController extends Controller
 
         $file = $request->file('file');
         $filename = $file->getClientOriginalName();
+
+        // Store file and get the full absolute path
         $path = $file->store('dpt-uploads', 'local');
+        $fullPath = Storage::disk('local')->path($path);
 
         $upload = DptUpload::create([
             'filename' => $filename,
@@ -38,7 +42,7 @@ class DptUploadController extends Controller
         ]);
 
         try {
-            $result = DptParserService::parse(storage_path('app/' . $path), $upload);
+            $result = DptParserService::parse($fullPath, $upload);
 
             $header = $result['header'];
             $stats = $result['stats'];
