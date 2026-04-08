@@ -415,8 +415,14 @@ class DashboardController extends Controller
         }
 
         // Search in ALL voter database records (upload batch + DPT)
-        $voterResults = PangkalanDataPengundi::where('no_ic', 'like', "%{$icNumber}%")
-            ->limit(5)
+        $voterResults = PangkalanDataPengundi::where(function ($q) use ($icNumber) {
+                $q->where('no_ic', 'like', "%{$icNumber}%");
+                // Also search with 0000 suffix for 8-digit DPT ICs
+                if (strlen($icNumber) >= 6 && strlen($icNumber) <= 8) {
+                    $q->orWhere('no_ic', $icNumber . '0000');
+                }
+            })
+            ->limit(10)
             ->get();
 
         foreach ($voterResults as $voter) {
