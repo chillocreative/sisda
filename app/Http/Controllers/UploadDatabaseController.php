@@ -94,9 +94,16 @@ class UploadDatabaseController extends Controller
         if (strlen($query) < 3) return response()->json([]);
 
         $activeBatch = UploadBatch::where('is_active', true)->first();
-        if (!$activeBatch) return response()->json([]);
 
-        $voters = PangkalanDataPengundi::where('upload_batch_id', $activeBatch->id)
+        // Search in active batch OR DPT records
+        $voters = PangkalanDataPengundi::where(function ($q) use ($activeBatch) {
+                if ($activeBatch) {
+                    $q->where('upload_batch_id', $activeBatch->id)
+                      ->orWhereNotNull('dpt_upload_id');
+                } else {
+                    $q->whereNotNull('dpt_upload_id');
+                }
+            })
             ->where('no_ic', 'like', $query . '%')
             ->limit(8)
             ->get(['no_ic', 'nama', 'lokaliti', 'daerah_mengundi', 'kadun', 'parlimen', 'negeri', 'bangsa']);
@@ -106,14 +113,27 @@ class UploadDatabaseController extends Controller
 
     public function searchByIc(Request $request)
     {
+        $ic = $request->ic;
         $activeBatch = UploadBatch::where('is_active', true)->first();
 
-        if (!$activeBatch) {
-            return response()->json(null);
-        }
-
-        $voter = PangkalanDataPengundi::where('upload_batch_id', $activeBatch->id)
-            ->where('no_ic', $request->ic)
+        // Search exact match first, then try with 0000 suffix for DPT records
+        $voter = PangkalanDataPengundi::where(function ($q) use ($activeBatch) {
+                if ($activeBatch) {
+                    $q->where('upload_batch_id', $activeBatch->id)
+                      ->orWhereNotNull('dpt_upload_id');
+                } else {
+                    $q->whereNotNull('dpt_upload_id');
+                }
+            })
+            ->where(function ($q) use ($ic) {
+                $q->where('no_ic', $ic);
+                // Also match 8-digit input with 0000 suffix (DPT format)
+                if (strlen($ic) === 12 && substr($ic, -4) === '0000') {
+                    $q->orWhere('no_ic', $ic);
+                } elseif (strlen($ic) <= 8) {
+                    $q->orWhere('no_ic', $ic . '0000');
+                }
+            })
             ->first();
 
         return response()->json($voter);

@@ -18,9 +18,13 @@ class DptParserService
         $stats = ['total' => 0, 'new' => 0, 'deceased' => 0, 'moved' => 0];
         $headerInfo = [];
 
-        // Parse page 1 for header info
-        if (count($pages) > 0) {
-            $headerInfo = self::parseHeader($pages[0]->getText());
+        // Parse all pages to collect header info (parlimen, negeri, kadun)
+        foreach ($pages as $page) {
+            $text = $page->getText();
+            $pageHeader = self::parseHeader($text);
+            if (!empty($pageHeader)) {
+                $headerInfo = array_merge($headerInfo, $pageHeader);
+            }
         }
 
         // Parse voter pages
@@ -32,7 +36,7 @@ class DptParserService
                 continue;
             }
 
-            $pageStats = self::parseVoterPage($text, $upload);
+            $pageStats = self::parseVoterPage($text, $upload, $headerInfo);
             $stats['total'] += $pageStats['total'];
             $stats['new'] += $pageStats['new'];
             $stats['deceased'] += $pageStats['deceased'];
@@ -63,10 +67,15 @@ class DptParserService
             $info['negeri'] = trim($m[1]);
         }
 
+        // Extract KADUN (N.XX NAME)
+        if (preg_match('/NEGERI\s*:\s*N\.\d+\s+(.+?)$/mi', $text, $m)) {
+            $info['kadun'] = trim($m[1]);
+        }
+
         return $info;
     }
 
-    protected static function parseVoterPage(string $text, DptUpload $upload): array
+    protected static function parseVoterPage(string $text, DptUpload $upload, array $headerInfo): array
     {
         $stats = ['total' => 0, 'new' => 0, 'deceased' => 0, 'moved' => 0];
 
@@ -84,7 +93,10 @@ class DptParserService
             $lokalitiName = trim($m[2]);
         }
 
-        // Determine current section
+        // Get parlimen, negeri from header
+        $parlimen = $headerInfo['parlimen'] ?? '';
+        $negeri = $headerInfo['negeri'] ?? '';
+
         $lines = explode("\n", $text);
         $currentSection = 'unknown';
 
@@ -104,21 +116,17 @@ class DptParserService
                 continue;
             }
 
-            // Parse voter line: BIL + IC(6digits+2digits+****) + optional ID LAIN + gender + YEAR + NAME
-            // ID LAIN can be alphanumeric like A37049** or 23892**
+            // Parse voter line
             if (preg_match('/^(\d{1,3})(\d{6}\d{2})\*{4}\s*([A-Z]{0,3}\d*\**)\s*(P|L)\s*(\d{4})(.+?)(?:\t|$)/i', $line, $m)) {
-                $bil = $m[1];
                 $icPartial = $m[2]; // 8 digits
                 $gender = $m[4];
                 $yearBorn = $m[5];
                 $nameAndAddress = trim($m[6]);
 
-                // Separate name from address (address is after last tab or at end)
+                // Separate name from address
                 $name = $nameAndAddress;
-                $address = '';
                 if (preg_match('/^(.+?)\t+(.*)$/', $nameAndAddress, $na)) {
                     $name = trim($na[1]);
-                    $address = trim($na[2]);
                 }
 
                 // Complete IC: 8 visible digits + 0000
@@ -126,7 +134,6 @@ class DptParserService
 
                 $isDeceased = ($currentSection === 'deceased');
 
-                // Save to pangkalan_data_pengundi
                 try {
                     PangkalanDataPengundi::updateOrCreate(
                         ['no_ic' => $noIc],
@@ -135,6 +142,8 @@ class DptParserService
                             'daerah_mengundi' => $daerahMengundi,
                             'lokaliti' => $lokalitiName,
                             'kod_lokaliti' => $lokalitiCode,
+                            'parlimen' => $parlimen,
+                            'negeri' => $negeri,
                             'jantina' => $gender === 'L' ? 'LELAKI' : 'PEREMPUAN',
                             'tahun_lahir' => $yearBorn,
                             'is_deceased' => $isDeceased,
