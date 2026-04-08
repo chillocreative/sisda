@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\DptUpload;
 use App\Services\DptParserService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
@@ -84,6 +86,26 @@ class DptUploadController extends Controller
 
             return redirect()->back()->with('error', 'Gagal memproses PDF: ' . $e->getMessage());
         }
+    }
+
+    public function debug()
+    {
+        $columns = Schema::getColumnListing('pangkalan_data_pengundi');
+        $count = DB::table('pangkalan_data_pengundi')->count();
+        $dptCount = DB::table('pangkalan_data_pengundi')->where('no_ic', 'like', '%0000')->count();
+        $sample = DB::table('pangkalan_data_pengundi')->where('no_ic', 'like', '%0000')->limit(5)->get();
+        $lastError = DB::table('dpt_uploads')->latest()->first();
+
+        return response()->json([
+            'table_columns' => $columns,
+            'total_records' => $count,
+            'dpt_records' => $dptCount,
+            'sample_dpt' => $sample,
+            'last_upload' => $lastError,
+            'has_dpt_upload_id' => in_array('dpt_upload_id', $columns),
+            'has_is_deceased' => in_array('is_deceased', $columns),
+            'has_kod_lokaliti' => in_array('kod_lokaliti', $columns),
+        ]);
     }
 
     public function destroy(DptUpload $dptUpload)

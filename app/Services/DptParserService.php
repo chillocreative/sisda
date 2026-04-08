@@ -164,8 +164,35 @@ class DptParserService
                     if ($currentSection === 'deceased') $stats['deceased']++;
                     if ($currentSection === 'moved') $stats['moved']++;
                 } catch (\Exception $e) {
-                    $stats['errors']++;
-                    Log::error("DPT save error for IC {$noIc}: " . $e->getMessage());
+                    // On failure, retry with minimal columns
+                    try {
+                        $minData = [
+                            'nama' => strtoupper(trim($name)),
+                            'daerah_mengundi' => $daerahMengundi,
+                            'lokaliti' => $lokalitiName,
+                            'parlimen' => $parlimen,
+                            'negeri' => $negeri,
+                            'updated_at' => now(),
+                        ];
+                        $existingRetry = DB::table('pangkalan_data_pengundi')->where('no_ic', $noIc)->first();
+                        if ($existingRetry) {
+                            DB::table('pangkalan_data_pengundi')->where('no_ic', $noIc)->update($minData);
+                        } else {
+                            $minData['no_ic'] = $noIc;
+                            $minData['created_at'] = now();
+                            DB::table('pangkalan_data_pengundi')->insert($minData);
+                        }
+                        $stats['total']++;
+                        if ($currentSection === 'new') $stats['new']++;
+                        if ($currentSection === 'deceased') $stats['deceased']++;
+                        if ($currentSection === 'moved') $stats['moved']++;
+                    } catch (\Exception $e2) {
+                        $stats['errors']++;
+                        if ($stats['errors'] <= 3) {
+                            Log::error("DPT save error IC {$noIc}: " . $e->getMessage());
+                            Log::error("DPT retry error IC {$noIc}: " . $e2->getMessage());
+                        }
+                    }
                 }
             }
         }
