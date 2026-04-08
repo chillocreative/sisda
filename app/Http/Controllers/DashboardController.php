@@ -414,38 +414,22 @@ class DashboardController extends Controller
             ];
         }
 
-        // Search in voter database (active batch + DPT records)
-        $activeBatch = UploadBatch::where('is_active', true)->first();
-
-        $voterQuery = PangkalanDataPengundi::where(function ($q) use ($activeBatch) {
-            if ($activeBatch) {
-                $q->where('upload_batch_id', $activeBatch->id)
-                  ->orWhereNotNull('dpt_upload_id');
-            } else {
-                $q->whereNotNull('dpt_upload_id');
-            }
-        })->where(function ($q) use ($icNumber) {
-            $q->where('no_ic', 'like', "%{$icNumber}%");
-            // Also match 8-digit input with 0000 suffix
-            if (strlen($icNumber) >= 6 && strlen($icNumber) <= 8) {
-                $q->orWhere('no_ic', 'like', $icNumber . '0000%');
-            }
-        });
-
-        $voterResults = $voterQuery->limit(5)
-            ->get(['no_ic', 'nama', 'lokaliti', 'kadun', 'parlimen', 'negeri', 'bangsa', 'daerah_mengundi']);
+        // Search in ALL voter database records (upload batch + DPT)
+        $voterResults = PangkalanDataPengundi::where('no_ic', 'like', "%{$icNumber}%")
+            ->limit(5)
+            ->get();
 
         foreach ($voterResults as $voter) {
             $results[] = [
                 'id'         => null,
-                'type'       => $voter->dpt_upload_id ? 'dpt' : 'voter_db',
+                'type'       => 'voter_db',
                 'no_ic'      => $voter->no_ic,
                 'nama'       => $voter->nama,
                 'no_tel'     => null,
-                'kadun'      => $voter->kadun,
-                'bandar'     => $voter->parlimen,
-                'daerah_mengundi' => $voter->daerah_mengundi,
-                'lokaliti'   => $voter->lokaliti,
+                'kadun'      => $voter->kadun ?? null,
+                'bandar'     => $voter->parlimen ?? null,
+                'daerah_mengundi' => $voter->daerah_mengundi ?? null,
+                'lokaliti'   => $voter->lokaliti ?? null,
                 'can_edit'   => true,
                 'edit_url'   => null,
                 'create_url' => route('reports.data-pengundi.create'),

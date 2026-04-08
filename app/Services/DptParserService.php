@@ -135,23 +135,45 @@ class DptParserService
                 $isDeceased = ($currentSection === 'deceased');
 
                 try {
+                    $data = [
+                        'nama' => strtoupper(trim($name)),
+                        'daerah_mengundi' => $daerahMengundi,
+                        'lokaliti' => $lokalitiName,
+                        'parlimen' => $parlimen,
+                        'negeri' => $negeri,
+                    ];
+
+                    // Add optional fields if columns exist
+                    try {
+                        $data['kod_lokaliti'] = $lokalitiCode;
+                        $data['jantina'] = $gender === 'L' ? 'LELAKI' : 'PEREMPUAN';
+                        $data['tahun_lahir'] = $yearBorn;
+                        $data['is_deceased'] = $isDeceased;
+                        $data['dpt_upload_id'] = $upload->id;
+                    } catch (\Exception $e) {
+                        // Columns may not exist yet
+                    }
+
                     PangkalanDataPengundi::updateOrCreate(
                         ['no_ic' => $noIc],
-                        [
-                            'nama' => strtoupper(trim($name)),
-                            'daerah_mengundi' => $daerahMengundi,
-                            'lokaliti' => $lokalitiName,
-                            'kod_lokaliti' => $lokalitiCode,
-                            'parlimen' => $parlimen,
-                            'negeri' => $negeri,
-                            'jantina' => $gender === 'L' ? 'LELAKI' : 'PEREMPUAN',
-                            'tahun_lahir' => $yearBorn,
-                            'is_deceased' => $isDeceased,
-                            'dpt_upload_id' => $upload->id,
-                        ]
+                        $data
                     );
                 } catch (\Exception $e) {
-                    Log::warning("DPT parse error for IC {$noIc}: " . $e->getMessage());
+                    // If it fails with extra columns, try with basic columns only
+                    try {
+                        PangkalanDataPengundi::updateOrCreate(
+                            ['no_ic' => $noIc],
+                            [
+                                'nama' => strtoupper(trim($name)),
+                                'daerah_mengundi' => $daerahMengundi,
+                                'lokaliti' => $lokalitiName,
+                                'parlimen' => $parlimen,
+                                'negeri' => $negeri,
+                            ]
+                        );
+                    } catch (\Exception $e2) {
+                        Log::warning("DPT parse error for IC {$noIc}: " . $e2->getMessage());
+                    }
                 }
 
                 $stats['total']++;
