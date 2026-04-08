@@ -415,20 +415,27 @@ class DashboardController extends Controller
         }
 
         // Search in ALL voter database records (upload batch + DPT)
+        // Deduplicate by no_ic + nama to avoid showing the same person multiple times
         $voterResults = PangkalanDataPengundi::where(function ($q) use ($icNumber) {
                 $q->where('no_ic', 'like', "%{$icNumber}%");
-                // Also search with 0000 suffix for 8-digit DPT ICs
                 if (strlen($icNumber) >= 6 && strlen($icNumber) <= 8) {
                     $q->orWhere('no_ic', $icNumber . '0000');
                 }
             })
-            ->limit(10)
-            ->get();
+            ->limit(20)
+            ->get()
+            ->unique(fn ($v) => $v->no_ic . '|' . $v->nama);
+
+        $existingIcs = collect($results)->pluck('no_ic')->toArray();
 
         foreach ($voterResults as $voter) {
+            // Skip if this IC+name already in results from Hasil Culaan or Data Pengundi
+            if (in_array($voter->no_ic, $existingIcs)) continue;
+
+            $isDpt = !empty($voter->dpt_upload_id);
             $results[] = [
                 'id'         => null,
-                'type'       => 'voter_db',
+                'type'       => $isDpt ? 'dpt' : 'voter_db',
                 'no_ic'      => $voter->no_ic,
                 'nama'       => $voter->nama,
                 'no_tel'     => null,

@@ -55,7 +55,7 @@ export default function UserDashboard() {
 
     const handleResultClick = (result) => {
         setShowResults(false);
-        if (result.type === 'voter_db') {
+        if (result.type === 'voter_db' || result.type === 'dpt') {
             router.visit(result.create_url + '?ic=' + result.no_ic);
         } else if (result.can_edit) {
             router.visit(result.edit_url);
@@ -112,11 +112,13 @@ export default function UserDashboard() {
                                                     <span className={`px-2 py-0.5 text-xs font-medium rounded ${
                                                         result.type === 'hasil_culaan'
                                                             ? 'bg-emerald-100 text-emerald-700'
-                                                            : result.type === 'voter_db'
-                                                                ? 'bg-violet-100 text-violet-700'
-                                                                : 'bg-sky-100 text-sky-700'
+                                                            : result.type === 'dpt'
+                                                                ? 'bg-amber-100 text-amber-700'
+                                                                : result.type === 'voter_db'
+                                                                    ? 'bg-violet-100 text-violet-700'
+                                                                    : 'bg-sky-100 text-sky-700'
                                                     }`}>
-                                                        {result.type === 'hasil_culaan' ? 'Hasil Culaan' : result.type === 'voter_db' ? 'Pangkalan Data' : 'Data Pengundi'}
+                                                        {result.type === 'hasil_culaan' ? 'Hasil Culaan' : result.type === 'dpt' ? 'DPT' : result.type === 'voter_db' ? 'Pangkalan Data' : 'Data Pengundi'}
                                                     </span>
                                                 </div>
                                                 <p className="text-sm text-slate-600">No. IC: {result.no_ic}</p>
@@ -124,7 +126,7 @@ export default function UserDashboard() {
                                                 <p className="text-xs text-slate-500 mt-1">{result.kadun}, {result.bandar}</p>
                                             </div>
                                             <div className="ml-4">
-                                                {result.type === 'voter_db' ? (
+                                                {(result.type === 'voter_db' || result.type === 'dpt') ? (
                                                     <Plus className="h-5 w-5 text-violet-600" />
                                                 ) : result.can_edit ? (
                                                     <Edit className="h-5 w-5 text-blue-600" />
