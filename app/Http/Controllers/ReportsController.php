@@ -214,6 +214,7 @@ class ReportsController extends Controller
             'jkm_program' => 'nullable|string|max:255',
             'keahlian_parti' => 'required|string|max:255',
             'kecenderungan_politik' => 'required|string|max:255',
+            'status_pengundi' => 'nullable|string|max:255',
             'kad_pengenalan' => 'nullable|image|max:5120', // 5MB max
             'nota' => 'nullable|string',
         ], [
@@ -418,6 +419,7 @@ class ReportsController extends Controller
             'jkm_program' => 'nullable|string|max:255',
             'keahlian_parti' => 'required|string|max:255',
             'kecenderungan_politik' => 'required|string|max:255',
+            'status_pengundi' => 'nullable|string|max:255',
             'kad_pengenalan' => 'nullable|image|max:5120', // 5MB max
             'nota' => 'nullable|string',
         ], [
@@ -713,6 +715,7 @@ class ReportsController extends Controller
             'lokaliti' => 'nullable|string|max:255',
             'keahlian_parti' => 'required|string|max:255',
             'kecenderungan_politik' => 'required|string|max:255',
+            'status_pengundi' => 'nullable|string|max:255',
         ], [
             'no_ic.unique' => 'No. Kad Pengenalan ini telah didaftarkan dalam Data Pengundi.',
             'keahlian_parti.required' => 'Sila pilih Keanggotaan Parti.',
@@ -795,6 +798,7 @@ class ReportsController extends Controller
             'lokaliti' => 'nullable|string|max:255',
             'keahlian_parti' => 'required|string|max:255',
             'kecenderungan_politik' => 'required|string|max:255',
+            'status_pengundi' => 'nullable|string|max:255',
         ], [
             'no_ic.unique' => 'No. Kad Pengenalan ini telah didaftarkan dalam Data Pengundi.',
             'keahlian_parti.required' => 'Sila pilih Keanggotaan Parti.',

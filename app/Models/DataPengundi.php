@@ -29,6 +29,7 @@ class DataPengundi extends Model
         'lokaliti',
         'keahlian_parti',
         'kecenderungan_politik',
+        'status_pengundi',
         'is_deceased',
         'submitted_by',
     ];

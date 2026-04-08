@@ -52,6 +52,7 @@ export default function Edit({
         lokaliti: dataPengundi.lokaliti || '',
         keahlian_parti: dataPengundi.keahlian_parti || '',
         kecenderungan_politik: dataPengundi.kecenderungan_politik || '',
+        status_pengundi: dataPengundi.status_pengundi || '',
     });
 
     // Fetch KADUN and Daerah Mengundi when Parlimen changes
@@ -630,6 +631,32 @@ export default function Edit({
                                     {errors.lokaliti && <p className="text-sm text-rose-600 mt-1">{errors.lokaliti}</p>}
                                 </div>
                         </div>
+                    </div>
+
+                    {/* Status Pengundi */}
+                    <div className="bg-white rounded-xl border border-slate-200 p-6">
+                        <h2 className="text-lg font-semibold text-slate-900 mb-4">Status Pengundi</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {[
+                                'Pendaftaran Baru',
+                                'Pemilih Bertukar Alamat (Keluar)',
+                                'Masuk Tentera',
+                                'Hilang Layak Pengundi Awam',
+                                'Pertukaran Kepada Lokaliti Awam',
+                            ].map((item) => (
+                                <label key={item} className="flex items-center space-x-2 cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        name="status_pengundi"
+                                        checked={data.status_pengundi === item}
+                                        onChange={() => setData('status_pengundi', item)}
+                                        className="w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500"
+                                    />
+                                    <span className="text-sm text-slate-700">{item}</span>
+                                </label>
+                            ))}
+                        </div>
+                        {errors.status_pengundi && <p className="text-sm text-rose-600 mt-1">{errors.status_pengundi}</p>}
                     </div>
 
                     {/* Political Information */}

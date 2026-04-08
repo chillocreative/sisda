@@ -43,6 +43,7 @@ class HasilCulaan extends Model
         'jkm_program',
         'keahlian_parti',
         'kecenderungan_politik',
+        'status_pengundi',
         'kad_pengenalan',
         'nota',
         'is_deceased',
