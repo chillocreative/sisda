@@ -53,9 +53,9 @@ class HandleInertiaRequests extends Middleware
                 'mustChangePassword' => $user?->must_change_password ?? false,
             ],
             'flash' => [
-                'success' => fn () => $request->session()->get('success'),
-                'error' => fn () => $request->session()->get('error'),
-                'devices' => fn () => $request->session()->get('devices'),
+                'success' => $request->session()->get('success'),
+                'error' => $request->session()->get('error'),
+                'devices' => $request->session()->get('devices'),
             ],
         ];
     }
