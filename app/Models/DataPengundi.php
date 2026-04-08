@@ -29,10 +29,12 @@ class DataPengundi extends Model
         'lokaliti',
         'keahlian_parti',
         'kecenderungan_politik',
+        'is_deceased',
         'submitted_by',
     ];
 
     protected $casts = [
+        'is_deceased' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];

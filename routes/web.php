@@ -182,6 +182,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/reports/hasil-culaan/bulk-delete', [\App\Http\Controllers\ReportsController::class, 'hasilCulaanBulkDelete'])->name('reports.hasil-culaan.bulk-delete');
     Route::get('/reports/hasil-culaan/export', [\App\Http\Controllers\ReportsController::class, 'exportHasilCulaan'])->name('reports.hasil-culaan.export');
     Route::get('/api/hasil-culaan/by-ic', [\App\Http\Controllers\ReportsController::class, 'hasilCulaanByIc'])->name('api.hasil-culaan.by-ic');
+    Route::post('/reports/hasil-culaan/{hasilCulaan}/toggle-deceased', [\App\Http\Controllers\ReportsController::class, 'hasilCulaanToggleDeceased'])->name('reports.hasil-culaan.toggle-deceased');
 
     // Data Pengundi
     Route::get('/reports/data-pengundi', [\App\Http\Controllers\ReportsController::class, 'dataPengundiIndex'])->name('reports.data-pengundi.index');
@@ -192,7 +193,8 @@ Route::middleware('auth')->group(function () {
     Route::delete('/reports/data-pengundi/{dataPengundi}', [\App\Http\Controllers\ReportsController::class, 'dataPengundiDestroy'])->name('reports.data-pengundi.destroy');
     Route::post('/reports/data-pengundi/bulk-delete', [\App\Http\Controllers\ReportsController::class, 'dataPengundiBulkDelete'])->name('reports.data-pengundi.bulk-delete');
     Route::get('/reports/data-pengundi/export', [\App\Http\Controllers\ReportsController::class, 'exportDataPengundi'])->name('reports.data-pengundi.export');
-    
+    Route::post('/reports/data-pengundi/{dataPengundi}/toggle-deceased', [\App\Http\Controllers\ReportsController::class, 'dataPengundiToggleDeceased'])->name('reports.data-pengundi.toggle-deceased');
+
     // Postcode Search
     Route::get('/api/postcodes/search', [\App\Http\Controllers\ReportsController::class, 'searchPostcode'])->name('api.postcodes.search');
     Route::get('/api/postcodes/search-details', [\App\Http\Controllers\ReportsController::class, 'searchPostcodeWithDetails'])->name('api.postcodes.search-details');

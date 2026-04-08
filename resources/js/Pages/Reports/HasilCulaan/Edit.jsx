@@ -29,6 +29,8 @@ export default function Edit({
     kecenderunganPolitikList,
     lokalitiList
 }) {
+    const [isDeceased, setIsDeceased] = useState(hasilCulaan.is_deceased || false);
+    const [togglingDeceased, setTogglingDeceased] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [isUploading, setIsUploading] = useState(false);
     const [previewUrl, setPreviewUrl] = useState(
@@ -424,8 +426,33 @@ export default function Edit({
                     </div>
                 </div>
 
+                {/* Kematian Toggle */}
+                <div className={`rounded-xl border p-4 flex items-center justify-between ${isDeceased ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-white'}`}>
+                    <div>
+                        <span className={`text-sm font-medium ${isDeceased ? 'text-rose-700' : 'text-slate-700'}`}>
+                            {isDeceased ? 'Ditandakan sebagai kematian — semua medan dikunci' : 'Tandakan sebagai kematian'}
+                        </span>
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <span className={`text-sm font-medium ${isDeceased ? 'text-rose-600' : 'text-slate-500'}`}>Kematian</span>
+                        <button
+                            type="button"
+                            disabled={togglingDeceased}
+                            onClick={() => {
+                                setTogglingDeceased(true);
+                                axios.post(route('reports.hasil-culaan.toggle-deceased', hasilCulaan.id))
+                                    .then(res => setIsDeceased(res.data.is_deceased))
+                                    .finally(() => setTogglingDeceased(false));
+                            }}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isDeceased ? 'bg-rose-500' : 'bg-slate-300'} ${togglingDeceased ? 'opacity-50' : ''}`}
+                        >
+                            <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${isDeceased ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                    </label>
+                </div>
+
                 {/* Form */}
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form onSubmit={handleSubmit} className={`space-y-6 ${isDeceased ? 'opacity-50 pointer-events-none select-none' : ''}`}>
                     {/* Personal Information */}
                     <div className="bg-white rounded-xl border border-slate-200 p-6">
                         <h2 className="text-lg font-semibold text-slate-900 mb-4">Maklumat Peribadi</h2>

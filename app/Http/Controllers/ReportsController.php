@@ -513,6 +513,15 @@ class ReportsController extends Controller
     }
 
     /**
+     * Toggle deceased status for Hasil Culaan.
+     */
+    public function hasilCulaanToggleDeceased(HasilCulaan $hasilCulaan)
+    {
+        $hasilCulaan->update(['is_deceased' => !$hasilCulaan->is_deceased]);
+        return response()->json(['is_deceased' => $hasilCulaan->is_deceased]);
+    }
+
+    /**
      * Remove multiple Hasil Culaan records.
      */
     public function hasilCulaanBulkDelete(Request $request)
@@ -805,6 +814,15 @@ class ReportsController extends Controller
         $dataPengundi->delete();
 
         return redirect()->route('reports.data-pengundi.index')->with('success', 'Rekod berjaya dipadam');
+    }
+
+    /**
+     * Toggle deceased status for Data Pengundi.
+     */
+    public function dataPengundiToggleDeceased(DataPengundi $dataPengundi)
+    {
+        $dataPengundi->update(['is_deceased' => !$dataPengundi->is_deceased]);
+        return response()->json(['is_deceased' => $dataPengundi->is_deceased]);
     }
 
     /**

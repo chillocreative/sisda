@@ -83,9 +83,11 @@ class DashboardController extends Controller
             $culaanQuery->whereDate('created_at', '<=', $tarikhHingga);
         }
 
-        // Calculate metrics
-        $totalPengundi = $pengundiQuery->count();
-        $totalCulaan = $culaanQuery->count();
+        // Calculate metrics (exclude deceased)
+        $totalPengundi = (clone $pengundiQuery)->where('is_deceased', false)->count();
+        $totalCulaan = (clone $culaanQuery)->where('is_deceased', false)->count();
+        $deceasedPengundi = (clone $pengundiQuery)->where('is_deceased', true)->count();
+        $deceasedCulaan = (clone $culaanQuery)->where('is_deceased', true)->count();
 
         // Create filtered query for political tendency
         $tendencyQuery = clone $pengundiQuery;

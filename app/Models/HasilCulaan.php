@@ -45,11 +45,13 @@ class HasilCulaan extends Model
         'kecenderungan_politik',
         'kad_pengenalan',
         'nota',
+        'is_deceased',
         'submitted_by',
     ];
 
     protected $casts = [
         'pendapatan_isi_rumah' => 'decimal:2',
+        'is_deceased' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
