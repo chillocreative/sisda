@@ -4,7 +4,7 @@ import { Settings, Wifi, Send, MessageSquare, CheckCircle, XCircle, Phone } from
 import { useState } from 'react';
 
 export default function Sendora({ settings, recentMessages }) {
-    const { flash } = usePage().props;
+    const { flash = {} } = usePage().props;
     const [devices, setDevices] = useState([]);
     const [testingConnection, setTestingConnection] = useState(false);
 
