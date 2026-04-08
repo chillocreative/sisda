@@ -104,9 +104,9 @@ class DptParserService
                 continue;
             }
 
-            // Parse voter line: starts with a digit (BIL number), followed by IC
-            // Pattern: BIL + IC(8digits+****) + optional_id + J/gender + YEAR + NAME + address
-            if (preg_match('/^(\d+)(\d{6}\d{2})\*{4}\s*(\d*\**)?\s*(P|L)\s*(\d{4})(.+?)(?:\t|$)/i', $line, $m)) {
+            // Parse voter line: BIL + IC(6digits+2digits+****) + optional ID LAIN + gender + YEAR + NAME
+            // ID LAIN can be alphanumeric like A37049** or 23892**
+            if (preg_match('/^(\d{1,3})(\d{6}\d{2})\*{4}\s*([A-Z]{0,3}\d*\**)\s*(P|L)\s*(\d{4})(.+?)(?:\t|$)/i', $line, $m)) {
                 $bil = $m[1];
                 $icPartial = $m[2]; // 8 digits
                 $gender = $m[4];
