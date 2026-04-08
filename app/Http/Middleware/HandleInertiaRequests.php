@@ -50,6 +50,12 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $user,
                 'pendingApprovalsCount' => $pendingApprovalsCount,
+                'mustChangePassword' => $user?->must_change_password ?? false,
+            ],
+            'flash' => [
+                'success' => fn () => $request->session()->get('success'),
+                'error' => fn () => $request->session()->get('error'),
+                'devices' => fn () => $request->session()->get('devices'),
             ],
         ];
     }

@@ -30,6 +30,7 @@ class User extends Authenticatable
         'approved_at',
         'last_login',
         'password',
+        'must_change_password',
     ];
 
     /**
@@ -54,6 +55,7 @@ class User extends Authenticatable
             'approved_at' => 'datetime',
             'last_login' => 'datetime',
             'password' => 'hashed',
+            'must_change_password' => 'boolean',
         ];
     }
 

@@ -309,4 +309,10 @@ Route::middleware('auth')->group(function () {
     });
 });
 
+    // Sendora Settings (super_admin only)
+    Route::get('/settings/sendora', [\App\Http\Controllers\SendoraSettingController::class, 'index'])->name('settings.sendora');
+    Route::post('/settings/sendora', [\App\Http\Controllers\SendoraSettingController::class, 'update'])->name('settings.sendora.update');
+    Route::post('/settings/sendora/test-connection', [\App\Http\Controllers\SendoraSettingController::class, 'testConnection'])->name('settings.sendora.test');
+    Route::post('/settings/sendora/test-send', [\App\Http\Controllers\SendoraSettingController::class, 'testSend'])->name('settings.sendora.test-send');
+
 require __DIR__.'/auth.php';

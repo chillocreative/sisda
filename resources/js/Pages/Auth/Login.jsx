@@ -68,6 +68,15 @@ export default function Login({ status, canResetPassword }) {
                     />
 
                     <InputError message={errors.password} className="mt-2" />
+
+                    <div className="mt-2 text-right">
+                        <Link
+                            href={route('password.request')}
+                            className="text-sm text-slate-500 hover:text-slate-700 underline decoration-slate-300 underline-offset-4"
+                        >
+                            Lupa Kata Laluan?
+                        </Link>
+                    </div>
                 </div>
 
                 <div className="mt-4 block">
