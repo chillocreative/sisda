@@ -44,6 +44,7 @@ class HasilCulaan extends Model
         'keahlian_parti',
         'kecenderungan_politik',
         'status_pengundi',
+        'voter_color',
         'kad_pengenalan',
         'nota',
         'is_deceased',

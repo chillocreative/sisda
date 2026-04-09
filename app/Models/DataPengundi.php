@@ -30,6 +30,7 @@ class DataPengundi extends Model
         'keahlian_parti',
         'kecenderungan_politik',
         'status_pengundi',
+        'voter_color',
         'is_deceased',
         'submitted_by',
     ];

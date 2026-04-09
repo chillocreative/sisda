@@ -653,6 +653,18 @@ export default function Index({ hasilCulaan, icCounts = {}, filters, currentUser
                                                     {' '}
                                                     {new Date(h.created_at).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}
                                                 </p>
+                                                {h.changes && Object.keys(h.changes).length > 0 && (
+                                                    <div className="mt-1.5 space-y-0.5">
+                                                        {Object.entries(h.changes).filter(([k]) => k !== 'voter_color').slice(0, 5).map(([field, vals]) => (
+                                                            <p key={field} className="text-xs text-slate-500">
+                                                                <span className="font-medium">{field}</span>: <span className="text-slate-400">{vals.old || '-'}</span> → <span className="text-slate-700">{vals.new || '-'}</span>
+                                                            </p>
+                                                        ))}
+                                                        {Object.keys(h.changes).length > 5 && (
+                                                            <p className="text-xs text-slate-400 italic">+{Object.keys(h.changes).length - 5} lagi</p>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
                                     </div>

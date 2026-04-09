@@ -7,6 +7,7 @@ use App\Models\DataPengundi;
 use App\Models\DaerahMengundi;
 use App\Models\EditHistory;
 use App\Models\Lokaliti;
+use App\Services\VoterColorService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Exports\HasilCulaanExport;
@@ -298,6 +299,7 @@ class ReportsController extends Controller
         }
 
         $validated['submitted_by'] = auth()->id();
+        $validated['voter_color'] = VoterColorService::determine($validated['keahlian_parti'] ?? null, $validated['kecenderungan_politik'] ?? null);
 
         $record = HasilCulaan::create($validated);
 
@@ -508,6 +510,9 @@ class ReportsController extends Controller
             // Keep the existing file path if no new file is uploaded
             unset($validated['kad_pengenalan']);
         }
+
+        // Auto-calculate voter color
+        $validated['voter_color'] = VoterColorService::determine($validated['keahlian_parti'] ?? null, $validated['kecenderungan_politik'] ?? null);
 
         // Track changes for edit history
         $changes = [];
@@ -778,6 +783,7 @@ class ReportsController extends Controller
         }
 
         $validated['submitted_by'] = auth()->id();
+        $validated['voter_color'] = VoterColorService::determine($validated['keahlian_parti'] ?? null, $validated['kecenderungan_politik'] ?? null);
 
         $record = DataPengundi::create($validated);
 
@@ -861,6 +867,8 @@ class ReportsController extends Controller
             'keahlian_parti.required' => 'Sila pilih Keanggotaan Parti.',
             'kecenderungan_politik.required' => 'Sila pilih Kecenderungan Politik.',
         ]);
+
+        $validated['voter_color'] = VoterColorService::determine($validated['keahlian_parti'] ?? null, $validated['kecenderungan_politik'] ?? null);
 
         $changes = [];
         foreach ($validated as $key => $value) {
