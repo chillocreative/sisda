@@ -661,27 +661,31 @@ class ReportsController extends Controller
             if ($voter) {
                 $tc = fn($s) => $s ? ucwords(strtolower($s)) : null;
 
-                // Auto-detect KADUN
-                $kadun = $tc($voter->kadun);
-                if (!$kadun && $voter->daerah_mengundi) {
-                    // Look up from existing voters in same DM who have KADUN
+                // Auto-detect KADUN from Daerah Mengundi using existing voter database
+                $kadun = null;
+                if ($voter->daerah_mengundi) {
+                    // Best method: find another voter in same DM who has correct kadun from ZIP upload
                     $existingVoter = \App\Models\PangkalanDataPengundi::where('daerah_mengundi', $voter->daerah_mengundi)
                         ->whereNotNull('kadun')
                         ->where('kadun', '!=', '')
+                        ->whereNotNull('upload_batch_id')
                         ->first();
                     if ($existingVoter) {
                         $kadun = $tc($existingVoter->kadun);
                     }
                 }
-                // Fix negeri if it contains KADUN pattern (N.XX NAME)
+                // Fallback: use voter's stored kadun if available
+                if (!$kadun && $voter->kadun) {
+                    $kadun = $tc($voter->kadun);
+                }
+
+                // Fix negeri — resolve actual state name
                 $negeri = $tc($voter->negeri);
-                if ($negeri && preg_match('/^N\.\d+\s+/i', $voter->negeri)) {
-                    // This is actually KADUN, not negeri — use parlimen's bandar to find real negeri
-                    if (!$kadun) {
-                        $kadun = $tc(preg_replace('/^N\.\d+\s+/i', '', $voter->negeri));
+                if (!$negeri || preg_match('/^N\.\d+/i', $voter->negeri ?? '')) {
+                    $bandar = \App\Models\Bandar::where('nama', 'like', '%' . ($voter->parlimen ?? '') . '%')->first();
+                    if ($bandar && $bandar->negeri) {
+                        $negeri = $tc($bandar->negeri->nama);
                     }
-                    $bandar = \App\Models\Bandar::where('nama', 'like', '%' . $voter->parlimen . '%')->first();
-                    $negeri = $bandar?->negeri ? $tc($bandar->negeri->nama) : null;
                 }
 
                 $prefill = [
