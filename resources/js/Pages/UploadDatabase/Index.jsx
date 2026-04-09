@@ -1,7 +1,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm, router } from '@inertiajs/react';
 import { useState, useRef, useEffect } from 'react';
-import { Upload, Loader2, CheckCircle, XCircle, RefreshCw, Trash2, Database, AlertTriangle } from 'lucide-react';
+import { Upload, Loader2, CheckCircle, XCircle, X, RefreshCw, Trash2, Database, AlertTriangle } from 'lucide-react';
 
 export default function Index({ batches, flash }) {
     const [confirmDelete, setConfirmDelete] = useState(null);
@@ -207,20 +207,32 @@ export default function Index({ batches, flash }) {
                                                 </td>
                                                 <td className="py-3 px-3">
                                                     <div className="flex items-center justify-center gap-2">
-                                                        <button
-                                                            onClick={() => handleRestore(batch)}
-                                                            disabled={batch.is_active || batch.status === 'processing'}
-                                                            title="Jadikan aktif"
-                                                            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                                                        >
-                                                            <RefreshCw className="h-3 w-3" />
-                                                            Restore
-                                                        </button>
+                                                        {batch.status === 'processing' ? (
+                                                            <button
+                                                                onClick={() => router.post(route('upload-database.cancel', batch.id))}
+                                                                title="Batalkan muat naik"
+                                                                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50 transition-colors"
+                                                            >
+                                                                <X className="h-3 w-3" />
+                                                                Batal
+                                                            </button>
+                                                        ) : (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => handleRestore(batch)}
+                                                                    disabled={batch.is_active}
+                                                                    title="Jadikan aktif"
+                                                                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                                                >
+                                                                    <RefreshCw className="h-3 w-3" />
+                                                                    Restore
+                                                                </button>
+                                                            </>
+                                                        )}
                                                         <button
                                                             onClick={() => handleDelete(batch)}
-                                                            disabled={batch.status === 'processing'}
                                                             title="Padam"
-                                                            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-red-300 text-red-700 hover:bg-red-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                                            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-red-300 text-red-700 hover:bg-red-50 transition-colors"
                                                         >
                                                             <Trash2 className="h-3 w-3" />
                                                             Padam

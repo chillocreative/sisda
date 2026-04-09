@@ -209,6 +209,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/upload-database', [\App\Http\Controllers\UploadDatabaseController::class, 'index'])->name('upload-database.index');
     Route::post('/upload-database', [\App\Http\Controllers\UploadDatabaseController::class, 'store'])->name('upload-database.store');
     Route::post('/upload-database/{batch}/restore', [\App\Http\Controllers\UploadDatabaseController::class, 'restore'])->name('upload-database.restore');
+    Route::post('/upload-database/{batch}/cancel', [\App\Http\Controllers\UploadDatabaseController::class, 'cancel'])->name('upload-database.cancel');
     Route::delete('/upload-database/{batch}', [\App\Http\Controllers\UploadDatabaseController::class, 'destroy'])->name('upload-database.destroy');
     Route::get('/api/voter/search-ic', [\App\Http\Controllers\UploadDatabaseController::class, 'searchByIc'])->name('api.voter.search-ic');
     Route::get('/api/voter/suggest-ic', [\App\Http\Controllers\UploadDatabaseController::class, 'suggestIc'])->name('api.voter.suggest-ic');

@@ -68,6 +68,16 @@ class UploadDatabaseController extends Controller
             ->with('success', "Batch '{$batch->nama_fail}' telah dijadikan aktif.");
     }
 
+    public function cancel(UploadBatch $batch)
+    {
+        if ($batch->status === 'processing') {
+            $batch->update(['status' => 'failed', 'nota' => 'Dibatalkan oleh pengguna']);
+        }
+
+        return redirect()->route('upload-database.index')
+            ->with('success', 'Muat naik telah dibatalkan.');
+    }
+
     public function destroy(UploadBatch $batch)
     {
         // Delete stored zip file
