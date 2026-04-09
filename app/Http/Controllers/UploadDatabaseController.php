@@ -105,7 +105,7 @@ class UploadDatabaseController extends Controller
 
         // Search ALL records in pangkalan_data_pengundi
         $voters = PangkalanDataPengundi::where('no_ic', 'like', $query . '%')
-            ->limit(8)
+            ->limit(20)
             ->get(['no_ic', 'nama', 'lokaliti', 'daerah_mengundi', 'kadun', 'parlimen', 'negeri', 'bangsa']);
 
         return response()->json($voters);

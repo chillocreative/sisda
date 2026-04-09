@@ -371,17 +371,12 @@ export default function Create({
         setIcSuggestions([]);
     };
 
-    // Auto-lookup voter database when IC is 8 or 12 digits
+    // Auto-lookup voter database when IC is 12 digits (exact match auto-fill)
     useEffect(() => {
-        if (data.no_ic.length === 12 || data.no_ic.length === 8) {
+        if (data.no_ic.length === 12) {
             axios.get(route('api.voter.search-ic'), { params: { ic: data.no_ic } })
                 .then(res => {
-                    if (res.data?.multiple && res.data.voters?.length > 0) {
-                        // Multiple matches at 8 digits — show as suggestions
-                        setIcSuggestions(res.data.voters);
-                        setShowSuggestions(true);
-                    } else if (res.data && !res.data.multiple) {
-                        // Single match — auto-fill
+                    if (res.data && !res.data.multiple) {
                         const voter = res.data;
                         pendingVoterData.current = {
                             parlimen: voter.parlimen || null,
@@ -392,7 +387,6 @@ export default function Create({
                         const parlimenMatch = parlimenList.find(p => p.nama.toLowerCase() === (voter.parlimen || '').toLowerCase());
                         setData(prev => ({
                             ...prev,
-                            no_ic: voter.no_ic || prev.no_ic,
                             nama: prev.nama || voter.nama || '',
                             bangsa: prev.bangsa || voter.bangsa || '',
                             negeri: voter.negeri ? toTitleCase(voter.negeri) : prev.negeri,
