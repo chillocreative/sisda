@@ -67,8 +67,16 @@ class DptParserService
         if (preg_match('/PARLIMEN\s*:\s*P\.\d+\s+(.+?)$/mi', $text, $m)) {
             $info['parlimen'] = trim($m[1]);
         }
-        if (preg_match('/NEGERI\s*:\s*(.+?)$/mi', $text, $m)) {
-            $info['negeri'] = trim($m[1]);
+        // Extract KADUN from "BAHAGIAN PILIHAN RAYA NEGERI : N.XX NAME"
+        if (preg_match('/NEGERI\s*:\s*N\.\d+\s+(.+?)$/mi', $text, $m)) {
+            $info['kadun'] = trim($m[1]);
+        }
+        // Extract actual Negeri from "NEGERI : PULAU PINANG" (line without N.XX)
+        if (preg_match('/^NEGERI\s*:\s*([A-Z][A-Z\s]+)$/mi', $text, $m)) {
+            $negeri = trim($m[1]);
+            if (!preg_match('/^N\.\d+/', $negeri)) {
+                $info['negeri'] = $negeri;
+            }
         }
 
         return $info;
@@ -94,6 +102,7 @@ class DptParserService
 
         $parlimen = $headerInfo['parlimen'] ?? '';
         $negeri = $headerInfo['negeri'] ?? '';
+        $kadun = $headerInfo['kadun'] ?? '';
 
         $lines = explode("\n", $text);
         $currentSection = 'unknown';
@@ -159,6 +168,7 @@ class DptParserService
                         'daerah_mengundi' => $daerahMengundi,
                         'lokaliti' => $lokalitiName,
                         'parlimen' => $parlimen,
+                        'kadun' => $kadun,
                         'negeri' => $negeri,
                         'updated_at' => now(),
                     ];

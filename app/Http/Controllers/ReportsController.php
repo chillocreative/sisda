@@ -661,34 +661,34 @@ class ReportsController extends Controller
             if ($voter) {
                 $tc = fn($s) => $s ? ucwords(strtolower($s)) : null;
 
-                // Auto-detect KADUN from Daerah Mengundi
+                // Auto-detect KADUN
                 $kadun = $tc($voter->kadun);
                 if (!$kadun && $voter->daerah_mengundi) {
-                    $dm = DaerahMengundi::where('nama', $voter->daerah_mengundi)->first();
-                    if ($dm && $dm->kadun_id) {
-                        $kadunModel = \App\Models\Kadun::find($dm->kadun_id);
-                        $kadun = $kadunModel?->nama;
+                    // Look up from existing voters in same DM who have KADUN
+                    $existingVoter = \App\Models\PangkalanDataPengundi::where('daerah_mengundi', $voter->daerah_mengundi)
+                        ->whereNotNull('kadun')
+                        ->where('kadun', '!=', '')
+                        ->first();
+                    if ($existingVoter) {
+                        $kadun = $tc($existingVoter->kadun);
                     }
-                    // Also try matching via bandar
-                    if (!$kadun && $voter->parlimen) {
-                        $bandar = \App\Models\Bandar::where('nama', 'like', '%' . $voter->parlimen . '%')->first();
-                        if ($bandar) {
-                            $dm = DaerahMengundi::where('nama', $voter->daerah_mengundi)
-                                ->where('bandar_id', $bandar->id)
-                                ->first();
-                            if ($dm && $dm->kadun_id) {
-                                $kadunModel = \App\Models\Kadun::find($dm->kadun_id);
-                                $kadun = $kadunModel?->nama;
-                            }
-                        }
+                }
+                // Fix negeri if it contains KADUN pattern (N.XX NAME)
+                $negeri = $tc($voter->negeri);
+                if ($negeri && preg_match('/^N\.\d+\s+/i', $voter->negeri)) {
+                    // This is actually KADUN, not negeri — use parlimen's bandar to find real negeri
+                    if (!$kadun) {
+                        $kadun = $tc(preg_replace('/^N\.\d+\s+/i', '', $voter->negeri));
                     }
+                    $bandar = \App\Models\Bandar::where('nama', 'like', '%' . $voter->parlimen . '%')->first();
+                    $negeri = $bandar?->negeri ? $tc($bandar->negeri->nama) : null;
                 }
 
                 $prefill = [
                     'no_ic'           => $voter->no_ic,
                     'nama'            => $voter->nama,
                     'bangsa'          => $voter->bangsa,
-                    'negeri'          => $tc($voter->negeri),
+                    'negeri'          => $negeri,
                     'parlimen'        => $tc($voter->parlimen),
                     'kadun'           => $kadun,
                     'daerah_mengundi' => $voter->daerah_mengundi,
