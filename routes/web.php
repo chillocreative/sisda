@@ -318,6 +318,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/sendora/test-connection', [\App\Http\Controllers\SendoraSettingController::class, 'testConnection'])->name('settings.sendora.test');
     Route::post('/settings/sendora/test-send', [\App\Http\Controllers\SendoraSettingController::class, 'testSend'])->name('settings.sendora.test-send');
 
+    // Edit History
+    Route::delete('/edit-history/{editHistory}', [\App\Http\Controllers\ReportsController::class, 'deleteHistory'])->name('edit-history.destroy');
+
     // DPT Upload (super_admin only)
     Route::get('/dpt-upload', [\App\Http\Controllers\DptUploadController::class, 'index'])->name('dpt-upload.index');
     Route::post('/dpt-upload', [\App\Http\Controllers\DptUploadController::class, 'upload'])->name('dpt-upload.upload');

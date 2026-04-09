@@ -1,6 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, useForm } from '@inertiajs/react';
-import { ArrowLeft } from 'lucide-react';
+import { Head, useForm, usePage, router } from '@inertiajs/react';
+import { ArrowLeft, Trash2 } from 'lucide-react';
 
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
@@ -17,8 +17,10 @@ export default function Edit({
     daerahMengundiList,
     keahlianPartiList,
     kecenderunganPolitikList,
-    lokalitiList
+    lokalitiList,
+    editHistories = []
 }) {
+    const { auth } = usePage().props;
     const [isDeceased, setIsDeceased] = useState(dataPengundi.is_deceased || false);
     const [togglingDeceased, setTogglingDeceased] = useState(false);
     const [kadunOptions, setKadunOptions] = useState([]);
@@ -722,6 +724,51 @@ export default function Edit({
                         </button>
                     </div>
                 </form >
+
+                {/* Edit History */}
+                {editHistories.length > 0 && (
+                    <div className="bg-white rounded-xl border border-slate-200 p-6 mt-6">
+                        <h2 className="text-lg font-semibold text-slate-900 mb-4">Sejarah Pengemaskinian</h2>
+                        <div className="space-y-3">
+                            {editHistories.map((history) => (
+                                <div key={history.id} className="flex items-start justify-between border-b border-slate-100 pb-3 last:border-0 last:pb-0">
+                                    <div>
+                                        <p className="text-sm font-medium text-slate-700">
+                                            {history.action === 'created' ? 'Dicipta' : 'Dikemaskini'}
+                                            <span className="ml-2 font-normal text-slate-500">oleh {history.user?.name || '-'}</span>
+                                        </p>
+                                        <p className="text-xs text-slate-400 mt-0.5">
+                                            {new Date(history.created_at).toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                            {' '}
+                                            {new Date(history.created_at).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                        {history.changes && (
+                                            <div className="mt-1">
+                                                {Object.entries(history.changes).slice(0, 3).map(([field, vals]) => (
+                                                    <p key={field} className="text-xs text-slate-500">
+                                                        <span className="font-medium">{field}</span>: {vals.old || '-'} → {vals.new || '-'}
+                                                    </p>
+                                                ))}
+                                                {Object.keys(history.changes).length > 3 && (
+                                                    <p className="text-xs text-slate-400">+{Object.keys(history.changes).length - 3} lagi perubahan</p>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                    {auth.user.role === 'super_admin' && (
+                                        <button
+                                            onClick={() => router.delete(route('edit-history.destroy', history.id), { preserveScroll: true })}
+                                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
+                                            title="Padam sejarah"
+                                        >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div >
         </AuthenticatedLayout >
     );

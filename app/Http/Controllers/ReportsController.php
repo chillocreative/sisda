@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\HasilCulaan;
 use App\Models\DataPengundi;
 use App\Models\DaerahMengundi;
+use App\Models\EditHistory;
 use App\Models\Lokaliti;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -298,7 +299,9 @@ class ReportsController extends Controller
 
         $validated['submitted_by'] = auth()->id();
 
-        HasilCulaan::create($validated);
+        $record = HasilCulaan::create($validated);
+
+        EditHistory::log('hasil_culaan', $record->id, 'created');
 
         // Auto-copy matching data to Data Pengundi
         // Check if this IC number already exists in Data Pengundi
@@ -358,6 +361,12 @@ class ReportsController extends Controller
 
         $lokalitiList = Lokaliti::orderBy('nama')->get();
 
+        $editHistories = EditHistory::where('model_type', 'hasil_culaan')
+            ->where('model_id', $hasilCulaan->id)
+            ->with('user:id,name')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
         return Inertia::render('Reports/HasilCulaan/Edit', [
             'hasilCulaan' => $hasilCulaan,
             'bangsaList' => $bangsaList,
@@ -372,6 +381,7 @@ class ReportsController extends Controller
             'keahlianPartiList' => $keahlianPartiList,
             'kecenderunganPolitikList' => $kecenderunganPolitikList,
             'lokalitiList' => $lokalitiList,
+            'editHistories' => $editHistories,
         ]);
     }
 
@@ -499,7 +509,20 @@ class ReportsController extends Controller
             unset($validated['kad_pengenalan']);
         }
 
+        // Track changes for edit history
+        $changes = [];
+        foreach ($validated as $key => $value) {
+            $old = $hasilCulaan->getOriginal($key);
+            if ($old != $value && $key !== 'kad_pengenalan') {
+                $changes[$key] = ['old' => $old, 'new' => $value];
+            }
+        }
+
         $hasilCulaan->update($validated);
+
+        if (!empty($changes)) {
+            EditHistory::log('hasil_culaan', $hasilCulaan->id, 'updated', $changes);
+        }
 
         return redirect()->route('reports.hasil-culaan.index')->with('success', 'Rekod berjaya dikemaskini');
     }
@@ -756,7 +779,9 @@ class ReportsController extends Controller
 
         $validated['submitted_by'] = auth()->id();
 
-        DataPengundi::create($validated);
+        $record = DataPengundi::create($validated);
+
+        EditHistory::log('data_pengundi', $record->id, 'created');
 
         return redirect()->route('reports.data-pengundi.index')->with('success', 'Rekod berjaya ditambah');
     }
@@ -786,6 +811,12 @@ class ReportsController extends Controller
 
         $lokalitiList = Lokaliti::orderBy('nama')->get();
 
+        $editHistories = EditHistory::where('model_type', 'data_pengundi')
+            ->where('model_id', $dataPengundi->id)
+            ->with('user:id,name')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
         return Inertia::render('Reports/DataPengundi/Edit', [
             'dataPengundi' => $dataPengundi,
             'bangsaList' => $bangsaList,
@@ -797,6 +828,7 @@ class ReportsController extends Controller
             'keahlianPartiList' => $keahlianPartiList,
             'kecenderunganPolitikList' => $kecenderunganPolitikList,
             'lokalitiList' => $lokalitiList,
+            'editHistories' => $editHistories,
         ]);
     }
 
@@ -830,7 +862,19 @@ class ReportsController extends Controller
             'kecenderungan_politik.required' => 'Sila pilih Kecenderungan Politik.',
         ]);
 
+        $changes = [];
+        foreach ($validated as $key => $value) {
+            $old = $dataPengundi->getOriginal($key);
+            if ($old != $value) {
+                $changes[$key] = ['old' => $old, 'new' => $value];
+            }
+        }
+
         $dataPengundi->update($validated);
+
+        if (!empty($changes)) {
+            EditHistory::log('data_pengundi', $dataPengundi->id, 'updated', $changes);
+        }
 
         return redirect()->route('reports.data-pengundi.index')->with('success', 'Rekod berjaya dikemaskini');
     }
@@ -1106,6 +1150,18 @@ class ReportsController extends Controller
         }
 
         return response()->json([]);
+    }
+
+    /**
+     * Delete an edit history entry (super_admin only).
+     */
+    public function deleteHistory(EditHistory $editHistory)
+    {
+        if (auth()->user()->role !== 'super_admin') {
+            abort(403);
+        }
+        $editHistory->delete();
+        return back()->with('success', 'Sejarah berjaya dipadam.');
     }
 
     /**
