@@ -112,6 +112,23 @@ class ApiService {
 
   static String? get token => _token;
 
+  // ── Get one-time token for WebView session auth ──
+  static Future<String?> getWebAuthToken() async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/mobile/web-auth-token'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      final body = jsonDecode(response.body);
+      return body['token'];
+    }
+    return null;
+  }
+
+  static String getWebAuthUrl(String webToken, String redirect) {
+    return '$baseUrl/mobile-web-auth?token=$webToken&redirect=${Uri.encodeComponent(redirect)}';
+  }
+
   // ── Session persistence ──
   static Future<void> loadSavedSession() async {
     final prefs = await SharedPreferences.getInstance();

@@ -352,8 +352,24 @@ Route::prefix('api/mobile')->withoutMiddleware([\Illuminate\Foundation\Http\Midd
     Route::get('/kadun-by-bandar', function (\Illuminate\Http\Request $request) {
         return \App\Models\Kadun::where('bandar_id', $request->bandar_id)->orderBy('nama')->get(['id', 'nama']);
     });
-    // Authenticated route (requires Sanctum token)
+    // Authenticated routes (requires Sanctum token)
+    Route::post('/web-auth-token', [\App\Http\Controllers\Api\MobileAuthController::class, 'webAuthToken'])->middleware('auth:sanctum');
     Route::post('/logout', [\App\Http\Controllers\Api\MobileAuthController::class, 'logout'])->middleware('auth:sanctum');
 });
+
+// Mobile WebView auto-login via one-time token
+Route::get('/mobile-web-auth', function (\Illuminate\Http\Request $request) {
+    $token = $request->query('token');
+    $userId = \Illuminate\Support\Facades\Cache::pull("mobile_web_auth:{$token}");
+
+    if (! $userId) {
+        abort(403, 'Token tidak sah atau telah tamat tempoh.');
+    }
+
+    \Illuminate\Support\Facades\Auth::loginUsingId($userId);
+    $request->session()->regenerate();
+
+    return redirect($request->query('redirect', '/dashboard'));
+})->name('mobile.web-auth');
 
 require __DIR__.'/auth.php';

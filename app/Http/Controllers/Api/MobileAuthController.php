@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\WhatsappService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
@@ -148,6 +149,14 @@ class MobileAuthController extends Controller
             'message' => 'Kata laluan baharu: '.$newPassword.'. Sila simpan dan tukar selepas log masuk.',
             'password' => $newPassword,
         ]);
+    }
+
+    public function webAuthToken(Request $request): JsonResponse
+    {
+        $token = Str::random(64);
+        Cache::put("mobile_web_auth:{$token}", $request->user()->id, 60);
+
+        return response()->json(['token' => $token]);
     }
 
     public function logout(Request $request): JsonResponse

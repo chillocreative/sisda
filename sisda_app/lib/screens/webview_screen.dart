@@ -29,6 +29,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.path != widget.path) {
       _currentPath = widget.path;
+      // Session already established from initial load, navigate directly
       _controller.loadRequest(Uri.parse('${ApiService.baseUrl}$_currentPath'));
     }
   }
@@ -39,7 +40,11 @@ class _WebViewScreenState extends State<WebViewScreen> {
       ..setUserAgent('SISDA-Mobile-App/1.0')
       ..setNavigationDelegate(NavigationDelegate(
         onPageStarted: (_) { if (mounted) setState(() => _isLoading = true); },
-        onPageFinished: (_) { if (mounted) setState(() => _isLoading = false); },
+        onPageFinished: (_) {
+          if (mounted) {
+            setState(() => _isLoading = false);
+          }
+        },
         onNavigationRequest: (request) {
           if (request.url.contains('sistemdatapengundi.com')) {
             return NavigationDecision.navigate;
@@ -48,11 +53,23 @@ class _WebViewScreenState extends State<WebViewScreen> {
         },
       ));
 
-    // Load the page with token auth header
-    _controller.loadRequest(
-      Uri.parse('${ApiService.baseUrl}$_currentPath'),
-      headers: ApiService.token != null ? {'Authorization': 'Bearer ${ApiService.token}'} : {},
-    );
+    _loadWithAuth();
+  }
+
+  Future<void> _loadWithAuth() async {
+    try {
+      final webToken = await ApiService.getWebAuthToken();
+      if (webToken != null && mounted) {
+        final url = ApiService.getWebAuthUrl(webToken, _currentPath);
+        _controller.loadRequest(Uri.parse(url));
+        return;
+      }
+    } catch (_) {}
+
+    // Fallback: load directly (will show login page if not authenticated)
+    if (mounted) {
+      _controller.loadRequest(Uri.parse('${ApiService.baseUrl}$_currentPath'));
+    }
   }
 
   @override
