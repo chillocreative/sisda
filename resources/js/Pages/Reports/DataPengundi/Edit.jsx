@@ -638,19 +638,20 @@ export default function Edit({
                         <h2 className="text-lg font-semibold text-slate-900 mb-4">Status Pengundi</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                             {[
-                                'Pendaftaran Baru',
                                 'Pemilih Bertukar Alamat (Keluar)',
-                                'Masuk Tentera',
                                 'Hilang Layak Pengundi Awam',
                                 'Pertukaran Kepada Lokaliti Awam',
                             ].map((item) => (
                                 <label key={item} className="flex items-center space-x-2 cursor-pointer">
                                     <input
-                                        type="radio"
-                                        name="status_pengundi"
-                                        checked={data.status_pengundi === item}
-                                        onChange={() => setData('status_pengundi', item)}
-                                        className="w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500"
+                                        type="checkbox"
+                                        checked={(data.status_pengundi || '').split(', ').includes(item)}
+                                        onChange={() => {
+                                            const current = data.status_pengundi ? data.status_pengundi.split(', ').filter(Boolean) : [];
+                                            const updated = current.includes(item) ? current.filter(v => v !== item) : [...current, item];
+                                            setData('status_pengundi', updated.join(', '));
+                                        }}
+                                        className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
                                     />
                                     <span className="text-sm text-slate-700">{item}</span>
                                 </label>

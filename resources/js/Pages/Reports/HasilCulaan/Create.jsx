@@ -724,101 +724,6 @@ export default function Create({
                         </div>
                     </div>
 
-                    {/* Maklumat Kawasan Mengundi */}
-                    <div className="bg-white rounded-xl border border-slate-200 p-6">
-                        <h2 className="text-lg font-semibold text-slate-900 mb-4">Maklumat Kawasan Mengundi</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                                        Parlimen <span className="text-rose-500">*</span>
-                                    </label>
-                                    <select
-                                        value={data.parlimen}
-                                        onChange={(e) => setData({...data, parlimen: e.target.value, kadun: '', mpkk: '', daerah_mengundi: '', lokaliti: ''})}
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                        required
-                                    >
-                                        <option value="">Pilih Parlimen</option>
-                                        {parlimenList.map((item) => (
-                                            <option key={item.id} value={item.nama}>{item.nama}</option>
-                                        ))}
-                                    </select>
-                                    {errors.parlimen && <p className="text-sm text-rose-600 mt-1">{errors.parlimen}</p>}
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                                        KADUN <span className="text-rose-500">*</span>
-                                    </label>
-                                    <select
-                                        value={data.kadun}
-                                        onChange={(e) => setData({...data, kadun: e.target.value, mpkk: ''})}
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                        required
-                                    >
-                                        <option value="">{loadingKadun ? "Memuat..." : "Pilih KADUN"}</option>
-                                        {kadunOptions.map((item) => (
-                                            <option key={item.id} value={item.nama}>{item.nama}</option>
-                                        ))}
-                                    </select>
-                                    {errors.kadun && <p className="text-sm text-rose-600 mt-1">{errors.kadun}</p>}
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                                        MPKK <span className="text-rose-500">*</span>
-                                    </label>
-                                    <select
-                                        value={data.mpkk}
-                                        onChange={(e) => setData('mpkk', e.target.value)}
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                        required
-                                    >
-                                        <option value="">{loadingMpkk ? "Memuat..." : "Pilih MPKK"}</option>
-                                        {mpkkOptions.map((item) => (
-                                            <option key={item.id} value={item.nama}>{item.nama}</option>
-                                        ))}
-                                    </select>
-                                    {errors.mpkk && <p className="text-sm text-rose-600 mt-1">{errors.mpkk}</p>}
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                                        Daerah Mengundi <span className="text-rose-500">*</span>
-                                    </label>
-                                    <select
-                                        value={data.daerah_mengundi}
-                                        onChange={(e) => setData({...data, daerah_mengundi: e.target.value, lokaliti: ''})}
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                        required
-                                    >
-                                        <option value="">{loadingDaerahMengundi ? "Memuat..." : "Pilih Daerah Mengundi"}</option>
-                                        {daerahMengundiOptions.map((item) => (
-                                            <option key={item.id} value={item.nama}>{item.nama}</option>
-                                        ))}
-                                    </select>
-                                    {errors.daerah_mengundi && <p className="text-sm text-rose-600 mt-1">{errors.daerah_mengundi}</p>}
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                                        Lokaliti
-                                    </label>
-                                    <select
-                                        value={data.lokaliti}
-                                        onChange={(e) => setData('lokaliti', e.target.value)}
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                    >
-                                        <option value="">{loadingLokaliti ? "Memuat..." : "Pilih Lokaliti"}</option>
-                                        {lokalitiOptions.map((item) => (
-                                            <option key={item.id} value={item.nama}>{item.nama}</option>
-                                        ))}
-                                    </select>
-                                    {errors.lokaliti && <p className="text-sm text-rose-600 mt-1">{errors.lokaliti}</p>}
-                                </div>
-                        </div>
-                    </div>
-
                     {/* Household Information */}
                     <div className="bg-white rounded-xl border border-slate-200 p-6">
                         <h2 className="text-lg font-semibold text-slate-900 mb-4">Maklumat Isi Rumah</h2>
@@ -1480,24 +1385,72 @@ export default function Create({
                         </div>
                     </div>
 
+                    {/* Maklumat Kawasan Mengundi */}
+                    <div className="bg-white rounded-xl border border-slate-200 p-6">
+                        <h2 className="text-lg font-semibold text-slate-900 mb-4">Maklumat Kawasan Mengundi</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Parlimen <span className="text-rose-500">*</span></label>
+                                    <select value={data.parlimen} onChange={(e) => setData({...data, parlimen: e.target.value, kadun: '', mpkk: '', daerah_mengundi: '', lokaliti: ''})} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400" required>
+                                        <option value="">Pilih Parlimen</option>
+                                        {parlimenList.map((item) => (<option key={item.id} value={item.nama}>{item.nama}</option>))}
+                                    </select>
+                                    {errors.parlimen && <p className="text-sm text-rose-600 mt-1">{errors.parlimen}</p>}
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">KADUN <span className="text-rose-500">*</span></label>
+                                    <select value={data.kadun} onChange={(e) => setData({...data, kadun: e.target.value, mpkk: ''})} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400" required>
+                                        <option value="">{loadingKadun ? "Memuat..." : "Pilih KADUN"}</option>
+                                        {kadunOptions.map((item) => (<option key={item.id} value={item.nama}>{item.nama}</option>))}
+                                    </select>
+                                    {errors.kadun && <p className="text-sm text-rose-600 mt-1">{errors.kadun}</p>}
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">MPKK <span className="text-rose-500">*</span></label>
+                                    <select value={data.mpkk} onChange={(e) => setData('mpkk', e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400" required>
+                                        <option value="">{loadingMpkk ? "Memuat..." : "Pilih MPKK"}</option>
+                                        {mpkkOptions.map((item) => (<option key={item.id} value={item.nama}>{item.nama}</option>))}
+                                    </select>
+                                    {errors.mpkk && <p className="text-sm text-rose-600 mt-1">{errors.mpkk}</p>}
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Daerah Mengundi <span className="text-rose-500">*</span></label>
+                                    <select value={data.daerah_mengundi} onChange={(e) => setData({...data, daerah_mengundi: e.target.value, lokaliti: ''})} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400" required>
+                                        <option value="">{loadingDaerahMengundi ? "Memuat..." : "Pilih Daerah Mengundi"}</option>
+                                        {daerahMengundiOptions.map((item) => (<option key={item.id} value={item.nama}>{item.nama}</option>))}
+                                    </select>
+                                    {errors.daerah_mengundi && <p className="text-sm text-rose-600 mt-1">{errors.daerah_mengundi}</p>}
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Lokaliti</label>
+                                    <select value={data.lokaliti} onChange={(e) => setData('lokaliti', e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400">
+                                        <option value="">{loadingLokaliti ? "Memuat..." : "Pilih Lokaliti"}</option>
+                                        {lokalitiOptions.map((item) => (<option key={item.id} value={item.nama}>{item.nama}</option>))}
+                                    </select>
+                                    {errors.lokaliti && <p className="text-sm text-rose-600 mt-1">{errors.lokaliti}</p>}
+                                </div>
+                        </div>
+                    </div>
+
                     {/* Status Pengundi */}
                     <div className="bg-white rounded-xl border border-slate-200 p-6">
                         <h2 className="text-lg font-semibold text-slate-900 mb-4">Status Pengundi</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                             {[
-                                'Pendaftaran Baru',
                                 'Pemilih Bertukar Alamat (Keluar)',
-                                'Masuk Tentera',
                                 'Hilang Layak Pengundi Awam',
                                 'Pertukaran Kepada Lokaliti Awam',
                             ].map((item) => (
                                 <label key={item} className="flex items-center space-x-2 cursor-pointer">
                                     <input
-                                        type="radio"
-                                        name="status_pengundi"
-                                        checked={data.status_pengundi === item}
-                                        onChange={() => setData('status_pengundi', item)}
-                                        className="w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500"
+                                        type="checkbox"
+                                        checked={(data.status_pengundi || '').split(', ').includes(item)}
+                                        onChange={() => {
+                                            const current = data.status_pengundi ? data.status_pengundi.split(', ').filter(Boolean) : [];
+                                            const updated = current.includes(item) ? current.filter(v => v !== item) : [...current, item];
+                                            setData('status_pengundi', updated.join(', '));
+                                        }}
+                                        className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
                                     />
                                     <span className="text-sm text-slate-700">{item}</span>
                                 </label>
