@@ -73,21 +73,21 @@ export default function Create({
                 setKadunOptions(kadunRes.data);
                 setDaerahMengundiOptions(dmRes.data);
 
-                // Apply pending voter data if available
-                if (pendingVoterData.current) {
-                    const pending = pendingVoterData.current;
-                    const updates = {};
-                    if (pending.kadun) {
-                        const match = kadunRes.data.find(k => k.nama.toLowerCase() === pending.kadun.toLowerCase());
-                        if (match) updates.kadun = match.nama;
-                    }
-                    if (pending.daerah_mengundi) {
-                        const match = dmRes.data.find(d => d.nama.toLowerCase() === pending.daerah_mengundi.toLowerCase());
-                        if (match) updates.daerah_mengundi = match.nama;
-                    }
-                    if (Object.keys(updates).length > 0) {
-                        setData(prev => ({ ...prev, ...updates }));
-                    }
+                // Apply pending voter data OR match prefill values against loaded options
+                const updates = {};
+                const pendingKadun = pendingVoterData.current?.kadun || data.kadun;
+                const pendingDm = pendingVoterData.current?.daerah_mengundi || data.daerah_mengundi;
+
+                if (pendingKadun) {
+                    const match = kadunRes.data.find(k => k.nama.toLowerCase() === pendingKadun.toLowerCase());
+                    if (match) updates.kadun = match.nama;
+                }
+                if (pendingDm) {
+                    const match = dmRes.data.find(d => d.nama.toLowerCase() === pendingDm.toLowerCase());
+                    if (match) updates.daerah_mengundi = match.nama;
+                }
+                if (Object.keys(updates).length > 0) {
+                    setData(prev => ({ ...prev, ...updates }));
                 }
             } catch (error) {
                 console.error('Error fetching KADUN/DM:', error);
