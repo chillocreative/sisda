@@ -125,15 +125,37 @@ class DptParserService
                     $name = trim($na[1]);
                 }
 
-                $noIc = $icPartial . '0000';
                 $isDeceased = ($currentSection === 'deceased');
+                $nameUpper = strtoupper(trim($name));
+
+                // Check if this person already exists (same 8-digit prefix + same name)
+                $existingByName = DB::table('pangkalan_data_pengundi')
+                    ->where('no_ic', 'like', $icPartial . '%')
+                    ->where('nama', $nameUpper)
+                    ->first();
+
+                if ($existingByName) {
+                    $noIc = $existingByName->no_ic; // Use existing IC
+                } else {
+                    // Find next available suffix for this 8-digit prefix
+                    $lastIc = DB::table('pangkalan_data_pengundi')
+                        ->where('no_ic', 'like', $icPartial . '%')
+                        ->orderBy('no_ic', 'desc')
+                        ->value('no_ic');
+
+                    if ($lastIc) {
+                        $lastSuffix = (int) substr($lastIc, 8);
+                        $noIc = $icPartial . str_pad($lastSuffix + 1, 4, '0', STR_PAD_LEFT);
+                    } else {
+                        $noIc = $icPartial . '0000';
+                    }
+                }
 
                 try {
-                    // Use direct DB insert/update for reliability
                     $existing = DB::table('pangkalan_data_pengundi')->where('no_ic', $noIc)->first();
 
                     $baseData = [
-                        'nama' => strtoupper(trim($name)),
+                        'nama' => $nameUpper,
                         'daerah_mengundi' => $daerahMengundi,
                         'lokaliti' => $lokalitiName,
                         'parlimen' => $parlimen,
