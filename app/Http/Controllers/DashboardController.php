@@ -459,20 +459,13 @@ class DashboardController extends Controller
     {
         $user = $user ?? auth()->user();
 
-        if ($user->isSuperAdmin()) {
+        if ($user->isSuperAdmin() || $user->isAdmin()) {
             return true;
         }
 
-        if ($user->isAdmin()) {
-            return $hasilCulaan->bandar === ($user->bandar->nama ?? '');
-        }
-
-        if ($user->isUser()) {
-            return $hasilCulaan->submitted_by === $user->id 
-                && $hasilCulaan->kadun === ($user->kadun->nama ?? '');
-        }
-
-        return false;
+        // User can edit if: same parlimen OR they submitted the record
+        return $hasilCulaan->bandar === ($user->bandar->nama ?? '')
+            || $hasilCulaan->submitted_by === $user->id;
     }
 
     /**
@@ -482,18 +475,13 @@ class DashboardController extends Controller
     {
         $user = $user ?? auth()->user();
 
-        if ($user->isSuperAdmin()) {
+        if ($user->isSuperAdmin() || $user->isAdmin()) {
             return true;
         }
 
-        if ($user->isAdmin()) {
-            return $dataPengundi->bandar === ($user->bandar->nama ?? '');
-        }
-
-        if ($user->isUser()) {
-            return $dataPengundi->submitted_by === $user->id 
-                && $dataPengundi->kadun === ($user->kadun->nama ?? '');
-        }
+        // User can edit if: same parlimen OR they submitted the record
+        return $dataPengundi->bandar === ($user->bandar->nama ?? '')
+            || $dataPengundi->submitted_by === $user->id;
 
         return false;
     }

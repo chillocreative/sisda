@@ -1179,23 +1179,13 @@ class ReportsController extends Controller
     {
         $user = $user ?? auth()->user();
 
-        // Super Admin can modify everything
-        if ($user->isSuperAdmin()) {
+        if ($user->isSuperAdmin() || $user->isAdmin()) {
             return true;
         }
 
-        // Admin can modify records in their territory (Bandar)
-        if ($user->isAdmin()) {
-            return $hasilCulaan->bandar === ($user->bandar->nama ?? '');
-        }
-
-        // Regular users can only modify their own submissions within their territory
-        if ($user->isUser()) {
-            return $hasilCulaan->submitted_by === $user->id 
-                && $hasilCulaan->kadun === ($user->kadun->nama ?? '');
-        }
-
-        return false;
+        // User can edit if: same parlimen OR they submitted the record
+        return $hasilCulaan->bandar === ($user->bandar->nama ?? '')
+            || $hasilCulaan->submitted_by === $user->id;
     }
 
     /**
@@ -1205,22 +1195,12 @@ class ReportsController extends Controller
     {
         $user = $user ?? auth()->user();
 
-        // Super Admin can modify everything
-        if ($user->isSuperAdmin()) {
+        if ($user->isSuperAdmin() || $user->isAdmin()) {
             return true;
         }
 
-        // Admin can modify records in their territory (Bandar)
-        if ($user->isAdmin()) {
-            return $dataPengundi->bandar_id === $user->bandar_id;
-        }
-
-        // Regular users can only modify their own submissions within their territory
-        if ($user->isUser()) {
-            return $dataPengundi->submitted_by === $user->id 
-                && $dataPengundi->kadun_id === $user->kadun_id;
-        }
-
-        return false;
+        // User can edit if: same parlimen OR they submitted the record
+        return $dataPengundi->bandar === ($user->bandar->nama ?? '')
+            || $dataPengundi->submitted_by === $user->id;
     }
 }
