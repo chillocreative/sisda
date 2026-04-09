@@ -655,24 +655,45 @@ class ReportsController extends Controller
 
         $prefill = null;
         if ($request->filled('ic')) {
-            $activeBatch = \App\Models\UploadBatch::where('is_active', true)->first();
-            if ($activeBatch) {
-                $voter = \App\Models\PangkalanDataPengundi::where('upload_batch_id', $activeBatch->id)
-                    ->where('no_ic', $request->input('ic'))
-                    ->first();
-                if ($voter) {
-                    $tc = fn($s) => $s ? ucwords(strtolower($s)) : null;
-                    $prefill = [
-                        'no_ic'           => $voter->no_ic,
-                        'nama'            => $voter->nama,
-                        'bangsa'          => $voter->bangsa,
-                        'negeri'          => $tc($voter->negeri),
-                        'parlimen'        => $tc($voter->parlimen),
-                        'kadun'           => $tc($voter->kadun),
-                        'daerah_mengundi' => $voter->daerah_mengundi,
-                        'lokaliti'        => $voter->lokaliti,
-                    ];
+            // Search ALL voter records (upload batch + DPT)
+            $voter = \App\Models\PangkalanDataPengundi::where('no_ic', $request->input('ic'))->first();
+
+            if ($voter) {
+                $tc = fn($s) => $s ? ucwords(strtolower($s)) : null;
+
+                // Auto-detect KADUN from Daerah Mengundi
+                $kadun = $tc($voter->kadun);
+                if (!$kadun && $voter->daerah_mengundi) {
+                    $dm = DaerahMengundi::where('nama', $voter->daerah_mengundi)->first();
+                    if ($dm && $dm->kadun_id) {
+                        $kadunModel = \App\Models\Kadun::find($dm->kadun_id);
+                        $kadun = $kadunModel?->nama;
+                    }
+                    // Also try matching via bandar
+                    if (!$kadun && $voter->parlimen) {
+                        $bandar = \App\Models\Bandar::where('nama', 'like', '%' . $voter->parlimen . '%')->first();
+                        if ($bandar) {
+                            $dm = DaerahMengundi::where('nama', $voter->daerah_mengundi)
+                                ->where('bandar_id', $bandar->id)
+                                ->first();
+                            if ($dm && $dm->kadun_id) {
+                                $kadunModel = \App\Models\Kadun::find($dm->kadun_id);
+                                $kadun = $kadunModel?->nama;
+                            }
+                        }
+                    }
                 }
+
+                $prefill = [
+                    'no_ic'           => $voter->no_ic,
+                    'nama'            => $voter->nama,
+                    'bangsa'          => $voter->bangsa,
+                    'negeri'          => $tc($voter->negeri),
+                    'parlimen'        => $tc($voter->parlimen),
+                    'kadun'           => $kadun,
+                    'daerah_mengundi' => $voter->daerah_mengundi,
+                    'lokaliti'        => $voter->lokaliti,
+                ];
             }
         }
 

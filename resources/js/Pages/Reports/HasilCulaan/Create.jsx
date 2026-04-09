@@ -568,15 +568,16 @@ export default function Create({
                                 <p className="text-xs text-slate-500 mt-1">Hanya angka sahaja (contoh: 900101145678)</p>
                                 {showSuggestions && icSuggestions.length > 0 && (
                                     <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                                        {icSuggestions.map((voter) => (
+                                        {icSuggestions.map((voter, idx) => (
                                             <button
-                                                key={voter.no_ic}
+                                                key={voter.no_ic + '-' + idx}
                                                 type="button"
                                                 onClick={() => handleSuggestionClick(voter)}
                                                 className="w-full text-left px-4 py-2.5 hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0"
                                             >
                                                 <span className="font-mono text-sm font-medium text-slate-900">{voter.no_ic}</span>
                                                 <span className="ml-2 text-sm text-slate-500">{voter.nama}</span>
+                                                {voter.daerah_mengundi && <span className="ml-1 text-xs text-slate-400">({voter.daerah_mengundi})</span>}
                                             </button>
                                         ))}
                                     </div>
