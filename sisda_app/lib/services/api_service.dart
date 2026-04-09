@@ -4,93 +4,127 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   static const String baseUrl = 'https://sistemdatapengundi.com';
-  static String? _sessionCookie;
-  static String? _xsrfToken;
-
-  static Future<void> _fetchCsrfToken() async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/sanctum/csrf-cookie'),
-      headers: {'Accept': 'application/json'},
-    );
-    final cookies = response.headers['set-cookie'];
-    if (cookies != null) {
-      _parseCookies(cookies);
-    }
-  }
-
-  static void _parseCookies(String cookieHeader) {
-    for (var cookie in cookieHeader.split(',')) {
-      cookie = cookie.trim();
-      if (cookie.startsWith('XSRF-TOKEN=')) {
-        _xsrfToken = Uri.decodeFull(cookie.split(';').first.split('=').sublist(1).join('='));
-      }
-      if (cookie.startsWith('sisda-session=') || cookie.startsWith('laravel_session=')) {
-        _sessionCookie = cookie.split(';').first;
-      }
-    }
-  }
+  static String? _token;
 
   static Map<String, String> get _headers => {
     'Accept': 'application/json',
     'Content-Type': 'application/json',
-    if (_xsrfToken != null) 'X-XSRF-TOKEN': _xsrfToken!,
-    if (_sessionCookie != null) 'Cookie': _sessionCookie!,
+    if (_token != null) 'Authorization': 'Bearer $_token',
   };
 
+  // ── Login ──
   static Future<Map<String, dynamic>> login(String telephone, String password) async {
-    await _fetchCsrfToken();
-
     final response = await http.post(
-      Uri.parse('$baseUrl/login'),
-      headers: _headers,
-      body: jsonEncode({'telephone': telephone, 'password': password, 'remember': true}),
+      Uri.parse('$baseUrl/api/mobile/login'),
+      headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+      body: jsonEncode({'telephone': telephone, 'password': password}),
     );
 
-    if (response.headers['set-cookie'] != null) {
-      _parseCookies(response.headers['set-cookie']!);
+    final body = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+
+    if (response.statusCode == 200 && body['success'] == true) {
+      _token = body['token'];
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('auth_token', _token!);
+      return {'success': true, 'user': body['user']};
     }
 
-    if (response.statusCode == 200 || response.statusCode == 302) {
-      // Save credentials for session
-      final prefs = await SharedPreferences.getInstance();
-      if (_sessionCookie != null) {
-        await prefs.setString('session_cookie', _sessionCookie!);
-      }
-      if (_xsrfToken != null) {
-        await prefs.setString('xsrf_token', _xsrfToken!);
-      }
+    return {'success': false, 'errors': body['errors'] ?? {'telephone': ['Log masuk gagal.']}};
+  }
+
+  // ── Register ──
+  static Future<Map<String, dynamic>> register({
+    required String name,
+    required String telephone,
+    String? email,
+    required String password,
+    required String passwordConfirmation,
+    required int negeriId,
+    required int bandarId,
+    required int kadunId,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/mobile/register'),
+      headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'name': name,
+        'telephone': telephone,
+        'email': email,
+        'password': password,
+        'password_confirmation': passwordConfirmation,
+        'negeri_id': negeriId,
+        'bandar_id': bandarId,
+        'kadun_id': kadunId,
+      }),
+    );
+
+    final body = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+
+    if (response.statusCode == 200 && body['success'] == true) {
       return {'success': true};
     }
 
-    final body = response.body.isNotEmpty ? jsonDecode(response.body) : {};
-    return {'success': false, 'errors': body['errors'] ?? {'telephone': ['Login gagal']}};
+    return {'success': false, 'errors': body['errors'] ?? {'general': ['Pendaftaran gagal.']}};
   }
 
-  static Future<Map<String, dynamic>?> searchIc(String ic) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/api/voter/search-ic?ic=$ic'),
-      headers: _headers,
+  // ── Forgot Password ──
+  static Future<Map<String, dynamic>> forgotPassword(String telephone) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/mobile/forgot-password'),
+      headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+      body: jsonEncode({'telephone': telephone}),
     );
-    if (response.statusCode == 200 && response.body.isNotEmpty) {
-      return jsonDecode(response.body);
+
+    final body = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+
+    if (response.statusCode == 200 && body['success'] == true) {
+      return {'success': true, 'message': body['message'], 'password': body['password']};
     }
+
+    return {'success': false, 'errors': body['errors'] ?? {'telephone': ['Nombor telefon tidak dijumpai.']}};
+  }
+
+  // ── Dropdown data for registration ──
+  static Future<List<dynamic>> getNegeriList() async {
+    final response = await http.get(Uri.parse('$baseUrl/api/mobile/negeri-list'), headers: _headers);
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    return [];
+  }
+
+  static Future<List<dynamic>> getBandarByNegeri(int negeriId) async {
+    final response = await http.get(Uri.parse('$baseUrl/api/mobile/bandar-by-negeri?negeri_id=$negeriId'), headers: _headers);
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    return [];
+  }
+
+  static Future<List<dynamic>> getKadunByBandar(int bandarId) async {
+    final response = await http.get(Uri.parse('$baseUrl/api/mobile/kadun-by-bandar?bandar_id=$bandarId'), headers: _headers);
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    return [];
+  }
+
+  // ── IC Search ──
+  static Future<Map<String, dynamic>?> searchIc(String ic) async {
+    final response = await http.get(Uri.parse('$baseUrl/api/voter/search-ic?ic=$ic'), headers: _headers);
+    if (response.statusCode == 200 && response.body.isNotEmpty) return jsonDecode(response.body);
     return null;
   }
 
-  static String? get sessionCookie => _sessionCookie;
-  static String? get xsrfToken => _xsrfToken;
+  static String? get token => _token;
 
+  // ── Session persistence ──
   static Future<void> loadSavedSession() async {
     final prefs = await SharedPreferences.getInstance();
-    _sessionCookie = prefs.getString('session_cookie');
-    _xsrfToken = prefs.getString('xsrf_token');
+    _token = prefs.getString('auth_token');
   }
 
+  // ── Logout ──
   static Future<void> logout() async {
+    try {
+      await http.post(Uri.parse('$baseUrl/api/mobile/logout'), headers: _headers);
+    } catch (_) {}
+    _token = null;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('session_cookie');
-    await prefs.remove('xsrf_token');
-    _sessionCookie = null;
-    _xsrfToken = null;
+    await prefs.remove('auth_token');
   }
 }

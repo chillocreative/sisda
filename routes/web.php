@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
-use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -20,21 +19,20 @@ Route::get('/dashboard/search-ic', [\App\Http\Controllers\DashboardController::c
     ->middleware(['auth', 'verified'])
     ->name('dashboard.search-ic');
 
-
 // DEBUG: Check pending count
 Route::get('/debug-pending-count', function () {
     $user = auth()->user();
-    if (!$user) {
+    if (! $user) {
         return response()->json(['error' => 'Not authenticated']);
     }
-    
+
     $query = \App\Models\User::pending();
     if ($user->isAdmin()) {
         $query->where('bandar_id', $user->bandar_id);
     }
     $count = $query->count();
     $pendingUsers = $query->get(['id', 'name', 'bandar_id', 'status']);
-    
+
     return response()->json([
         'user_id' => $user->id,
         'user_name' => $user->name,
@@ -43,7 +41,7 @@ Route::get('/debug-pending-count', function () {
         'is_admin' => $user->isAdmin(),
         'is_super_admin' => $user->isSuperAdmin(),
         'pending_count' => $count,
-        'pending_users' => $pendingUsers
+        'pending_users' => $pendingUsers,
     ]);
 })->middleware('auth');
 
@@ -66,11 +64,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-    
+
     // Users management
     Route::resource('users', \App\Http\Controllers\UsersController::class);
     Route::post('/users/bulk-delete', [\App\Http\Controllers\UsersController::class, 'bulkDelete'])->name('users.bulk-delete');
-    
+
     // Call Center (Super Admin only)
     Route::get('/call-center', [\App\Http\Controllers\CallCenterController::class, 'index'])->name('call-center.index');
     Route::get('/call-center/scripts', [\App\Http\Controllers\CallCenterController::class, 'scripts'])->name('call-center.scripts.index');
@@ -78,16 +76,16 @@ Route::middleware('auth')->group(function () {
     Route::get('/call-center/analytics', [\App\Http\Controllers\CallCenterController::class, 'analytics'])->name('call-center.analytics.index');
     Route::get('/call-center/analytics/ai', [\App\Http\Controllers\CallCenterController::class, 'aiAnalytics'])->name('call-center.analytics.ai');
     Route::get('/call-center/history', [\App\Http\Controllers\CallCenterController::class, 'history'])->name('call-center.history.index');
-    
+
     // Master Data
     Route::get('/master-data', [\App\Http\Controllers\MasterDataController::class, 'index'])->name('master-data.index');
-    
+
     // Negeri
     Route::get('/master-data/negeri', [\App\Http\Controllers\MasterDataController::class, 'negeriIndex'])->name('master-data.negeri.index');
     Route::post('/master-data/negeri', [\App\Http\Controllers\MasterDataController::class, 'negeriStore'])->name('master-data.negeri.store');
     Route::put('/master-data/negeri/{negeri}', [\App\Http\Controllers\MasterDataController::class, 'negeriUpdate'])->name('master-data.negeri.update');
     Route::delete('/master-data/negeri/{negeri}', [\App\Http\Controllers\MasterDataController::class, 'negeriDestroy'])->name('master-data.negeri.destroy');
-    
+
     // Bandar
     Route::get('/master-data/bandar', [\App\Http\Controllers\MasterDataController::class, 'bandarIndex'])->name('master-data.bandar.index');
     Route::post('/master-data/bandar', [\App\Http\Controllers\MasterDataController::class, 'bandarStore'])->name('master-data.bandar.store');
@@ -170,7 +168,7 @@ Route::middleware('auth')->group(function () {
 
     // Reorder Master Data
     Route::post('/master-data/reorder', [\App\Http\Controllers\MasterDataController::class, 'reorder'])->name('master-data.reorder');
-        
+
     // Reports
     Route::get('/reports', [\App\Http\Controllers\ReportsController::class, 'index'])->name('reports.index');
     Route::get('/reports/hasil-culaan', [\App\Http\Controllers\ReportsController::class, 'hasilCulaanIndex'])->name('reports.hasil-culaan.index');
@@ -232,19 +230,19 @@ Route::middleware('auth')->group(function () {
                 $messages[] = "Synced master data from batch: {$active->nama_fail} (ID: {$active->id})";
 
                 // Show counts
-                $messages[] = "Negeri: " . \App\Models\Negeri::count();
-                $messages[] = "Parlimen: " . \App\Models\Bandar::count();
-                $messages[] = "KADUN: " . \App\Models\Kadun::count();
-                $messages[] = "Daerah Mengundi: " . \App\Models\DaerahMengundi::count();
-                $messages[] = "Lokaliti: " . \App\Models\Lokaliti::count();
+                $messages[] = 'Negeri: '.\App\Models\Negeri::count();
+                $messages[] = 'Parlimen: '.\App\Models\Bandar::count();
+                $messages[] = 'KADUN: '.\App\Models\Kadun::count();
+                $messages[] = 'Daerah Mengundi: '.\App\Models\DaerahMengundi::count();
+                $messages[] = 'Lokaliti: '.\App\Models\Lokaliti::count();
             } catch (\Exception $e) {
-                $messages[] = "Error: " . $e->getMessage();
+                $messages[] = 'Error: '.$e->getMessage();
             }
         } else {
-            $messages[] = "No active batch found.";
+            $messages[] = 'No active batch found.';
         }
 
-        return implode("<br>", $messages);
+        return implode('<br>', $messages);
     });
 
     // Debug: test Lokaliti API directly
@@ -255,7 +253,7 @@ Route::middleware('auth')->group(function () {
 
         // Check master data
         $dmRecords = \App\Models\DaerahMengundi::whereRaw('LOWER(nama) = ?', [strtolower($dm)])->get();
-        $messages[] = "DM records found in master data: " . $dmRecords->count();
+        $messages[] = 'DM records found in master data: '.$dmRecords->count();
         foreach ($dmRecords as $r) {
             $lokCount = \App\Models\Lokaliti::where('daerah_mengundi_id', $r->id)->count();
             $messages[] = "  DM id={$r->id} nama='{$r->nama}' bandar_id={$r->bandar_id} → {$lokCount} Lokaliti";
@@ -270,15 +268,15 @@ Route::middleware('auth')->group(function () {
                 ->where('lokaliti', '!=', '')
                 ->distinct()
                 ->pluck('lokaliti');
-            $messages[] = "Voter DB lokaliti for this DM: " . $voterLokaliti->count();
+            $messages[] = 'Voter DB lokaliti for this DM: '.$voterLokaliti->count();
             foreach ($voterLokaliti as $l) {
                 $messages[] = "  - {$l}";
             }
         } else {
-            $messages[] = "No active batch!";
+            $messages[] = 'No active batch!';
         }
 
-        return implode("<br>", $messages);
+        return implode('<br>', $messages);
     });
 
     // Diagnostic: check Lokaliti linkage for a DM
@@ -304,39 +302,58 @@ Route::middleware('auth')->group(function () {
         $messages[] = "Lokaliti with NULL daerah_mengundi_id: {$nullCount}";
 
         // Show total counts
-        $messages[] = "---";
-        $messages[] = "Total Lokaliti: " . \App\Models\Lokaliti::count();
-        $messages[] = "Total DM: " . \App\Models\DaerahMengundi::count();
+        $messages[] = '---';
+        $messages[] = 'Total Lokaliti: '.\App\Models\Lokaliti::count();
+        $messages[] = 'Total DM: '.\App\Models\DaerahMengundi::count();
 
-        return implode("<br>", $messages);
+        return implode('<br>', $messages);
     });
 });
 
-    // Sendora Settings (super_admin only)
-    Route::get('/settings/sendora', [\App\Http\Controllers\SendoraSettingController::class, 'index'])->name('settings.sendora');
-    Route::post('/settings/sendora', [\App\Http\Controllers\SendoraSettingController::class, 'update'])->name('settings.sendora.update');
-    Route::post('/settings/sendora/test-connection', [\App\Http\Controllers\SendoraSettingController::class, 'testConnection'])->name('settings.sendora.test');
-    Route::post('/settings/sendora/test-send', [\App\Http\Controllers\SendoraSettingController::class, 'testSend'])->name('settings.sendora.test-send');
+// Sendora Settings (super_admin only)
+Route::get('/settings/sendora', [\App\Http\Controllers\SendoraSettingController::class, 'index'])->name('settings.sendora');
+Route::post('/settings/sendora', [\App\Http\Controllers\SendoraSettingController::class, 'update'])->name('settings.sendora.update');
+Route::post('/settings/sendora/test-connection', [\App\Http\Controllers\SendoraSettingController::class, 'testConnection'])->name('settings.sendora.test');
+Route::post('/settings/sendora/test-send', [\App\Http\Controllers\SendoraSettingController::class, 'testSend'])->name('settings.sendora.test-send');
 
-    // Edit History
-    Route::get('/api/edit-history', function (\Illuminate\Http\Request $request) {
-        return \App\Models\EditHistory::where('model_type', $request->model_type)
-            ->where('model_id', $request->model_id)
-            ->with('user:id,name')
-            ->orderBy('created_at', 'desc')
-            ->get();
-    })->name('api.edit-history');
-    Route::delete('/edit-history/{editHistory}', [\App\Http\Controllers\ReportsController::class, 'deleteHistory'])->name('edit-history.destroy');
+// Edit History
+Route::get('/api/edit-history', function (\Illuminate\Http\Request $request) {
+    return \App\Models\EditHistory::where('model_type', $request->model_type)
+        ->where('model_id', $request->model_id)
+        ->with('user:id,name')
+        ->orderBy('created_at', 'desc')
+        ->get();
+})->name('api.edit-history');
+Route::delete('/edit-history/{editHistory}', [\App\Http\Controllers\ReportsController::class, 'deleteHistory'])->name('edit-history.destroy');
 
-    // DPT Upload (super_admin only)
-    Route::get('/dpt-upload', [\App\Http\Controllers\DptUploadController::class, 'index'])->name('dpt-upload.index');
-    Route::post('/dpt-upload', [\App\Http\Controllers\DptUploadController::class, 'upload'])->name('dpt-upload.upload');
-    Route::get('/debug-dpt', [\App\Http\Controllers\DptUploadController::class, 'debug'])->name('dpt-upload.debug');
-    Route::delete('/dpt-upload/{dptUpload}', [\App\Http\Controllers\DptUploadController::class, 'destroy'])->name('dpt-upload.destroy');
+// DPT Upload (super_admin only)
+Route::get('/dpt-upload', [\App\Http\Controllers\DptUploadController::class, 'index'])->name('dpt-upload.index');
+Route::post('/dpt-upload', [\App\Http\Controllers\DptUploadController::class, 'upload'])->name('dpt-upload.upload');
+Route::get('/debug-dpt', [\App\Http\Controllers\DptUploadController::class, 'debug'])->name('dpt-upload.debug');
+Route::delete('/dpt-upload/{dptUpload}', [\App\Http\Controllers\DptUploadController::class, 'destroy'])->name('dpt-upload.destroy');
 
-    // Claude AI Settings (super_admin only)
-    Route::get('/settings/claude', [\App\Http\Controllers\ClaudeSettingController::class, 'index'])->name('settings.claude');
-    Route::post('/settings/claude', [\App\Http\Controllers\ClaudeSettingController::class, 'update'])->name('settings.claude.update');
-    Route::post('/settings/claude/test-connection', [\App\Http\Controllers\ClaudeSettingController::class, 'testConnection'])->name('settings.claude.test');
+// Claude AI Settings (super_admin only)
+Route::get('/settings/claude', [\App\Http\Controllers\ClaudeSettingController::class, 'index'])->name('settings.claude');
+Route::post('/settings/claude', [\App\Http\Controllers\ClaudeSettingController::class, 'update'])->name('settings.claude.update');
+Route::post('/settings/claude/test-connection', [\App\Http\Controllers\ClaudeSettingController::class, 'testConnection'])->name('settings.claude.test');
+
+// Mobile app API routes (token-based auth via Sanctum)
+Route::prefix('api/mobile')->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class])->group(function () {
+    // Public routes (no auth)
+    Route::post('/login', [\App\Http\Controllers\Api\MobileAuthController::class, 'login']);
+    Route::post('/register', [\App\Http\Controllers\Api\MobileAuthController::class, 'register']);
+    Route::post('/forgot-password', [\App\Http\Controllers\Api\MobileAuthController::class, 'forgotPassword']);
+    Route::get('/negeri-list', function () {
+        return \App\Models\Negeri::orderBy('nama')->get(['id', 'nama']);
+    });
+    Route::get('/bandar-by-negeri', function (\Illuminate\Http\Request $request) {
+        return \App\Models\Bandar::where('negeri_id', $request->negeri_id)->orderBy('nama')->get(['id', 'nama']);
+    });
+    Route::get('/kadun-by-bandar', function (\Illuminate\Http\Request $request) {
+        return \App\Models\Kadun::where('bandar_id', $request->bandar_id)->orderBy('nama')->get(['id', 'nama']);
+    });
+    // Authenticated route (requires Sanctum token)
+    Route::post('/logout', [\App\Http\Controllers\Api\MobileAuthController::class, 'logout'])->middleware('auth:sanctum');
+});
 
 require __DIR__.'/auth.php';

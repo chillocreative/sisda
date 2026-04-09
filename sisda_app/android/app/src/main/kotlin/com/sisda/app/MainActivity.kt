@@ -1,4 +1,4 @@
-package com.example.sisda_app
+package com.sisda.app
 
 import io.flutter.embedding.android.FlutterActivity
 

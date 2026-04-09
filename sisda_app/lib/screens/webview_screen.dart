@@ -41,7 +41,6 @@ class _WebViewScreenState extends State<WebViewScreen> {
         onPageStarted: (_) { if (mounted) setState(() => _isLoading = true); },
         onPageFinished: (_) { if (mounted) setState(() => _isLoading = false); },
         onNavigationRequest: (request) {
-          // Keep navigation within the app
           if (request.url.contains('sistemdatapengundi.com')) {
             return NavigationDecision.navigate;
           }
@@ -49,21 +48,11 @@ class _WebViewScreenState extends State<WebViewScreen> {
         },
       ));
 
-    // Set cookies for authenticated session
-    final cookieManager = WebViewCookieManager();
-    if (ApiService.sessionCookie != null) {
-      final parts = ApiService.sessionCookie!.split('=');
-      if (parts.length >= 2) {
-        cookieManager.setCookie(WebViewCookie(
-          name: parts[0],
-          value: parts.sublist(1).join('='),
-          domain: 'sistemdatapengundi.com',
-          path: '/',
-        ));
-      }
-    }
-
-    _controller.loadRequest(Uri.parse('${ApiService.baseUrl}$_currentPath'));
+    // Load the page with token auth header
+    _controller.loadRequest(
+      Uri.parse('${ApiService.baseUrl}$_currentPath'),
+      headers: ApiService.token != null ? {'Authorization': 'Bearer ${ApiService.token}'} : {},
+    );
   }
 
   @override
