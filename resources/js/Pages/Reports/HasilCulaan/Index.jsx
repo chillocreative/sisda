@@ -52,8 +52,13 @@ export default function Index({ hasilCulaan, icCounts = {}, filters, currentUser
         }
     }, [viewingItem]);
 
-    // All users can view and edit all records
-    const canModifyRecord = () => true;
+    // Permission: same parlimen OR original creator
+    const canModifyRecord = (item) => {
+        if (user.role === 'super_admin') return true;
+        if (user.role === 'admin') return true;
+        // User can edit if: same parlimen OR they submitted the record
+        return item.bandar === user.bandar?.nama || item.submitted_by?.id === user.id;
+    };
 
     const ownItemsOnPage = hasilCulaan.data.filter(canModifyRecord);
 

@@ -48,7 +48,7 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'app_url' => url('/'),
             'auth' => [
-                'user' => $user,
+                'user' => $user ? $user->load('bandar:id,nama', 'kadun:id,nama') : null,
                 'pendingApprovalsCount' => $pendingApprovalsCount,
                 'mustChangePassword' => false,
             ],
