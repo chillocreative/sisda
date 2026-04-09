@@ -305,23 +305,28 @@ export default function Create({
     // Auto-lookup voter database when IC is 8 or 12 digits - populate Maklumat Peribadi & Kawasan Mengundi
     useEffect(() => {
         if (data.no_ic.length === 12 || data.no_ic.length === 8) {
-            const searchIc = data.no_ic.length === 8 ? data.no_ic + '0000' : data.no_ic;
-            axios.get(route('api.voter.search-ic'), { params: { ic: searchIc } })
+            axios.get(route('api.voter.search-ic'), { params: { ic: data.no_ic } })
                 .then(res => {
-                    if (res.data) {
+                    if (res.data?.multiple && res.data.voters?.length > 0) {
+                        // Multiple matches — show as suggestions
+                        setIcSuggestions(res.data.voters);
+                        setShowSuggestions(true);
+                    } else if (res.data && !res.data.multiple) {
+                        // Single match — auto-fill
+                        const voter = res.data;
                         pendingVoterData.current = {
-                            parlimen: res.data.parlimen || null,
-                            kadun: res.data.kadun || null,
-                            daerah_mengundi: res.data.daerah_mengundi || null,
-                            lokaliti: res.data.lokaliti || null,
+                            parlimen: voter.parlimen || null,
+                            kadun: voter.kadun || null,
+                            daerah_mengundi: voter.daerah_mengundi || null,
+                            lokaliti: voter.lokaliti || null,
                         };
-                        const parlimenMatch = parlimenList.find(p => p.nama.toLowerCase() === (res.data.parlimen || '').toLowerCase());
+                        const parlimenMatch = parlimenList.find(p => p.nama.toLowerCase() === (voter.parlimen || '').toLowerCase());
                         setData(prev => ({
                             ...prev,
-                            no_ic: searchIc,
-                            nama: res.data.nama || prev.nama,
-                            bangsa: res.data.bangsa || prev.bangsa,
-                            negeri: res.data.negeri ? toTitleCase(res.data.negeri) : prev.negeri,
+                            no_ic: voter.no_ic || prev.no_ic,
+                            nama: voter.nama || prev.nama,
+                            bangsa: voter.bangsa || prev.bangsa,
+                            negeri: voter.negeri ? toTitleCase(voter.negeri) : prev.negeri,
                             parlimen: parlimenMatch ? parlimenMatch.nama : prev.parlimen,
                         }));
                     }

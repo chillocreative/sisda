@@ -115,15 +115,28 @@ class UploadDatabaseController extends Controller
     {
         $ic = $request->ic;
 
-        // Search exact match first
-        $voter = PangkalanDataPengundi::where('no_ic', $ic)->first();
-
-        // If not found and IC is 8 digits, try with 0000 suffix (DPT format)
-        if (!$voter && strlen($ic) === 8) {
-            $voter = PangkalanDataPengundi::where('no_ic', $ic . '0000')->first();
+        // For 12-digit IC, return single exact match
+        if (strlen($ic) === 12) {
+            $voter = PangkalanDataPengundi::where('no_ic', $ic)->first();
+            return response()->json($voter);
         }
 
-        return response()->json($voter);
+        // For partial IC (6-11 digits), return all matches with that prefix
+        $voters = PangkalanDataPengundi::where('no_ic', 'like', $ic . '%')
+            ->limit(15)
+            ->get(['no_ic', 'nama', 'lokaliti', 'daerah_mengundi', 'kadun', 'parlimen', 'negeri', 'bangsa']);
+
+        // If only one match, return as single object (backward compatible)
+        if ($voters->count() === 1) {
+            return response()->json($voters->first());
+        }
+
+        // If multiple matches, return as array
+        if ($voters->count() > 1) {
+            return response()->json(['multiple' => true, 'voters' => $voters]);
+        }
+
+        return response()->json(null);
     }
 
     private function deleteDirectory(string $dir): void
