@@ -28,18 +28,27 @@ export default function Index({ hasilCulaan, icCounts = {}, filters, currentUser
     const [viewingImage, setViewingImage] = useState(null);
     const [viewHistory, setViewHistory] = useState([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
+    const [editHistory, setEditHistory] = useState([]);
     const scrollRef = useDragScroll();
 
-    // Load bantuan history when viewing a record with multiple entries
+    // Load bantuan history and edit history when viewing a record
     useEffect(() => {
-        if (viewingItem && icCounts[viewingItem.no_ic]) {
-            setLoadingHistory(true);
-            axios.get(route('api.hasil-culaan.by-ic'), { params: { ic: viewingItem.no_ic } })
-                .then(res => setViewHistory(res.data || []))
-                .catch(() => setViewHistory([]))
-                .finally(() => setLoadingHistory(false));
+        if (viewingItem) {
+            if (icCounts[viewingItem.no_ic]) {
+                setLoadingHistory(true);
+                axios.get(route('api.hasil-culaan.by-ic'), { params: { ic: viewingItem.no_ic } })
+                    .then(res => setViewHistory(res.data || []))
+                    .catch(() => setViewHistory([]))
+                    .finally(() => setLoadingHistory(false));
+            } else {
+                setViewHistory([]);
+            }
+            axios.get('/api/edit-history', { params: { model_type: 'hasil_culaan', model_id: viewingItem.id } })
+                .then(res => setEditHistory(res.data || []))
+                .catch(() => setEditHistory([]));
         } else {
             setViewHistory([]);
+            setEditHistory([]);
         }
     }, [viewingItem]);
 
@@ -626,6 +635,28 @@ export default function Index({ hasilCulaan, icCounts = {}, filters, currentUser
                             )}
                             {loadingHistory && (
                                 <div className="pt-4 text-center text-sm text-slate-400">Memuatkan sejarah...</div>
+                            )}
+
+                            {/* Edit History */}
+                            {editHistory.length > 0 && (
+                                <div className="pt-6 border-t border-slate-100">
+                                    <h3 className="text-sm font-semibold text-slate-900 mb-3">Sejarah Pengemaskinian</h3>
+                                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                                        {editHistory.map((h) => (
+                                            <div key={h.id} className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                                                <p className="text-xs font-medium text-slate-700">
+                                                    {h.action === 'created' ? 'Dicipta' : 'Dikemaskini'}
+                                                    <span className="ml-1 font-normal text-slate-500">oleh {h.user?.name || '-'}</span>
+                                                </p>
+                                                <p className="text-xs text-slate-400">
+                                                    {new Date(h.created_at).toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                                    {' '}
+                                                    {new Date(h.created_at).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}
+                                                </p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
                             )}
 
                             <div className="flex justify-end pt-6 border-t border-slate-100">

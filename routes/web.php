@@ -319,6 +319,13 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/sendora/test-send', [\App\Http\Controllers\SendoraSettingController::class, 'testSend'])->name('settings.sendora.test-send');
 
     // Edit History
+    Route::get('/api/edit-history', function (\Illuminate\Http\Request $request) {
+        return \App\Models\EditHistory::where('model_type', $request->model_type)
+            ->where('model_id', $request->model_id)
+            ->with('user:id,name')
+            ->orderBy('created_at', 'desc')
+            ->get();
+    })->name('api.edit-history');
     Route::delete('/edit-history/{editHistory}', [\App\Http\Controllers\ReportsController::class, 'deleteHistory'])->name('edit-history.destroy');
 
     // DPT Upload (super_admin only)
