@@ -12,14 +12,41 @@ use Inertia\Inertia;
 
 class DptUploadController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $uploads = DptUpload::with('uploader:id,name')
+        $search = trim((string) $request->input('search', ''));
+        $perPage = (int) $request->input('per_page', 20);
+        if (!in_array($perPage, [10, 20, 50, 100], true)) {
+            $perPage = 20;
+        }
+
+        $query = DptUpload::with('uploader:id,name');
+
+        if ($search !== '') {
+            $like = '%' . $search . '%';
+            $query->where(function ($q) use ($like) {
+                $q->where('label', 'like', $like)
+                    ->orWhere('parlimen', 'like', $like)
+                    ->orWhere('negeri', 'like', $like)
+                    ->orWhere('filename', 'like', $like)
+                    ->orWhere('bulan', 'like', $like)
+                    ->orWhere('tahun', 'like', $like);
+            });
+        }
+
+        $uploads = $query
+            ->orderByRaw("CAST(NULLIF(tahun, '') AS UNSIGNED) DESC")
+            ->orderByRaw("FIELD(bulan, 'JANUARI','FEBRUARI','MAC','APRIL','MEI','JUN','JULAI','OGOS','SEPTEMBER','OKTOBER','NOVEMBER','DISEMBER') DESC")
             ->orderBy('created_at', 'desc')
-            ->paginate(10);
+            ->paginate($perPage)
+            ->withQueryString();
 
         return Inertia::render('DptUpload/Index', [
             'uploads' => $uploads,
+            'filters' => [
+                'search' => $search,
+                'per_page' => $perPage,
+            ],
         ]);
     }
 
@@ -32,12 +59,26 @@ class DptUploadController extends Controller
         $file = $request->file('file');
         $filename = $file->getClientOriginalName();
 
+        $fileHash = hash_file('sha256', $file->getRealPath());
+
+        $existing = DptUpload::where('file_hash', $fileHash)->first();
+        if ($existing) {
+            $when = optional($existing->created_at)->locale('ms')->translatedFormat('j F Y, g:i A');
+            return redirect()->back()->with(
+                'error',
+                "Fail ini telah dimuat naik sebelum ini: \"{$existing->label}\" ({$existing->filename})"
+                . ($when ? " pada {$when}" : '')
+                . '. Sila padam rekod lama jika anda ingin memuat naik semula.'
+            );
+        }
+
         // Store file and get the full absolute path
         $path = $file->store('dpt-uploads', 'local');
         $fullPath = Storage::disk('local')->path($path);
 
         $upload = DptUpload::create([
             'filename' => $filename,
+            'file_hash' => $fileHash,
             'label' => 'Memproses...',
             'status' => 'processing',
             'uploaded_by' => auth()->id(),

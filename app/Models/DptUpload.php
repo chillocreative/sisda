@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class DptUpload extends Model
 {
     protected $fillable = [
-        'filename', 'label', 'parlimen', 'negeri', 'bulan', 'tahun',
+        'filename', 'file_hash', 'label', 'parlimen', 'negeri', 'bulan', 'tahun',
         'tarikh_warta', 'total_records', 'total_deceased', 'total_new',
         'total_moved', 'status', 'error', 'uploaded_by',
     ];

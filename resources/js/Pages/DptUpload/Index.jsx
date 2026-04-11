@@ -1,11 +1,33 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm, usePage, router } from '@inertiajs/react';
-import { Upload, FileText, CheckCircle, XCircle, Trash2, Loader2, Users, UserX, ArrowRightLeft } from 'lucide-react';
-import { useState } from 'react';
+import { Upload, FileText, CheckCircle, XCircle, Trash2, Loader2, Users, UserX, ArrowRightLeft, Search } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
 
-export default function Index({ uploads }) {
+export default function Index({ uploads, filters = {} }) {
     const { flash = {} } = usePage().props;
     const [confirmDelete, setConfirmDelete] = useState(null);
+    const [search, setSearch] = useState(filters.search || '');
+    const [perPage, setPerPage] = useState(filters.per_page || 20);
+    const isFirstRender = useRef(true);
+    const debounceRef = useRef(null);
+
+    useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;
+        }
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
+            router.get(
+                route('dpt-upload.index'),
+                { search, per_page: perPage },
+                { preserveState: true, preserveScroll: true, replace: true }
+            );
+        }, 400);
+        return () => {
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+        };
+    }, [search, perPage]);
 
     const { data, setData, post, processing, progress } = useForm({
         file: null,
@@ -103,8 +125,38 @@ export default function Index({ uploads }) {
                 {/* Upload History */}
                 <div className="bg-white rounded-xl border border-slate-200 p-6">
                     <h2 className="text-lg font-semibold text-slate-900 mb-4">Sejarah Muat Naik DPT</h2>
+
+                    {/* Search & Filter */}
+                    <div className="mb-4 flex flex-col sm:flex-row gap-3">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                            <input
+                                type="text"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                placeholder="Cari label, parlimen, negeri atau nama fail..."
+                                className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+                            />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <label className="text-sm text-slate-600 whitespace-nowrap">Paparkan:</label>
+                            <select
+                                value={perPage}
+                                onChange={(e) => setPerPage(Number(e.target.value))}
+                                className="py-2 pl-3 pr-8 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+                            >
+                                <option value={10}>10</option>
+                                <option value={20}>20</option>
+                                <option value={50}>50</option>
+                                <option value={100}>100</option>
+                            </select>
+                        </div>
+                    </div>
+
                     {uploads.data.length === 0 ? (
-                        <p className="text-sm text-slate-500 text-center py-8">Tiada rekod muat naik DPT lagi.</p>
+                        <p className="text-sm text-slate-500 text-center py-8">
+                            {search ? 'Tiada rekod sepadan dengan carian.' : 'Tiada rekod muat naik DPT lagi.'}
+                        </p>
                     ) : (
                         <div className="space-y-3">
                             {uploads.data.map((upload) => (
@@ -168,6 +220,31 @@ export default function Index({ uploads }) {
                                     </div>
                                 </div>
                             ))}
+                        </div>
+                    )}
+
+                    {uploads.last_page > 1 && (
+                        <div className="mt-4 pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+                            <div className="text-sm text-slate-600">
+                                Menunjukkan {uploads.from} hingga {uploads.to} daripada {uploads.total} rekod
+                            </div>
+                            <div className="flex items-center flex-wrap gap-1">
+                                {uploads.links.map((link, index) => (
+                                    <button
+                                        key={index}
+                                        onClick={() => link.url && router.get(link.url, {}, { preserveState: true, preserveScroll: true })}
+                                        disabled={!link.url}
+                                        className={`px-3 py-1 rounded-lg text-sm transition-colors ${
+                                            link.active
+                                                ? 'bg-slate-900 text-white'
+                                                : link.url
+                                                    ? 'border border-slate-300 text-slate-700 hover:bg-slate-50'
+                                                    : 'border border-slate-200 text-slate-400 cursor-not-allowed'
+                                        }`}
+                                        dangerouslySetInnerHTML={{ __html: link.label }}
+                                    />
+                                ))}
+                            </div>
                         </div>
                     )}
                 </div>
