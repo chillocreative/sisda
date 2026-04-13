@@ -706,7 +706,7 @@ export default function Create({
                     </div>
 
                     {/* Address Information */}
-                    <div className="bg-white rounded-xl border border-slate-200 p-6">
+                    <div className="order-1 bg-white rounded-xl border border-slate-200 p-6">
                         <h2 className="text-lg font-semibold text-slate-900 mb-4">Maklumat Alamat</h2>
                         <div className="grid grid-cols-1 gap-4">
                             <div>
