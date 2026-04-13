@@ -383,7 +383,7 @@ class DashboardController extends Controller
                 'kadun' => $record->kadun,
                 'can_edit' => $canEdit,
                 'edit_url' => $canEdit ? route('reports.hasil-culaan.edit', $record->id) : null,
-                'updated_at' => optional($record->updated_at)->format('d/m/Y H:i'),
+                'updated_at' => optional($record->updated_at)->format('d/m/Y h:i A'),
             ];
         }
 
@@ -412,7 +412,7 @@ class DashboardController extends Controller
                 'kadun' => $record->kadun,
                 'can_edit' => $canEdit,
                 'edit_url' => $canEdit ? route('reports.data-pengundi.edit', $record->id) : null,
-                'updated_at' => optional($record->updated_at)->format('d/m/Y H:i'),
+                'updated_at' => optional($record->updated_at)->format('d/m/Y h:i A'),
             ];
         }
 
