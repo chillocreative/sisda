@@ -446,7 +446,16 @@ export default function Create({
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        post(route('reports.hasil-culaan.store'));
+        post(route('reports.hasil-culaan.store'), {
+            onError: () => {
+                setTimeout(() => {
+                    const firstError = document.querySelector('p.text-rose-600');
+                    if (firstError) {
+                        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }, 50);
+            },
+        });
     };
 
     return (
