@@ -59,13 +59,13 @@ export default function AuthenticatedLayout({ children }) {
     ];
 
     const laporanSubmenu = [
-        { name: 'Hasil Culaan', href: route('reports.hasil-culaan.index'), icon: ClipboardList },
+        { name: 'Data Sumbangan', href: route('reports.hasil-culaan.index'), icon: ClipboardList },
         { name: 'Data Pengundi', href: route('reports.data-pengundi.index'), icon: UserCheck },
     ];
 
     // User role Laporan submenu (list views only)
     const userLaporanSubmenu = [
-        { name: 'Hasil Culaan', href: route('reports.hasil-culaan.index'), icon: ClipboardList },
+        { name: 'Data Sumbangan', href: route('reports.hasil-culaan.index'), icon: ClipboardList },
         { name: 'Data Pengundi', href: route('reports.data-pengundi.index'), icon: UserCheck },
     ];
 
