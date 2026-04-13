@@ -152,7 +152,7 @@ export default function UserDashboard() {
                 <div>
                     <h2 className="text-xl font-semibold text-slate-900 mb-6 text-center">Tindakan Pantas</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        {/* Mula Culaan Button */}
+                        {/* Data Sumbangan Button */}
                         <button
                             onClick={() => router.visit(route('reports.hasil-culaan.create'))}
                             className="group relative bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-600 hover:via-emerald-700 hover:to-emerald-800 text-white rounded-2xl p-12 transition-all duration-300 hover:shadow-2xl hover:shadow-emerald-500/50 hover:-translate-y-2 border-2 border-emerald-400/50"
@@ -163,8 +163,8 @@ export default function UserDashboard() {
                                     <ClipboardList className="h-16 w-16" strokeWidth={2.5} />
                                 </div>
                                 <div>
-                                    <h3 className="text-3xl font-bold mb-3 drop-shadow-lg">Mula Culaan</h3>
-                                    <p className="text-lg text-emerald-50 font-medium">Tambah data hasil culaan baru</p>
+                                    <h3 className="text-3xl font-bold mb-3 drop-shadow-lg">Data Sumbangan</h3>
+                                    <p className="text-lg text-emerald-50 font-medium">Tambah data sumbangan baharu</p>
                                 </div>
                                 <div className="mt-4 px-6 py-2 bg-white/20 backdrop-blur-sm rounded-full">
                                     <span className="text-sm font-semibold">Klik untuk mula</span>
@@ -184,7 +184,7 @@ export default function UserDashboard() {
                                 </div>
                                 <div>
                                     <h3 className="text-3xl font-bold mb-3 drop-shadow-lg">Data Pengundi</h3>
-                                    <p className="text-lg text-sky-50 font-medium">Tambah data pengundi baru</p>
+                                    <p className="text-lg text-sky-50 font-medium">Kemaskini Data Pengundi</p>
                                 </div>
                                 <div className="mt-4 px-6 py-2 bg-white/20 backdrop-blur-sm rounded-full">
                                     <span className="text-sm font-semibold">Klik untuk mula</span>

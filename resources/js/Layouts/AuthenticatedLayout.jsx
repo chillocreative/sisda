@@ -110,7 +110,7 @@ export default function AuthenticatedLayout({ children }) {
         ] : []),
         // For User role: Direct create links
         ...(user.role === 'user' ? [
-            { name: 'Mula Culaan', href: route('reports.hasil-culaan.create'), icon: ClipboardList, current: route().current('reports.hasil-culaan.create') },
+            { name: 'Data Sumbangan', href: route('reports.hasil-culaan.create'), icon: ClipboardList, current: route().current('reports.hasil-culaan.create') },
             { name: 'Data Pengundi', href: route('reports.data-pengundi.create'), icon: UserCheck, current: route().current('reports.data-pengundi.create') }
         ] : []),
         // Laporan menu
