@@ -118,7 +118,7 @@ export default function UserDashboard() {
                                                                     ? 'bg-violet-100 text-violet-700'
                                                                     : 'bg-sky-100 text-sky-700'
                                                     }`}>
-                                                        {result.type === 'hasil_culaan' ? 'Hasil Culaan' : result.type === 'dpt' ? 'DPT' : result.type === 'voter_db' ? 'Pangkalan Data' : 'Data Pengundi'}
+                                                        {result.type === 'hasil_culaan' ? 'Hasil Culaan' : result.type === 'dpt' ? 'DPT' : result.type === 'voter_db' ? 'DPPR' : 'Data Pengundi'}
                                                     </span>
                                                 </div>
                                                 <p className="text-sm text-slate-600">No. IC: {result.no_ic}</p>
