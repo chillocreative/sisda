@@ -120,6 +120,9 @@ export default function UserDashboard() {
                                                     }`}>
                                                         {result.type === 'hasil_culaan' ? 'Data Sumbangan' : result.type === 'dpt' ? 'DPT' : result.type === 'voter_db' ? 'DPPR' : 'Data Pengundi'}
                                                     </span>
+                                                    {result.updated_at && (
+                                                        <span className="text-xs text-slate-500">{result.updated_at}</span>
+                                                    )}
                                                 </div>
                                                 <p className="text-sm text-slate-600">No. IC: {result.no_ic}</p>
                                                 {result.no_tel && <p className="text-sm text-slate-600">Tel: {result.no_tel}</p>}
