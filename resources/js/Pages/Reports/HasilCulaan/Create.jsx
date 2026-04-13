@@ -90,7 +90,49 @@ export default function Create({
         kad_pengenalan: null,
         nota: '',
         is_deceased: false,
+        has_sumbangan: false,
+        update_status_pengundi: false,
     });
+
+    const clearSumbanganFields = () => {
+        setData(prev => ({
+            ...prev,
+            bil_isi_rumah: '',
+            pendapatan_isi_rumah: '',
+            pekerjaan: '',
+            jenis_pekerjaan: [],
+            jenis_pekerjaan_lain: '',
+            pemilik_rumah: '',
+            pemilik_rumah_lain: '',
+            jenis_sumbangan: [],
+            jenis_sumbangan_lain: '',
+            tujuan_sumbangan: [],
+            tujuan_sumbangan_lain: '',
+            bantuan_lain: [],
+            bantuan_lain_lain: '',
+            perkeso_bantuan: [],
+            perkeso_bantuan_lain: '',
+            zpp_jenis_bantuan: [],
+            isejahtera_program: '',
+            jkm_program: '',
+            jumlah_wang_tunai: '',
+        }));
+    };
+
+    const handleSumbanganToggle = (checked) => {
+        setData('has_sumbangan', checked);
+        if (!checked) {
+            clearSumbanganFields();
+        }
+    };
+
+    const handleStatusPengundiToggle = (checked) => {
+        setData(prev => ({
+            ...prev,
+            update_status_pengundi: checked,
+            status_pengundi: checked ? prev.status_pengundi : '',
+        }));
+    };
 
     // Fetch KADUN and Daerah Mengundi when Parlimen changes
     useEffect(() => {
@@ -497,10 +539,10 @@ export default function Create({
                 </div>
 
                 {/* Form */}
-                <form onSubmit={handleSubmit} className={`space-y-6 ${data.is_deceased ? 'opacity-50 pointer-events-none select-none' : ''}`}>
+                <form onSubmit={handleSubmit} className={`flex flex-col space-y-6 ${data.is_deceased ? 'opacity-50 pointer-events-none select-none' : ''}`}>
                     {/* Bantuan History Banner */}
                     {bantuanHistory.length > 0 && (
-                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                        <div className="order-first bg-blue-50 border border-blue-200 rounded-xl p-4">
                             <div className="flex items-start gap-3">
                                 <div className="flex-shrink-0 mt-0.5">
                                     <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
@@ -557,7 +599,7 @@ export default function Create({
                     )}
 
                     {/* Personal Information */}
-                    <div className="bg-white rounded-xl border border-slate-200 p-6">
+                    <div className="order-1 bg-white rounded-xl border border-slate-200 p-6">
                         <h2 className="text-lg font-semibold text-slate-900 mb-4">Maklumat Peribadi</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div ref={icWrapperRef} className="relative">
@@ -734,7 +776,8 @@ export default function Create({
                     </div>
 
                     {/* Household Information */}
-                    <div className="bg-white rounded-xl border border-slate-200 p-6">
+                    {data.has_sumbangan && (
+                    <div className="order-6 bg-white rounded-xl border border-slate-200 p-6">
                         <h2 className="text-lg font-semibold text-slate-900 mb-4">Maklumat Isi Rumah</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
@@ -1155,9 +1198,11 @@ export default function Create({
                             )}
                         </div>
                     </div>
+                    )}
 
                     {/* Assistance & Political Information */}
-                    <div className="bg-white rounded-xl border border-slate-200 p-6">
+                    {data.has_sumbangan && (
+                    <div className="order-7 bg-white rounded-xl border border-slate-200 p-6">
                         <h2 className="text-lg font-semibold text-slate-900 mb-4">Maklumat Bantuan</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="md:col-span-2">
@@ -1393,9 +1438,10 @@ export default function Create({
                             </div>
                         </div>
                     </div>
+                    )}
 
                     {/* Maklumat Kawasan Mengundi */}
-                    <div className="bg-white rounded-xl border border-slate-200 p-6">
+                    <div className="order-2 bg-white rounded-xl border border-slate-200 p-6">
                         <h2 className="text-lg font-semibold text-slate-900 mb-4">Maklumat Kawasan Mengundi</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
@@ -1442,9 +1488,20 @@ export default function Create({
                     </div>
 
                     {/* Status Pengundi */}
-                    <div className="bg-white rounded-xl border border-slate-200 p-6">
-                        <h2 className="text-lg font-semibold text-slate-900 mb-4">Status Pengundi</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <div className={`order-3 bg-white rounded-xl border border-slate-200 p-6 ${!data.update_status_pengundi ? 'bg-slate-50' : ''}`}>
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className={`text-lg font-semibold ${data.update_status_pengundi ? 'text-slate-900' : 'text-slate-400'}`}>Status Pengundi</h2>
+                            <label className="flex items-center space-x-2 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={data.update_status_pengundi}
+                                    onChange={(e) => handleStatusPengundiToggle(e.target.checked)}
+                                    className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                                />
+                                <span className="text-sm font-medium text-slate-700">Perlu Dikemaskini</span>
+                            </label>
+                        </div>
+                        <div className={`grid grid-cols-1 md:grid-cols-2 gap-2 ${!data.update_status_pengundi ? 'opacity-50 pointer-events-none select-none' : ''}`}>
                             {[
                                 'Pemilih Bertukar Alamat (Keluar)',
                                 'Hilang Layak Pengundi Awam',
@@ -1453,6 +1510,7 @@ export default function Create({
                                 <label key={item} className="flex items-center space-x-2 cursor-pointer">
                                     <input
                                         type="checkbox"
+                                        disabled={!data.update_status_pengundi}
                                         checked={(data.status_pengundi || '').split(', ').includes(item)}
                                         onChange={() => {
                                             const current = data.status_pengundi ? data.status_pengundi.split(', ').filter(Boolean) : [];
@@ -1469,7 +1527,7 @@ export default function Create({
                     </div>
 
                     {/* Political Information */}
-                    <div className="bg-white rounded-xl border border-slate-200 p-6">
+                    <div className="order-4 bg-white rounded-xl border border-slate-200 p-6">
                         <h2 className="text-lg font-semibold text-slate-900 mb-4">Maklumat Politik</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
@@ -1512,8 +1570,22 @@ export default function Create({
                         </div>
                     </div>
 
+                    {/* Sumbangan Toggle */}
+                    <div className="order-5 bg-white rounded-xl border border-slate-200 p-6">
+                        <label className="flex items-center space-x-3 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={data.has_sumbangan}
+                                onChange={(e) => handleSumbanganToggle(e.target.checked)}
+                                className="w-5 h-5 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                            />
+                            <span className="text-lg font-semibold text-slate-900">Sumbangan</span>
+                        </label>
+                        <p className="text-sm text-slate-500 mt-2 ml-8">Tandakan untuk mengisi Maklumat Isi Rumah dan Maklumat Bantuan.</p>
+                    </div>
+
                     {/* Documents & Notes */}
-                    <div className="bg-white rounded-xl border border-slate-200 p-6">
+                    <div className="order-8 bg-white rounded-xl border border-slate-200 p-6">
                         <h2 className="text-lg font-semibold text-slate-900 mb-4">Dokumen & Nota</h2>
                         <div className="grid grid-cols-1 gap-4">
                             <div>
@@ -1621,7 +1693,7 @@ export default function Create({
                     </div>
 
                     {/* Form Actions */}
-                    <div className="flex items-center justify-end space-x-3 pb-6">
+                    <div className="order-9 flex items-center justify-end space-x-3 pb-6">
                         <button
                             type="button"
                             onClick={() => window.history.back()}

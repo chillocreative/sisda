@@ -179,6 +179,9 @@ class ReportsController extends Controller
     {
         $user = auth()->user();
 
+        $hasSumbangan = $request->boolean('has_sumbangan');
+        $updateStatusPengundi = $request->boolean('update_status_pengundi');
+
         $validated = $request->validate([
             'nama' => 'required|string|max:255',
             'no_ic' => 'required|string|digits:12',
@@ -194,19 +197,19 @@ class ReportsController extends Controller
             'mpkk' => 'nullable|string|max:255',
             'daerah_mengundi' => 'nullable|string|max:255',
             'lokaliti' => 'nullable|string|max:255',
-            'bil_isi_rumah' => 'required|integer|min:1',
+            'bil_isi_rumah' => ($hasSumbangan ? 'required|integer|min:1' : 'nullable|integer|min:1'),
             'pendapatan_isi_rumah' => 'nullable|numeric|min:0',
-            'pekerjaan' => 'required|in:Kerajaan,Swasta,Bekerja Sendiri,Tidak Bekerja',
-            'jenis_pekerjaan' => 'required|array|min:1',
+            'pekerjaan' => ($hasSumbangan ? 'required|in:Kerajaan,Swasta,Bekerja Sendiri,Tidak Bekerja' : 'nullable|in:Kerajaan,Swasta,Bekerja Sendiri,Tidak Bekerja'),
+            'jenis_pekerjaan' => ($hasSumbangan ? 'required|array|min:1' : 'nullable|array'),
             'jenis_pekerjaan.*' => 'string|max:255',
             'jenis_pekerjaan_lain' => 'nullable|string|max:255',
-            'pemilik_rumah' => 'required|string|max:255',
+            'pemilik_rumah' => ($hasSumbangan ? 'required|string|max:255' : 'nullable|string|max:255'),
             'pemilik_rumah_lain' => 'nullable|string|max:255',
-            'jenis_sumbangan' => 'required|array|min:1',
+            'jenis_sumbangan' => ($hasSumbangan ? 'required|array|min:1' : 'nullable|array'),
             'jenis_sumbangan_lain' => 'nullable|string|max:255',
-            'tujuan_sumbangan' => 'required|array|min:1',
+            'tujuan_sumbangan' => ($hasSumbangan ? 'required|array|min:1' : 'nullable|array'),
             'tujuan_sumbangan_lain' => 'nullable|string|max:255',
-            'bantuan_lain' => 'required|array|min:1',
+            'bantuan_lain' => ($hasSumbangan ? 'required|array|min:1' : 'nullable|array'),
             'bantuan_lain_lain' => 'nullable|string|max:255',
             'zpp_jenis_bantuan' => 'nullable|array',
             'isejahtera_program' => 'nullable|string|max:255',
@@ -226,6 +229,30 @@ class ReportsController extends Controller
             'keahlian_parti.required' => 'Sila pilih Keanggotaan Parti.',
             'kecenderungan_politik.required' => 'Sila pilih Kecenderungan Politik.',
         ]);
+
+        if (! $hasSumbangan) {
+            $validated['bil_isi_rumah'] = null;
+            $validated['pendapatan_isi_rumah'] = null;
+            $validated['pekerjaan'] = null;
+            $validated['jenis_pekerjaan'] = [];
+            $validated['jenis_pekerjaan_lain'] = null;
+            $validated['pemilik_rumah'] = null;
+            $validated['pemilik_rumah_lain'] = null;
+            $validated['jenis_sumbangan'] = [];
+            $validated['jenis_sumbangan_lain'] = null;
+            $validated['tujuan_sumbangan'] = [];
+            $validated['tujuan_sumbangan_lain'] = null;
+            $validated['bantuan_lain'] = [];
+            $validated['bantuan_lain_lain'] = null;
+            $validated['zpp_jenis_bantuan'] = [];
+            $validated['isejahtera_program'] = null;
+            $validated['jkm_program'] = null;
+            $validated['jumlah_wang_tunai'] = null;
+        }
+
+        if (! $updateStatusPengundi) {
+            $validated['status_pengundi'] = null;
+        }
 
         // Admin Restriction: Ensure data is created for their Parlimen
         if ($user->isAdmin()) {
