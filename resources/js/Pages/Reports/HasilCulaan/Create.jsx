@@ -401,14 +401,37 @@ export default function Create({
             lokaliti: voter.lokaliti || null,
         };
         const parlimenMatch = parlimenList.find(p => p.nama.toLowerCase() === (voter.parlimen || '').toLowerCase());
-        setData({
-            ...data,
-            no_ic: voter.no_ic,
-            nama: voter.nama || data.nama,
-            parlimen: parlimenMatch ? parlimenMatch.nama : data.parlimen,
-            negeri: voter.negeri ? toTitleCase(voter.negeri) : data.negeri,
-            bangsa: voter.bangsa || data.bangsa,
-        });
+
+        if (voter.source === 'data_pengundi') {
+            // Fully populate form with previously saved record
+            setData({
+                ...data,
+                no_ic: voter.no_ic,
+                nama: voter.nama || '',
+                umur: voter.umur != null ? voter.umur.toString() : '',
+                no_tel: voter.no_tel || '',
+                bangsa: voter.bangsa || '',
+                alamat: voter.alamat || '',
+                poskod: voter.poskod || '',
+                negeri: voter.negeri || '',
+                bandar: voter.bandar || '',
+                parlimen: parlimenMatch ? parlimenMatch.nama : (voter.parlimen || ''),
+                mpkk: voter.mpkk || '',
+                keahlian_parti: voter.keahlian_parti || '',
+                kecenderungan_politik: voter.kecenderungan_politik || '',
+                status_pengundi: voter.status_pengundi || '',
+            });
+        } else {
+            // DPPR record: auto-fill basic fields only
+            setData({
+                ...data,
+                no_ic: voter.no_ic,
+                nama: voter.nama || data.nama,
+                parlimen: parlimenMatch ? parlimenMatch.nama : data.parlimen,
+                negeri: voter.negeri ? toTitleCase(voter.negeri) : data.negeri,
+                bangsa: voter.bangsa || data.bangsa,
+            });
+        }
         setShowSuggestions(false);
         setIcSuggestions([]);
     };
@@ -637,17 +660,28 @@ export default function Create({
                                 {errors.no_ic && <p className="text-sm text-rose-600 mt-1">{errors.no_ic}</p>}
                                 <p className="text-xs text-slate-500 mt-1">Hanya angka sahaja (contoh: 900101145678)</p>
                                 {showSuggestions && icSuggestions.length > 0 && (
-                                    <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                                    <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
                                         {icSuggestions.map((voter, idx) => (
                                             <button
-                                                key={voter.no_ic + '-' + idx}
+                                                key={(voter.source || 'x') + '-' + (voter.id || voter.no_ic) + '-' + idx}
                                                 type="button"
                                                 onClick={() => handleSuggestionClick(voter)}
                                                 className="w-full text-left px-4 py-2.5 hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0"
                                             >
-                                                <span className="font-mono text-sm font-medium text-slate-900">{voter.no_ic}</span>
-                                                <span className="ml-2 text-sm text-slate-500">{voter.nama}</span>
-                                                {voter.daerah_mengundi && <span className="ml-1 text-xs text-slate-400">({voter.daerah_mengundi})</span>}
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    {voter.source === 'data_pengundi' ? (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-700 uppercase tracking-wide">
+                                                            Data Pengundi
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 uppercase tracking-wide">
+                                                            DPPR
+                                                        </span>
+                                                    )}
+                                                    <span className="font-mono text-sm font-medium text-slate-900">{voter.no_ic}</span>
+                                                    <span className="text-sm text-slate-500">{voter.nama}</span>
+                                                    {voter.daerah_mengundi && <span className="text-xs text-slate-400">({voter.daerah_mengundi})</span>}
+                                                </div>
                                             </button>
                                         ))}
                                     </div>

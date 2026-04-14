@@ -104,21 +104,37 @@ class UploadDatabaseController extends Controller
         $query = $request->input('ic', '');
         if (strlen($query) < 3) return response()->json([]);
 
-        // Check data_pengundi first (already submitted voters)
-        $dataPengundiVoters = DataPengundi::where('no_ic', 'like', $query . '%')
-            ->limit(20)
-            ->get(['no_ic', 'nama', 'lokaliti', 'daerah_mengundi', 'kadun', 'parlimen', 'negeri', 'bangsa']);
+        // Data Pengundi matches (previously submitted records) - full fields for form auto-fill
+        $dataPengundi = DataPengundi::where('no_ic', 'like', $query . '%')
+            ->orderBy('id', 'desc')
+            ->limit(10)
+            ->get([
+                'id', 'no_ic', 'nama', 'umur', 'no_tel', 'bangsa', 'alamat', 'poskod',
+                'negeri', 'bandar', 'parlimen', 'kadun', 'mpkk', 'daerah_mengundi', 'lokaliti',
+                'keahlian_parti', 'kecenderungan_politik', 'status_pengundi',
+            ])
+            ->map(function ($v) {
+                $arr = $v->toArray();
+                $arr['source'] = 'data_pengundi';
+                return $arr;
+            });
 
-        if ($dataPengundiVoters->isNotEmpty()) {
-            return response()->json($dataPengundiVoters);
+        // DPPR matches, excluding IC numbers already present in Data Pengundi
+        $existingIcs = $dataPengundi->pluck('no_ic')->unique()->toArray();
+        $dpprQuery = PangkalanDataPengundi::where('no_ic', 'like', $query . '%');
+        if (count($existingIcs) > 0) {
+            $dpprQuery->whereNotIn('no_ic', $existingIcs);
         }
+        $dppr = $dpprQuery
+            ->limit(10)
+            ->get(['no_ic', 'nama', 'lokaliti', 'daerah_mengundi', 'kadun', 'parlimen', 'negeri', 'bangsa'])
+            ->map(function ($v) {
+                $arr = $v->toArray();
+                $arr['source'] = 'dppr';
+                return $arr;
+            });
 
-        // Fall back to DPPR database (pangkalan_data_pengundi)
-        $voters = PangkalanDataPengundi::where('no_ic', 'like', $query . '%')
-            ->limit(20)
-            ->get(['no_ic', 'nama', 'lokaliti', 'daerah_mengundi', 'kadun', 'parlimen', 'negeri', 'bangsa']);
-
-        return response()->json($voters);
+        return response()->json($dataPengundi->concat($dppr)->values());
     }
 
     public function searchByIc(Request $request)
