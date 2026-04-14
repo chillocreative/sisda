@@ -586,6 +586,7 @@ class ReportsController extends Controller
     public function hasilCulaanToggleDeceased(HasilCulaan $hasilCulaan)
     {
         $hasilCulaan->update(['is_deceased' => !$hasilCulaan->is_deceased]);
+        VoterSyncService::syncFromHasilCulaan($hasilCulaan->fresh());
         return response()->json(['is_deceased' => $hasilCulaan->is_deceased]);
     }
 
@@ -813,6 +814,7 @@ class ReportsController extends Controller
     public function dataPengundiToggleDeceased(DataPengundi $dataPengundi)
     {
         $dataPengundi->update(['is_deceased' => !$dataPengundi->is_deceased]);
+        VoterSyncService::syncFromDataPengundi($dataPengundi->fresh());
         return response()->json(['is_deceased' => $dataPengundi->is_deceased]);
     }
 
