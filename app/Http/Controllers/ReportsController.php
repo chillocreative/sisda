@@ -217,8 +217,8 @@ class ReportsController extends Controller
             'jumlah_bantuan_tunai' => 'nullable|numeric|min:0',
             'jumlah_wang_tunai' => 'nullable|numeric|min:0',
             'jkm_program' => 'nullable|string|max:255',
-            'keahlian_parti' => 'required|string|max:255',
-            'kecenderungan_politik' => 'required|string|max:255',
+            'keahlian_parti' => ($hasSumbangan ? 'required|string|max:255' : 'nullable|string|max:255'),
+            'kecenderungan_politik' => ($hasSumbangan ? 'required|string|max:255' : 'nullable|string|max:255'),
             'status_pengundi' => 'nullable|string|max:255',
             'kad_pengenalan' => 'nullable|image|max:5120', // 5MB max
             'nota' => 'nullable|string',
@@ -750,13 +750,11 @@ class ReportsController extends Controller
             'mpkk' => 'nullable|string|max:255',
             'daerah_mengundi' => 'nullable|string|max:255',
             'lokaliti' => 'nullable|string|max:255',
-            'keahlian_parti' => 'required|string|max:255',
-            'kecenderungan_politik' => 'required|string|max:255',
+            'keahlian_parti' => 'nullable|string|max:255',
+            'kecenderungan_politik' => 'nullable|string|max:255',
             'status_pengundi' => 'nullable|string|max:255',
         ], [
             'no_ic.unique' => 'No. Kad Pengenalan ini telah didaftarkan dalam Data Pengundi.',
-            'keahlian_parti.required' => 'Sila pilih Keanggotaan Parti.',
-            'kecenderungan_politik.required' => 'Sila pilih Kecenderungan Politik.',
         ]);
 
         $validated['voter_color'] = VoterColorService::determine($validated['keahlian_parti'] ?? null, $validated['kecenderungan_politik'] ?? null);

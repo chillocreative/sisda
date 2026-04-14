@@ -540,6 +540,25 @@ export default function Create({
 
                 {/* Form */}
                 <form onSubmit={handleSubmit} className={`flex flex-col space-y-6 ${data.is_deceased ? 'opacity-50 pointer-events-none select-none' : ''}`}>
+                    {/* Validation Error Summary */}
+                    {Object.keys(errors).length > 0 && (
+                        <div className="order-first bg-rose-50 border border-rose-300 rounded-xl p-4">
+                            <div className="flex items-start gap-3">
+                                <svg className="w-5 h-5 flex-shrink-0 text-rose-600 mt-0.5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+                                </svg>
+                                <div className="flex-1">
+                                    <p className="text-sm font-semibold text-rose-800">Sila lengkapkan medan yang diperlukan:</p>
+                                    <ul className="mt-1 text-xs text-rose-700 list-disc list-inside space-y-0.5">
+                                        {Object.entries(errors).slice(0, 8).map(([field, msg]) => (
+                                            <li key={field}>{msg}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Bantuan History Banner */}
                     {bantuanHistory.length > 0 && (
                         <div className="order-first bg-blue-50 border border-blue-200 rounded-xl p-4">
@@ -1532,7 +1551,7 @@ export default function Create({
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Keanggotaan Parti <span className="text-rose-500">*</span>
+                                    Keanggotaan Parti {data.has_sumbangan && <span className="text-rose-500">*</span>}
                                 </label>
                                 <select
                                     value={data.keahlian_parti}
@@ -1551,7 +1570,7 @@ export default function Create({
 
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Kecenderungan Politik <span className="text-rose-500">*</span>
+                                    Kecenderungan Politik {data.has_sumbangan && <span className="text-rose-500">*</span>}
                                 </label>
                                 <select
                                     value={data.kecenderungan_politik}
