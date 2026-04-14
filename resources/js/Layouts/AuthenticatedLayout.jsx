@@ -364,28 +364,28 @@ export default function AuthenticatedLayout({ children }) {
                 </main>
             </div>
 
-            {/* Flash toast notification */}
+            {/* Flash toast notification - centered modal style */}
             {toast && (
-                <div className="fixed top-6 right-6 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl shadow-lg border ${toast.type === 'success'
-                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                        : 'bg-rose-50 border-rose-200 text-rose-800'}`}>
-                        {toast.type === 'success' ? (
-                            <svg className="h-5 w-5 flex-shrink-0 text-emerald-600" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                            </svg>
-                        ) : (
-                            <svg className="h-5 w-5 flex-shrink-0 text-rose-600" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
-                            </svg>
-                        )}
-                        <p className="text-sm font-medium">{toast.message}</p>
-                        <button
-                            onClick={() => setToast(null)}
-                            className="ml-2 text-slate-400 hover:text-slate-600"
-                        >
-                            <X className="h-4 w-4" />
-                        </button>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+                    <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm pointer-events-auto" onClick={() => setToast(null)} />
+                    <div className={`relative pointer-events-auto rounded-2xl shadow-2xl border-2 px-10 py-8 max-w-lg w-full text-center ${toast.type === 'success'
+                        ? 'bg-white border-emerald-300'
+                        : 'bg-white border-rose-300'}`}>
+                        <div className={`mx-auto flex items-center justify-center w-20 h-20 rounded-full mb-5 ${toast.type === 'success' ? 'bg-emerald-100' : 'bg-rose-100'}`}>
+                            {toast.type === 'success' ? (
+                                <svg className="h-12 w-12 text-emerald-600" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                </svg>
+                            ) : (
+                                <svg className="h-12 w-12 text-rose-600" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+                                </svg>
+                            )}
+                        </div>
+                        <h3 className={`text-2xl font-bold mb-2 ${toast.type === 'success' ? 'text-emerald-800' : 'text-rose-800'}`}>
+                            {toast.type === 'success' ? 'Berjaya!' : 'Ralat'}
+                        </h3>
+                        <p className="text-base text-slate-700">{toast.message}</p>
                     </div>
                 </div>
             )}

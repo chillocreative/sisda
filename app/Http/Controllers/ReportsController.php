@@ -39,13 +39,19 @@ class ReportsController extends Controller
         $user = auth()->user();
         $query = HasilCulaan::with('submittedBy');
 
-        // User Restriction: Only view data in their KADUN
+        // User Restriction: Records in their KADUN OR records they submitted
         if ($user->isUser()) {
-            $query->where('kadun', $user->kadun->nama ?? '');
+            $query->where(function ($q) use ($user) {
+                $q->where('kadun', $user->kadun->nama ?? '__none__')
+                  ->orWhere('submitted_by', $user->id);
+            });
         }
-        // Admin Restriction: Only view data in their Parlimen (Bandar)
+        // Admin Restriction: Records in their Parlimen OR records they submitted
         elseif ($user->isAdmin()) {
-            $query->where('bandar', $user->bandar->nama ?? '');
+            $query->where(function ($q) use ($user) {
+                $q->where('bandar', $user->bandar->nama ?? '__none__')
+                  ->orWhere('submitted_by', $user->id);
+            });
         }
 
         // Date range filter
@@ -615,13 +621,19 @@ class ReportsController extends Controller
         $user = auth()->user();
         $query = DataPengundi::with('submittedBy');
 
-        // User Restriction: Only view data in their KADUN
+        // User Restriction: Records in their KADUN OR records they submitted
         if ($user->isUser()) {
-            $query->where('kadun', $user->kadun->nama ?? '');
+            $query->where(function ($q) use ($user) {
+                $q->where('kadun', $user->kadun->nama ?? '__none__')
+                  ->orWhere('submitted_by', $user->id);
+            });
         }
-        // Admin Restriction: Only view data in their Parlimen (Bandar)
+        // Admin Restriction: Records in their Parlimen OR records they submitted
         elseif ($user->isAdmin()) {
-            $query->where('bandar', $user->bandar->nama ?? '');
+            $query->where(function ($q) use ($user) {
+                $q->where('bandar', $user->bandar->nama ?? '__none__')
+                  ->orWhere('submitted_by', $user->id);
+            });
         }
 
         // Date range filter
