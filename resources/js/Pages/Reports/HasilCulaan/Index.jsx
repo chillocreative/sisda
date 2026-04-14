@@ -127,13 +127,13 @@ export default function Index({ hasilCulaan, icCounts = {}, filters, currentUser
 
     return (
         <AuthenticatedLayout>
-            <Head title="Hasil Culaan" />
+            <Head title="Data Sumbangan" />
 
             <div className="space-y-6">
                 {/* Page Header */}
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900">Hasil Culaan</h1>
+                        <h1 className="text-2xl font-bold text-slate-900">Data Sumbangan</h1>
                         <p className="text-sm text-slate-600 mt-1">
                             Jumlah: {hasilCulaan.total} rekod
                         </p>
@@ -447,7 +447,7 @@ export default function Index({ hasilCulaan, icCounts = {}, filters, currentUser
                 <div className="p-6">
                     <div className="flex items-center justify-between mb-6">
                         <h2 className="text-lg font-medium text-slate-900">
-                            Maklumat Hasil Culaan
+                            Maklumat Data Sumbangan
                         </h2>
                         <button
                             onClick={() => setViewingItem(null)}
