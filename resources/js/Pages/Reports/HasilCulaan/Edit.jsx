@@ -74,8 +74,11 @@ export default function Edit({
     keahlianPartiList,
     kecenderunganPolitikList,
     lokalitiList,
-    editHistories = []
+    editHistories = [],
+    isRecordLocked = false,
+    canUnmaskSensitive = false,
 }) {
+    const sensitiveLocked = isRecordLocked && !canUnmaskSensitive;
     const { auth } = usePage().props;
     const [isDeceased, setIsDeceased] = useState(hasilCulaan.is_deceased || false);
     const [togglingDeceased, setTogglingDeceased] = useState(false);
@@ -520,13 +523,15 @@ export default function Edit({
                             <div ref={icWrapperRef} className="relative">
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
                                     No. IC <span className="text-rose-500">*</span>
+                                    {sensitiveLocked && <span className="ml-1 text-xs text-slate-400">🔒 Dilindungi</span>}
                                 </label>
                                 <input
                                     type="text"
                                     value={data.no_ic}
                                     onChange={handleIcChange}
                                     placeholder="000000000000"
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                    disabled={sensitiveLocked}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                                     required
                                 />
                                 {errors.no_ic && <p className="text-sm text-rose-600 mt-1">{errors.no_ic}</p>}
@@ -564,14 +569,14 @@ export default function Edit({
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
                                     Umur <span className="text-rose-500">*</span>
+                                    {sensitiveLocked && <span className="ml-1 text-xs text-slate-400">🔒 Dilindungi</span>}
                                 </label>
                                 <input
-                                    type="number"
+                                    type="text"
                                     value={data.umur}
                                     onChange={(e) => setData('umur', e.target.value)}
-                                    min="1"
-                                    max="150"
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                    disabled={sensitiveLocked}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                                     required
                                 />
                                 {errors.umur && <p className="text-sm text-rose-600 mt-1">{errors.umur}</p>}
@@ -580,13 +585,15 @@ export default function Edit({
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
                                     No. Telefon <span className="text-rose-500">*</span>
+                                    {sensitiveLocked && <span className="ml-1 text-xs text-slate-400">🔒 Dilindungi</span>}
                                 </label>
                                 <input
-                                    type="tel"
+                                    type="text"
                                     value={data.no_tel}
                                     onChange={(e) => setData('no_tel', e.target.value)}
                                     placeholder="0123456789"
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400 placeholder:text-slate-300"
+                                    disabled={sensitiveLocked}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400 placeholder:text-slate-300 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                                     required
                                 />
                                 {errors.no_tel && <p className="text-sm text-rose-600 mt-1">{errors.no_tel}</p>}
@@ -595,20 +602,30 @@ export default function Edit({
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
                                     Bangsa <span className="text-rose-500">*</span>
+                                    {sensitiveLocked && <span className="ml-1 text-xs text-slate-400">🔒 Dilindungi</span>}
                                 </label>
-                                <select
-                                    value={data.bangsa}
-                                    onChange={(e) => setData('bangsa', e.target.value)}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                    required
-                                >
-                                    <option value="">Pilih Bangsa</option>
-                                    {bangsaList.map((bangsa) => (
-                                        <option key={bangsa.id} value={bangsa.nama}>
-                                            {bangsa.nama}
-                                        </option>
-                                    ))}
-                                </select>
+                                {sensitiveLocked ? (
+                                    <input
+                                        type="text"
+                                        value={data.bangsa}
+                                        disabled
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-100 text-slate-500 cursor-not-allowed"
+                                    />
+                                ) : (
+                                    <select
+                                        value={data.bangsa}
+                                        onChange={(e) => setData('bangsa', e.target.value)}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                        required
+                                    >
+                                        <option value="">Pilih Bangsa</option>
+                                        {bangsaList.map((bangsa) => (
+                                            <option key={bangsa.id} value={bangsa.nama}>
+                                                {bangsa.nama}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
                                 {errors.bangsa && <p className="text-sm text-rose-600 mt-1">{errors.bangsa}</p>}
                             </div>
                         </div>
@@ -616,7 +633,10 @@ export default function Edit({
 
                     {/* Address Information */}
                     <div className="bg-white rounded-xl border border-slate-200 p-6">
-                        <h2 className="text-lg font-semibold text-slate-900 mb-4">Maklumat Alamat</h2>
+                        <h2 className="text-lg font-semibold text-slate-900 mb-4">
+                            Maklumat Alamat
+                            {sensitiveLocked && <span className="ml-2 text-xs font-normal text-slate-400">🔒 Dilindungi</span>}
+                        </h2>
                         <div className="grid grid-cols-1 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -626,7 +646,8 @@ export default function Edit({
                                     value={data.alamat}
                                     onChange={(e) => setData('alamat', e.target.value)}
                                     rows="3"
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                    disabled={sensitiveLocked}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                                     required
                                 />
                                 {errors.alamat && <p className="text-sm text-rose-600 mt-1">{errors.alamat}</p>}
@@ -643,7 +664,8 @@ export default function Edit({
                                         onChange={handlePostcodeChange}
                                         placeholder="00000"
                                         maxLength="5"
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                        disabled={sensitiveLocked}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                                         required
                                     />
                                     {errors.poskod && <p className="text-sm text-rose-600 mt-1">{errors.poskod}</p>}
@@ -653,17 +675,26 @@ export default function Edit({
                                     <label className="block text-sm font-medium text-slate-700 mb-1">
                                         Negeri <span className="text-rose-500">*</span>
                                     </label>
-                                    <select
-                                        value={data.negeri}
-                                        onChange={(e) => setData('negeri', e.target.value)}
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                        required
-                                    >
-                                        <option value="">Pilih Negeri</option>
-                                        {negeriList.map((item) => (
-                                            <option key={item.id} value={item.nama}>{item.nama}</option>
-                                        ))}
-                                    </select>
+                                    {sensitiveLocked ? (
+                                        <input
+                                            type="text"
+                                            value={data.negeri}
+                                            disabled
+                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-100 text-slate-500 cursor-not-allowed"
+                                        />
+                                    ) : (
+                                        <select
+                                            value={data.negeri}
+                                            onChange={(e) => setData('negeri', e.target.value)}
+                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                            required
+                                        >
+                                            <option value="">Pilih Negeri</option>
+                                            {negeriList.map((item) => (
+                                                <option key={item.id} value={item.nama}>{item.nama}</option>
+                                            ))}
+                                        </select>
+                                    )}
                                     {errors.negeri && <p className="text-sm text-rose-600 mt-1">{errors.negeri}</p>}
                                 </div>
 
@@ -675,7 +706,8 @@ export default function Edit({
                                         type="text"
                                         value={data.bandar}
                                         readOnly
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400 bg-slate-50"
+                                        disabled={sensitiveLocked}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400 bg-slate-50 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                                         placeholder="Pilih Poskod terlebih dahulu"
                                     />
                                     {errors.bandar && <p className="text-sm text-rose-600 mt-1">{errors.bandar}</p>}
@@ -707,18 +739,20 @@ export default function Edit({
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
                                     Pendapatan Isi Rumah (RM)
+                                    {sensitiveLocked && <span className="ml-1 text-xs text-slate-400">🔒 Dilindungi</span>}
                                 </label>
                                 <input
                                     type="text"
                                     inputMode="decimal"
-                                    value={formatCurrency(data.pendapatan_isi_rumah)}
+                                    value={sensitiveLocked ? data.pendapatan_isi_rumah : formatCurrency(data.pendapatan_isi_rumah)}
                                     onChange={(e) => {
                                         const raw = e.target.value.replace(/[^0-9.]/g, '');
                                         const parts = raw.split('.');
                                         setData('pendapatan_isi_rumah', parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : raw);
                                     }}
                                     placeholder="0.00"
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                    disabled={sensitiveLocked}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                                 />
                                 {errors.pendapatan_isi_rumah && <p className="text-sm text-rose-600 mt-1">{errors.pendapatan_isi_rumah}</p>}
                             </div>
@@ -1466,7 +1500,15 @@ export default function Edit({
 
                     {/* Documents & Notes */}
                     <div className="bg-white rounded-xl border border-slate-200 p-6">
-                        <h2 className="text-lg font-semibold text-slate-900 mb-4">Dokumen & Nota</h2>
+                        <h2 className="text-lg font-semibold text-slate-900 mb-4">
+                            Dokumen & Nota
+                            {sensitiveLocked && <span className="ml-2 text-xs font-normal text-slate-400">🔒 Dilindungi</span>}
+                        </h2>
+                        {sensitiveLocked ? (
+                            <div className="rounded-lg bg-slate-50 border border-slate-200 p-6 text-center text-sm text-slate-500">
+                                Hanya Super User / Super Admin boleh melihat atau mengemaskini maklumat ini.
+                            </div>
+                        ) : (
                         <div className="grid grid-cols-1 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -1593,6 +1635,7 @@ export default function Edit({
                                 {errors.nota && <p className="text-sm text-rose-600 mt-1">{errors.nota}</p>}
                             </div>
                         </div>
+                        )}
                     </div>
 
                     {/* Form Actions */}

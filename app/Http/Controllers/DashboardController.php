@@ -13,6 +13,7 @@ use App\Models\Mpkk;
 use App\Models\User;
 use App\Models\UploadBatch;
 use App\Models\PangkalanDataPengundi;
+use App\Services\VoterDataMasker;
 use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
@@ -379,15 +380,17 @@ class DashboardController extends Controller
 
         foreach ($hasilCulaan as $record) {
             $canEdit = $this->canModifyHasilCulaan($record, $user);
+            $locked = VoterDataMasker::isLocked($record) && ! VoterDataMasker::canUnmask($user);
             $results[] = [
                 'id' => $record->id,
                 'type' => 'hasil_culaan',
-                'no_ic' => $record->no_ic,
+                'no_ic' => $locked ? VoterDataMasker::MASK : $record->no_ic,
                 'nama' => $record->nama,
-                'no_tel' => $record->no_tel,
-                'bandar' => $record->bandar,
+                'no_tel' => $locked ? VoterDataMasker::MASK : $record->no_tel,
+                'bandar' => $locked ? VoterDataMasker::MASK : $record->bandar,
                 'kadun' => $record->kadun,
                 'can_edit' => $canEdit,
+                'is_locked' => $locked,
                 'edit_url' => $canEdit ? route('reports.hasil-culaan.edit', $record->id) : null,
                 'updated_at' => optional($record->updated_at)->format('d/m/Y h:i A'),
             ];
@@ -414,15 +417,17 @@ class DashboardController extends Controller
 
         foreach ($dataPengundi as $record) {
             $canEdit = $this->canModifyDataPengundi($record, $user);
+            $locked = VoterDataMasker::isLocked($record) && ! VoterDataMasker::canUnmask($user);
             $results[] = [
                 'id' => $record->id,
                 'type' => 'data_pengundi',
-                'no_ic' => $record->no_ic,
+                'no_ic' => $locked ? VoterDataMasker::MASK : $record->no_ic,
                 'nama' => $record->nama,
-                'no_tel' => $record->no_tel,
-                'bandar' => $record->bandar,
+                'no_tel' => $locked ? VoterDataMasker::MASK : $record->no_tel,
+                'bandar' => $locked ? VoterDataMasker::MASK : $record->bandar,
                 'kadun' => $record->kadun,
                 'can_edit' => $canEdit,
+                'is_locked' => $locked,
                 'edit_url' => $canEdit ? route('reports.data-pengundi.edit', $record->id) : null,
                 'updated_at' => optional($record->updated_at)->format('d/m/Y h:i A'),
             ];

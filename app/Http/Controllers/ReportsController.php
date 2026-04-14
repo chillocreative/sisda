@@ -8,6 +8,7 @@ use App\Models\DaerahMengundi;
 use App\Models\EditHistory;
 use App\Models\Lokaliti;
 use App\Services\VoterColorService;
+use App\Services\VoterDataMasker;
 use App\Services\VoterSyncService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -75,18 +76,29 @@ class ReportsController extends Controller
 
         $hasilCulaan = $query->orderBy('created_at', 'desc')->paginate(10);
 
-        // Count records per IC for badge display
+        // Count records per IC for badge display (use raw IC, not masked)
         $icCounts = HasilCulaan::selectRaw('no_ic, COUNT(*) as count')
             ->whereIn('no_ic', $hasilCulaan->pluck('no_ic'))
             ->groupBy('no_ic')
             ->having('count', '>', 1)
             ->pluck('count', 'no_ic');
 
+        // Mask sensitive fields on locked rows for non-privileged viewers
+        $hasilCulaan->getCollection()->transform(function ($row) use ($user) {
+            $masked = VoterDataMasker::mask($row, $user);
+            $masked['submitted_by'] = $row->submittedBy
+                ? ['id' => $row->submittedBy->id, 'name' => $row->submittedBy->name]
+                : null;
+            $masked['is_locked'] = VoterDataMasker::isLocked($row);
+            return $masked;
+        });
+
         return Inertia::render('Reports/HasilCulaan/Index', [
             'hasilCulaan' => $hasilCulaan,
             'icCounts' => $icCounts,
             'filters' => $request->only(['date_from', 'date_to', 'search']),
             'currentUserId' => $user->id,
+            'canUnmaskSensitive' => VoterDataMasker::canUnmask($user),
         ]);
     }
 
@@ -405,8 +417,13 @@ class ReportsController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
+        $hasilCulaan->loadMissing('submittedBy:id,name,role');
+        $isRecordLocked = VoterDataMasker::isLocked($hasilCulaan);
+        $canUnmaskSensitive = VoterDataMasker::canUnmask($user);
+        $maskedRecord = VoterDataMasker::mask($hasilCulaan, $user);
+
         return Inertia::render('Reports/HasilCulaan/Edit', [
-            'hasilCulaan' => $hasilCulaan,
+            'hasilCulaan' => $maskedRecord,
             'bangsaList' => $bangsaList,
             'negeriList' => $negeriList,
             'bandarList' => $bandarList,
@@ -420,6 +437,8 @@ class ReportsController extends Controller
             'kecenderunganPolitikList' => $kecenderunganPolitikList,
             'lokalitiList' => $lokalitiList,
             'editHistories' => $editHistories,
+            'isRecordLocked' => $isRecordLocked,
+            'canUnmaskSensitive' => $canUnmaskSensitive,
         ]);
     }
 
@@ -429,6 +448,18 @@ class ReportsController extends Controller
     public function hasilCulaanUpdate(Request $request, HasilCulaan $hasilCulaan)
     {
         $user = auth()->user();
+
+        // When the record is locked and the viewer cannot edit sensitive
+        // fields, replace any incoming masked values with the current DB
+        // originals so validation runs against the real data.
+        $hasilCulaan->loadMissing('submittedBy:id,name,role');
+        if (VoterDataMasker::isLocked($hasilCulaan) && ! VoterDataMasker::canUnmask($user)) {
+            foreach (VoterDataMasker::SENSITIVE_FIELDS as $field) {
+                if ($request->has($field)) {
+                    $request->merge([$field => $hasilCulaan->getOriginal($field)]);
+                }
+            }
+        }
 
         $validated = $request->validate([
             'nama' => 'required|string|max:255',
@@ -663,10 +694,21 @@ class ReportsController extends Controller
 
         $dataPengundi = $query->orderBy('id', 'desc')->paginate(10);
 
+        // Mask sensitive fields on locked rows for non-privileged viewers
+        $dataPengundi->getCollection()->transform(function ($row) use ($user) {
+            $masked = VoterDataMasker::mask($row, $user);
+            $masked['submitted_by'] = $row->submittedBy
+                ? ['id' => $row->submittedBy->id, 'name' => $row->submittedBy->name]
+                : null;
+            $masked['is_locked'] = VoterDataMasker::isLocked($row);
+            return $masked;
+        });
+
         return Inertia::render('Reports/DataPengundi/Index', [
             'dataPengundi' => $dataPengundi,
             'filters' => $request->only(['date_from', 'date_to', 'search']),
             'currentUserId' => $user->id,
+            'canUnmaskSensitive' => VoterDataMasker::canUnmask($user),
         ]);
     }
 
@@ -733,8 +775,13 @@ class ReportsController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
+        $dataPengundi->loadMissing('submittedBy:id,name,role');
+        $isRecordLocked = VoterDataMasker::isLocked($dataPengundi);
+        $canUnmaskSensitive = VoterDataMasker::canUnmask($user);
+        $maskedRecord = VoterDataMasker::mask($dataPengundi, $user);
+
         return Inertia::render('Reports/DataPengundi/Edit', [
-            'dataPengundi' => $dataPengundi,
+            'dataPengundi' => $maskedRecord,
             'bangsaList' => $bangsaList,
             'negeriList' => $negeriList,
             'bandarList' => $bandarList,
@@ -745,6 +792,8 @@ class ReportsController extends Controller
             'kecenderunganPolitikList' => $kecenderunganPolitikList,
             'lokalitiList' => $lokalitiList,
             'editHistories' => $editHistories,
+            'isRecordLocked' => $isRecordLocked,
+            'canUnmaskSensitive' => $canUnmaskSensitive,
         ]);
     }
 
@@ -753,6 +802,20 @@ class ReportsController extends Controller
      */
     public function dataPengundiUpdate(Request $request, DataPengundi $dataPengundi)
     {
+        $user = auth()->user();
+
+        // When the record is locked and the viewer cannot edit sensitive
+        // fields, replace any incoming masked values with the current DB
+        // originals so validation runs against the real data.
+        $dataPengundi->loadMissing('submittedBy:id,name,role');
+        if (VoterDataMasker::isLocked($dataPengundi) && ! VoterDataMasker::canUnmask($user)) {
+            foreach (VoterDataMasker::SENSITIVE_FIELDS as $field) {
+                if ($request->has($field)) {
+                    $request->merge([$field => $dataPengundi->getOriginal($field)]);
+                }
+            }
+        }
+
         $validated = $request->validate([
             'nama' => 'required|string|max:255',
             'no_ic' => 'required|string|digits:12|unique:data_pengundi,no_ic,' . $dataPengundi->id,
