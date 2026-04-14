@@ -38,8 +38,23 @@ import {
 
 export default function AuthenticatedLayout({ children }) {
     const { user, pendingApprovalsCount, mustChangePassword } = usePage().props.auth;
+    const flash = usePage().props.flash || {};
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [openDropdown, setOpenDropdown] = useState(null); // Track which dropdown is open
+    const [toast, setToast] = useState(null);
+
+    useEffect(() => {
+        if (flash.success) {
+            setToast({ type: 'success', message: flash.success });
+            const timer = setTimeout(() => setToast(null), 3000);
+            return () => clearTimeout(timer);
+        }
+        if (flash.error) {
+            setToast({ type: 'error', message: flash.error });
+            const timer = setTimeout(() => setToast(null), 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [flash.success, flash.error]);
 
     const masterDataSubmenu = [
         ...(user.role === 'super_admin' ? [{ name: 'Negeri', href: route('master-data.negeri.index'), icon: MapPin }] : []),
@@ -348,6 +363,32 @@ export default function AuthenticatedLayout({ children }) {
                     {children}
                 </main>
             </div>
+
+            {/* Flash toast notification */}
+            {toast && (
+                <div className="fixed top-6 right-6 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl shadow-lg border ${toast.type === 'success'
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                        : 'bg-rose-50 border-rose-200 text-rose-800'}`}>
+                        {toast.type === 'success' ? (
+                            <svg className="h-5 w-5 flex-shrink-0 text-emerald-600" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                            </svg>
+                        ) : (
+                            <svg className="h-5 w-5 flex-shrink-0 text-rose-600" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+                            </svg>
+                        )}
+                        <p className="text-sm font-medium">{toast.message}</p>
+                        <button
+                            onClick={() => setToast(null)}
+                            className="ml-2 text-slate-400 hover:text-slate-600"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

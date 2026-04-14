@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Jobs\ProcessVoterUpload;
+use App\Models\DataPengundi;
 use App\Models\Lokaliti;
 use App\Models\PangkalanDataPengundi;
 use App\Models\UploadBatch;
@@ -103,7 +104,16 @@ class UploadDatabaseController extends Controller
         $query = $request->input('ic', '');
         if (strlen($query) < 3) return response()->json([]);
 
-        // Search ALL records in pangkalan_data_pengundi
+        // Check data_pengundi first (already submitted voters)
+        $dataPengundiVoters = DataPengundi::where('no_ic', 'like', $query . '%')
+            ->limit(20)
+            ->get(['no_ic', 'nama', 'lokaliti', 'daerah_mengundi', 'kadun', 'parlimen', 'negeri', 'bangsa']);
+
+        if ($dataPengundiVoters->isNotEmpty()) {
+            return response()->json($dataPengundiVoters);
+        }
+
+        // Fall back to DPPR database (pangkalan_data_pengundi)
         $voters = PangkalanDataPengundi::where('no_ic', 'like', $query . '%')
             ->limit(20)
             ->get(['no_ic', 'nama', 'lokaliti', 'daerah_mengundi', 'kadun', 'parlimen', 'negeri', 'bangsa']);
@@ -115,16 +125,29 @@ class UploadDatabaseController extends Controller
     {
         $ic = $request->ic;
 
-        // For 12-digit IC, return single exact match
+        // For 12-digit IC, check data_pengundi first, then DPPR fallback
         if (strlen($ic) === 12) {
-            $voter = PangkalanDataPengundi::where('no_ic', $ic)->first();
+            $voter = DataPengundi::where('no_ic', $ic)
+                ->select(['no_ic', 'nama', 'no_tel', 'alamat', 'poskod', 'lokaliti', 'daerah_mengundi', 'kadun', 'mpkk', 'parlimen', 'bandar', 'negeri', 'bangsa', 'keahlian_parti', 'kecenderungan_politik'])
+                ->first();
+
+            if (! $voter) {
+                $voter = PangkalanDataPengundi::where('no_ic', $ic)->first();
+            }
+
             return response()->json($voter);
         }
 
-        // For partial IC (6-11 digits), return all matches with that prefix
-        $voters = PangkalanDataPengundi::where('no_ic', 'like', $ic . '%')
+        // For partial IC (6-11 digits): check data_pengundi first, then DPPR
+        $voters = DataPengundi::where('no_ic', 'like', $ic . '%')
             ->limit(15)
             ->get(['no_ic', 'nama', 'lokaliti', 'daerah_mengundi', 'kadun', 'parlimen', 'negeri', 'bangsa']);
+
+        if ($voters->isEmpty()) {
+            $voters = PangkalanDataPengundi::where('no_ic', 'like', $ic . '%')
+                ->limit(15)
+                ->get(['no_ic', 'nama', 'lokaliti', 'daerah_mengundi', 'kadun', 'parlimen', 'negeri', 'bangsa']);
+        }
 
         // If only one match, return as single object (backward compatible)
         if ($voters->count() === 1) {
