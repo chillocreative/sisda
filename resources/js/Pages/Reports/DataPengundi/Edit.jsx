@@ -55,6 +55,7 @@ export default function Edit({
         keahlian_parti: dataPengundi.keahlian_parti || '',
         kecenderungan_politik: dataPengundi.kecenderungan_politik || '',
         status_pengundi: dataPengundi.status_pengundi || '',
+        nota: dataPengundi.nota || '',
     });
 
     // Fetch KADUN and Daerah Mengundi when Parlimen changes
@@ -703,6 +704,22 @@ export default function Edit({
                                 </select>
                                 {errors.kecenderungan_politik && <p className="text-sm text-rose-600 mt-1">{errors.kecenderungan_politik}</p>}
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Dokumen & Nota */}
+                    <div className="bg-white rounded-xl border border-slate-200 p-6">
+                        <h2 className="text-lg font-semibold text-slate-900 mb-4">Dokumen & Nota</h2>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Nota</label>
+                            <textarea
+                                value={data.nota}
+                                onChange={(e) => setData('nota', e.target.value)}
+                                rows={4}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                placeholder="Maklumat tambahan tentang pengundi"
+                            />
+                            {errors.nota && <p className="text-sm text-rose-600 mt-1">{errors.nota}</p>}
                         </div>
                     </div>
 

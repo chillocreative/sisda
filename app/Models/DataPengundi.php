@@ -32,6 +32,7 @@ class DataPengundi extends Model
         'status_pengundi',
         'voter_color',
         'is_deceased',
+        'nota',
         'submitted_by',
     ];
 

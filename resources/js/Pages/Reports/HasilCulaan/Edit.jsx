@@ -14,6 +14,52 @@ const formatCurrency = (value) => {
     return parts.length > 1 ? parts[0] + '.' + parts[1] : parts[0];
 };
 
+const FIELD_LABELS = {
+    nama: 'Nama',
+    no_ic: 'No. IC',
+    umur: 'Umur',
+    no_tel: 'No. Telefon',
+    bangsa: 'Bangsa',
+    alamat: 'Alamat',
+    poskod: 'Poskod',
+    negeri: 'Negeri',
+    bandar: 'Bandar',
+    parlimen: 'Parlimen',
+    kadun: 'KADUN',
+    mpkk: 'MPKK',
+    daerah_mengundi: 'Daerah Mengundi',
+    lokaliti: 'Lokaliti',
+    bil_isi_rumah: 'Bilangan Isi Rumah',
+    pendapatan_isi_rumah: 'Pendapatan Isi Rumah',
+    pekerjaan: 'Pekerjaan',
+    jenis_pekerjaan: 'Jenis Pekerjaan',
+    pemilik_rumah: 'Pemilik Rumah',
+    jenis_sumbangan: 'Jenis Sumbangan',
+    tujuan_sumbangan: 'Tujuan Sumbangan',
+    bantuan_lain: 'Bantuan Lain',
+    zpp_jenis_bantuan: 'Bantuan ZPP',
+    isejahtera_program: 'Program iSejahtera',
+    bkb_program: 'Program BKB',
+    jkm_program: 'Program JKM',
+    jumlah_bantuan_tunai: 'Jumlah Bantuan Tunai',
+    jumlah_wang_tunai: 'Jumlah Wang Tunai',
+    keahlian_parti: 'Keanggotaan Parti',
+    kecenderungan_politik: 'Kecenderungan Politik',
+    status_pengundi: 'Status Pengundi',
+    voter_color: 'Warna Pengundi',
+    is_deceased: 'Status Kematian',
+    nota: 'Nota',
+};
+
+const labelFor = (field) => FIELD_LABELS[field] || field;
+
+const formatValue = (v) => {
+    if (v === null || v === undefined || v === '') return '—';
+    if (v === true || v === 1 || v === '1') return 'Ya';
+    if (v === false || v === 0 || v === '0') return 'Tidak';
+    return String(v);
+};
+
 export default function Edit({
     hasilCulaan,
     bangsaList,
@@ -49,6 +95,8 @@ export default function Edit({
     const [loadingLokaliti, setLoadingLokaliti] = useState(false);
     const [icSuggestions, setIcSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
+    const [bantuanHistory, setBantuanHistory] = useState([]);
+    const [showHistoryDetails, setShowHistoryDetails] = useState(true);
     const icDebounceRef = useRef(null);
     const icWrapperRef = useRef(null);
     const pendingVoterData = useRef(null);
@@ -285,6 +333,15 @@ export default function Edit({
                 .catch(() => {});
         }
     }, [data.no_ic]);
+
+    // Load all bantuan history for this IC on mount
+    useEffect(() => {
+        if (hasilCulaan.no_ic && hasilCulaan.no_ic.length === 12) {
+            axios.get(route('api.hasil-culaan.by-ic'), { params: { ic: hasilCulaan.no_ic } })
+                .then(res => setBantuanHistory(res.data || []))
+                .catch(() => setBantuanHistory([]));
+        }
+    }, []);
 
     const handlePostcodeChange = (e) => {
         const value = e.target.value.replace(/\D/g, '');
@@ -1557,6 +1614,90 @@ export default function Edit({
                     </div>
                 </form>
 
+                {/* Bantuan History - comprehensive list of all records for this IC */}
+                {bantuanHistory.length > 0 && (
+                    <div className="bg-white rounded-xl border border-slate-200 p-6 mt-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <div>
+                                <h2 className="text-lg font-semibold text-slate-900">Sejarah Bantuan</h2>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                    {bantuanHistory.length} rekod bantuan untuk {hasilCulaan.nama} ({hasilCulaan.no_ic})
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowHistoryDetails(!showHistoryDetails)}
+                                className="text-xs font-medium text-blue-700 hover:text-blue-900 underline"
+                            >
+                                {showHistoryDetails ? 'Sembunyikan Butiran' : 'Papar Butiran'}
+                            </button>
+                        </div>
+                        {showHistoryDetails && (
+                            <div className="space-y-3">
+                                {bantuanHistory.map((record) => {
+                                    const isCurrent = record.id === hasilCulaan.id;
+                                    return (
+                                        <div
+                                            key={record.id}
+                                            className={`rounded-lg border p-4 ${isCurrent ? 'border-blue-300 bg-blue-50' : 'border-slate-200 bg-slate-50'}`}
+                                        >
+                                            <div className="flex items-start justify-between mb-2">
+                                                <div>
+                                                    <p className="text-sm font-semibold text-slate-900">
+                                                        {new Date(record.created_at).toLocaleDateString('ms-MY', { year: 'numeric', month: 'long', day: 'numeric' })}
+                                                        <span className="ml-2 text-xs font-normal text-slate-500">
+                                                            {new Date(record.created_at).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}
+                                                        </span>
+                                                        {isCurrent && (
+                                                            <span className="ml-2 inline-block px-2 py-0.5 text-[10px] font-bold bg-blue-600 text-white rounded uppercase">
+                                                                Rekod Semasa
+                                                            </span>
+                                                        )}
+                                                    </p>
+                                                    {record.submitted_by?.name && (
+                                                        <p className="text-xs text-slate-500 mt-0.5">Dihantar oleh: {record.submitted_by.name}</p>
+                                                    )}
+                                                </div>
+                                                {record.jumlah_wang_tunai && (
+                                                    <span className="text-sm font-semibold text-blue-700">
+                                                        RM {Number(record.jumlah_wang_tunai).toLocaleString('en-MY', { minimumFractionDigits: 2 })}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600">
+                                                {record.jenis_sumbangan && (
+                                                    <div><span className="font-medium text-slate-700">Jenis Sumbangan:</span> {record.jenis_sumbangan}</div>
+                                                )}
+                                                {record.tujuan_sumbangan && (
+                                                    <div><span className="font-medium text-slate-700">Tujuan:</span> {record.tujuan_sumbangan}</div>
+                                                )}
+                                                {record.bantuan_lain && (
+                                                    <div><span className="font-medium text-slate-700">Bantuan Lain:</span> {record.bantuan_lain}</div>
+                                                )}
+                                                {record.pekerjaan && (
+                                                    <div><span className="font-medium text-slate-700">Pekerjaan:</span> {record.pekerjaan}</div>
+                                                )}
+                                                {record.bil_isi_rumah && (
+                                                    <div><span className="font-medium text-slate-700">Bil. Isi Rumah:</span> {record.bil_isi_rumah}</div>
+                                                )}
+                                                {record.pendapatan_isi_rumah && (
+                                                    <div><span className="font-medium text-slate-700">Pendapatan:</span> RM {Number(record.pendapatan_isi_rumah).toLocaleString('en-MY')}</div>
+                                                )}
+                                                {record.lokaliti && (
+                                                    <div><span className="font-medium text-slate-700">Lokaliti:</span> {record.lokaliti}</div>
+                                                )}
+                                                {record.kadun && (
+                                                    <div><span className="font-medium text-slate-700">KADUN:</span> {record.kadun}</div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* Edit History */}
                 {editHistories.length > 0 && (
                     <div className="bg-white rounded-xl border border-slate-200 p-6 mt-6">
@@ -1564,7 +1705,7 @@ export default function Edit({
                         <div className="space-y-3">
                             {editHistories.map((history) => (
                                 <div key={history.id} className="flex items-start justify-between border-b border-slate-100 pb-3 last:border-0 last:pb-0">
-                                    <div>
+                                    <div className="flex-1">
                                         <p className="text-sm font-medium text-slate-700">
                                             {history.action === 'created' ? 'Dicipta' : 'Dikemaskini'}
                                             <span className="ml-2 font-normal text-slate-500">oleh {history.user?.name || '-'}</span>
@@ -1574,23 +1715,23 @@ export default function Edit({
                                             {' '}
                                             {new Date(history.created_at).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}
                                         </p>
-                                        {history.changes && (
-                                            <div className="mt-1">
-                                                {Object.entries(history.changes).slice(0, 3).map(([field, vals]) => (
-                                                    <p key={field} className="text-xs text-slate-500">
-                                                        <span className="font-medium">{field}</span>: {vals.old || '-'} → {vals.new || '-'}
-                                                    </p>
+                                        {history.changes && Object.keys(history.changes).length > 0 && (
+                                            <div className="mt-2 space-y-1 bg-slate-50 rounded-lg p-3 border border-slate-100">
+                                                {Object.entries(history.changes).map(([field, vals]) => (
+                                                    <div key={field} className="text-xs text-slate-600 flex flex-wrap items-baseline gap-1">
+                                                        <span className="font-semibold text-slate-800">{labelFor(field)}:</span>
+                                                        <span className="text-slate-500 line-through">{formatValue(vals.old)}</span>
+                                                        <span className="text-slate-400">→</span>
+                                                        <span className="text-slate-900 font-medium">{formatValue(vals.new)}</span>
+                                                    </div>
                                                 ))}
-                                                {Object.keys(history.changes).length > 3 && (
-                                                    <p className="text-xs text-slate-400">+{Object.keys(history.changes).length - 3} lagi perubahan</p>
-                                                )}
                                             </div>
                                         )}
                                     </div>
                                     {auth.user.role === 'super_admin' && (
                                         <button
                                             onClick={() => router.delete(route('edit-history.destroy', history.id), { preserveScroll: true })}
-                                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
+                                            className="ml-3 p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
                                             title="Padam sejarah"
                                         >
                                             <Trash2 className="h-3.5 w-3.5" />

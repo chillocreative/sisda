@@ -8,6 +8,7 @@ use App\Models\DaerahMengundi;
 use App\Models\EditHistory;
 use App\Models\Lokaliti;
 use App\Services\VoterColorService;
+use App\Services\VoterSyncService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Exports\HasilCulaanExport;
@@ -337,6 +338,7 @@ class ReportsController extends Controller
         if ($hasSumbangan) {
             $record = HasilCulaan::create($validated);
             EditHistory::log('hasil_culaan', $record->id, 'created');
+            VoterSyncService::syncFromHasilCulaan($record);
 
             return redirect()->route('reports.hasil-culaan.index')->with('success', 'Rekod Data Sumbangan berjaya ditambah');
         }
@@ -359,11 +361,13 @@ class ReportsController extends Controller
             'keahlian_parti' => $validated['keahlian_parti'] ?? null,
             'kecenderungan_politik' => $validated['kecenderungan_politik'] ?? null,
             'status_pengundi' => $validated['status_pengundi'] ?? null,
+            'nota' => $validated['nota'] ?? null,
             'hubungan' => null,
             'submitted_by' => auth()->id(),
             'voter_color' => $validated['voter_color'] ?? null,
         ]);
         EditHistory::log('data_pengundi', $record->id, 'created');
+        VoterSyncService::syncFromDataPengundi($record);
 
         return redirect()->route('reports.data-pengundi.index')->with('success', 'Rekod Data Pengundi berjaya ditambah');
     }
@@ -560,6 +564,8 @@ class ReportsController extends Controller
         if (!empty($changes)) {
             EditHistory::log('hasil_culaan', $hasilCulaan->id, 'updated', $changes);
         }
+
+        VoterSyncService::syncFromHasilCulaan($hasilCulaan->fresh());
 
         return redirect()->route('reports.hasil-culaan.index')->with('success', 'Rekod berjaya dikemaskini');
     }
@@ -765,6 +771,7 @@ class ReportsController extends Controller
             'keahlian_parti' => 'nullable|string|max:255',
             'kecenderungan_politik' => 'nullable|string|max:255',
             'status_pengundi' => 'nullable|string|max:255',
+            'nota' => 'nullable|string',
         ], [
             'no_ic.unique' => 'No. Kad Pengenalan ini telah didaftarkan dalam Data Pengundi.',
         ]);
@@ -784,6 +791,8 @@ class ReportsController extends Controller
         if (!empty($changes)) {
             EditHistory::log('data_pengundi', $dataPengundi->id, 'updated', $changes);
         }
+
+        VoterSyncService::syncFromDataPengundi($dataPengundi->fresh());
 
         return redirect()->route('reports.data-pengundi.index')->with('success', 'Rekod berjaya dikemaskini');
     }
