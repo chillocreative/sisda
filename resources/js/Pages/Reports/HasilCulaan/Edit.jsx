@@ -412,7 +412,7 @@ export default function Edit({
 
     return (
         <AuthenticatedLayout>
-            <Head title="Edit Hasil Culaan" />
+            <Head title="Edit Data Sumbangan" />
 
             <div className="max-w-4xl mx-auto space-y-6">
                 {/* Header */}
@@ -424,7 +424,7 @@ export default function Edit({
                         <ArrowLeft className="h-5 w-5 text-slate-600" />
                     </button>
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900">Edit Hasil Culaan</h1>
+                        <h1 className="text-2xl font-bold text-slate-900">Edit Data Sumbangan</h1>
                         <p className="text-sm text-slate-600 mt-1">Kemaskini maklumat yang diperlukan</p>
                     </div>
                 </div>
