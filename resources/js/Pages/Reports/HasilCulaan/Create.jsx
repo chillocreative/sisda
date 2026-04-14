@@ -291,6 +291,22 @@ export default function Create({
         setUploadProgress(0);
     };
 
+    const calculateAgeFromIc = (ic) => {
+        if (!ic || ic.length < 6) return '';
+        const year = ic.substring(0, 2);
+        const month = ic.substring(2, 4);
+        const day = ic.substring(4, 6);
+        const fullYear = parseInt(year) <= 25 ? 2000 + parseInt(year) : 1900 + parseInt(year);
+        const birthDate = new Date(fullYear, parseInt(month) - 1, parseInt(day));
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+        }
+        return age >= 0 && age <= 150 ? age.toString() : '';
+    };
+
     const handleIcChange = (e) => {
         const value = e.target.value;
 
@@ -317,35 +333,15 @@ export default function Create({
             setShowSuggestions(false);
         }
 
-        // Clear age if IC is empty or too short
-        if (digitsOnly.length < 6) {
-            setData('umur', '');
-            return;
-        }
-
-        // Auto-calculate age if IC has at least 6 digits (YYMMDD)
-        const year = digitsOnly.substring(0, 2);
-        const month = digitsOnly.substring(2, 4);
-        const day = digitsOnly.substring(4, 6);
-
-        // Determine century (00-25 = 2000s, 26-99 = 1900s)
-        const fullYear = parseInt(year) <= 25 ? 2000 + parseInt(year) : 1900 + parseInt(year);
-
-        // Calculate age
-        const birthDate = new Date(fullYear, parseInt(month) - 1, parseInt(day));
-        const today = new Date();
-        let age = today.getFullYear() - birthDate.getFullYear();
-        const monthDiff = today.getMonth() - birthDate.getMonth();
-
-        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-            age--;
-        }
-
-        // Set age if valid
-        if (age >= 0 && age <= 150) {
-            setData('umur', age.toString());
-        }
+        setData('umur', calculateAgeFromIc(digitsOnly));
     };
+
+    useEffect(() => {
+        if (initialIc && initialIc.length >= 6) {
+            setData('umur', calculateAgeFromIc(initialIc));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const handleTelChange = (e) => {
         const value = e.target.value;
