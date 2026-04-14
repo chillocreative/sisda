@@ -524,7 +524,7 @@ export default function Create({
                 </div>
 
                 {/* Kematian Toggle */}
-                <div className={`rounded-xl border p-4 flex items-center justify-between ${data.is_deceased ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-white'}`}>
+                <div className={`rounded-xl border p-4 flex items-center justify-between ${data.is_deceased ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-[#FFCEE3]'}`}>
                     <div>
                         <span className={`text-sm font-medium ${data.is_deceased ? 'text-rose-700' : 'text-slate-700'}`}>
                             {data.is_deceased ? 'Ditandakan sebagai kematian — semua medan dikunci' : 'Tandakan sebagai kematian'}
@@ -1575,7 +1575,7 @@ export default function Create({
                     </div>
 
                     {/* Sumbangan Toggle */}
-                    <div className="order-5 bg-white rounded-xl border border-slate-200 p-6">
+                    <div className="order-5 bg-[#D5E7B5] rounded-xl border border-slate-200 p-6">
                         <label className="flex items-center space-x-3 cursor-pointer">
                             <input
                                 type="checkbox"
