@@ -197,7 +197,8 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
         switch (role) {
             case 'super_admin': return 'Super Admin';
             case 'admin': return 'Admin';
-            default: return 'Pengguna';
+            case 'super_user': return 'Super User';
+            default: return 'User';
         }
     };
 
@@ -223,26 +224,26 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
 
     return (
         <AuthenticatedLayout>
-            <Head title="Pengguna" />
+            <Head title="User" />
 
             <div className="space-y-6">
                 {/* Page Header */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900">Pengguna</h1>
-                        <p className="text-sm text-slate-600 mt-1">Urus pengguna sistem</p>
+                        <h1 className="text-2xl font-bold text-slate-900">User</h1>
+                        <p className="text-sm text-slate-600 mt-1">Urus user sistem</p>
                     </div>
                     <button
                         onClick={() => setShowCreateModal(true)}
                         className="flex items-center space-x-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors"
                     >
                         <Plus className="h-4 w-4" />
-                        <span>Tambah Pengguna</span>
+                        <span>Tambah User</span>
                     </button>
                 </div>
 
                 {/* Stats Cards */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <div className="bg-white rounded-xl border border-slate-200 p-6">
                         <div className="flex items-center justify-between">
                             <div className="p-3 rounded-lg bg-rose-50">
@@ -269,12 +270,24 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
 
                     <div className="bg-white rounded-xl border border-slate-200 p-6">
                         <div className="flex items-center justify-between">
+                            <div className="p-3 rounded-lg bg-violet-50">
+                                <UserIcon className="h-6 w-6 text-violet-600" />
+                            </div>
+                        </div>
+                        <div className="mt-4">
+                            <p className="text-sm font-medium text-slate-600">Super User</p>
+                            <p className="text-2xl font-bold text-slate-900 mt-1">{stats.super_user ?? 0}</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl border border-slate-200 p-6">
+                        <div className="flex items-center justify-between">
                             <div className="p-3 rounded-lg bg-slate-50">
                                 <UserIcon className="h-6 w-6 text-slate-600" />
                             </div>
                         </div>
                         <div className="mt-4">
-                            <p className="text-sm font-medium text-slate-600">Pengguna</p>
+                            <p className="text-sm font-medium text-slate-600">User</p>
                             <p className="text-2xl font-bold text-slate-900 mt-1">{stats.user}</p>
                         </div>
                     </div>
@@ -311,7 +324,8 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
                                     <option value="">Semua</option>
                                     <option value="super_admin">Super Admin</option>
                                     <option value="admin">Admin</option>
-                                    <option value="user">Pengguna</option>
+                                    <option value="super_user">Super User</option>
+                                    <option value="user">User</option>
                                 </select>
                             </div>
                             <div>
@@ -339,7 +353,7 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
                 <div className="bg-white rounded-xl border border-slate-200">
                     <div className="p-6 border-b border-slate-200">
                         <div className="flex items-center justify-between">
-                            <h2 className="text-lg font-semibold text-slate-900">Senarai Pengguna</h2>
+                            <h2 className="text-lg font-semibold text-slate-900">Senarai User</h2>
                             {selectedUsers.length > 0 && (
                                 <button
                                     onClick={handleBulkDelete}
@@ -434,7 +448,7 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
                     <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6 my-8">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-lg font-semibold text-slate-900">
-                                {editingUser ? 'Edit Pengguna' : 'Tambah Pengguna Baru'}
+                                {editingUser ? 'Edit User' : 'Tambah User Baru'}
                             </h3>
                             <button onClick={() => { setShowCreateModal(false); setEditingUser(null); }} className="text-slate-400 hover:text-slate-600">
                                 <X className="h-6 w-6" />
@@ -506,7 +520,8 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
                                             className="w-full mt-1 border-slate-300 rounded-lg focus:ring-slate-400 focus:border-slate-400"
                                             required
                                         >
-                                            <option value="user">Pengguna</option>
+                                            <option value="user">User</option>
+                                            <option value="super_user">Super User</option>
                                             {currentUser.role === 'super_admin' && (
                                                 <>
                                                     <option value="admin">Admin</option>
@@ -593,7 +608,7 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
                                     type="submit"
                                     className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors"
                                 >
-                                    {editingUser ? 'Simpan Perubahan' : 'Cipta Pengguna'}
+                                    {editingUser ? 'Simpan Perubahan' : 'Cipta User'}
                                 </button>
                             </div>
                         </form>
@@ -605,14 +620,14 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
             <Modal show={!!confirmingDelete} onClose={() => setConfirmingDelete(null)}>
                 <div className="p-6">
                     <h2 className="text-lg font-medium text-slate-900">
-                        Padam Pengguna
+                        Padam User
                     </h2>
 
                     <p className="mt-1 text-sm text-slate-600">
-                        Adakah anda pasti mahu memadam pengguna <span className="font-semibold">{confirmingDelete?.name}</span>?
+                        Adakah anda pasti mahu memadam user <span className="font-semibold">{confirmingDelete?.name}</span>?
                         {confirmingDelete?.status === 'rejected' && (
                             <span className="block mt-2 text-rose-600">
-                                Pengguna ini mempunyai status "Ditolak".
+                                User ini mempunyai status "Ditolak".
                             </span>
                         )}
                         Tindakan ini tidak boleh dibatalkan.
@@ -624,7 +639,7 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
                         </SecondaryButton>
 
                         <DangerButton onClick={executeDelete}>
-                            Padam Pengguna
+                            Padam User
                         </DangerButton>
                     </div>
                 </div>

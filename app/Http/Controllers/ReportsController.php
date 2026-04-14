@@ -40,8 +40,8 @@ class ReportsController extends Controller
         $user = auth()->user();
         $query = HasilCulaan::with('submittedBy');
 
-        // User Restriction: Records in their KADUN OR records they submitted
-        if ($user->isUser()) {
+        // User / Super User Restriction: Records in their KADUN OR records they submitted
+        if ($user->isUser() || $user->isSuperUser()) {
             $query->where(function ($q) use ($user) {
                 $q->where('kadun', $user->kadun->nama ?? '__none__')
                   ->orWhere('submitted_by', $user->id);
@@ -628,8 +628,8 @@ class ReportsController extends Controller
         $user = auth()->user();
         $query = DataPengundi::with('submittedBy');
 
-        // User Restriction: Records in their KADUN OR records they submitted
-        if ($user->isUser()) {
+        // User / Super User Restriction: Records in their KADUN OR records they submitted
+        if ($user->isUser() || $user->isSuperUser()) {
             $query->where(function ($q) use ($user) {
                 $q->where('kadun', $user->kadun->nama ?? '__none__')
                   ->orWhere('submitted_by', $user->id);

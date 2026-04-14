@@ -70,6 +70,7 @@ class UsersController extends Controller
         $stats = [
             'super_admin' => $user->isAdmin() ? 0 : User::where('role', 'super_admin')->count(),
             'admin' => (clone $statsQuery)->where('role', 'admin')->count(),
+            'super_user' => (clone $statsQuery)->where('role', 'super_user')->count(),
             'user' => (clone $statsQuery)->where('role', 'user')->count(),
         ];
 
@@ -103,7 +104,7 @@ class UsersController extends Controller
             'telephone' => 'required|string|max:255|unique:'.User::class,
             'email' => 'nullable|string|lowercase|email|max:255|unique:'.User::class,
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'role' => 'required|in:super_admin,admin,user',
+            'role' => 'required|in:super_admin,admin,super_user,user',
             'negeri_id' => 'required|exists:negeri,id',
             'bandar_id' => 'required|exists:bandar,id',
             'kadun_id' => 'required|exists:kadun,id',
@@ -174,7 +175,7 @@ class UsersController extends Controller
             'name' => 'required|string|max:255',
             'telephone' => 'required|string|max:255|unique:users,telephone,' . $user->id,
             'email' => 'nullable|string|email|max:255|unique:users,email,' . $user->id,
-            'role' => 'required|in:super_admin,admin,user',
+            'role' => 'required|in:super_admin,admin,super_user,user',
             'negeri_id' => 'required|exists:negeri,id',
             'bandar_id' => 'required|exists:bandar,id',
             'kadun_id' => 'required|exists:kadun,id',

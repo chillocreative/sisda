@@ -100,11 +100,11 @@ export default function AuthenticatedLayout({ children }) {
         { name: 'Dashboard', href: route('dashboard'), icon: LayoutDashboard, current: route().current('dashboard') },
         // User Approval (Super Admin and Admin only)
         ...(user.role === 'super_admin' || user.role === 'admin' ? [
-            { name: 'Kelulusan Pengguna', href: route('user-approval.index'), icon: UserCheck, current: route().current('user-approval.*') }
+            { name: 'Kelulusan User', href: route('user-approval.index'), icon: UserCheck, current: route().current('user-approval.*') }
         ] : []),
-        // Pengguna menu (Super Admin and Admin only)
+        // User menu (Super Admin and Admin only)
         ...(user.role === 'super_admin' || user.role === 'admin' ? [
-            { name: 'Pengguna', href: route('users.index'), icon: Users, current: route().current('users.*') }
+            { name: 'User', href: route('users.index'), icon: Users, current: route().current('users.*') }
         ] : []),
 
         // Upload Database (Super Admin only)
@@ -123,8 +123,8 @@ export default function AuthenticatedLayout({ children }) {
                 submenu: masterDataSubmenu
             }
         ] : []),
-        // For User role: Direct create link (unified form)
-        ...(user.role === 'user' ? [
+        // For User / Super User role: Direct create link (unified form)
+        ...(user.role === 'user' || user.role === 'super_user' ? [
             { name: 'Data Pengundi', href: route('reports.hasil-culaan.create'), icon: UserCheck, current: route().current('reports.hasil-culaan.create') }
         ] : []),
         // Laporan menu
@@ -138,8 +138,8 @@ export default function AuthenticatedLayout({ children }) {
                 submenu: laporanSubmenu
             }
         ] : []),
-        // Laporan menu for User role (list views) - only highlight when on index pages
-        ...(user.role === 'user' ? [
+        // Laporan menu for User / Super User role (list views) - only highlight when on index pages
+        ...(user.role === 'user' || user.role === 'super_user' ? [
             {
                 name: 'Laporan',
                 href: route('reports.index'),
@@ -149,8 +149,8 @@ export default function AuthenticatedLayout({ children }) {
                 submenu: userLaporanSubmenu
             }
         ] : []),
-        // Call Center (Super Admin, Admin, and User)
-        ...(user.role === 'super_admin' || user.role === 'admin' || user.role === 'user' ? [
+        // Call Center (Super Admin, Admin, Super User, and User)
+        ...(user.role === 'super_admin' || user.role === 'admin' || user.role === 'user' || user.role === 'super_user' ? [
             {
                 name: 'Pusat Panggilan',
                 href: route('call-center.index'),
@@ -277,7 +277,7 @@ export default function AuthenticatedLayout({ children }) {
                                             <item.icon className="h-5 w-5" />
                                             <span>{item.name}</span>
                                         </div>
-                                        {item.name === 'Kelulusan Pengguna' && pendingApprovalsCount > 0 && (
+                                        {item.name === 'Kelulusan User' && pendingApprovalsCount > 0 && (
                                             <div className="flex items-center justify-center bg-red-100 text-red-600 rounded-full px-2 py-0.5 ml-auto">
                                                 <Bell className="h-4 w-4 mr-1" />
                                                 <span className="text-xs font-bold">{pendingApprovalsCount}</span>

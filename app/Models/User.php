@@ -175,6 +175,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user is Super User.
+     */
+    public function isSuperUser()
+    {
+        return $this->role === 'super_user';
+    }
+
+    /**
      * Check if user is approved.
      */
     public function isApproved()

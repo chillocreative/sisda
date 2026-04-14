@@ -21,8 +21,8 @@ class DashboardController extends Controller
     {
         $user = auth()->user();
 
-        // Show simplified dashboard for Admin and Regular users
-        if ($user->isAdmin() || $user->isUser()) {
+        // Show simplified dashboard for Admin, Super User and Regular users
+        if ($user->isAdmin() || $user->isSuperUser() || $user->isUser()) {
             return Inertia::render('Dashboard/UserDashboard');
         }
 
@@ -368,7 +368,7 @@ class DashboardController extends Controller
                 $q->where('bandar', $user->bandar->nama ?? '__none__')
                   ->orWhere('submitted_by', $user->id);
             });
-        } elseif ($user->isUser()) {
+        } elseif ($user->isUser() || $user->isSuperUser()) {
             $hasilCulaanQuery->where(function ($q) use ($user) {
                 $q->where('kadun', $user->kadun->nama ?? '__none__')
                   ->orWhere('submitted_by', $user->id);
@@ -403,7 +403,7 @@ class DashboardController extends Controller
                 $q->where('bandar', $user->bandar->nama ?? '__none__')
                   ->orWhere('submitted_by', $user->id);
             });
-        } elseif ($user->isUser()) {
+        } elseif ($user->isUser() || $user->isSuperUser()) {
             $dataPengundiQuery->where(function ($q) use ($user) {
                 $q->where('kadun', $user->kadun->nama ?? '__none__')
                   ->orWhere('submitted_by', $user->id);
