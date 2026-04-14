@@ -241,12 +241,12 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Umur</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">No. Tel</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Bangsa</th>
-                                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Hubungan</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Negeri</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Parlimen</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">KADUN</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Lokaliti</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Keanggotaan Parti</th>
+                                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Kecenderungan Politik</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Tarikh</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Dikemukakan</th>
                                     <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Tindakan</th>
@@ -284,12 +284,12 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.umur}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.no_tel}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.bangsa}</td>
-                                            <td className="py-3 px-4 text-sm text-slate-600">{item.hubungan || '-'}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.negeri}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.parlimen}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.kadun}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.lokaliti || '—'}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.keahlian_parti || '-'}</td>
+                                            <td className="py-3 px-4 text-sm text-slate-600">{item.kecenderungan_politik || '-'}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{formatDate(item.created_at)}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.submitted_by?.name || '-'}</td>
                                             <td className="py-3 px-4">

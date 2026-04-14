@@ -642,7 +642,7 @@ class ReportsController extends Controller
             });
         }
 
-        $dataPengundi = $query->orderBy('created_at', 'desc')->paginate(10);
+        $dataPengundi = $query->orderBy('id', 'desc')->paginate(10);
 
         return Inertia::render('Reports/DataPengundi/Index', [
             'dataPengundi' => $dataPengundi,
