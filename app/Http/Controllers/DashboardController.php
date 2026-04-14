@@ -358,15 +358,21 @@ class DashboardController extends Controller
 
         $results = [];
 
-        // Search in Hasil Culaan
+        // Search in Hasil Culaan (Data Sumbangan)
         $hasilCulaanQuery = HasilCulaan::where('no_ic', 'like', "%{$icNumber}%")
             ->with('submittedBy');
 
-        // Apply territory restrictions for Admin and User
+        // Territory restriction: records in territory OR submitted by user
         if ($user->isAdmin()) {
-            $hasilCulaanQuery->where('bandar', $user->bandar->nama ?? '');
+            $hasilCulaanQuery->where(function ($q) use ($user) {
+                $q->where('bandar', $user->bandar->nama ?? '__none__')
+                  ->orWhere('submitted_by', $user->id);
+            });
         } elseif ($user->isUser()) {
-            $hasilCulaanQuery->where('kadun', $user->kadun->nama ?? '');
+            $hasilCulaanQuery->where(function ($q) use ($user) {
+                $q->where('kadun', $user->kadun->nama ?? '__none__')
+                  ->orWhere('submitted_by', $user->id);
+            });
         }
 
         $hasilCulaan = $hasilCulaanQuery->limit(5)->get();
@@ -391,11 +397,17 @@ class DashboardController extends Controller
         $dataPengundiQuery = DataPengundi::where('no_ic', 'like', "%{$icNumber}%")
             ->with('submittedBy');
 
-        // Apply territory restrictions for Admin and User
+        // Territory restriction: records in territory OR submitted by user
         if ($user->isAdmin()) {
-            $dataPengundiQuery->where('bandar', $user->bandar->nama ?? '');
+            $dataPengundiQuery->where(function ($q) use ($user) {
+                $q->where('bandar', $user->bandar->nama ?? '__none__')
+                  ->orWhere('submitted_by', $user->id);
+            });
         } elseif ($user->isUser()) {
-            $dataPengundiQuery->where('kadun', $user->kadun->nama ?? '');
+            $dataPengundiQuery->where(function ($q) use ($user) {
+                $q->where('kadun', $user->kadun->nama ?? '__none__')
+                  ->orWhere('submitted_by', $user->id);
+            });
         }
 
         $dataPengundi = $dataPengundiQuery->limit(5)->get();
