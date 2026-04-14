@@ -328,39 +328,38 @@ class ReportsController extends Controller
         $validated['submitted_by'] = auth()->id();
         $validated['voter_color'] = VoterColorService::determine($validated['keahlian_parti'] ?? null, $validated['kecenderungan_politik'] ?? null);
 
-        $record = HasilCulaan::create($validated);
+        if ($hasSumbangan) {
+            $record = HasilCulaan::create($validated);
+            EditHistory::log('hasil_culaan', $record->id, 'created');
 
-        EditHistory::log('hasil_culaan', $record->id, 'created');
-
-        // Auto-copy matching data to Data Pengundi
-        // Check if this IC number already exists in Data Pengundi
-        $existingPengundi = \App\Models\DataPengundi::where('no_ic', $validated['no_ic'])->first();
-
-        if (!$existingPengundi) {
-            // Create new Data Pengundi record with matching fields
-            \App\Models\DataPengundi::create([
-                'nama' => $validated['nama'],
-                'no_ic' => $validated['no_ic'],
-                'umur' => $validated['umur'],
-                'no_tel' => $validated['no_tel'],
-                'bangsa' => $validated['bangsa'],
-                'alamat' => $validated['alamat'],
-                'poskod' => $validated['poskod'],
-                'negeri' => $validated['negeri'],
-                'bandar' => $validated['bandar'],
-                'parlimen' => $validated['parlimen'], 
-                'kadun' => $validated['kadun'],
-                'mpkk' => $validated['mpkk'] ?? null,
-                'daerah_mengundi' => $validated['daerah_mengundi'] ?? null,
-                'lokaliti' => $validated['lokaliti'] ?? null,
-                'keahlian_parti' => $validated['keahlian_parti'] ?? null,
-                'kecenderungan_politik' => $validated['kecenderungan_politik'] ?? null,
-                'hubungan' => null, // Will be updated manually by user
-                'submitted_by' => auth()->id(),
-            ]);
+            return redirect()->route('reports.hasil-culaan.index')->with('success', 'Rekod Data Sumbangan berjaya ditambah');
         }
 
-        return redirect()->route('reports.hasil-culaan.index')->with('success', 'Rekod berjaya ditambah dan data pengundi telah dikemaskini');
+        $record = \App\Models\DataPengundi::create([
+            'nama' => $validated['nama'],
+            'no_ic' => $validated['no_ic'],
+            'umur' => $validated['umur'],
+            'no_tel' => $validated['no_tel'],
+            'bangsa' => $validated['bangsa'],
+            'alamat' => $validated['alamat'],
+            'poskod' => $validated['poskod'],
+            'negeri' => $validated['negeri'],
+            'bandar' => $validated['bandar'],
+            'parlimen' => $validated['parlimen'],
+            'kadun' => $validated['kadun'],
+            'mpkk' => $validated['mpkk'] ?? null,
+            'daerah_mengundi' => $validated['daerah_mengundi'] ?? null,
+            'lokaliti' => $validated['lokaliti'] ?? null,
+            'keahlian_parti' => $validated['keahlian_parti'] ?? null,
+            'kecenderungan_politik' => $validated['kecenderungan_politik'] ?? null,
+            'status_pengundi' => $validated['status_pengundi'] ?? null,
+            'hubungan' => null,
+            'submitted_by' => auth()->id(),
+            'voter_color' => $validated['voter_color'] ?? null,
+        ]);
+        EditHistory::log('data_pengundi', $record->id, 'created');
+
+        return redirect()->route('reports.data-pengundi.index')->with('success', 'Rekod Data Pengundi berjaya ditambah');
     }
 
     /**
@@ -682,141 +681,6 @@ class ReportsController extends Controller
         }
 
         return Excel::download(new DataPengundiExport($query), 'data-pengundi-' . date('Y-m-d') . '.xlsx');
-    }
-
-    /**
-     * Show the form for creating a new Data Pengundi.
-     */
-    public function dataPengundiCreate(Request $request)
-    {
-        $bangsaList = \App\Models\Bangsa::all();
-
-        $negeriList = \App\Models\Negeri::orderBy('nama')->get();
-        $bandarList = \App\Models\Bandar::orderBy('nama')->get();
-        $kadunList = \App\Models\Kadun::orderBy('nama')->get();
-        $keahlianPartiList = \App\Models\KeahlianParti::all();
-        $kecenderunganPolitikList = \App\Models\KecenderunganPolitik::all();
-
-        $user = auth()->user();
-        $daerahMengundiQuery = DaerahMengundi::orderBy('nama');
-        if ($user->bandar_id) {
-            $daerahMengundiQuery->where('bandar_id', $user->bandar_id);
-        }
-        $daerahMengundiList = $daerahMengundiQuery->get();
-
-        $parlimenList = \App\Models\Bandar::orderBy('nama')->get();
-
-        $lokalitiList = Lokaliti::orderBy('nama')->get();
-
-        $prefill = null;
-        if ($request->filled('ic')) {
-            // Search ALL voter records (upload batch + DPT)
-            $voter = \App\Models\PangkalanDataPengundi::where('no_ic', $request->input('ic'))->first();
-
-            if ($voter) {
-                $tc = fn($s) => $s ? ucwords(strtolower($s)) : null;
-
-                // Auto-detect KADUN from Daerah Mengundi using existing voter database
-                $kadun = null;
-                if ($voter->daerah_mengundi) {
-                    // Best method: find another voter in same DM who has correct kadun from ZIP upload
-                    $existingVoter = \App\Models\PangkalanDataPengundi::where('daerah_mengundi', $voter->daerah_mengundi)
-                        ->whereNotNull('kadun')
-                        ->where('kadun', '!=', '')
-                        ->whereNotNull('upload_batch_id')
-                        ->first();
-                    if ($existingVoter) {
-                        $kadun = $tc($existingVoter->kadun);
-                    }
-                }
-                // Fallback: use voter's stored kadun if available
-                if (!$kadun && $voter->kadun) {
-                    $kadun = $tc($voter->kadun);
-                }
-
-                // Fix negeri — resolve actual state name
-                $negeri = $tc($voter->negeri);
-                if (!$negeri || preg_match('/^N\.\d+/i', $voter->negeri ?? '')) {
-                    $bandar = \App\Models\Bandar::where('nama', 'like', '%' . ($voter->parlimen ?? '') . '%')->first();
-                    if ($bandar && $bandar->negeri) {
-                        $negeri = $tc($bandar->negeri->nama);
-                    }
-                }
-
-                $prefill = [
-                    'no_ic'           => $voter->no_ic,
-                    'nama'            => $voter->nama,
-                    'bangsa'          => $voter->bangsa,
-                    'negeri'          => $negeri,
-                    'parlimen'        => $tc($voter->parlimen),
-                    'kadun'           => $kadun,
-                    'daerah_mengundi' => $voter->daerah_mengundi,
-                    'lokaliti'        => $voter->lokaliti,
-                ];
-            }
-        }
-
-        return Inertia::render('Reports/DataPengundi/Create', [
-            'bangsaList' => $bangsaList,
-            'negeriList' => $negeriList,
-            'bandarList' => $bandarList,
-            'parlimenList' => $parlimenList,
-            'kadunList' => $kadunList,
-            'daerahMengundiList' => $daerahMengundiList,
-            'keahlianPartiList' => $keahlianPartiList,
-            'kecenderunganPolitikList' => $kecenderunganPolitikList,
-            'lokalitiList' => $lokalitiList,
-            'prefill' => $prefill,
-        ]);
-    }
-
-    /**
-     * Store a newly created Data Pengundi.
-     */
-    public function dataPengundiStore(Request $request)
-    {
-        $user = auth()->user();
-
-        $validated = $request->validate([
-            'nama' => 'required|string|max:255',
-            'no_ic' => 'required|string|digits:12|unique:data_pengundi,no_ic',
-            'umur' => 'required|integer|min:1|max:150',
-            'no_tel' => 'required|string|max:255',
-            'bangsa' => 'required|string|max:255',
-            'hubungan' => 'nullable|string|max:255',
-            'alamat' => 'required|string',
-            'poskod' => 'required|string|max:255',
-            'negeri' => 'required|string|max:255',
-            'bandar' => 'required|string|max:255',
-            'parlimen' => 'required|string|max:255',
-            'kadun' => 'required|string|max:255',
-            'mpkk' => 'nullable|string|max:255',
-            'daerah_mengundi' => 'nullable|string|max:255',
-            'lokaliti' => 'nullable|string|max:255',
-            'keahlian_parti' => 'required|string|max:255',
-            'kecenderungan_politik' => 'required|string|max:255',
-            'status_pengundi' => 'nullable|string|max:255',
-        ], [
-            'no_ic.unique' => 'No. Kad Pengenalan ini telah didaftarkan dalam Data Pengundi.',
-            'keahlian_parti.required' => 'Sila pilih Keanggotaan Parti.',
-            'kecenderungan_politik.required' => 'Sila pilih Kecenderungan Politik.',
-        ]);
-
-        // Admin Restriction: Ensure data is created for their Parlimen
-        if ($user->isAdmin()) {
-            if ($request->bandar !== ($user->bandar->nama ?? '')) {
-                 abort(403, 'You can only create records for your Parlimen (' . ($user->bandar->nama ?? 'Unknown') . ').');
-            }
-        }
-
-        $validated['submitted_by'] = auth()->id();
-        $validated['voter_color'] = VoterColorService::determine($validated['keahlian_parti'] ?? null, $validated['kecenderungan_politik'] ?? null);
-
-        $record = DataPengundi::create($validated);
-
-        EditHistory::log('data_pengundi', $record->id, 'created');
-
-        return redirect()->route('reports.data-pengundi.index')->with('success', 'Rekod berjaya ditambah');
     }
 
     /**

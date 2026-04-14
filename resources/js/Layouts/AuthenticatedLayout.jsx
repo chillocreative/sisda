@@ -108,10 +108,9 @@ export default function AuthenticatedLayout({ children }) {
                 submenu: masterDataSubmenu
             }
         ] : []),
-        // For User role: Direct create links
+        // For User role: Direct create link (unified form)
         ...(user.role === 'user' ? [
-            { name: 'Data Sumbangan', href: route('reports.hasil-culaan.create'), icon: ClipboardList, current: route().current('reports.hasil-culaan.create') },
-            { name: 'Data Pengundi', href: route('reports.data-pengundi.create'), icon: UserCheck, current: route().current('reports.data-pengundi.create') }
+            { name: 'Data Pengundi', href: route('reports.hasil-culaan.create'), icon: UserCheck, current: route().current('reports.hasil-culaan.create') }
         ] : []),
         // Laporan menu
         ...(user.role === 'super_admin' || user.role === 'admin' ? [

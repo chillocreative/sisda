@@ -184,8 +184,6 @@ Route::middleware('auth')->group(function () {
 
     // Data Pengundi
     Route::get('/reports/data-pengundi', [\App\Http\Controllers\ReportsController::class, 'dataPengundiIndex'])->name('reports.data-pengundi.index');
-    Route::get('/reports/data-pengundi/create', [\App\Http\Controllers\ReportsController::class, 'dataPengundiCreate'])->name('reports.data-pengundi.create');
-    Route::post('/reports/data-pengundi', [\App\Http\Controllers\ReportsController::class, 'dataPengundiStore'])->name('reports.data-pengundi.store');
     Route::get('/reports/data-pengundi/{dataPengundi}/edit', [\App\Http\Controllers\ReportsController::class, 'dataPengundiEdit'])->name('reports.data-pengundi.edit');
     Route::put('/reports/data-pengundi/{dataPengundi}', [\App\Http\Controllers\ReportsController::class, 'dataPengundiUpdate'])->name('reports.data-pengundi.update');
     Route::delete('/reports/data-pengundi/{dataPengundi}', [\App\Http\Controllers\ReportsController::class, 'dataPengundiDestroy'])->name('reports.data-pengundi.destroy');

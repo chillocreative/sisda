@@ -48,9 +48,13 @@ export default function Create({
     const icWrapperRef = useRef(null);
     const pendingVoterData = useRef(null);
 
+    const initialIc = typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('ic') || ''
+        : '';
+
     const { data, setData, post, processing, errors } = useForm({
         nama: '',
-        no_ic: '',
+        no_ic: initialIc,
         umur: '',
         no_tel: '',
         bangsa: '',
@@ -502,7 +506,7 @@ export default function Create({
 
     return (
         <AuthenticatedLayout>
-            <Head title="Borang Culaan" />
+            <Head title="Borang Data Pengundi" />
 
             <div className="max-w-4xl mx-auto space-y-6">
                 {/* Header */}
@@ -514,7 +518,7 @@ export default function Create({
                         <ArrowLeft className="h-5 w-5 text-slate-600" />
                     </button>
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900">Borang Culaan</h1>
+                        <h1 className="text-2xl font-bold text-slate-900">Borang Data Pengundi</h1>
                         <p className="text-sm text-slate-600 mt-1">Isi semua maklumat yang diperlukan</p>
                     </div>
                 </div>

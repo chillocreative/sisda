@@ -154,31 +154,11 @@ export default function UserDashboard() {
                 {/* Quick Actions */}
                 <div>
                     <h2 className="text-xl font-semibold text-slate-900 mb-6 text-center">Tindakan Pantas</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        {/* Data Sumbangan Button */}
-                        <button
-                            onClick={() => router.visit(route('reports.hasil-culaan.create'))}
-                            className="group relative bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-600 hover:via-emerald-700 hover:to-emerald-800 text-white rounded-2xl p-12 transition-all duration-300 hover:shadow-2xl hover:shadow-emerald-500/50 hover:-translate-y-2 border-2 border-emerald-400/50"
-                        >
-                            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-2xl"></div>
-                            <div className="relative flex flex-col items-center text-center space-y-6">
-                                <div className="p-6 bg-white/30 backdrop-blur-sm rounded-2xl shadow-lg group-hover:scale-110 transition-transform duration-300">
-                                    <ClipboardList className="h-16 w-16" strokeWidth={2.5} />
-                                </div>
-                                <div>
-                                    <h3 className="text-3xl font-bold mb-3 drop-shadow-lg">Data Sumbangan</h3>
-                                    <p className="text-lg text-emerald-50 font-medium">Tambah data sumbangan baharu</p>
-                                </div>
-                                <div className="mt-4 px-6 py-2 bg-white/20 backdrop-blur-sm rounded-full">
-                                    <span className="text-sm font-semibold">Klik untuk mula</span>
-                                </div>
-                            </div>
-                        </button>
-
+                    <div className="flex justify-center">
                         {/* Data Pengundi Button */}
                         <button
-                            onClick={() => router.visit(route('reports.data-pengundi.create'))}
-                            className="group relative bg-gradient-to-br from-sky-500 via-sky-600 to-sky-700 hover:from-sky-600 hover:via-sky-700 hover:to-sky-800 text-white rounded-2xl p-12 transition-all duration-300 hover:shadow-2xl hover:shadow-sky-500/50 hover:-translate-y-2 border-2 border-sky-400/50"
+                            onClick={() => router.visit(route('reports.hasil-culaan.create'))}
+                            className="group relative w-full max-w-md bg-gradient-to-br from-sky-500 via-sky-600 to-sky-700 hover:from-sky-600 hover:via-sky-700 hover:to-sky-800 text-white rounded-2xl p-12 transition-all duration-300 hover:shadow-2xl hover:shadow-sky-500/50 hover:-translate-y-2 border-2 border-sky-400/50"
                         >
                             <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-2xl"></div>
                             <div className="relative flex flex-col items-center text-center space-y-6">

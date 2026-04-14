@@ -447,7 +447,7 @@ class DashboardController extends Controller
                 'lokaliti'   => $voter->lokaliti ?? null,
                 'can_edit'   => true,
                 'edit_url'   => null,
-                'create_url' => route('reports.data-pengundi.create'),
+                'create_url' => route('reports.hasil-culaan.create'),
             ];
         }
 

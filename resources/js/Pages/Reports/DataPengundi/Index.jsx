@@ -125,7 +125,7 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
                             <span>Export Excel</span>
                         </button>
                         <button
-                            onClick={() => router.visit(route('reports.data-pengundi.create'))}
+                            onClick={() => router.visit(route('reports.hasil-culaan.create'))}
                             className="flex items-center space-x-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors"
                         >
                             <Plus className="h-4 w-4" />
