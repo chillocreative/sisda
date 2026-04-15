@@ -466,6 +466,18 @@ export default function Edit({
         setData(field, newValues);
     };
 
+    // Sektor Pekerjaan lists are grouped by subtitle (e.g. Jenis
+    // Perkhidmatan, Agensi & Badan). Each group must allow at most one
+    // tick, while cross-group picks stay independent. This helper strips
+    // every sibling in the current group before adding the new choice.
+    const handleSektorSingleSelect = (item, groupItems) => {
+        const currentValues = Array.isArray(data.jenis_pekerjaan) ? data.jenis_pekerjaan : [];
+        const withoutGroup = currentValues.filter(v => !groupItems.includes(v));
+        const alreadyPicked = currentValues.includes(item);
+        const newValues = alreadyPicked ? withoutGroup : [...withoutGroup, item];
+        setData('jenis_pekerjaan', newValues);
+    };
+
     const scrollToFirstError = () => {
         setTimeout(() => {
             const firstErrorMsg = document.querySelector('p.text-rose-600');
@@ -847,7 +859,7 @@ export default function Edit({
                                                             <input
                                                                 type="checkbox"
                                                                 checked={Array.isArray(data.jenis_pekerjaan) && data.jenis_pekerjaan.includes(item)}
-                                                                onChange={() => handleCheckboxChange('jenis_pekerjaan', item)}
+                                                                onChange={() => handleSektorSingleSelect(item, group.items)}
                                                                 className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
                                                             />
                                                             <span className="text-sm text-slate-700">{item}</span>
@@ -935,7 +947,7 @@ export default function Edit({
                                                             <input
                                                                 type="checkbox"
                                                                 checked={Array.isArray(data.jenis_pekerjaan) && data.jenis_pekerjaan.includes(item)}
-                                                                onChange={() => handleCheckboxChange('jenis_pekerjaan', item)}
+                                                                onChange={() => handleSektorSingleSelect(item, group.items)}
                                                                 className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
                                                             />
                                                             <span className="text-sm text-slate-700">{item}</span>
@@ -1017,7 +1029,7 @@ export default function Edit({
                                                             <input
                                                                 type="checkbox"
                                                                 checked={Array.isArray(data.jenis_pekerjaan) && data.jenis_pekerjaan.includes(item)}
-                                                                onChange={() => handleCheckboxChange('jenis_pekerjaan', item)}
+                                                                onChange={() => handleSektorSingleSelect(item, group.items)}
                                                                 className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
                                                             />
                                                             <span className="text-sm text-slate-700">{item}</span>
@@ -1078,7 +1090,7 @@ export default function Edit({
                                                             <input
                                                                 type="checkbox"
                                                                 checked={Array.isArray(data.jenis_pekerjaan) && data.jenis_pekerjaan.includes(item)}
-                                                                onChange={() => handleCheckboxChange('jenis_pekerjaan', item)}
+                                                                onChange={() => handleSektorSingleSelect(item, group.items)}
                                                                 className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
                                                             />
                                                             <span className="text-sm text-slate-700">{item}</span>
