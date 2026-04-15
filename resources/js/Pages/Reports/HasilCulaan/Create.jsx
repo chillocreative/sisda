@@ -432,6 +432,7 @@ export default function Create({
             // locked_source_id.
             setData({
                 ...data,
+                no_ic: voter.no_ic,
                 nama: voter.nama || data.nama,
                 umur: MASK,
                 no_tel: MASK,
@@ -1697,7 +1698,7 @@ export default function Create({
                         </h2>
                         {sensitiveLocked ? (
                             <div className="rounded-lg bg-slate-50 border border-slate-200 p-6 text-center text-sm text-slate-500">
-                                Dokumen & nota sedia ada dilindungi. Hanya Super User / Super Admin boleh melihat atau menggantinya.
+                                Dokumen & nota sedia ada dilindungi.
                             </div>
                         ) : (
                         <div className="grid grid-cols-1 gap-4">
@@ -1807,7 +1808,7 @@ export default function Create({
                     </div>
 
                     {/* Sejarah Bantuan - previous sumbangan records for this IC */}
-                    {bantuanHistory.length > 0 && (
+                    {data.no_ic.length === 12 && (
                         <div className="order-[9] bg-white rounded-xl border-2 border-blue-200 p-6">
                             <div className="flex items-start gap-3 mb-4">
                                 <div className="flex-shrink-0 mt-0.5">
@@ -1818,10 +1819,13 @@ export default function Create({
                                 <div className="flex-1">
                                     <h2 className="text-lg font-semibold text-slate-900">Sejarah Bantuan Terdahulu</h2>
                                     <p className="text-xs text-slate-500 mt-0.5">
-                                        {bantuanHistory.length} rekod bantuan untuk {bantuanHistory[0].nama} ({data.no_ic})
+                                        {bantuanHistory.length > 0
+                                            ? `${bantuanHistory.length} rekod bantuan untuk ${bantuanHistory[0].nama} (${data.no_ic})`
+                                            : `Tiada sejarah bantuan ditemui untuk IC ${data.no_ic}.`}
                                     </p>
                                 </div>
                             </div>
+                            {bantuanHistory.length > 0 && (
                             <div className="space-y-3">
                                 {bantuanHistory.map((record) => (
                                     <div
@@ -1875,6 +1879,7 @@ export default function Create({
                                     </div>
                                 ))}
                             </div>
+                            )}
                         </div>
                     )}
 
