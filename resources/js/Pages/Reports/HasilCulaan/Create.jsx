@@ -42,13 +42,9 @@ export default function Create({
     const [loadingMpkk, setLoadingMpkk] = useState(false);
     const [lokalitiOptions, setLokalitiOptions] = useState([]);
     const [loadingLokaliti, setLoadingLokaliti] = useState(false);
-    const [icSuggestions, setIcSuggestions] = useState([]);
-    const [showSuggestions, setShowSuggestions] = useState(false);
     const [bantuanHistory, setBantuanHistory] = useState([]);
     const [bantuanHistoryLoaded, setBantuanHistoryLoaded] = useState(false);
     const [showBantuanHistory, setShowBantuanHistory] = useState(true);
-    const icDebounceRef = useRef(null);
-    const icWrapperRef = useRef(null);
     const pendingVoterData = useRef(null);
     const sumbanganCardRef = useRef(null);
     const sumbanganAnchorTop = useRef(null);
@@ -377,21 +373,6 @@ export default function Create({
             setData('no_ic', digitsOnly);
             setData('umur', calculateAgeFromIc(digitsOnly));
         }
-
-        if (icDebounceRef.current) clearTimeout(icDebounceRef.current);
-        if (digitsOnly.length >= 3) {
-            icDebounceRef.current = setTimeout(() => {
-                axios.get(route('api.voter.suggest-ic'), { params: { ic: digitsOnly } })
-                    .then(res => {
-                        setIcSuggestions(res.data || []);
-                        setShowSuggestions((res.data || []).length > 0);
-                    })
-                    .catch(() => setIcSuggestions([]));
-            }, 300);
-        } else {
-            setIcSuggestions([]);
-            setShowSuggestions(false);
-        }
     };
 
     useEffect(() => {
@@ -437,89 +418,9 @@ export default function Create({
         fetchPostcodeDetails();
     }, [data.poskod]);
 
-    useEffect(() => {
-        const handleClickOutside = (e) => {
-            if (icWrapperRef.current && !icWrapperRef.current.contains(e.target)) {
-                setShowSuggestions(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
     const toTitleCase = (str) => str
         ? str.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
         : '';
-
-    const handleSuggestionClick = (voter) => {
-        pendingVoterData.current = {
-            parlimen: voter.parlimen || null,
-            kadun: voter.kadun || null,
-            daerah_mengundi: voter.daerah_mengundi || null,
-            lokaliti: voter.lokaliti || null,
-        };
-        const parlimenMatch = parlimenList.find(p => p.nama.toLowerCase() === (voter.parlimen || '').toLowerCase());
-
-        if (voter.source === 'data_pengundi' && voter.is_locked) {
-            // Locked record — populate non-sensitive fields normally and
-            // fill sensitive fields with a '****' mask so the user can
-            // see that saved data exists but can't read it. The server
-            // swaps the masks back to real values at submit time via
-            // locked_source_id. Never write voter.no_ic here — the
-            // suggestion API already masks it, so writing it would corrupt
-            // the form state to '****'.
-            setData({
-                ...data,
-                nama: voter.nama || data.nama,
-                umur: MASK,
-                no_tel: MASK,
-                bangsa: MASK,
-                alamat: MASK,
-                poskod: MASK,
-                negeri: MASK,
-                bandar: MASK,
-                pendapatan_isi_rumah: MASK,
-                nota: MASK,
-                parlimen: parlimenMatch ? parlimenMatch.nama : data.parlimen,
-                mpkk: voter.mpkk || data.mpkk,
-                keahlian_parti: voter.keahlian_parti || data.keahlian_parti,
-                kecenderungan_politik: voter.kecenderungan_politik || data.kecenderungan_politik,
-                status_pengundi: voter.status_pengundi || data.status_pengundi,
-                locked_source_id: voter.id || '',
-            });
-        } else if (voter.source === 'data_pengundi') {
-            // Fully populate form with previously saved record
-            setData({
-                ...data,
-                no_ic: voter.no_ic,
-                nama: voter.nama || '',
-                umur: voter.umur != null ? voter.umur.toString() : '',
-                no_tel: voter.no_tel || '',
-                bangsa: voter.bangsa || '',
-                alamat: voter.alamat || '',
-                poskod: voter.poskod || '',
-                negeri: voter.negeri || '',
-                bandar: voter.bandar || '',
-                parlimen: parlimenMatch ? parlimenMatch.nama : (voter.parlimen || ''),
-                mpkk: voter.mpkk || '',
-                keahlian_parti: voter.keahlian_parti || '',
-                kecenderungan_politik: voter.kecenderungan_politik || '',
-                status_pengundi: voter.status_pengundi || '',
-            });
-        } else {
-            // DPPR record: auto-fill basic fields only
-            setData({
-                ...data,
-                no_ic: voter.no_ic,
-                nama: voter.nama || data.nama,
-                parlimen: parlimenMatch ? parlimenMatch.nama : data.parlimen,
-                negeri: voter.negeri ? toTitleCase(voter.negeri) : data.negeri,
-                bangsa: voter.bangsa || data.bangsa,
-            });
-        }
-        setShowSuggestions(false);
-        setIcSuggestions([]);
-    };
 
     // Auto-lookup voter database when IC is 12 digits (exact match auto-fill)
     useEffect(() => {
@@ -729,7 +630,7 @@ export default function Create({
                     <div className="order-1 bg-white rounded-xl border border-slate-200 p-6">
                         <h2 className="text-lg font-semibold text-slate-900 mb-4">Maklumat Peribadi</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div ref={icWrapperRef} className="relative">
+                            <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
                                     No. IC <span className="text-rose-500">*</span>
                                 </label>
@@ -744,33 +645,6 @@ export default function Create({
                                 />
                                 {errors.no_ic && <p className="text-sm text-rose-600 mt-1">{errors.no_ic}</p>}
                                 <p className="text-xs text-slate-500 mt-1">Hanya angka sahaja (contoh: 900101145678)</p>
-                                {showSuggestions && icSuggestions.length > 0 && (
-                                    <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
-                                        {icSuggestions.map((voter, idx) => (
-                                            <button
-                                                key={(voter.source || 'x') + '-' + (voter.id || voter.no_ic) + '-' + idx}
-                                                type="button"
-                                                onClick={() => handleSuggestionClick(voter)}
-                                                className="w-full text-left px-4 py-2.5 hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0"
-                                            >
-                                                <div className="flex items-center gap-2 flex-wrap">
-                                                    {voter.source === 'data_pengundi' ? (
-                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-700 uppercase tracking-wide">
-                                                            Data Pengundi
-                                                        </span>
-                                                    ) : (
-                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 uppercase tracking-wide">
-                                                            DPPR
-                                                        </span>
-                                                    )}
-                                                    <span className="font-mono text-sm font-medium text-slate-900">{voter.no_ic}</span>
-                                                    <span className="text-sm text-slate-500">{voter.nama}</span>
-                                                    {voter.daerah_mengundi && <span className="text-xs text-slate-400">({voter.daerah_mengundi})</span>}
-                                                </div>
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
                             </div>
 
                             <div>
