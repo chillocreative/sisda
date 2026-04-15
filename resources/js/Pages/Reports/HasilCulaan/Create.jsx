@@ -96,7 +96,11 @@ export default function Create({
         is_deceased: false,
         has_sumbangan: false,
         update_status_pengundi: false,
+        locked_source_id: '',
     });
+
+    const sensitiveLocked = !!data.locked_source_id;
+    const MASK = '****';
 
     const clearSumbanganFields = () => {
         setData(prev => ({
@@ -316,7 +320,28 @@ export default function Create({
         // Limit to 12 digits
         if (digitsOnly.length > 12) return;
 
-        setData('no_ic', digitsOnly);
+        // If the form was locked to a protected source, editing the IC
+        // means the user is moving on — wipe the locked state and all
+        // masked sensitive fields so they can start fresh.
+        if (data.locked_source_id) {
+            setData(prev => ({
+                ...prev,
+                no_ic: digitsOnly,
+                locked_source_id: '',
+                umur: calculateAgeFromIc(digitsOnly),
+                no_tel: '',
+                bangsa: '',
+                alamat: '',
+                poskod: '',
+                negeri: '',
+                bandar: '',
+                pendapatan_isi_rumah: '',
+                nota: '',
+            }));
+        } else {
+            setData('no_ic', digitsOnly);
+            setData('umur', calculateAgeFromIc(digitsOnly));
+        }
 
         if (icDebounceRef.current) clearTimeout(icDebounceRef.current);
         if (digitsOnly.length >= 3) {
@@ -332,8 +357,6 @@ export default function Create({
             setIcSuggestions([]);
             setShowSuggestions(false);
         }
-
-        setData('umur', calculateAgeFromIc(digitsOnly));
     };
 
     useEffect(() => {
@@ -403,15 +426,29 @@ export default function Create({
         const parlimenMatch = parlimenList.find(p => p.nama.toLowerCase() === (voter.parlimen || '').toLowerCase());
 
         if (voter.source === 'data_pengundi' && voter.is_locked) {
-            // Locked record — only populate non-sensitive fields. Leave
-            // the user's typed no_ic and empty sensitive fields alone.
+            // Locked record — populate non-sensitive fields normally and
+            // fill sensitive fields with a '****' mask so the user can
+            // see that saved data exists but can't read it. The server
+            // swaps the masks back to real values at submit time via
+            // locked_source_id.
             setData({
                 ...data,
                 nama: voter.nama || data.nama,
+                umur: MASK,
+                no_tel: MASK,
+                bangsa: MASK,
+                alamat: MASK,
+                poskod: MASK,
+                negeri: MASK,
+                bandar: MASK,
+                pendapatan_isi_rumah: MASK,
+                nota: MASK,
                 parlimen: parlimenMatch ? parlimenMatch.nama : data.parlimen,
+                mpkk: voter.mpkk || data.mpkk,
                 keahlian_parti: voter.keahlian_parti || data.keahlian_parti,
                 kecenderungan_politik: voter.kecenderungan_politik || data.kecenderungan_politik,
                 status_pengundi: voter.status_pengundi || data.status_pengundi,
+                locked_source_id: voter.id || '',
             });
         } else if (voter.source === 'data_pengundi') {
             // Fully populate form with previously saved record
@@ -461,15 +498,38 @@ export default function Create({
                             lokaliti: voter.lokaliti || null,
                         };
                         const parlimenMatch = parlimenList.find(p => p.nama.toLowerCase() === (voter.parlimen || '').toLowerCase());
-                        setData(prev => ({
-                            ...prev,
-                            nama: prev.nama || voter.nama || '',
-                            // Skip sensitive fields (bangsa, negeri) if the matched
-                            // voter row is a locked data_pengundi record
-                            bangsa: voter.is_locked ? prev.bangsa : (prev.bangsa || voter.bangsa || ''),
-                            negeri: voter.is_locked ? prev.negeri : (voter.negeri ? toTitleCase(voter.negeri) : prev.negeri),
-                            parlimen: parlimenMatch ? parlimenMatch.nama : prev.parlimen,
-                        }));
+                        if (voter.is_locked && voter.id) {
+                            // 12-digit IC matches a locked Data Pengundi record —
+                            // populate masked sensitive fields so user sees there
+                            // is protected data, set locked_source_id for submit.
+                            setData(prev => ({
+                                ...prev,
+                                nama: voter.nama || prev.nama,
+                                umur: MASK,
+                                no_tel: MASK,
+                                bangsa: MASK,
+                                alamat: MASK,
+                                poskod: MASK,
+                                negeri: MASK,
+                                bandar: MASK,
+                                pendapatan_isi_rumah: MASK,
+                                nota: MASK,
+                                parlimen: parlimenMatch ? parlimenMatch.nama : prev.parlimen,
+                                mpkk: voter.mpkk || prev.mpkk,
+                                keahlian_parti: voter.keahlian_parti || prev.keahlian_parti,
+                                kecenderungan_politik: voter.kecenderungan_politik || prev.kecenderungan_politik,
+                                status_pengundi: voter.status_pengundi || prev.status_pengundi,
+                                locked_source_id: voter.id,
+                            }));
+                        } else {
+                            setData(prev => ({
+                                ...prev,
+                                nama: prev.nama || voter.nama || '',
+                                bangsa: prev.bangsa || voter.bangsa || '',
+                                negeri: voter.negeri ? toTitleCase(voter.negeri) : prev.negeri,
+                                parlimen: parlimenMatch ? parlimenMatch.nama : prev.parlimen,
+                            }));
+                        }
                     }
                 })
                 .catch(() => {});
@@ -722,15 +782,15 @@ export default function Create({
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
                                     Umur <span className="text-rose-500">*</span>
+                                    {sensitiveLocked && <span className="ml-1 text-xs text-slate-400">🔒 Dilindungi</span>}
                                 </label>
                                 <input
-                                    type="number"
+                                    type="text"
                                     value={data.umur}
                                     onChange={(e) => setData('umur', e.target.value)}
-                                    min="1"
-                                    max="150"
                                     readOnly
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400 bg-slate-50"
+                                    disabled={sensitiveLocked}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400 bg-slate-50 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                                     required
                                 />
                                 {errors.umur && <p className="text-sm text-rose-600 mt-1">{errors.umur}</p>}
@@ -740,13 +800,15 @@ export default function Create({
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
                                     No. Telefon <span className="text-rose-500">*</span>
+                                    {sensitiveLocked && <span className="ml-1 text-xs text-slate-400">🔒 Dilindungi</span>}
                                 </label>
                                 <input
-                                    type="tel"
+                                    type="text"
                                     value={data.no_tel}
                                     onChange={handleTelChange}
                                     placeholder="0123456789"
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400 placeholder:text-slate-300"
+                                    disabled={sensitiveLocked}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400 placeholder:text-slate-300 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                                     required
                                 />
                                 {errors.no_tel && <p className="text-sm text-rose-600 mt-1">{errors.no_tel}</p>}
@@ -756,20 +818,30 @@ export default function Create({
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
                                     Bangsa <span className="text-rose-500">*</span>
+                                    {sensitiveLocked && <span className="ml-1 text-xs text-slate-400">🔒 Dilindungi</span>}
                                 </label>
-                                <select
-                                    value={data.bangsa}
-                                    onChange={(e) => setData('bangsa', e.target.value)}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                    required
-                                >
-                                    <option value="">Pilih Bangsa</option>
-                                    {bangsaList.map((bangsa) => (
-                                        <option key={bangsa.id} value={bangsa.nama}>
-                                            {bangsa.nama}
-                                        </option>
-                                    ))}
-                                </select>
+                                {sensitiveLocked ? (
+                                    <input
+                                        type="text"
+                                        value={data.bangsa}
+                                        disabled
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-100 text-slate-500 cursor-not-allowed"
+                                    />
+                                ) : (
+                                    <select
+                                        value={data.bangsa}
+                                        onChange={(e) => setData('bangsa', e.target.value)}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                        required
+                                    >
+                                        <option value="">Pilih Bangsa</option>
+                                        {bangsaList.map((bangsa) => (
+                                            <option key={bangsa.id} value={bangsa.nama}>
+                                                {bangsa.nama}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
                                 {errors.bangsa && <p className="text-sm text-rose-600 mt-1">{errors.bangsa}</p>}
                             </div>
                         </div>
@@ -777,7 +849,10 @@ export default function Create({
 
                     {/* Address Information */}
                     <div className="order-1 bg-white rounded-xl border border-slate-200 p-6">
-                        <h2 className="text-lg font-semibold text-slate-900 mb-4">Maklumat Alamat</h2>
+                        <h2 className="text-lg font-semibold text-slate-900 mb-4">
+                            Maklumat Alamat
+                            {sensitiveLocked && <span className="ml-2 text-xs font-normal text-slate-400">🔒 Dilindungi</span>}
+                        </h2>
                         <div className="grid grid-cols-1 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -787,7 +862,8 @@ export default function Create({
                                     value={data.alamat}
                                     onChange={(e) => handleTextChange('alamat', e.target.value)}
                                     rows="3"
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400 uppercase"
+                                    disabled={sensitiveLocked}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400 uppercase disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed disabled:normal-case"
                                     required
                                 />
                                 {errors.alamat && <p className="text-sm text-rose-600 mt-1">{errors.alamat}</p>}
@@ -804,7 +880,8 @@ export default function Create({
                                         onChange={handlePostcodeChange}
                                         placeholder="00000"
                                         maxLength="5"
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                        disabled={sensitiveLocked}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                                         required
                                     />
                                     {errors.poskod && <p className="text-sm text-rose-600 mt-1">{errors.poskod}</p>}
@@ -814,17 +891,26 @@ export default function Create({
                                     <label className="block text-sm font-medium text-slate-700 mb-1">
                                         Negeri <span className="text-rose-500">*</span>
                                     </label>
-                                    <select
-                                        value={data.negeri}
-                                        onChange={(e) => setData('negeri', e.target.value)}
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                        required
-                                    >
-                                        <option value="">Pilih Negeri</option>
-                                        {negeriList.map((item) => (
-                                            <option key={item.id} value={item.nama}>{item.nama}</option>
-                                        ))}
-                                    </select>
+                                    {sensitiveLocked ? (
+                                        <input
+                                            type="text"
+                                            value={data.negeri}
+                                            disabled
+                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-100 text-slate-500 cursor-not-allowed"
+                                        />
+                                    ) : (
+                                        <select
+                                            value={data.negeri}
+                                            onChange={(e) => setData('negeri', e.target.value)}
+                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                            required
+                                        >
+                                            <option value="">Pilih Negeri</option>
+                                            {negeriList.map((item) => (
+                                                <option key={item.id} value={item.nama}>{item.nama}</option>
+                                            ))}
+                                        </select>
+                                    )}
                                     {errors.negeri && <p className="text-sm text-rose-600 mt-1">{errors.negeri}</p>}
                                 </div>
 
@@ -836,7 +922,8 @@ export default function Create({
                                         type="text"
                                         value={data.bandar}
                                         readOnly
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400 bg-slate-50"
+                                        disabled={sensitiveLocked}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400 bg-slate-50 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                                         placeholder="Pilih Poskod terlebih dahulu"
                                     />
                                     {errors.bandar && <p className="text-sm text-rose-600 mt-1">{errors.bandar}</p>}
@@ -868,18 +955,20 @@ export default function Create({
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
                                     Pendapatan Isi Rumah (RM)
+                                    {sensitiveLocked && <span className="ml-1 text-xs text-slate-400">🔒 Dilindungi</span>}
                                 </label>
                                 <input
                                     type="text"
                                     inputMode="decimal"
-                                    value={formatCurrency(data.pendapatan_isi_rumah)}
+                                    value={sensitiveLocked ? data.pendapatan_isi_rumah : formatCurrency(data.pendapatan_isi_rumah)}
                                     onChange={(e) => {
                                         const raw = e.target.value.replace(/[^0-9.]/g, '');
                                         const parts = raw.split('.');
                                         setData('pendapatan_isi_rumah', parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : raw);
                                     }}
                                     placeholder="0.00"
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                    disabled={sensitiveLocked}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                                 />
                                 {errors.pendapatan_isi_rumah && <p className="text-sm text-rose-600 mt-1">{errors.pendapatan_isi_rumah}</p>}
                             </div>
@@ -1656,7 +1745,15 @@ export default function Create({
 
                     {/* Documents & Notes */}
                     <div className="order-8 bg-white rounded-xl border border-slate-200 p-6">
-                        <h2 className="text-lg font-semibold text-slate-900 mb-4">Dokumen & Nota</h2>
+                        <h2 className="text-lg font-semibold text-slate-900 mb-4">
+                            Dokumen & Nota
+                            {sensitiveLocked && <span className="ml-2 text-xs font-normal text-slate-400">🔒 Dilindungi</span>}
+                        </h2>
+                        {sensitiveLocked ? (
+                            <div className="rounded-lg bg-slate-50 border border-slate-200 p-6 text-center text-sm text-slate-500">
+                                Dokumen & nota sedia ada dilindungi. Hanya Super User / Super Admin boleh melihat atau menggantinya.
+                            </div>
+                        ) : (
                         <div className="grid grid-cols-1 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -1760,6 +1857,7 @@ export default function Create({
                                 {errors.nota && <p className="text-sm text-rose-600 mt-1">{errors.nota}</p>}
                             </div>
                         </div>
+                        )}
                     </div>
 
                     {/* Form Actions */}

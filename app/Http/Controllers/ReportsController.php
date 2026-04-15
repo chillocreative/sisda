@@ -212,6 +212,22 @@ class ReportsController extends Controller
         $hasSumbangan = $request->boolean('has_sumbangan');
         $updateStatusPengundi = $request->boolean('update_status_pengundi');
 
+        // Masked-create flow: when the form was prefilled from a locked
+        // Data Pengundi suggestion, the sensitive fields arrive as '****'
+        // placeholders. Swap them for the real values from the source
+        // record so validation runs against the truth and the new record
+        // inherits the protected data without the current user ever seeing it.
+        if ($request->filled('locked_source_id')) {
+            $source = DataPengundi::find($request->input('locked_source_id'));
+            if ($source) {
+                foreach (VoterDataMasker::SENSITIVE_FIELDS as $field) {
+                    if ($request->input($field) === VoterDataMasker::MASK) {
+                        $request->merge([$field => $source->{$field}]);
+                    }
+                }
+            }
+        }
+
         $validated = $request->validate([
             'nama' => 'required|string|max:255',
             'no_ic' => 'required|string|digits:12',
