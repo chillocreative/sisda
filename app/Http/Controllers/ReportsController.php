@@ -39,18 +39,25 @@ class ReportsController extends Controller
     public function hasilCulaanIndex(Request $request)
     {
         $user = auth()->user();
-        $query = HasilCulaan::with('submittedBy');
+
+        // The Data Sumbangan table shows one row per voter (no_ic). We
+        // build the filter scope first, then pick the latest record id
+        // per no_ic within that scope, and finally fetch those rows. A
+        // match in any record for a voter keeps the voter visible; only
+        // the latest version renders. Full bantuan history is still
+        // reachable from the view modal and the edit page.
+        $filterQuery = HasilCulaan::query();
 
         // User / Super User Restriction: Records in their KADUN OR records they submitted
         if ($user->isUser() || $user->isSuperUser()) {
-            $query->where(function ($q) use ($user) {
+            $filterQuery->where(function ($q) use ($user) {
                 $q->where('kadun', $user->kadun->nama ?? '__none__')
                   ->orWhere('submitted_by', $user->id);
             });
         }
         // Admin Restriction: Records in their Parlimen OR records they submitted
         elseif ($user->isAdmin()) {
-            $query->where(function ($q) use ($user) {
+            $filterQuery->where(function ($q) use ($user) {
                 $q->where('bandar', $user->bandar->nama ?? '__none__')
                   ->orWhere('submitted_by', $user->id);
             });
@@ -58,23 +65,31 @@ class ReportsController extends Controller
 
         // Date range filter
         if ($request->has('date_from') && $request->date_from) {
-            $query->whereDate('created_at', '>=', $request->date_from);
+            $filterQuery->whereDate('created_at', '>=', $request->date_from);
         }
         if ($request->has('date_to') && $request->date_to) {
-            $query->whereDate('created_at', '<=', $request->date_to);
+            $filterQuery->whereDate('created_at', '<=', $request->date_to);
         }
 
         // Search filter
         if ($request->has('search') && $request->search) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
+            $filterQuery->where(function($q) use ($search) {
                 $q->where('nama', 'like', "%{$search}%")
                   ->orWhere('no_ic', 'like', "%{$search}%")
                   ->orWhere('no_tel', 'like', "%{$search}%");
             });
         }
 
-        $hasilCulaan = $query->orderBy('created_at', 'desc')->paginate(10);
+        $latestIds = (clone $filterQuery)
+            ->selectRaw('MAX(id) as id')
+            ->groupBy('no_ic')
+            ->pluck('id');
+
+        $hasilCulaan = HasilCulaan::with('submittedBy')
+            ->whereIn('id', $latestIds)
+            ->orderBy('created_at', 'desc')
+            ->paginate(10);
 
         // Count records per IC for badge display (use raw IC, not masked)
         $icCounts = HasilCulaan::selectRaw('no_ic, COUNT(*) as count')
@@ -108,28 +123,39 @@ class ReportsController extends Controller
     public function exportHasilCulaan(Request $request)
     {
         $user = auth()->user();
-        $query = HasilCulaan::query();
+
+        // Mirror the deduplication applied on the index screen so the
+        // exported workbook matches the on-screen list: one row per
+        // voter, showing the latest bantuan record.
+        $filterQuery = HasilCulaan::query();
 
         // Admin Restriction: Only export data in their Parlimen (Bandar)
         if ($user->isAdmin()) {
-            $query->where('bandar', $user->bandar->nama ?? '');
+            $filterQuery->where('bandar', $user->bandar->nama ?? '');
         }
 
         // Apply same filters as index
         if ($request->has('date_from') && $request->date_from) {
-            $query->whereDate('created_at', '>=', $request->date_from);
+            $filterQuery->whereDate('created_at', '>=', $request->date_from);
         }
         if ($request->has('date_to') && $request->date_to) {
-            $query->whereDate('created_at', '<=', $request->date_to);
+            $filterQuery->whereDate('created_at', '<=', $request->date_to);
         }
         if ($request->has('search') && $request->search) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
+            $filterQuery->where(function($q) use ($search) {
                 $q->where('nama', 'like', "%{$search}%")
                   ->orWhere('no_ic', 'like', "%{$search}%")
                   ->orWhere('no_tel', 'like', "%{$search}%");
             });
         }
+
+        $latestIds = (clone $filterQuery)
+            ->selectRaw('MAX(id) as id')
+            ->groupBy('no_ic')
+            ->pluck('id');
+
+        $query = HasilCulaan::whereIn('id', $latestIds);
 
         return Excel::download(new HasilCulaanExport($query), 'hasil-culaan-' . date('Y-m-d') . '.xlsx');
     }
