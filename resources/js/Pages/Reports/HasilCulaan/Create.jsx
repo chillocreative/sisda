@@ -27,7 +27,9 @@ export default function Create({
     bantuanLainList,
     keahlianPartiList,
     kecenderunganPolitikList,
-    lokalitiList
+    lokalitiList,
+    initialVoter = null,
+    initialSourceId = null,
 }) {
     const [uploadProgress, setUploadProgress] = useState(0);
     const [isUploading, setIsUploading] = useState(false);
@@ -51,21 +53,24 @@ export default function Create({
         ? new URLSearchParams(window.location.search).get('ic') || ''
         : '';
 
+    // When arriving from the DataPengundi edit page via the Sumbangan
+    // shortcut card, initialVoter / initialSourceId are passed from the
+    // controller and seed the form state on first render.
     const { data, setData, post, processing, errors } = useForm({
-        nama: '',
-        no_ic: initialIc,
-        umur: '',
-        no_tel: '',
-        bangsa: '',
-        alamat: '',
-        poskod: '',
-        negeri: '',
-        bandar: '',
-        parlimen: '',
-        kadun: '',
-        mpkk: '',
-        daerah_mengundi: '',
-        lokaliti: '',
+        nama: initialVoter?.nama || '',
+        no_ic: initialVoter?.no_ic || initialIc,
+        umur: initialVoter?.umur != null && initialVoter?.umur !== '' ? String(initialVoter.umur) : '',
+        no_tel: initialVoter?.no_tel || '',
+        bangsa: initialVoter?.bangsa || '',
+        alamat: initialVoter?.alamat || '',
+        poskod: initialVoter?.poskod || '',
+        negeri: initialVoter?.negeri || '',
+        bandar: initialVoter?.bandar || '',
+        parlimen: initialVoter?.parlimen || '',
+        kadun: initialVoter?.kadun || '',
+        mpkk: initialVoter?.mpkk || '',
+        daerah_mengundi: initialVoter?.daerah_mengundi || '',
+        lokaliti: initialVoter?.lokaliti || '',
         bil_isi_rumah: '',
         pendapatan_isi_rumah: '',
         pekerjaan: '',
@@ -87,15 +92,15 @@ export default function Create({
         jkm_program: '',
         jumlah_bantuan_tunai: '',
         jumlah_wang_tunai: '',
-        keahlian_parti: '',
-        kecenderungan_politik: '',
-        status_pengundi: '',
+        keahlian_parti: initialVoter?.keahlian_parti || '',
+        kecenderungan_politik: initialVoter?.kecenderungan_politik || '',
+        status_pengundi: initialVoter?.status_pengundi || '',
         kad_pengenalan: null,
         nota: '',
         is_deceased: false,
-        has_sumbangan: false,
+        has_sumbangan: !!initialSourceId,
         update_status_pengundi: false,
-        locked_source_id: '',
+        locked_source_id: initialSourceId || '',
     });
 
     const sensitiveLocked = !!data.locked_source_id;

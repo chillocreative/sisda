@@ -181,7 +181,7 @@ class ReportsController extends Controller
     /**
      * Show the form for creating a new Hasil Culaan.
      */
-    public function hasilCulaanCreate()
+    public function hasilCulaanCreate(Request $request)
     {
         $bangsaList = \App\Models\Bangsa::all();
         $negeriList = \App\Models\Negeri::orderBy('nama')->get();
@@ -204,6 +204,35 @@ class ReportsController extends Controller
 
         $lokalitiList = Lokaliti::orderBy('nama')->get();
 
+        // Optional pre-fill when coming from the DataPengundi edit page via
+        // the 'Sumbangan' shortcut card. The form gets the voter's info and
+        // a locked_source_id; masking is applied exactly like the runtime
+        // search-ic flow so user-role viewers never receive the raw IC.
+        $initialVoter = null;
+        $initialSourceId = null;
+        if ($request->filled('source_id')) {
+            $source = DataPengundi::with('submittedBy:id,name,role')
+                ->find($request->input('source_id'));
+            if ($source) {
+                $locked = VoterDataMasker::isLocked($source) && ! VoterDataMasker::canUnmask($user);
+                $voterArr = $source->only([
+                    'id', 'no_ic', 'nama', 'umur', 'no_tel', 'bangsa', 'alamat', 'poskod',
+                    'negeri', 'bandar', 'parlimen', 'kadun', 'mpkk', 'daerah_mengundi', 'lokaliti',
+                    'keahlian_parti', 'kecenderungan_politik', 'status_pengundi',
+                ]);
+                if ($locked) {
+                    foreach (VoterDataMasker::SENSITIVE_FIELDS as $field) {
+                        if (array_key_exists($field, $voterArr)) {
+                            $voterArr[$field] = VoterDataMasker::MASK;
+                        }
+                    }
+                }
+                $voterArr['is_locked'] = $locked;
+                $initialVoter = $voterArr;
+                $initialSourceId = $source->id;
+            }
+        }
+
         return Inertia::render('Reports/HasilCulaan/Create', [
             'bangsaList' => $bangsaList,
             'negeriList' => $negeriList,
@@ -217,6 +246,8 @@ class ReportsController extends Controller
             'keahlianPartiList' => $keahlianPartiList,
             'kecenderunganPolitikList' => $kecenderunganPolitikList,
             'lokalitiList' => $lokalitiList,
+            'initialVoter' => $initialVoter,
+            'initialSourceId' => $initialSourceId,
         ]);
     }
 

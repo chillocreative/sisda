@@ -757,6 +757,28 @@ export default function Edit({
                         </div>
                     </div>
 
+                    {/* Sumbangan Shortcut — opens the Hasil Culaan create
+                        form pre-filled with this voter so the user can
+                        record a new bantuan without retyping the IC. */}
+                    <div className="bg-[#D5E7B5] rounded-xl border border-slate-200 p-6">
+                        <label
+                            className="flex items-center space-x-3 cursor-pointer"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                router.visit(route('reports.hasil-culaan.create', { source_id: dataPengundi.id }));
+                            }}
+                        >
+                            <input
+                                type="checkbox"
+                                checked={false}
+                                readOnly
+                                className="w-5 h-5 text-blue-600 border-slate-300 rounded focus:ring-blue-500 pointer-events-none"
+                            />
+                            <span className="text-lg font-semibold text-slate-900">Sumbangan</span>
+                        </label>
+                        <p className="text-sm text-slate-500 mt-2 ml-8">Tandakan untuk mengisi Maklumat Isi Rumah dan Maklumat Bantuan.</p>
+                    </div>
+
                     {/* Dokumen & Nota */}
                     <div className="bg-white rounded-xl border border-slate-200 p-6">
                         <h2 className="text-lg font-semibold text-slate-900 mb-4">
