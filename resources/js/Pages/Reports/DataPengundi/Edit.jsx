@@ -319,9 +319,24 @@ export default function Edit({
         }
     };
 
+    const scrollToFirstError = () => {
+        setTimeout(() => {
+            const firstErrorMsg = document.querySelector('p.text-rose-600');
+            if (!firstErrorMsg) return;
+            const container = firstErrorMsg.closest('div');
+            (container || firstErrorMsg).scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const input = container?.querySelector('input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled])');
+            if (input) {
+                setTimeout(() => input.focus({ preventScroll: true }), 350);
+            }
+        }, 50);
+    };
+
     const handleSubmit = (e) => {
         e.preventDefault();
-        put(route('reports.data-pengundi.update', dataPengundi.id));
+        put(route('reports.data-pengundi.update', dataPengundi.id), {
+            onError: () => scrollToFirstError(),
+        });
     };
 
     return (
