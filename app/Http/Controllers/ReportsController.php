@@ -135,16 +135,34 @@ class ReportsController extends Controller
     }
 
     /**
-     * Get all Hasil Culaan records for a given IC number.
+     * Get all Hasil Culaan records for a given IC number, or for the IC
+     * belonging to a DataPengundi row identified by source_id. The source_id
+     * path lets the masked-suggestion flow fetch history without ever
+     * exposing the real IC to the client.
      */
     public function hasilCulaanByIc(Request $request)
     {
-        $request->validate(['ic' => 'required|string|digits:12']);
+        $request->validate([
+            'ic' => 'nullable|string|digits:12',
+            'source_id' => 'nullable|integer',
+        ]);
+
+        $ic = $request->input('ic');
+        if (! $ic && $request->filled('source_id')) {
+            $source = DataPengundi::find($request->input('source_id'));
+            if (! $source) {
+                return response()->json([]);
+            }
+            $ic = $source->no_ic;
+        }
+        if (! $ic) {
+            return response()->json([]);
+        }
 
         $viewer = auth()->user();
 
         $records = HasilCulaan::with('submittedBy:id,name,role')
-            ->where('no_ic', $request->ic)
+            ->where('no_ic', $ic)
             ->orderBy('created_at', 'desc')
             ->get(['id', 'nama', 'no_ic', 'umur', 'no_tel', 'bangsa', 'alamat', 'poskod', 'negeri', 'bandar', 'parlimen', 'kadun', 'mpkk', 'daerah_mengundi', 'lokaliti', 'bil_isi_rumah', 'pendapatan_isi_rumah', 'pekerjaan', 'jenis_pekerjaan', 'pemilik_rumah', 'jenis_sumbangan', 'tujuan_sumbangan', 'bantuan_lain', 'jumlah_wang_tunai', 'keahlian_parti', 'kecenderungan_politik', 'submitted_by', 'created_at'])
             ->map(function ($record) use ($viewer) {

@@ -429,10 +429,11 @@ export default function Create({
             // fill sensitive fields with a '****' mask so the user can
             // see that saved data exists but can't read it. The server
             // swaps the masks back to real values at submit time via
-            // locked_source_id.
+            // locked_source_id. Never write voter.no_ic here — the
+            // suggestion API already masks it, so writing it would corrupt
+            // the form state to '****'.
             setData({
                 ...data,
-                no_ic: voter.no_ic,
                 nama: voter.nama || data.nama,
                 umur: MASK,
                 no_tel: MASK,
@@ -569,6 +570,25 @@ export default function Create({
             setBantuanHistory([]);
         }
     }, [data.no_ic]);
+
+    // When a locked Data Pengundi suggestion is picked, the form's no_ic
+    // stays masked ('****') so the length===12 effect above cannot fetch.
+    // Fall back to the source_id path which resolves the real IC server
+    // side without exposing it to the client.
+    useEffect(() => {
+        if (!data.locked_source_id) return;
+        if (data.no_ic && data.no_ic.length === 12 && data.no_ic !== MASK) return;
+
+        axios.get(route('api.hasil-culaan.by-ic'), { params: { source_id: data.locked_source_id } })
+            .then(res => {
+                if (res.data && res.data.length > 0) {
+                    setBantuanHistory(res.data);
+                } else {
+                    setBantuanHistory([]);
+                }
+            })
+            .catch(() => setBantuanHistory([]));
+    }, [data.locked_source_id]);
 
     const handlePostcodeChange = (e) => {
         const value = e.target.value.replace(/\D/g, '');
@@ -1808,7 +1828,7 @@ export default function Create({
                     </div>
 
                     {/* Sejarah Bantuan - previous sumbangan records for this IC */}
-                    {data.no_ic.length === 12 && (
+                    {((data.no_ic && data.no_ic.length === 12 && data.no_ic !== MASK) || data.locked_source_id) && (
                         <div className="order-[9] bg-white rounded-xl border-2 border-blue-200 p-6">
                             <div className="flex items-start gap-3 mb-4">
                                 <div className="flex-shrink-0 mt-0.5">
@@ -1820,8 +1840,8 @@ export default function Create({
                                     <h2 className="text-lg font-semibold text-slate-900">Sejarah Bantuan Terdahulu</h2>
                                     <p className="text-xs text-slate-500 mt-0.5">
                                         {bantuanHistory.length > 0
-                                            ? `${bantuanHistory.length} rekod bantuan untuk ${bantuanHistory[0].nama} (${data.no_ic})`
-                                            : `Tiada sejarah bantuan ditemui untuk IC ${data.no_ic}.`}
+                                            ? `${bantuanHistory.length} rekod bantuan untuk ${bantuanHistory[0].nama}`
+                                            : 'Tiada sejarah bantuan ditemui untuk pengundi ini.'}
                                     </p>
                                 </div>
                             </div>
