@@ -45,9 +45,12 @@ export default function Create({
     const [icSuggestions, setIcSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [bantuanHistory, setBantuanHistory] = useState([]);
+    const [bantuanHistoryLoaded, setBantuanHistoryLoaded] = useState(false);
     const icDebounceRef = useRef(null);
     const icWrapperRef = useRef(null);
     const pendingVoterData = useRef(null);
+    const sumbanganCardRef = useRef(null);
+    const sumbanganAnchorTop = useRef(null);
 
     const initialIc = typeof window !== 'undefined'
         ? new URLSearchParams(window.location.search).get('ic') || ''
@@ -105,6 +108,13 @@ export default function Create({
 
     const sensitiveLocked = !!data.locked_source_id;
     const MASK = '****';
+    // Pendapatan Isi Rumah is only protected if the voter actually has a
+    // prior bantuan record with a stored pendapatan. For a first-time
+    // sumbangan — even when the voter row is otherwise locked by a
+    // user-role submitter — the current user may fill this in. While the
+    // history fetch is in flight we keep it locked to avoid flashing a
+    // writable field that might get overwritten.
+    const pendapatanIsLocked = sensitiveLocked && (!bantuanHistoryLoaded || bantuanHistory.length > 0);
 
     const clearSumbanganFields = () => {
         setData(prev => ({
@@ -132,11 +142,31 @@ export default function Create({
     };
 
     const handleSumbanganToggle = (checked) => {
+        // Pin the Sumbangan card in the viewport across the re-render.
+        // Toggling injects/removes large flex items whose DOM order does not
+        // match their visual order (the Isi Rumah / Bantuan sections live
+        // above the toggle in JSX but below it visually via order-*). That
+        // combo causes the browser's scroll anchor to jump. We record the
+        // card's viewport-top before the state change and, after the commit,
+        // re-adjust window scroll by the delta so the card stays put.
+        if (sumbanganCardRef.current) {
+            sumbanganAnchorTop.current = sumbanganCardRef.current.getBoundingClientRect().top;
+        }
         setData('has_sumbangan', checked);
         if (!checked) {
             clearSumbanganFields();
         }
     };
+
+    useEffect(() => {
+        if (sumbanganAnchorTop.current == null || !sumbanganCardRef.current) return;
+        const newTop = sumbanganCardRef.current.getBoundingClientRect().top;
+        const delta = newTop - sumbanganAnchorTop.current;
+        if (Math.abs(delta) > 0.5) {
+            window.scrollBy(0, delta);
+        }
+        sumbanganAnchorTop.current = null;
+    }, [data.has_sumbangan]);
 
     const handleStatusPengundiToggle = (checked) => {
         setData(prev => ({
@@ -541,6 +571,7 @@ export default function Create({
                 .catch(() => {});
 
             // Check for existing bantuan records and auto-fill personal data
+            setBantuanHistoryLoaded(false);
             axios.get(route('api.hasil-culaan.by-ic'), { params: { ic: data.no_ic } })
                 .then(res => {
                     if (res.data && res.data.length > 0) {
@@ -570,9 +601,11 @@ export default function Create({
                         setBantuanHistory([]);
                     }
                 })
-                .catch(() => {});
+                .catch(() => setBantuanHistory([]))
+                .finally(() => setBantuanHistoryLoaded(true));
         } else {
             setBantuanHistory([]);
+            setBantuanHistoryLoaded(false);
         }
     }, [data.no_ic]);
 
@@ -584,6 +617,7 @@ export default function Create({
         if (!data.locked_source_id) return;
         if (data.no_ic && data.no_ic.length === 12 && data.no_ic !== MASK) return;
 
+        setBantuanHistoryLoaded(false);
         axios.get(route('api.hasil-culaan.by-ic'), { params: { source_id: data.locked_source_id } })
             .then(res => {
                 if (res.data && res.data.length > 0) {
@@ -592,7 +626,8 @@ export default function Create({
                     setBantuanHistory([]);
                 }
             })
-            .catch(() => setBantuanHistory([]));
+            .catch(() => setBantuanHistory([]))
+            .finally(() => setBantuanHistoryLoaded(true));
     }, [data.locked_source_id]);
 
     const handlePostcodeChange = (e) => {
@@ -927,19 +962,23 @@ export default function Create({
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
                                     Pendapatan Isi Rumah (RM)
-                                    {sensitiveLocked && <span className="ml-1 text-xs text-slate-400">🔒 Dilindungi</span>}
+                                    {pendapatanIsLocked && <span className="ml-1 text-xs text-slate-400">🔒 Dilindungi</span>}
                                 </label>
                                 <input
                                     type="text"
                                     inputMode="decimal"
-                                    value={sensitiveLocked ? data.pendapatan_isi_rumah : formatCurrency(data.pendapatan_isi_rumah)}
+                                    value={
+                                        pendapatanIsLocked
+                                            ? data.pendapatan_isi_rumah
+                                            : (data.pendapatan_isi_rumah === MASK ? '' : formatCurrency(data.pendapatan_isi_rumah))
+                                    }
                                     onChange={(e) => {
                                         const raw = e.target.value.replace(/[^0-9.]/g, '');
                                         const parts = raw.split('.');
                                         setData('pendapatan_isi_rumah', parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : raw);
                                     }}
                                     placeholder="0.00"
-                                    disabled={sensitiveLocked}
+                                    disabled={pendapatanIsLocked}
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                                 />
                                 {errors.pendapatan_isi_rumah && <p className="text-sm text-rose-600 mt-1">{errors.pendapatan_isi_rumah}</p>}
@@ -1702,7 +1741,7 @@ export default function Create({
                     </div>
 
                     {/* Sumbangan Toggle */}
-                    <div className="order-5 bg-[#D5E7B5] rounded-xl border border-slate-200 p-6">
+                    <div ref={sumbanganCardRef} className="order-5 bg-[#D5E7B5] rounded-xl border border-slate-200 p-6">
                         <label className="flex items-center space-x-3 cursor-pointer">
                             <input
                                 type="checkbox"
