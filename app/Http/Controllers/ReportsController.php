@@ -882,6 +882,21 @@ class ReportsController extends Controller
         $canUnmaskSensitive = VoterDataMasker::canUnmask($user);
         $maskedRecord = VoterDataMasker::mask($dataPengundi, $user);
 
+        $documents = $dataPengundi->documents()
+            ->with('submittedBy:id,name')
+            ->get()
+            ->map(function ($doc) {
+                return [
+                    'id' => $doc->id,
+                    'file_path' => $doc->file_path,
+                    'nota' => $doc->nota,
+                    'created_at' => $doc->created_at,
+                    'submitted_by' => $doc->submittedBy
+                        ? ['id' => $doc->submittedBy->id, 'name' => $doc->submittedBy->name]
+                        : null,
+                ];
+            });
+
         return Inertia::render('Reports/DataPengundi/Edit', [
             'dataPengundi' => $maskedRecord,
             'bangsaList' => $bangsaList,
@@ -896,6 +911,7 @@ class ReportsController extends Controller
             'editHistories' => $editHistories,
             'isRecordLocked' => $isRecordLocked,
             'canUnmaskSensitive' => $canUnmaskSensitive,
+            'documents' => $documents,
         ]);
     }
 
@@ -938,9 +954,17 @@ class ReportsController extends Controller
             'kecenderungan_politik' => 'nullable|string|max:255',
             'status_pengundi' => 'nullable|string|max:255',
             'nota' => 'nullable|string',
+            'new_document' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
+            'new_document_nota' => 'nullable|string',
         ], [
             'no_ic.unique' => 'No. Kad Pengenalan ini telah didaftarkan dalam Data Pengundi.',
         ]);
+
+        // Pull the document-entry fields out of $validated — they live on
+        // the related documents table, not on data_pengundi itself.
+        $newDocumentFile = $request->file('new_document');
+        $newDocumentNota = $validated['new_document_nota'] ?? null;
+        unset($validated['new_document'], $validated['new_document_nota']);
 
         $validated['voter_color'] = VoterColorService::determine($validated['keahlian_parti'] ?? null, $validated['kecenderungan_politik'] ?? null);
 
@@ -956,6 +980,21 @@ class ReportsController extends Controller
 
         if (!empty($changes)) {
             EditHistory::log('data_pengundi', $dataPengundi->id, 'updated', $changes);
+        }
+
+        // Create a new stacked-history entry if the user either uploaded
+        // a document or typed a note. An entry needs at least one of
+        // the two — empty saves don't pollute the history.
+        if ($newDocumentFile || ($newDocumentNota !== null && trim($newDocumentNota) !== '')) {
+            $filePath = $newDocumentFile
+                ? $newDocumentFile->store('data-pengundi-documents', 'public')
+                : null;
+
+            $dataPengundi->documents()->create([
+                'file_path' => $filePath,
+                'nota' => $newDocumentNota,
+                'submitted_by' => $user->id,
+            ]);
         }
 
         VoterSyncService::syncFromDataPengundi($dataPengundi->fresh());

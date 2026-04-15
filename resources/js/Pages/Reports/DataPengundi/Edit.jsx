@@ -1,6 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm, usePage, router } from '@inertiajs/react';
-import { ArrowLeft, Trash2 } from 'lucide-react';
+import { ArrowLeft, Trash2, Upload, X, Loader2, Image as ImageIcon } from 'lucide-react';
 
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
@@ -21,6 +21,7 @@ export default function Edit({
     editHistories = [],
     isRecordLocked = false,
     canUnmaskSensitive = false,
+    documents = [],
 }) {
     const { auth } = usePage().props;
     const sensitiveLocked = isRecordLocked && !canUnmaskSensitive;
@@ -45,7 +46,13 @@ export default function Edit({
     const icDebounceRef = useRef(null);
     const icWrapperRef = useRef(null);
     const pendingVoterData = useRef(null);
-    const { data, setData, put, processing, errors } = useForm({
+    // new_document + new_document_nota are one-shot fields tied to a
+    // stacked-history entry, not the DataPengundi row itself. They get
+    // cleared after save so the user can submit multiple uploads in a
+    // row. Using post() + _method: 'PUT' so the file upload survives
+    // Inertia's multipart handling.
+    const { data, setData, post, processing, errors, reset } = useForm({
+        _method: 'PUT',
         nama: dataPengundi.nama || '',
         no_ic: dataPengundi.no_ic || '',
         umur: dataPengundi.umur || '',
@@ -65,7 +72,33 @@ export default function Edit({
         kecenderungan_politik: dataPengundi.kecenderungan_politik || '',
         status_pengundi: dataPengundi.status_pengundi || '',
         nota: dataPengundi.nota || '',
+        new_document: null,
+        new_document_nota: '',
     });
+
+    const [newDocumentPreview, setNewDocumentPreview] = useState(null);
+
+    const handleNewDocumentUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) {
+            alert('Saiz fail terlalu besar. Maksimum 5MB');
+            return;
+        }
+        setData('new_document', file);
+        if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onloadend = () => setNewDocumentPreview(reader.result);
+            reader.readAsDataURL(file);
+        } else {
+            setNewDocumentPreview(null);
+        }
+    };
+
+    const handleRemoveNewDocument = () => {
+        setData('new_document', null);
+        setNewDocumentPreview(null);
+    };
 
     // Fetch KADUN and Daerah Mengundi when Parlimen changes
     useEffect(() => {
@@ -340,8 +373,14 @@ export default function Edit({
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        put(route('reports.data-pengundi.update', dataPengundi.id), {
+        post(route('reports.data-pengundi.update', dataPengundi.id), {
+            forceFormData: true,
             onError: () => scrollToFirstError(),
+            onSuccess: () => {
+                setData('new_document', null);
+                setData('new_document_nota', '');
+                setNewDocumentPreview(null);
+            },
         });
     };
 
@@ -781,43 +820,104 @@ export default function Edit({
                         </div>
                     </div>
 
-                    {/* Sumbangan Shortcut — opens the Hasil Culaan create
-                        form pre-filled with this voter so the user can
-                        record a new bantuan without retyping the IC. */}
-                    <div className="bg-[#D5E7B5] rounded-xl border border-slate-200 p-6">
-                        <label
-                            className="flex items-center space-x-3 cursor-pointer"
-                            onClick={(e) => {
-                                e.preventDefault();
-                                router.visit(route('reports.hasil-culaan.create', { source_id: dataPengundi.id }));
-                            }}
-                        >
+                    {/* Sumbangan Shortcut — dimmed navigational card.
+                        Clicking still opens the Hasil Culaan create form
+                        pre-filled with this voter, but the styling is
+                        muted so it reads as a shortcut rather than an
+                        editable form field on this page. */}
+                    <div
+                        onClick={() => router.visit(route('reports.hasil-culaan.create', { source_id: dataPengundi.id }))}
+                        className="bg-slate-50 rounded-xl border border-slate-200 p-6 cursor-pointer hover:bg-slate-100 transition-colors"
+                    >
+                        <div className="flex items-center space-x-3">
                             <input
                                 type="checkbox"
                                 checked={false}
                                 readOnly
-                                className="w-5 h-5 text-blue-600 border-slate-300 rounded focus:ring-blue-500 pointer-events-none"
+                                className="w-5 h-5 text-slate-400 border-slate-300 rounded pointer-events-none"
                             />
-                            <span className="text-lg font-semibold text-slate-900">Sumbangan</span>
-                        </label>
-                        <p className="text-sm text-slate-500 mt-2 ml-8">Tandakan untuk mengisi Maklumat Isi Rumah dan Maklumat Bantuan.</p>
+                            <span className="text-lg font-semibold text-slate-400">Sumbangan</span>
+                        </div>
+                        <p className="text-sm text-slate-400 mt-2 ml-8">Klik untuk membuka borang Data Sumbangan bagi pengundi ini.</p>
                     </div>
 
-                    {/* Dokumen & Nota */}
+                    {/* Dokumen & Nota — new entries land in a stacked
+                        history below the form. Each save with either a
+                        file or a note creates a new document row; the
+                        previous entries stay intact and visible. */}
                     <div className="bg-white rounded-xl border border-slate-200 p-6">
                         <h2 className="text-lg font-semibold text-slate-900 mb-4">
                             Dokumen & Nota
                         </h2>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Nota</label>
-                            <textarea
-                                value={data.nota || ''}
-                                onChange={(e) => setData('nota', e.target.value)}
-                                rows={4}
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                placeholder="Maklumat tambahan tentang pengundi"
-                            />
-                            {errors.nota && <p className="text-sm text-rose-600 mt-1">{errors.nota}</p>}
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">
+                                    Muat naik dokumen
+                                </label>
+                                {!data.new_document ? (
+                                    <div className="relative">
+                                        <input
+                                            type="file"
+                                            accept="image/*,.pdf"
+                                            onChange={handleNewDocumentUpload}
+                                            className="hidden"
+                                            id="new-document-upload"
+                                        />
+                                        <label
+                                            htmlFor="new-document-upload"
+                                            className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-slate-400 hover:bg-slate-50 transition-colors"
+                                        >
+                                            <Upload className="h-8 w-8 text-slate-400 mb-2" />
+                                            <span className="text-sm text-slate-600">Klik untuk muat naik dokumen</span>
+                                            <span className="text-xs text-slate-500 mt-1">PNG, JPG, JPEG, PDF (Maks. 5MB)</span>
+                                        </label>
+                                    </div>
+                                ) : (
+                                    <div className="relative">
+                                        {newDocumentPreview ? (
+                                            <div className="relative w-full h-48 bg-slate-100 rounded-lg overflow-hidden">
+                                                <img
+                                                    src={newDocumentPreview}
+                                                    alt="Preview dokumen"
+                                                    className="w-full h-full object-contain"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center justify-center w-full h-24 bg-slate-50 border border-slate-200 rounded-lg">
+                                                <ImageIcon className="h-6 w-6 text-slate-400 mr-2" />
+                                                <span className="text-sm text-slate-600">{data.new_document.name}</span>
+                                            </div>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={handleRemoveNewDocument}
+                                            className="absolute top-2 right-2 p-1.5 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition-colors"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </button>
+                                        {newDocumentPreview && (
+                                            <p className="text-sm text-slate-600 mt-2 flex items-center">
+                                                <ImageIcon className="h-4 w-4 mr-1" />
+                                                {data.new_document.name}
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+                                {errors.new_document && <p className="text-sm text-rose-600 mt-1">{errors.new_document}</p>}
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Nota</label>
+                                <textarea
+                                    value={data.new_document_nota}
+                                    onChange={(e) => setData('new_document_nota', e.target.value)}
+                                    rows={4}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                    placeholder="Catatan untuk dokumen ini (pilihan)"
+                                />
+                                {errors.new_document_nota && <p className="text-sm text-rose-600 mt-1">{errors.new_document_nota}</p>}
+                                <p className="text-xs text-slate-500 mt-1">Dokumen dan nota akan disusun di bawah borang selepas disimpan.</p>
+                            </div>
                         </div>
                     </div>
 
@@ -839,6 +939,57 @@ export default function Edit({
                         </button>
                     </div>
                 </form >
+
+                {/* Dokumen Lampiran history — every document + note
+                    uploaded for this voter, newest first. Each entry
+                    is persisted in data_pengundi_documents. */}
+                {documents.length > 0 && (
+                    <div className="bg-white rounded-xl border-2 border-blue-200 p-6 mt-6">
+                        <h2 className="text-lg font-semibold text-slate-900 mb-1">Dokumen Lampiran</h2>
+                        <p className="text-xs text-slate-500 mb-4">{documents.length} rekod dokumen untuk pengundi ini</p>
+                        <div className="space-y-3">
+                            {documents.map((doc) => (
+                                <div key={doc.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                                    <div className="flex items-start justify-between mb-2">
+                                        <div>
+                                            <p className="text-sm font-semibold text-slate-900">
+                                                {new Date(doc.created_at).toLocaleDateString('ms-MY', { year: 'numeric', month: 'long', day: 'numeric' })}
+                                                <span className="ml-2 text-xs font-normal text-slate-500">
+                                                    {new Date(doc.created_at).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            </p>
+                                            {doc.submitted_by?.name && (
+                                                <p className="text-xs text-slate-500 mt-0.5">Dihantar oleh: {doc.submitted_by.name}</p>
+                                            )}
+                                        </div>
+                                        {doc.file_path && (
+                                            <div className="flex items-center space-x-3 text-xs">
+                                                <a
+                                                    href={`/storage/${doc.file_path}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-sky-600 hover:text-sky-700 underline"
+                                                >
+                                                    Lihat
+                                                </a>
+                                                <a
+                                                    href={`/storage/${doc.file_path}`}
+                                                    download
+                                                    className="text-emerald-600 hover:text-emerald-700 underline"
+                                                >
+                                                    Muat Turun
+                                                </a>
+                                            </div>
+                                        )}
+                                    </div>
+                                    {doc.nota && doc.nota.trim() !== '' && (
+                                        <p className="text-sm text-slate-700 whitespace-pre-wrap">{doc.nota}</p>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Edit History */}
                 {editHistories.length > 0 && (

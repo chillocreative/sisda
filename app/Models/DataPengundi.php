@@ -49,4 +49,14 @@ class DataPengundi extends Model
     {
         return $this->belongsTo(User::class, 'submitted_by');
     }
+
+    /**
+     * Stacked history of uploaded documents + notes for this voter.
+     * Each entry is a manual upload from the Data Pengundi edit form.
+     */
+    public function documents()
+    {
+        return $this->hasMany(DataPengundiDocument::class, 'data_pengundi_id')
+            ->orderBy('created_at', 'desc');
+    }
 }

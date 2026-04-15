@@ -1411,13 +1411,15 @@ export default function Edit({
                         </div>
                     </div>
 
-                    {/* Maklumat Kawasan Mengundi */}
-                    <div className="bg-white rounded-xl border border-slate-200 p-6">
-                        <h2 className="text-lg font-semibold text-slate-900 mb-4">Maklumat Kawasan Mengundi</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Maklumat Kawasan Mengundi — dimmed. These are
+                        voter-level fields that should be edited from the
+                        Data Pengundi edit page, not the sumbangan form. */}
+                    <div className="bg-slate-50 rounded-xl border border-slate-200 p-6">
+                        <h2 className="text-lg font-semibold text-slate-400 mb-4">Maklumat Kawasan Mengundi</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 opacity-50 pointer-events-none select-none">
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">Parlimen <span className="text-rose-500">*</span></label>
-                                    <select value={data.parlimen} onChange={(e) => setData({...data, parlimen: e.target.value, kadun: '', mpkk: '', daerah_mengundi: '', lokaliti: ''})} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400" required>
+                                    <select value={data.parlimen} onChange={(e) => setData({...data, parlimen: e.target.value, kadun: '', mpkk: '', daerah_mengundi: '', lokaliti: ''})} disabled className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400" required>
                                         <option value="">Pilih Parlimen</option>
                                         {parlimenList.map((item) => (<option key={item.id} value={item.nama}>{item.nama}</option>))}
                                     </select>
@@ -1425,7 +1427,7 @@ export default function Edit({
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">KADUN <span className="text-rose-500">*</span></label>
-                                    <select value={data.kadun} onChange={(e) => setData({...data, kadun: e.target.value, mpkk: ''})} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400" required>
+                                    <select value={data.kadun} onChange={(e) => setData({...data, kadun: e.target.value, mpkk: ''})} disabled className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400" required>
                                         <option value="">{loadingKadun ? "Memuat..." : "Pilih KADUN"}</option>
                                         {kadunOptions.map((item) => (<option key={item.id} value={item.nama}>{item.nama}</option>))}
                                     </select>
@@ -1433,7 +1435,7 @@ export default function Edit({
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">MPKK <span className="text-rose-500">*</span></label>
-                                    <select value={data.mpkk} onChange={(e) => setData('mpkk', e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400" required>
+                                    <select value={data.mpkk} onChange={(e) => setData('mpkk', e.target.value)} disabled className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400" required>
                                         <option value="">{loadingMpkk ? "Memuat..." : "Pilih MPKK"}</option>
                                         {mpkkOptions.map((item) => (<option key={item.id} value={item.nama}>{item.nama}</option>))}
                                     </select>
@@ -1441,7 +1443,7 @@ export default function Edit({
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">Daerah Mengundi <span className="text-rose-500">*</span></label>
-                                    <select value={data.daerah_mengundi} onChange={(e) => setData({...data, daerah_mengundi: e.target.value, lokaliti: ''})} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400" required>
+                                    <select value={data.daerah_mengundi} onChange={(e) => setData({...data, daerah_mengundi: e.target.value, lokaliti: ''})} disabled className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400" required>
                                         <option value="">{loadingDaerahMengundi ? "Memuat..." : "Pilih Daerah Mengundi"}</option>
                                         {daerahMengundiOptions.map((item) => (<option key={item.id} value={item.nama}>{item.nama}</option>))}
                                     </select>
@@ -1449,7 +1451,7 @@ export default function Edit({
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">Lokaliti</label>
-                                    <select value={data.lokaliti} onChange={(e) => setData('lokaliti', e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400">
+                                    <select value={data.lokaliti} onChange={(e) => setData('lokaliti', e.target.value)} disabled className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400">
                                         <option value="">{loadingLokaliti ? "Memuat..." : "Pilih Lokaliti"}</option>
                                         {lokalitiOptions.map((item) => (<option key={item.id} value={item.nama}>{item.nama}</option>))}
                                     </select>
@@ -1458,10 +1460,10 @@ export default function Edit({
                         </div>
                     </div>
 
-                    {/* Status Pengundi */}
-                    <div className="bg-white rounded-xl border border-slate-200 p-6">
-                        <h2 className="text-lg font-semibold text-slate-900 mb-4">Status Pengundi</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {/* Status Pengundi — dimmed, voter-level field */}
+                    <div className="bg-slate-50 rounded-xl border border-slate-200 p-6">
+                        <h2 className="text-lg font-semibold text-slate-400 mb-4">Status Pengundi</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 opacity-50 pointer-events-none select-none">
                             {[
                                 'Pemilih Bertukar Alamat (Keluar)',
                                 'Hilang Layak Pengundi Awam',
@@ -1470,6 +1472,7 @@ export default function Edit({
                                 <label key={item} className="flex items-center space-x-2 cursor-pointer">
                                     <input
                                         type="checkbox"
+                                        disabled
                                         checked={(data.status_pengundi || '').split(', ').includes(item)}
                                         onChange={() => {
                                             const current = data.status_pengundi ? data.status_pengundi.split(', ').filter(Boolean) : [];
@@ -1485,10 +1488,10 @@ export default function Edit({
                         {errors.status_pengundi && <p className="text-sm text-rose-600 mt-1">{errors.status_pengundi}</p>}
                     </div>
 
-                    {/* Political Information */}
-                    <div className="bg-white rounded-xl border border-slate-200 p-6">
-                        <h2 className="text-lg font-semibold text-slate-900 mb-4">Maklumat Politik</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Political Information — dimmed, voter-level field */}
+                    <div className="bg-slate-50 rounded-xl border border-slate-200 p-6">
+                        <h2 className="text-lg font-semibold text-slate-400 mb-4">Maklumat Politik</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 opacity-50 pointer-events-none select-none">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
                                     Keanggotaan Parti <span className="text-rose-500">*</span>
@@ -1496,6 +1499,7 @@ export default function Edit({
                                 <select
                                     value={data.keahlian_parti}
                                     onChange={(e) => setData('keahlian_parti', e.target.value)}
+                                    disabled
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                                 >
                                     <option value="">Pilih Keanggotaan Parti</option>
@@ -1515,6 +1519,7 @@ export default function Edit({
                                 <select
                                     value={data.kecenderungan_politik}
                                     onChange={(e) => setData('kecenderungan_politik', e.target.value)}
+                                    disabled
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                                 >
                                     <option value="">Pilih Kecenderungan Politik</option>
