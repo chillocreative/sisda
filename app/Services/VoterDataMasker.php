@@ -27,9 +27,10 @@ class VoterDataMasker
         'bandar',
         // Maklumat Isi Rumah (only this field)
         'pendapatan_isi_rumah',
-        // Dokumen & Nota (entire card)
-        'kad_pengenalan',
-        'nota',
+        // Note: kad_pengenalan and nota are intentionally NOT masked.
+        // Document uploads and notes must be visible and editable to
+        // every role so they can build up a visible history across
+        // bantuan events.
     ];
 
     /**

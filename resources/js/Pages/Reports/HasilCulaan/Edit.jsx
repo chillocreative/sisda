@@ -1518,17 +1518,11 @@ export default function Edit({
                     <div className="bg-white rounded-xl border border-slate-200 p-6">
                         <h2 className="text-lg font-semibold text-slate-900 mb-4">
                             Dokumen & Nota
-                            {sensitiveLocked && <span className="ml-2 text-xs font-normal text-slate-400">🔒 Dilindungi</span>}
                         </h2>
-                        {sensitiveLocked ? (
-                            <div className="rounded-lg bg-slate-50 border border-slate-200 p-6 text-center text-sm text-slate-500">
-                                Hanya Super User / Super Admin boleh melihat atau mengemaskini maklumat ini.
-                            </div>
-                        ) : (
                         <div className="grid grid-cols-1 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                                    Kad Pengenalan
+                                    Muat naik dokumen
                                 </label>
 
                                 {!previewUrl ? (
@@ -1651,7 +1645,6 @@ export default function Edit({
                                 {errors.nota && <p className="text-sm text-rose-600 mt-1">{errors.nota}</p>}
                             </div>
                         </div>
-                        )}
                     </div>
 
                     {/* Form Actions */}
@@ -1717,7 +1710,7 @@ export default function Edit({
                                                         <p className="text-xs text-slate-500 mt-0.5">Dihantar oleh: {record.submitted_by.name}</p>
                                                     )}
                                                 </div>
-                                                {record.jumlah_wang_tunai && (
+                                                {Number.isFinite(Number(record.jumlah_wang_tunai)) && (
                                                     <span className="text-sm font-semibold text-blue-700">
                                                         RM {Number(record.jumlah_wang_tunai).toLocaleString('en-MY', { minimumFractionDigits: 2 })}
                                                     </span>
@@ -1739,7 +1732,7 @@ export default function Edit({
                                                 {record.bil_isi_rumah && (
                                                     <div><span className="font-medium text-slate-700">Bil. Isi Rumah:</span> {record.bil_isi_rumah}</div>
                                                 )}
-                                                {record.pendapatan_isi_rumah && (
+                                                {Number.isFinite(Number(record.pendapatan_isi_rumah)) && (
                                                     <div><span className="font-medium text-slate-700">Pendapatan:</span> RM {Number(record.pendapatan_isi_rumah).toLocaleString('en-MY')}</div>
                                                 )}
                                                 {record.lokaliti && (
@@ -1749,6 +1742,35 @@ export default function Edit({
                                                     <div><span className="font-medium text-slate-700">KADUN:</span> {record.kadun}</div>
                                                 )}
                                             </div>
+                                            {(record.kad_pengenalan || record.nota) && (
+                                                <div className="mt-3 pt-3 border-t border-slate-200 space-y-2">
+                                                    {record.kad_pengenalan && (
+                                                        <div className="flex items-center gap-3 text-xs">
+                                                            <span className="font-medium text-slate-700">Dokumen:</span>
+                                                            <a
+                                                                href={`/storage/${record.kad_pengenalan}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="text-sky-600 hover:text-sky-700 underline"
+                                                            >
+                                                                Lihat
+                                                            </a>
+                                                            <a
+                                                                href={`/storage/${record.kad_pengenalan}`}
+                                                                download
+                                                                className="text-emerald-600 hover:text-emerald-700 underline"
+                                                            >
+                                                                Muat Turun
+                                                            </a>
+                                                        </div>
+                                                    )}
+                                                    {record.nota && record.nota.trim() !== '' && (
+                                                        <div className="text-xs text-slate-600">
+                                                            <span className="font-medium text-slate-700">Nota:</span> {record.nota}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     );
                                 })}

@@ -119,7 +119,9 @@ export default function Index({ hasilCulaan, icCounts = {}, filters, currentUser
     };
 
     const formatCurrency = (amount) => {
-        return 'RM ' + parseFloat(amount).toLocaleString('ms-MY', {
+        const num = parseFloat(amount);
+        if (!Number.isFinite(num)) return '-';
+        return 'RM ' + num.toLocaleString('ms-MY', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         });
@@ -667,7 +669,7 @@ export default function Index({ hasilCulaan, icCounts = {}, filters, currentUser
                                                             <p className="text-xs text-slate-400 mt-1">Dihantar Oleh: {record.submitted_by.name}</p>
                                                         )}
                                                     </div>
-                                                    {record.jumlah_wang_tunai && (
+                                                    {Number.isFinite(Number(record.jumlah_wang_tunai)) && (
                                                         <span className="text-xs font-medium text-blue-700">RM {Number(record.jumlah_wang_tunai).toLocaleString('en-MY', { minimumFractionDigits: 2 })}</span>
                                                     )}
                                                 </div>

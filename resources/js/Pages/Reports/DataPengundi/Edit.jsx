@@ -783,25 +783,18 @@ export default function Edit({
                     <div className="bg-white rounded-xl border border-slate-200 p-6">
                         <h2 className="text-lg font-semibold text-slate-900 mb-4">
                             Dokumen & Nota
-                            {sensitiveLocked && <span className="ml-2 text-xs font-normal text-slate-400">🔒 Dilindungi</span>}
                         </h2>
-                        {sensitiveLocked ? (
-                            <div className="rounded-lg bg-slate-50 border border-slate-200 p-6 text-center text-sm text-slate-500">
-                                Hanya Super User / Super Admin boleh melihat atau mengemaskini maklumat ini.
-                            </div>
-                        ) : (
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Nota</label>
-                                <textarea
-                                    value={data.nota}
-                                    onChange={(e) => setData('nota', e.target.value)}
-                                    rows={4}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                    placeholder="Maklumat tambahan tentang pengundi"
-                                />
-                                {errors.nota && <p className="text-sm text-rose-600 mt-1">{errors.nota}</p>}
-                            </div>
-                        )}
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Nota</label>
+                            <textarea
+                                value={data.nota || ''}
+                                onChange={(e) => setData('nota', e.target.value)}
+                                rows={4}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                placeholder="Maklumat tambahan tentang pengundi"
+                            />
+                            {errors.nota && <p className="text-sm text-rose-600 mt-1">{errors.nota}</p>}
+                        </div>
                     </div>
 
                     {/* Form Actions */}
