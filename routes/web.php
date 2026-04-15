@@ -210,6 +210,20 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/voter/search-ic', [\App\Http\Controllers\UploadDatabaseController::class, 'searchByIc'])->name('api.voter.search-ic');
     Route::get('/api/voter/suggest-ic', [\App\Http\Controllers\UploadDatabaseController::class, 'suggestIc'])->name('api.voter.suggest-ic');
 
+    // Utility: run pending database migrations. Only reachable while
+    // authenticated. Hit once after a deploy that ships a new migration
+    // (e.g. data_pengundi_documents), then you can ignore the route.
+    Route::get('/run-migrations', function () {
+        set_time_limit(0);
+        try {
+            \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+            $output = \Illuminate\Support\Facades\Artisan::output();
+            return '<pre>'.e($output).'</pre>';
+        } catch (\Throwable $e) {
+            return '<pre>Error: '.e($e->getMessage()).'</pre>';
+        }
+    });
+
     // Utility: fix stuck batches and sync master data
     Route::get('/fix-batches', function () {
         set_time_limit(0);
