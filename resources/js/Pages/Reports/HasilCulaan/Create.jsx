@@ -1806,8 +1806,80 @@ export default function Create({
                         )}
                     </div>
 
+                    {/* Sejarah Bantuan - previous sumbangan records for this IC */}
+                    {bantuanHistory.length > 0 && (
+                        <div className="order-[9] bg-white rounded-xl border-2 border-blue-200 p-6">
+                            <div className="flex items-start gap-3 mb-4">
+                                <div className="flex-shrink-0 mt-0.5">
+                                    <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                    </svg>
+                                </div>
+                                <div className="flex-1">
+                                    <h2 className="text-lg font-semibold text-slate-900">Sejarah Bantuan Terdahulu</h2>
+                                    <p className="text-xs text-slate-500 mt-0.5">
+                                        {bantuanHistory.length} rekod bantuan untuk {bantuanHistory[0].nama} ({data.no_ic})
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="space-y-3">
+                                {bantuanHistory.map((record) => (
+                                    <div
+                                        key={record.id}
+                                        className="rounded-lg border border-slate-200 bg-slate-50 p-4"
+                                    >
+                                        <div className="flex items-start justify-between mb-2">
+                                            <div>
+                                                <p className="text-sm font-semibold text-slate-900">
+                                                    {new Date(record.created_at).toLocaleDateString('ms-MY', { year: 'numeric', month: 'long', day: 'numeric' })}
+                                                    <span className="ml-2 text-xs font-normal text-slate-500">
+                                                        {new Date(record.created_at).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                </p>
+                                                {record.submitted_by?.name && (
+                                                    <p className="text-xs text-slate-500 mt-0.5">Dihantar oleh: {record.submitted_by.name}</p>
+                                                )}
+                                            </div>
+                                            {record.jumlah_wang_tunai && (
+                                                <span className="text-sm font-semibold text-blue-700">
+                                                    RM {Number(record.jumlah_wang_tunai).toLocaleString('en-MY', { minimumFractionDigits: 2 })}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600">
+                                            {record.jenis_sumbangan && (
+                                                <div><span className="font-medium text-slate-700">Jenis Sumbangan:</span> {record.jenis_sumbangan}</div>
+                                            )}
+                                            {record.tujuan_sumbangan && (
+                                                <div><span className="font-medium text-slate-700">Tujuan:</span> {record.tujuan_sumbangan}</div>
+                                            )}
+                                            {record.bantuan_lain && (
+                                                <div><span className="font-medium text-slate-700">Bantuan Lain:</span> {record.bantuan_lain}</div>
+                                            )}
+                                            {record.pekerjaan && (
+                                                <div><span className="font-medium text-slate-700">Pekerjaan:</span> {record.pekerjaan}</div>
+                                            )}
+                                            {record.bil_isi_rumah && (
+                                                <div><span className="font-medium text-slate-700">Bil. Isi Rumah:</span> {record.bil_isi_rumah}</div>
+                                            )}
+                                            {record.pendapatan_isi_rumah && (
+                                                <div><span className="font-medium text-slate-700">Pendapatan:</span> RM {Number(record.pendapatan_isi_rumah).toLocaleString('en-MY')}</div>
+                                            )}
+                                            {record.lokaliti && (
+                                                <div><span className="font-medium text-slate-700">Lokaliti:</span> {record.lokaliti}</div>
+                                            )}
+                                            {record.kadun && (
+                                                <div><span className="font-medium text-slate-700">KADUN:</span> {record.kadun}</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Form Actions */}
-                    <div className="order-9 flex items-center justify-end space-x-3 pb-6">
+                    <div className="order-[10] flex items-center justify-end space-x-3 pb-6">
                         <button
                             type="button"
                             onClick={() => window.history.back()}
@@ -1824,71 +1896,6 @@ export default function Create({
                         </button>
                     </div>
                 </form>
-
-                {/* Sejarah Bantuan - previous sumbangan records for this IC */}
-                {bantuanHistory.length > 0 && (
-                    <div className="bg-white rounded-xl border border-slate-200 p-6 mt-6">
-                        <div className="mb-4">
-                            <h2 className="text-lg font-semibold text-slate-900">Sejarah Bantuan</h2>
-                            <p className="text-xs text-slate-500 mt-0.5">
-                                {bantuanHistory.length} rekod bantuan terdahulu untuk {bantuanHistory[0].nama} ({data.no_ic})
-                            </p>
-                        </div>
-                        <div className="space-y-3">
-                            {bantuanHistory.map((record) => (
-                                <div
-                                    key={record.id}
-                                    className="rounded-lg border border-slate-200 bg-slate-50 p-4"
-                                >
-                                    <div className="flex items-start justify-between mb-2">
-                                        <div>
-                                            <p className="text-sm font-semibold text-slate-900">
-                                                {new Date(record.created_at).toLocaleDateString('ms-MY', { year: 'numeric', month: 'long', day: 'numeric' })}
-                                                <span className="ml-2 text-xs font-normal text-slate-500">
-                                                    {new Date(record.created_at).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}
-                                                </span>
-                                            </p>
-                                            {record.submitted_by?.name && (
-                                                <p className="text-xs text-slate-500 mt-0.5">Dihantar oleh: {record.submitted_by.name}</p>
-                                            )}
-                                        </div>
-                                        {record.jumlah_wang_tunai && (
-                                            <span className="text-sm font-semibold text-blue-700">
-                                                RM {Number(record.jumlah_wang_tunai).toLocaleString('en-MY', { minimumFractionDigits: 2 })}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600">
-                                        {record.jenis_sumbangan && (
-                                            <div><span className="font-medium text-slate-700">Jenis Sumbangan:</span> {record.jenis_sumbangan}</div>
-                                        )}
-                                        {record.tujuan_sumbangan && (
-                                            <div><span className="font-medium text-slate-700">Tujuan:</span> {record.tujuan_sumbangan}</div>
-                                        )}
-                                        {record.bantuan_lain && (
-                                            <div><span className="font-medium text-slate-700">Bantuan Lain:</span> {record.bantuan_lain}</div>
-                                        )}
-                                        {record.pekerjaan && (
-                                            <div><span className="font-medium text-slate-700">Pekerjaan:</span> {record.pekerjaan}</div>
-                                        )}
-                                        {record.bil_isi_rumah && (
-                                            <div><span className="font-medium text-slate-700">Bil. Isi Rumah:</span> {record.bil_isi_rumah}</div>
-                                        )}
-                                        {record.pendapatan_isi_rumah && (
-                                            <div><span className="font-medium text-slate-700">Pendapatan:</span> RM {Number(record.pendapatan_isi_rumah).toLocaleString('en-MY')}</div>
-                                        )}
-                                        {record.lokaliti && (
-                                            <div><span className="font-medium text-slate-700">Lokaliti:</span> {record.lokaliti}</div>
-                                        )}
-                                        {record.kadun && (
-                                            <div><span className="font-medium text-slate-700">KADUN:</span> {record.kadun}</div>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
             </div>
         </AuthenticatedLayout>
     );
