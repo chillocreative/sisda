@@ -582,29 +582,64 @@ export default function Index({ hasilCulaan, icCounts = {}, filters, currentUser
                                     <label className="block text-sm font-medium text-slate-500">Dikemukakan Oleh</label>
                                     <div className="mt-1 text-slate-900">{viewingItem.submitted_by?.name || '-'}</div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-500">Kad Pengenalan (Lampiran)</label>
-                                    {viewingItem.kad_pengenalan ? (
-                                        <div className="mt-1 flex items-center space-x-2">
-                                            <button
-                                                onClick={() => setViewingImage(`/storage/${viewingItem.kad_pengenalan}`)}
-                                                className="text-sky-600 hover:text-sky-700 hover:underline flex items-center space-x-1"
-                                            >
-                                                <Eye className="h-4 w-4" />
-                                                <span>Lihat</span>
-                                            </button>
-                                            <a
-                                                href={`/storage/${viewingItem.kad_pengenalan}`}
-                                                download
-                                                className="text-emerald-600 hover:text-emerald-700 hover:underline flex items-center space-x-1"
-                                            >
-                                                <FileDown className="h-4 w-4" />
-                                                <span>Muat Turun</span>
-                                            </a>
-                                        </div>
-                                    ) : (
-                                        <div className="mt-1 text-slate-400">Tiada</div>
-                                    )}
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-medium text-slate-500">Dokumen Lampiran</label>
+                                    {(() => {
+                                        // Build a newest-first list of every uploaded document
+                                        // across all bantuan records for this voter. The
+                                        // currently viewed record sits at the top; older
+                                        // uploads stack below it so the user sees the full
+                                        // history of attachments in one place.
+                                        const docs = [];
+                                        if (viewingItem.kad_pengenalan) {
+                                            docs.push({ id: viewingItem.id, path: viewingItem.kad_pengenalan, created_at: viewingItem.created_at, isCurrent: true });
+                                        }
+                                        viewHistory
+                                            .filter(r => r.id !== viewingItem?.id && r.kad_pengenalan)
+                                            .forEach(r => docs.push({ id: r.id, path: r.kad_pengenalan, created_at: r.created_at, isCurrent: false }));
+
+                                        if (docs.length === 0) {
+                                            return <div className="mt-1 text-slate-400">Tiada</div>;
+                                        }
+
+                                        return (
+                                            <div className="mt-2 space-y-2">
+                                                {docs.map((doc) => (
+                                                    <div key={doc.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                                                        <div className="text-xs text-slate-600">
+                                                            {new Date(doc.created_at).toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                                            <span className="ml-2 text-slate-400">
+                                                                {new Date(doc.created_at).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}
+                                                            </span>
+                                                            {doc.isCurrent && (
+                                                                <span className="ml-2 inline-block px-1.5 py-0.5 text-[10px] font-bold bg-blue-600 text-white rounded uppercase">
+                                                                    Terkini
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex items-center space-x-3">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setViewingImage(`/storage/${doc.path}`)}
+                                                                className="text-sky-600 hover:text-sky-700 hover:underline flex items-center space-x-1 text-xs"
+                                                            >
+                                                                <Eye className="h-3.5 w-3.5" />
+                                                                <span>Lihat</span>
+                                                            </button>
+                                                            <a
+                                                                href={`/storage/${doc.path}`}
+                                                                download
+                                                                className="text-emerald-600 hover:text-emerald-700 hover:underline flex items-center space-x-1 text-xs"
+                                                            >
+                                                                <FileDown className="h-3.5 w-3.5" />
+                                                                <span>Muat Turun</span>
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             </div>
 

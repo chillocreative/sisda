@@ -1605,6 +1605,63 @@ export default function Edit({
                                     </div>
                                 )}
                                 {errors.kad_pengenalan && <p className="text-sm text-rose-600 mt-1">{errors.kad_pengenalan}</p>}
+
+                                {/* Dokumen Lampiran stack — every uploaded document
+                                    across all bantuan records for this voter, newest
+                                    first. A fresh upload lands at the top via the
+                                    preview slot above; earlier uploads remain visible
+                                    here so the full attachment history is in one place. */}
+                                {(() => {
+                                    const docs = [];
+                                    if (hasilCulaan.kad_pengenalan) {
+                                        docs.push({ id: hasilCulaan.id, path: hasilCulaan.kad_pengenalan, created_at: hasilCulaan.created_at, isCurrent: true });
+                                    }
+                                    bantuanHistory
+                                        .filter(r => r.id !== hasilCulaan.id && r.kad_pengenalan)
+                                        .forEach(r => docs.push({ id: r.id, path: r.kad_pengenalan, created_at: r.created_at, isCurrent: false }));
+
+                                    if (docs.length === 0) return null;
+
+                                    return (
+                                        <div className="mt-4">
+                                            <h3 className="text-sm font-medium text-slate-700 mb-2">Dokumen Lampiran</h3>
+                                            <div className="space-y-2">
+                                                {docs.map((doc) => (
+                                                    <div key={doc.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                                                        <div className="text-xs text-slate-600">
+                                                            {new Date(doc.created_at).toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                                            <span className="ml-2 text-slate-400">
+                                                                {new Date(doc.created_at).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}
+                                                            </span>
+                                                            {doc.isCurrent && (
+                                                                <span className="ml-2 inline-block px-1.5 py-0.5 text-[10px] font-bold bg-blue-600 text-white rounded uppercase">
+                                                                    Terkini
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex items-center space-x-3">
+                                                            <a
+                                                                href={`/storage/${doc.path}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="text-sky-600 hover:text-sky-700 hover:underline text-xs"
+                                                            >
+                                                                Lihat
+                                                            </a>
+                                                            <a
+                                                                href={`/storage/${doc.path}`}
+                                                                download
+                                                                className="text-emerald-600 hover:text-emerald-700 hover:underline text-xs"
+                                                            >
+                                                                Muat Turun
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                             </div>
 
                             <div>
