@@ -7,6 +7,7 @@ use App\Models\DataPengundi;
 use App\Models\Lokaliti;
 use App\Models\PangkalanDataPengundi;
 use App\Models\UploadBatch;
+use App\Services\VoterDataMasker;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -104,23 +105,43 @@ class UploadDatabaseController extends Controller
         $query = $request->input('ic', '');
         if (strlen($query) < 3) return response()->json([]);
 
+        $viewer = auth()->user();
+
         // Data Pengundi matches (previously submitted records) - full fields for form auto-fill
-        $dataPengundi = DataPengundi::where('no_ic', 'like', $query . '%')
+        $dataPengundi = DataPengundi::with('submittedBy:id,name,role')
+            ->where('no_ic', 'like', $query . '%')
             ->orderBy('id', 'desc')
             ->limit(10)
-            ->get([
-                'id', 'no_ic', 'nama', 'umur', 'no_tel', 'bangsa', 'alamat', 'poskod',
-                'negeri', 'bandar', 'parlimen', 'kadun', 'mpkk', 'daerah_mengundi', 'lokaliti',
-                'keahlian_parti', 'kecenderungan_politik', 'status_pengundi',
-            ])
-            ->map(function ($v) {
-                $arr = $v->toArray();
-                $arr['source'] = 'data_pengundi';
+            ->get()
+            ->map(function ($v) use ($viewer) {
+                $locked = VoterDataMasker::isLocked($v) && ! VoterDataMasker::canUnmask($viewer);
+                $arr = [
+                    'id' => $v->id,
+                    'no_ic' => $locked ? VoterDataMasker::MASK : $v->no_ic,
+                    'nama' => $v->nama,
+                    'umur' => $locked ? VoterDataMasker::MASK : $v->umur,
+                    'no_tel' => $locked ? VoterDataMasker::MASK : $v->no_tel,
+                    'bangsa' => $locked ? VoterDataMasker::MASK : $v->bangsa,
+                    'alamat' => $locked ? VoterDataMasker::MASK : $v->alamat,
+                    'poskod' => $locked ? VoterDataMasker::MASK : $v->poskod,
+                    'negeri' => $locked ? VoterDataMasker::MASK : $v->negeri,
+                    'bandar' => $locked ? VoterDataMasker::MASK : $v->bandar,
+                    'parlimen' => $v->parlimen,
+                    'kadun' => $v->kadun,
+                    'mpkk' => $v->mpkk,
+                    'daerah_mengundi' => $v->daerah_mengundi,
+                    'lokaliti' => $v->lokaliti,
+                    'keahlian_parti' => $v->keahlian_parti,
+                    'kecenderungan_politik' => $v->kecenderungan_politik,
+                    'status_pengundi' => $v->status_pengundi,
+                    'source' => 'data_pengundi',
+                    'is_locked' => $locked,
+                ];
                 return $arr;
             });
 
         // DPPR matches, excluding IC numbers already present in Data Pengundi
-        $existingIcs = $dataPengundi->pluck('no_ic')->unique()->toArray();
+        $existingIcs = DataPengundi::where('no_ic', 'like', $query . '%')->pluck('no_ic')->unique()->toArray();
         $dpprQuery = PangkalanDataPengundi::where('no_ic', 'like', $query . '%');
         if (count($existingIcs) > 0) {
             $dpprQuery->whereNotIn('no_ic', $existingIcs);
@@ -131,6 +152,7 @@ class UploadDatabaseController extends Controller
             ->map(function ($v) {
                 $arr = $v->toArray();
                 $arr['source'] = 'dppr';
+                $arr['is_locked'] = false;
                 return $arr;
             });
 
@@ -140,24 +162,57 @@ class UploadDatabaseController extends Controller
     public function searchByIc(Request $request)
     {
         $ic = $request->ic;
+        $viewer = auth()->user();
 
         // For 12-digit IC, check data_pengundi first, then DPPR fallback
         if (strlen($ic) === 12) {
-            $voter = DataPengundi::where('no_ic', $ic)
-                ->select(['no_ic', 'nama', 'no_tel', 'alamat', 'poskod', 'lokaliti', 'daerah_mengundi', 'kadun', 'mpkk', 'parlimen', 'bandar', 'negeri', 'bangsa', 'keahlian_parti', 'kecenderungan_politik'])
+            $voter = DataPengundi::with('submittedBy:id,name,role')
+                ->where('no_ic', $ic)
                 ->first();
 
-            if (! $voter) {
-                $voter = PangkalanDataPengundi::where('no_ic', $ic)->first();
+            if ($voter) {
+                $locked = VoterDataMasker::isLocked($voter) && ! VoterDataMasker::canUnmask($viewer);
+                $arr = $voter->only([
+                    'id', 'no_ic', 'nama', 'umur', 'no_tel', 'bangsa', 'alamat', 'poskod',
+                    'negeri', 'bandar', 'parlimen', 'kadun', 'mpkk', 'daerah_mengundi', 'lokaliti',
+                    'keahlian_parti', 'kecenderungan_politik', 'status_pengundi',
+                ]);
+                if ($locked) {
+                    foreach (VoterDataMasker::SENSITIVE_FIELDS as $field) {
+                        if (array_key_exists($field, $arr)) {
+                            $arr[$field] = VoterDataMasker::MASK;
+                        }
+                    }
+                }
+                $arr['source'] = 'data_pengundi';
+                $arr['is_locked'] = $locked;
+                return response()->json($arr);
             }
 
-            return response()->json($voter);
+            $dpprVoter = PangkalanDataPengundi::where('no_ic', $ic)->first();
+            return response()->json($dpprVoter);
         }
 
         // For partial IC (6-11 digits): check data_pengundi first, then DPPR
-        $voters = DataPengundi::where('no_ic', 'like', $ic . '%')
+        $voters = DataPengundi::with('submittedBy:id,name,role')
+            ->where('no_ic', 'like', $ic . '%')
             ->limit(15)
-            ->get(['no_ic', 'nama', 'lokaliti', 'daerah_mengundi', 'kadun', 'parlimen', 'negeri', 'bangsa']);
+            ->get()
+            ->map(function ($v) use ($viewer) {
+                $locked = VoterDataMasker::isLocked($v) && ! VoterDataMasker::canUnmask($viewer);
+                return [
+                    'no_ic' => $locked ? VoterDataMasker::MASK : $v->no_ic,
+                    'nama' => $v->nama,
+                    'lokaliti' => $v->lokaliti,
+                    'daerah_mengundi' => $v->daerah_mengundi,
+                    'kadun' => $v->kadun,
+                    'parlimen' => $v->parlimen,
+                    'negeri' => $locked ? VoterDataMasker::MASK : $v->negeri,
+                    'bangsa' => $locked ? VoterDataMasker::MASK : $v->bangsa,
+                    'source' => 'data_pengundi',
+                    'is_locked' => $locked,
+                ];
+            });
 
         if ($voters->isEmpty()) {
             $voters = PangkalanDataPengundi::where('no_ic', 'like', $ic . '%')

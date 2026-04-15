@@ -402,7 +402,18 @@ export default function Create({
         };
         const parlimenMatch = parlimenList.find(p => p.nama.toLowerCase() === (voter.parlimen || '').toLowerCase());
 
-        if (voter.source === 'data_pengundi') {
+        if (voter.source === 'data_pengundi' && voter.is_locked) {
+            // Locked record — only populate non-sensitive fields. Leave
+            // the user's typed no_ic and empty sensitive fields alone.
+            setData({
+                ...data,
+                nama: voter.nama || data.nama,
+                parlimen: parlimenMatch ? parlimenMatch.nama : data.parlimen,
+                keahlian_parti: voter.keahlian_parti || data.keahlian_parti,
+                kecenderungan_politik: voter.kecenderungan_politik || data.kecenderungan_politik,
+                status_pengundi: voter.status_pengundi || data.status_pengundi,
+            });
+        } else if (voter.source === 'data_pengundi') {
             // Fully populate form with previously saved record
             setData({
                 ...data,
@@ -453,8 +464,10 @@ export default function Create({
                         setData(prev => ({
                             ...prev,
                             nama: prev.nama || voter.nama || '',
-                            bangsa: prev.bangsa || voter.bangsa || '',
-                            negeri: voter.negeri ? toTitleCase(voter.negeri) : prev.negeri,
+                            // Skip sensitive fields (bangsa, negeri) if the matched
+                            // voter row is a locked data_pengundi record
+                            bangsa: voter.is_locked ? prev.bangsa : (prev.bangsa || voter.bangsa || ''),
+                            negeri: voter.is_locked ? prev.negeri : (voter.negeri ? toTitleCase(voter.negeri) : prev.negeri),
                             parlimen: parlimenMatch ? parlimenMatch.nama : prev.parlimen,
                         }));
                     }
@@ -467,17 +480,21 @@ export default function Create({
                     if (res.data && res.data.length > 0) {
                         setBantuanHistory(res.data);
                         const latest = res.data[0];
+                        const locked = latest.is_locked;
                         setData(prev => ({
                             ...prev,
                             nama: prev.nama || latest.nama || '',
-                            bangsa: prev.bangsa || latest.bangsa || '',
-                            no_tel: prev.no_tel || latest.no_tel || '',
-                            alamat: prev.alamat || latest.alamat || '',
-                            poskod: prev.poskod || latest.poskod || '',
-                            negeri: prev.negeri || latest.negeri || '',
-                            bandar: prev.bandar || latest.bandar || '',
+                            // Sensitive fields — skip autofill when the latest bantuan
+                            // record is locked by the masker
+                            bangsa: locked ? prev.bangsa : (prev.bangsa || latest.bangsa || ''),
+                            no_tel: locked ? prev.no_tel : (prev.no_tel || latest.no_tel || ''),
+                            alamat: locked ? prev.alamat : (prev.alamat || latest.alamat || ''),
+                            poskod: locked ? prev.poskod : (prev.poskod || latest.poskod || ''),
+                            negeri: locked ? prev.negeri : (prev.negeri || latest.negeri || ''),
+                            bandar: locked ? prev.bandar : (prev.bandar || latest.bandar || ''),
+                            pendapatan_isi_rumah: locked ? prev.pendapatan_isi_rumah : (prev.pendapatan_isi_rumah || latest.pendapatan_isi_rumah || ''),
+                            // Non-sensitive — always autofill when empty
                             bil_isi_rumah: prev.bil_isi_rumah || latest.bil_isi_rumah || '',
-                            pendapatan_isi_rumah: prev.pendapatan_isi_rumah || latest.pendapatan_isi_rumah || '',
                             pekerjaan: prev.pekerjaan || latest.pekerjaan || '',
                             pemilik_rumah: prev.pemilik_rumah || latest.pemilik_rumah || '',
                             keahlian_parti: prev.keahlian_parti || latest.keahlian_parti || '',

@@ -302,13 +302,14 @@ export default function Edit({
             lokaliti: voter.lokaliti || null,
         };
         const parlimenMatch = parlimenList.find(p => p.nama.toLowerCase() === (voter.parlimen || '').toLowerCase());
+        const locked = voter.is_locked;
         setData({
             ...data,
-            no_ic: voter.no_ic,
+            no_ic: locked ? data.no_ic : voter.no_ic,
             nama: voter.nama || data.nama,
             parlimen: parlimenMatch ? parlimenMatch.nama : data.parlimen,
-            negeri: voter.negeri ? toTitleCase(voter.negeri) : data.negeri,
-            bangsa: voter.bangsa || data.bangsa,
+            negeri: locked ? data.negeri : (voter.negeri ? toTitleCase(voter.negeri) : data.negeri),
+            bangsa: locked ? data.bangsa : (voter.bangsa || data.bangsa),
         });
         setShowSuggestions(false);
         setIcSuggestions([]);

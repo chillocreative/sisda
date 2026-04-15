@@ -215,12 +215,14 @@ export default function Edit({
             lokaliti: voter.lokaliti || null,
         };
         const parlimenMatch = parlimenList.find(p => p.nama.toLowerCase() === (voter.parlimen || '').toLowerCase());
+        const locked = voter.is_locked;
         setData({
             ...data,
-            no_ic: voter.no_ic,
+            // Only overwrite no_ic when unlocked; otherwise keep whatever user typed
+            no_ic: locked ? data.no_ic : voter.no_ic,
             nama: voter.nama || data.nama,
-            bangsa: voter.bangsa || data.bangsa,
-            negeri: voter.negeri ? toTitleCase(voter.negeri) : data.negeri,
+            bangsa: locked ? data.bangsa : (voter.bangsa || data.bangsa),
+            negeri: locked ? data.negeri : (voter.negeri ? toTitleCase(voter.negeri) : data.negeri),
             parlimen: parlimenMatch ? parlimenMatch.nama : data.parlimen,
         });
         setShowSuggestions(false);
@@ -240,11 +242,12 @@ export default function Edit({
                             lokaliti: res.data.lokaliti || null,
                         };
                         const parlimenMatch = parlimenList.find(p => p.nama.toLowerCase() === (res.data.parlimen || '').toLowerCase());
+                        const locked = res.data.is_locked;
                         setData(prev => ({
                             ...prev,
                             nama: res.data.nama || prev.nama,
-                            bangsa: res.data.bangsa || prev.bangsa,
-                            negeri: res.data.negeri ? toTitleCase(res.data.negeri) : prev.negeri,
+                            bangsa: locked ? prev.bangsa : (res.data.bangsa || prev.bangsa),
+                            negeri: locked ? prev.negeri : (res.data.negeri ? toTitleCase(res.data.negeri) : prev.negeri),
                             parlimen: parlimenMatch ? parlimenMatch.nama : prev.parlimen,
                         }));
                     }
