@@ -359,42 +359,10 @@ class DashboardController extends Controller
 
         $results = [];
 
-        // Search in Hasil Culaan (Data Sumbangan)
-        $hasilCulaanQuery = HasilCulaan::where('no_ic', 'like', "%{$icNumber}%")
-            ->with('submittedBy');
-
-        // Territory restriction: records in territory OR submitted by user
-        if ($user->isAdmin()) {
-            $hasilCulaanQuery->where(function ($q) use ($user) {
-                $q->where('bandar', $user->bandar->nama ?? '__none__')
-                  ->orWhere('submitted_by', $user->id);
-            });
-        } elseif ($user->isUser() || $user->isSuperUser()) {
-            $hasilCulaanQuery->where(function ($q) use ($user) {
-                $q->where('kadun', $user->kadun->nama ?? '__none__')
-                  ->orWhere('submitted_by', $user->id);
-            });
-        }
-
-        $hasilCulaan = $hasilCulaanQuery->limit(5)->get();
-
-        foreach ($hasilCulaan as $record) {
-            $canEdit = $this->canModifyHasilCulaan($record, $user);
-            $locked = VoterDataMasker::isLocked($record) && ! VoterDataMasker::canUnmask($user);
-            $results[] = [
-                'id' => $record->id,
-                'type' => 'hasil_culaan',
-                'no_ic' => $locked ? VoterDataMasker::MASK : $record->no_ic,
-                'nama' => $record->nama,
-                'no_tel' => $locked ? VoterDataMasker::MASK : $record->no_tel,
-                'bandar' => $locked ? VoterDataMasker::MASK : $record->bandar,
-                'kadun' => $record->kadun,
-                'can_edit' => $canEdit,
-                'is_locked' => $locked,
-                'edit_url' => $canEdit ? route('reports.hasil-culaan.edit', $record->id) : null,
-                'updated_at' => optional($record->updated_at)->format('d/m/Y h:i A'),
-            ];
-        }
+        // Data Sumbangan (Hasil Culaan) is intentionally excluded from
+        // the dashboard suggestive search — only DPT, DPPR, and Data
+        // Pengundi appear in the dropdown. Sumbangan history is still
+        // accessible via the edit page and the Sejarah Bantuan card.
 
         // Search in Data Pengundi
         $dataPengundiQuery = DataPengundi::where('no_ic', 'like', "%{$icNumber}%")
