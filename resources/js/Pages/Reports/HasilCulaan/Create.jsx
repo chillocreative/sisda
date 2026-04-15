@@ -1,6 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm } from '@inertiajs/react';
-import { ArrowLeft, Upload, X, Loader2, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Upload, X, Loader2, Image as ImageIcon, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 
@@ -46,6 +46,7 @@ export default function Create({
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [bantuanHistory, setBantuanHistory] = useState([]);
     const [bantuanHistoryLoaded, setBantuanHistoryLoaded] = useState(false);
+    const [showBantuanHistory, setShowBantuanHistory] = useState(true);
     const icDebounceRef = useRef(null);
     const icWrapperRef = useRef(null);
     const pendingVoterData = useRef(null);
@@ -1867,7 +1868,12 @@ export default function Create({
                     {/* Sejarah Bantuan - previous sumbangan records for this IC */}
                     {((data.no_ic && data.no_ic.length === 12 && data.no_ic !== MASK) || data.locked_source_id) && (
                         <div className="order-[9] bg-white rounded-xl border-2 border-blue-200 p-6">
-                            <div className="flex items-start gap-3 mb-4">
+                            <button
+                                type="button"
+                                onClick={() => setShowBantuanHistory(v => !v)}
+                                className="w-full flex items-start gap-3 mb-4 text-left cursor-pointer"
+                                aria-expanded={showBantuanHistory}
+                            >
                                 <div className="flex-shrink-0 mt-0.5">
                                     <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
@@ -1881,8 +1887,11 @@ export default function Create({
                                             : 'Tiada sejarah bantuan ditemui untuk pengundi ini.'}
                                     </p>
                                 </div>
-                            </div>
-                            {bantuanHistory.length > 0 && (
+                                <div className="flex-shrink-0 mt-1 text-slate-500">
+                                    {showBantuanHistory ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                                </div>
+                            </button>
+                            {showBantuanHistory && bantuanHistory.length > 0 && (
                             <div className="space-y-3">
                                 {bantuanHistory.map((record) => (
                                     <div

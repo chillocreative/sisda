@@ -36,6 +36,12 @@ export default function Edit({
     const [loadingLokaliti, setLoadingLokaliti] = useState(false);
     const [icSuggestions, setIcSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
+    // Local-only toggle that unlocks the Status Pengundi checkboxes.
+    // Seed from the existing stored value so a row that already has a
+    // status starts unlocked.
+    const [updateStatusPengundi, setUpdateStatusPengundi] = useState(
+        !!(dataPengundi.status_pengundi && dataPengundi.status_pengundi.trim() !== '')
+    );
     const icDebounceRef = useRef(null);
     const icWrapperRef = useRef(null);
     const pendingVoterData = useRef(null);
@@ -687,9 +693,26 @@ export default function Edit({
                     </div>
 
                     {/* Status Pengundi */}
-                    <div className="bg-white rounded-xl border border-slate-200 p-6">
-                        <h2 className="text-lg font-semibold text-slate-900 mb-4">Status Pengundi</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <div className={`bg-white rounded-xl border border-slate-200 p-6 ${!updateStatusPengundi ? 'bg-slate-50' : ''}`}>
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className={`text-lg font-semibold ${updateStatusPengundi ? 'text-slate-900' : 'text-slate-400'}`}>Status Pengundi</h2>
+                            <label className="flex items-center space-x-2 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={updateStatusPengundi}
+                                    onChange={(e) => {
+                                        const checked = e.target.checked;
+                                        setUpdateStatusPengundi(checked);
+                                        if (!checked) {
+                                            setData('status_pengundi', '');
+                                        }
+                                    }}
+                                    className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                                />
+                                <span className="text-sm font-medium text-slate-700">Perlu Dikemaskini</span>
+                            </label>
+                        </div>
+                        <div className={`grid grid-cols-1 md:grid-cols-2 gap-2 ${!updateStatusPengundi ? 'opacity-50 pointer-events-none select-none' : ''}`}>
                             {[
                                 'Pemilih Bertukar Alamat (Keluar)',
                                 'Hilang Layak Pengundi Awam',
@@ -698,6 +721,7 @@ export default function Edit({
                                 <label key={item} className="flex items-center space-x-2 cursor-pointer">
                                     <input
                                         type="checkbox"
+                                        disabled={!updateStatusPengundi}
                                         checked={(data.status_pengundi || '').split(', ').includes(item)}
                                         onChange={() => {
                                             const current = data.status_pengundi ? data.status_pengundi.split(', ').filter(Boolean) : [];

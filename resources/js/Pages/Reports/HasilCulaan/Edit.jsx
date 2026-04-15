@@ -1,6 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm, usePage, router } from '@inertiajs/react';
-import { ArrowLeft, Upload, X, Loader2, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { ArrowLeft, Upload, X, Loader2, Image as ImageIcon, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import SearchableSelect from '@/Components/SearchableSelect';
@@ -1668,22 +1668,23 @@ export default function Edit({
 
                 {/* Bantuan History - comprehensive list of all records for this IC */}
                 {bantuanHistory.length > 0 && (
-                    <div className="bg-white rounded-xl border border-slate-200 p-6 mt-6">
-                        <div className="flex items-center justify-between mb-4">
+                    <div className="bg-white rounded-xl border-2 border-blue-200 p-6 mt-6">
+                        <button
+                            type="button"
+                            onClick={() => setShowHistoryDetails(!showHistoryDetails)}
+                            className="w-full flex items-center justify-between mb-4 text-left cursor-pointer"
+                            aria-expanded={showHistoryDetails}
+                        >
                             <div>
-                                <h2 className="text-lg font-semibold text-slate-900">Sejarah Bantuan</h2>
+                                <h2 className="text-lg font-semibold text-slate-900">Sejarah Bantuan Terdahulu</h2>
                                 <p className="text-xs text-slate-500 mt-0.5">
                                     {bantuanHistory.length} rekod bantuan untuk {hasilCulaan.nama} ({hasilCulaan.no_ic})
                                 </p>
                             </div>
-                            <button
-                                type="button"
-                                onClick={() => setShowHistoryDetails(!showHistoryDetails)}
-                                className="text-xs font-medium text-blue-700 hover:text-blue-900 underline"
-                            >
-                                {showHistoryDetails ? 'Sembunyikan Butiran' : 'Papar Butiran'}
-                            </button>
-                        </div>
+                            <div className="flex-shrink-0 text-slate-500">
+                                {showHistoryDetails ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                            </div>
+                        </button>
                         {showHistoryDetails && (
                             <div className="space-y-3">
                                 {bantuanHistory.map((record) => {
