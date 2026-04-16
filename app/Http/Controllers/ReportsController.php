@@ -380,10 +380,11 @@ class ReportsController extends Controller
         }
 
         // Parlimen Restriction: Admin and user roles may only create records
-        // within their own Parlimen (Bandar). Super admin / super user are
-        // unconstrained here.
+        // within their own Parlimen. Compare against the record's parlimen
+        // column — the bandar column is the voter's city from postcode
+        // lookup, not their Parlimen. Super admin / super user unconstrained.
         if ($user->isAdmin() || $user->isUser()) {
-            if ($request->bandar !== ($user->bandar->nama ?? '')) {
+            if ($request->parlimen !== ($user->bandar->nama ?? '')) {
                  abort(403, 'You can only create records for your Parlimen (' . ($user->bandar->nama ?? 'Unknown') . ').');
             }
         }
@@ -506,7 +507,7 @@ class ReportsController extends Controller
     {
         $user = auth()->user();
 
-        if ($user->isUser() && $hasilCulaan->bandar !== ($user->bandar->nama ?? null)) {
+        if ($user->isUser() && $hasilCulaan->parlimen !== ($user->bandar->nama ?? null)) {
             abort(403, 'Anda hanya dibenarkan mengakses rekod dalam Parlimen anda.');
         }
 
@@ -568,7 +569,7 @@ class ReportsController extends Controller
     {
         $user = auth()->user();
 
-        if ($user->isUser() && $hasilCulaan->bandar !== ($user->bandar->nama ?? null)) {
+        if ($user->isUser() && $hasilCulaan->parlimen !== ($user->bandar->nama ?? null)) {
             abort(403, 'Anda hanya dibenarkan mengakses rekod dalam Parlimen anda.');
         }
 
@@ -894,7 +895,7 @@ class ReportsController extends Controller
     {
         $user = auth()->user();
 
-        if ($user->isUser() && $dataPengundi->bandar !== ($user->bandar->nama ?? null)) {
+        if ($user->isUser() && $dataPengundi->parlimen !== ($user->bandar->nama ?? null)) {
             abort(403, 'Anda hanya dibenarkan mengakses rekod dalam Parlimen anda.');
         }
 
@@ -970,7 +971,7 @@ class ReportsController extends Controller
     {
         $user = auth()->user();
 
-        if ($user->isUser() && $dataPengundi->bandar !== ($user->bandar->nama ?? null)) {
+        if ($user->isUser() && $dataPengundi->parlimen !== ($user->bandar->nama ?? null)) {
             abort(403, 'Anda hanya dibenarkan mengakses rekod dalam Parlimen anda.');
         }
 

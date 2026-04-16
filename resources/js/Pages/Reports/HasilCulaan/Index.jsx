@@ -55,11 +55,14 @@ export default function Index({ hasilCulaan, icCounts = {}, filters, currentUser
     // Permission: same parlimen OR original creator
     // Permission: strict same-Parlimen for 'user' role; broader fallback
     // (same parlimen OR original submitter) for other non-admin roles.
+    // Note: user.bandar.nama is the user's assigned Parlimen, so match
+    // against the record's `parlimen` column (the `bandar` column is the
+    // voter's city from postcode lookup, not their Parlimen).
     const canModifyRecord = (item) => {
         if (user.role === 'super_admin') return true;
         if (user.role === 'admin') return true;
-        if (user.role === 'user') return item.bandar === user.bandar?.nama;
-        return item.bandar === user.bandar?.nama || item.submitted_by?.id === user.id;
+        if (user.role === 'user') return item.parlimen === user.bandar?.nama;
+        return item.parlimen === user.bandar?.nama || item.submitted_by?.id === user.id;
     };
 
     // Only non-user roles may delete records.
