@@ -827,14 +827,15 @@ export default function Edit({
                         editable form field on this page. */}
                     <div
                         onClick={() => router.visit(route('reports.hasil-culaan.create', { source_id: dataPengundi.id }))}
-                        className="bg-slate-50 rounded-xl border border-slate-200 p-6 cursor-pointer hover:bg-slate-100 transition-colors"
+                        className="bg-slate-50 rounded-xl border border-slate-200 p-6 cursor-pointer hover:bg-slate-100 transition-colors opacity-60"
                     >
                         <div className="flex items-center space-x-3">
                             <input
                                 type="checkbox"
                                 checked={false}
-                                readOnly
-                                className="w-5 h-5 text-slate-400 border-slate-300 rounded pointer-events-none"
+                                disabled
+                                onChange={() => {}}
+                                className="w-5 h-5 text-slate-400 border-slate-300 rounded pointer-events-none cursor-not-allowed"
                             />
                             <span className="text-lg font-semibold text-slate-400">Sumbangan</span>
                         </div>
