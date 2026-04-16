@@ -22,6 +22,7 @@ export default function Edit({
     isRecordLocked = false,
     canUnmaskSensitive = false,
     documents = [],
+    sumbanganEnabled = false,
 }) {
     const { auth } = usePage().props;
     const sensitiveLocked = isRecordLocked && !canUnmaskSensitive;
@@ -373,7 +374,12 @@ export default function Edit({
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        post(route('reports.data-pengundi.update', dataPengundi.id), {
+        // Preserve the "came-from-dashboard" context across save so the
+        // redirect back to edit keeps the Sumbangan card enabled.
+        const updateUrl = sumbanganEnabled
+            ? route('reports.data-pengundi.update', { dataPengundi: dataPengundi.id, source: 'dashboard' })
+            : route('reports.data-pengundi.update', dataPengundi.id);
+        post(updateUrl, {
             forceFormData: true,
             onError: () => scrollToFirstError(),
             onSuccess: () => {
@@ -820,23 +826,43 @@ export default function Edit({
                         </div>
                     </div>
 
-                    {/* Sumbangan — purely informational, dimmed card.
-                        Non-interactive: the checkbox cannot be ticked and
-                        the card itself does not navigate. Creation of
-                        Data Sumbangan happens from the Laporan menu. */}
-                    <div className="bg-slate-50 rounded-xl border border-slate-200 p-6 opacity-60">
-                        <div className="flex items-center space-x-3">
-                            <input
-                                type="checkbox"
-                                checked={false}
-                                disabled
-                                onChange={() => {}}
-                                className="w-5 h-5 text-slate-400 border-slate-300 rounded pointer-events-none cursor-not-allowed"
-                            />
-                            <span className="text-lg font-semibold text-slate-400">Sumbangan</span>
+                    {/* Sumbangan card.
+                        Enabled (dashboard-search entry): clickable shortcut
+                        that opens the Hasil Culaan create form pre-filled
+                        with this voter.
+                        Disabled (Laporan-table entry): dim, non-interactive,
+                        shown only as a read-only indicator. */}
+                    {sumbanganEnabled ? (
+                        <div
+                            onClick={() => router.visit(route('reports.hasil-culaan.create', { source_id: dataPengundi.id }))}
+                            className="bg-white rounded-xl border border-slate-200 p-6 cursor-pointer hover:bg-slate-50 transition-colors"
+                        >
+                            <div className="flex items-center space-x-3">
+                                <input
+                                    type="checkbox"
+                                    checked={false}
+                                    onChange={() => {}}
+                                    className="w-5 h-5 text-slate-700 border-slate-400 rounded pointer-events-none"
+                                />
+                                <span className="text-lg font-semibold text-slate-900">Sumbangan</span>
+                            </div>
+                            <p className="text-sm text-slate-600 mt-2 ml-8">Klik untuk membuka borang Data Sumbangan bagi pengundi ini.</p>
                         </div>
-                        <p className="text-sm text-slate-400 mt-2 ml-8">Data Sumbangan hanya boleh ditambah melalui menu Laporan › Data Sumbangan.</p>
-                    </div>
+                    ) : (
+                        <div className="bg-slate-50 rounded-xl border border-slate-200 p-6 opacity-60">
+                            <div className="flex items-center space-x-3">
+                                <input
+                                    type="checkbox"
+                                    checked={false}
+                                    disabled
+                                    onChange={() => {}}
+                                    className="w-5 h-5 text-slate-400 border-slate-300 rounded pointer-events-none cursor-not-allowed"
+                                />
+                                <span className="text-lg font-semibold text-slate-400">Sumbangan</span>
+                            </div>
+                            <p className="text-sm text-slate-400 mt-2 ml-8">Data Sumbangan hanya boleh ditambah melalui menu Laporan › Data Sumbangan.</p>
+                        </div>
+                    )}
 
                     {/* Dokumen & Nota — new entries land in a stacked
                         history below the form. Each save with either a

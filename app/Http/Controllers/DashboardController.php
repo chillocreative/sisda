@@ -396,7 +396,7 @@ class DashboardController extends Controller
                 'kadun' => $record->kadun,
                 'can_edit' => $canEdit,
                 'is_locked' => $locked,
-                'edit_url' => $canEdit ? route('reports.data-pengundi.edit', $record->id) : null,
+                'edit_url' => $canEdit ? route('reports.data-pengundi.edit', ['dataPengundi' => $record->id, 'source' => 'dashboard']) : null,
                 'updated_at' => optional($record->updated_at)->format('d/m/Y h:i A'),
             ];
         }

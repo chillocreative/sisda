@@ -849,9 +849,11 @@ class ReportsController extends Controller
     /**
      * Show the form for editing Data Pengundi.
      */
-    public function dataPengundiEdit(DataPengundi $dataPengundi)
+    public function dataPengundiEdit(Request $request, DataPengundi $dataPengundi)
     {
         $user = auth()->user();
+
+        $sumbanganEnabled = $request->query('source') === 'dashboard';
 
         $bangsaList = \App\Models\Bangsa::all();
 
@@ -912,6 +914,7 @@ class ReportsController extends Controller
             'isRecordLocked' => $isRecordLocked,
             'canUnmaskSensitive' => $canUnmaskSensitive,
             'documents' => $documents,
+            'sumbanganEnabled' => $sumbanganEnabled,
         ]);
     }
 
@@ -999,7 +1002,12 @@ class ReportsController extends Controller
 
         VoterSyncService::syncFromDataPengundi($dataPengundi->fresh());
 
-        return redirect()->route('reports.data-pengundi.edit', $dataPengundi->id)->with('success', 'Rekod berjaya dikemaskini');
+        $redirectParams = ['dataPengundi' => $dataPengundi->id];
+        if ($request->query('source') === 'dashboard') {
+            $redirectParams['source'] = 'dashboard';
+        }
+
+        return redirect()->route('reports.data-pengundi.edit', $redirectParams)->with('success', 'Rekod berjaya dikemaskini');
     }
 
     /**
