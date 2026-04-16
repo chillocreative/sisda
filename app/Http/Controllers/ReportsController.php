@@ -999,7 +999,7 @@ class ReportsController extends Controller
 
         VoterSyncService::syncFromDataPengundi($dataPengundi->fresh());
 
-        return redirect()->route('reports.data-pengundi.index')->with('success', 'Rekod berjaya dikemaskini');
+        return redirect()->route('reports.data-pengundi.edit', $dataPengundi->id)->with('success', 'Rekod berjaya dikemaskini');
     }
 
     /**
