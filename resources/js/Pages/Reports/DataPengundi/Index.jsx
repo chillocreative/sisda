@@ -45,6 +45,9 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
         return item.bandar === user.bandar?.nama || item.submitted_by?.id === user.id;
     };
 
+    // Only non-user roles may delete records.
+    const canDelete = user.role !== 'user';
+
     const ownItemsOnPage = dataPengundi.data.filter(canModifyRecord);
 
     const { data, setData, get, processing } = useForm({
@@ -228,13 +231,15 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
                             <thead className="bg-slate-50 border-b border-slate-200">
                                 <tr>
                                     <th className="text-left py-3 px-4 w-12">
-                                        <input
-                                            type="checkbox"
-                                            checked={ownItemsOnPage.length > 0 && ownItemsOnPage.every(item => selectedItems.includes(item.id))}
-                                            onChange={handleSelectAll}
-                                            className="rounded border-slate-300 disabled:opacity-50"
-                                            disabled={ownItemsOnPage.length === 0}
-                                        />
+                                        {canDelete && (
+                                            <input
+                                                type="checkbox"
+                                                checked={ownItemsOnPage.length > 0 && ownItemsOnPage.every(item => selectedItems.includes(item.id))}
+                                                onChange={handleSelectAll}
+                                                className="rounded border-slate-300 disabled:opacity-50"
+                                                disabled={ownItemsOnPage.length === 0}
+                                            />
+                                        )}
                                     </th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Nama</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">No. IC</th>
@@ -263,7 +268,7 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
                                     dataPengundi.data.map((item) => (
                                         <tr key={item.id} className="hover:bg-slate-50 transition-colors">
                                             <td className="py-3 px-4">
-                                                {canModifyRecord(item) && (
+                                                {canDelete && canModifyRecord(item) && (
                                                     <input
                                                         type="checkbox"
                                                         checked={selectedItems.includes(item.id)}
@@ -303,13 +308,15 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
                                                             >
                                                                 <Edit className="h-4 w-4" />
                                                             </button>
-                                                            <button
-                                                                onClick={() => handleDelete(item.id)}
-                                                                className="p-2 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                                                                title="Padam"
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </button>
+                                                            {canDelete && (
+                                                                <button
+                                                                    onClick={() => handleDelete(item.id)}
+                                                                    className="p-2 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                                                    title="Padam"
+                                                                >
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </button>
+                                                            )}
                                                         </>
                                                     ) : (
                                                         <button
@@ -358,7 +365,7 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
                 </div>
 
                 {/* Selected Items Actions */}
-                {selectedItems.length > 0 && (
+                {canDelete && selectedItems.length > 0 && (
                     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white rounded-xl shadow-xl px-6 py-4 flex items-center space-x-4">
                         <span className="text-sm font-medium">
                             {selectedItems.length} item dipilih

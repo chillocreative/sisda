@@ -734,6 +734,10 @@ class ReportsController extends Controller
      */
     public function hasilCulaanDestroy(HasilCulaan $hasilCulaan)
     {
+        if (auth()->user()->isUser()) {
+            abort(403, 'Pengguna tidak dibenarkan memadam rekod.');
+        }
+
         $hasilCulaan->delete();
 
         return redirect()->route('reports.hasil-culaan.index')->with('success', 'Rekod berjaya dipadam');
@@ -755,6 +759,10 @@ class ReportsController extends Controller
     public function hasilCulaanBulkDelete(Request $request)
     {
         $user = auth()->user();
+
+        if ($user->isUser()) {
+            abort(403, 'Pengguna tidak dibenarkan memadam rekod.');
+        }
 
         $validated = $request->validate([
             'ids' => 'required|array',
@@ -1041,6 +1049,10 @@ class ReportsController extends Controller
      */
     public function dataPengundiDestroy(DataPengundi $dataPengundi)
     {
+        if (auth()->user()->isUser()) {
+            abort(403, 'Pengguna tidak dibenarkan memadam rekod.');
+        }
+
         $dataPengundi->delete();
 
         return redirect()->route('reports.data-pengundi.index')->with('success', 'Rekod berjaya dipadam');
@@ -1062,6 +1074,10 @@ class ReportsController extends Controller
     public function dataPengundiBulkDelete(Request $request)
     {
         $user = auth()->user();
+
+        if ($user->isUser()) {
+            abort(403, 'Pengguna tidak dibenarkan memadam rekod.');
+        }
 
         $validated = $request->validate([
             'ids' => 'required|array',
