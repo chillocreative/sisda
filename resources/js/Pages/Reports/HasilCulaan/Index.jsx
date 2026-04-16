@@ -53,10 +53,12 @@ export default function Index({ hasilCulaan, icCounts = {}, filters, currentUser
     }, [viewingItem]);
 
     // Permission: same parlimen OR original creator
+    // Permission: strict same-Parlimen for 'user' role; broader fallback
+    // (same parlimen OR original submitter) for other non-admin roles.
     const canModifyRecord = (item) => {
         if (user.role === 'super_admin') return true;
         if (user.role === 'admin') return true;
-        // User can edit if: same parlimen OR they submitted the record
+        if (user.role === 'user') return item.bandar === user.bandar?.nama;
         return item.bandar === user.bandar?.nama || item.submitted_by?.id === user.id;
     };
 

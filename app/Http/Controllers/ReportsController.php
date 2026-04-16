@@ -379,12 +379,11 @@ class ReportsController extends Controller
             $validated['status_pengundi'] = null;
         }
 
-        // Admin Restriction: Ensure data is created for their Parlimen
-        if ($user->isAdmin()) {
+        // Parlimen Restriction: Admin and user roles may only create records
+        // within their own Parlimen (Bandar). Super admin / super user are
+        // unconstrained here.
+        if ($user->isAdmin() || $user->isUser()) {
             if ($request->bandar !== ($user->bandar->nama ?? '')) {
-                // Note: Assuming 'bandar' field in form is string name, and user->bandar is relation
-                // Ideally should validate ID, but schema uses string for reports
-                // For now, we'll enforce it matches the user's bandar name
                  abort(403, 'You can only create records for your Parlimen (' . ($user->bandar->nama ?? 'Unknown') . ').');
             }
         }
@@ -507,6 +506,10 @@ class ReportsController extends Controller
     {
         $user = auth()->user();
 
+        if ($user->isUser() && $hasilCulaan->bandar !== ($user->bandar->nama ?? null)) {
+            abort(403, 'Anda hanya dibenarkan mengakses rekod dalam Parlimen anda.');
+        }
+
         $bangsaList = \App\Models\Bangsa::all();
         $negeriList = \App\Models\Negeri::orderBy('nama')->get();
         $bandarList = \App\Models\Bandar::orderBy('nama')->get();
@@ -564,6 +567,10 @@ class ReportsController extends Controller
     public function hasilCulaanUpdate(Request $request, HasilCulaan $hasilCulaan)
     {
         $user = auth()->user();
+
+        if ($user->isUser() && $hasilCulaan->bandar !== ($user->bandar->nama ?? null)) {
+            abort(403, 'Anda hanya dibenarkan mengakses rekod dalam Parlimen anda.');
+        }
 
         // When the record is locked and the viewer cannot edit sensitive
         // fields, replace any incoming masked values with the current DB
@@ -887,6 +894,10 @@ class ReportsController extends Controller
     {
         $user = auth()->user();
 
+        if ($user->isUser() && $dataPengundi->bandar !== ($user->bandar->nama ?? null)) {
+            abort(403, 'Anda hanya dibenarkan mengakses rekod dalam Parlimen anda.');
+        }
+
         $sumbanganEnabled = $request->query('source') === 'dashboard';
 
         $bangsaList = \App\Models\Bangsa::all();
@@ -958,6 +969,10 @@ class ReportsController extends Controller
     public function dataPengundiUpdate(Request $request, DataPengundi $dataPengundi)
     {
         $user = auth()->user();
+
+        if ($user->isUser() && $dataPengundi->bandar !== ($user->bandar->nama ?? null)) {
+            abort(403, 'Anda hanya dibenarkan mengakses rekod dalam Parlimen anda.');
+        }
 
         // When the record is locked and the viewer cannot edit sensitive
         // fields, replace any incoming masked values with the current DB
