@@ -6,7 +6,7 @@ use App\Models\User;
 
 /**
  * Masks sensitive voter fields for records submitted by a plain 'user'
- * role account. Only viewers with the super_user or super_admin role can
+ * role account. Viewers with admin, super_user, or super_admin roles can
  * see the real values; everyone else gets '****' and cannot overwrite
  * the fields on update.
  */
@@ -54,7 +54,7 @@ class VoterDataMasker
         if (! $viewer) {
             return false;
         }
-        return $viewer->isSuperUser() || $viewer->isSuperAdmin();
+        return $viewer->isSuperUser() || $viewer->isSuperAdmin() || $viewer->isAdmin();
     }
 
     /**
