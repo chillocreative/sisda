@@ -820,15 +820,11 @@ export default function Edit({
                         </div>
                     </div>
 
-                    {/* Sumbangan Shortcut — dimmed navigational card.
-                        Clicking still opens the Hasil Culaan create form
-                        pre-filled with this voter, but the styling is
-                        muted so it reads as a shortcut rather than an
-                        editable form field on this page. */}
-                    <div
-                        onClick={() => router.visit(route('reports.hasil-culaan.create', { source_id: dataPengundi.id }))}
-                        className="bg-slate-50 rounded-xl border border-slate-200 p-6 cursor-pointer hover:bg-slate-100 transition-colors opacity-60"
-                    >
+                    {/* Sumbangan — purely informational, dimmed card.
+                        Non-interactive: the checkbox cannot be ticked and
+                        the card itself does not navigate. Creation of
+                        Data Sumbangan happens from the Laporan menu. */}
+                    <div className="bg-slate-50 rounded-xl border border-slate-200 p-6 opacity-60">
                         <div className="flex items-center space-x-3">
                             <input
                                 type="checkbox"
@@ -839,7 +835,7 @@ export default function Edit({
                             />
                             <span className="text-lg font-semibold text-slate-400">Sumbangan</span>
                         </div>
-                        <p className="text-sm text-slate-400 mt-2 ml-8">Klik untuk membuka borang Data Sumbangan bagi pengundi ini.</p>
+                        <p className="text-sm text-slate-400 mt-2 ml-8">Data Sumbangan hanya boleh ditambah melalui menu Laporan › Data Sumbangan.</p>
                     </div>
 
                     {/* Dokumen & Nota — new entries land in a stacked
