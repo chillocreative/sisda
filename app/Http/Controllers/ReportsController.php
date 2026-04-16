@@ -332,6 +332,8 @@ class ReportsController extends Controller
             'tujuan_sumbangan_lain' => 'nullable|string|max:255',
             'bantuan_lain' => ($hasSumbangan ? 'required|array|min:1' : 'nullable|array'),
             'bantuan_lain_lain' => 'nullable|string|max:255',
+            'perkeso_bantuan' => 'nullable|array',
+            'perkeso_bantuan_lain' => 'nullable|string|max:255',
             'zpp_jenis_bantuan' => 'nullable|array',
             'isejahtera_program' => 'nullable|string|max:255',
             'bkb_program' => 'nullable|string|max:255',
@@ -365,6 +367,8 @@ class ReportsController extends Controller
             $validated['tujuan_sumbangan_lain'] = null;
             $validated['bantuan_lain'] = [];
             $validated['bantuan_lain_lain'] = null;
+            $validated['perkeso_bantuan'] = [];
+            $validated['perkeso_bantuan_lain'] = null;
             $validated['zpp_jenis_bantuan'] = [];
             $validated['isejahtera_program'] = null;
             $validated['jkm_program'] = null;
@@ -433,12 +437,22 @@ class ReportsController extends Controller
             $validated['bantuan_lain'] = implode(', ', $bantuanLain);
         }
 
+        if (isset($validated['perkeso_bantuan']) && is_array($validated['perkeso_bantuan'])) {
+            $perkesoBantuan = $validated['perkeso_bantuan'];
+            $hasLainLain = count(array_filter($perkesoBantuan, fn($item) => stripos($item, 'lain') !== false)) > 0;
+            if ($hasLainLain && !empty($validated['perkeso_bantuan_lain'])) {
+                $perkesoBantuan = array_filter($perkesoBantuan, fn($item) => stripos($item, 'lain') === false);
+                $perkesoBantuan[] = $validated['perkeso_bantuan_lain'];
+            }
+            $validated['perkeso_bantuan'] = implode(', ', $perkesoBantuan);
+        }
+
         if (isset($validated['zpp_jenis_bantuan']) && is_array($validated['zpp_jenis_bantuan'])) {
             $validated['zpp_jenis_bantuan'] = implode(', ', $validated['zpp_jenis_bantuan']);
         }
 
         // Remove the _lain fields as they're not in the database
-        unset($validated['jenis_sumbangan_lain'], $validated['tujuan_sumbangan_lain'], $validated['bantuan_lain_lain']);
+        unset($validated['jenis_sumbangan_lain'], $validated['tujuan_sumbangan_lain'], $validated['bantuan_lain_lain'], $validated['perkeso_bantuan_lain']);
 
         // Handle file upload
         if ($request->hasFile('kad_pengenalan')) {
@@ -592,6 +606,8 @@ class ReportsController extends Controller
             'tujuan_sumbangan_lain' => 'nullable|string|max:255',
             'bantuan_lain' => 'required|array|min:1',
             'bantuan_lain_lain' => 'nullable|string|max:255',
+            'perkeso_bantuan' => 'nullable|array',
+            'perkeso_bantuan_lain' => 'nullable|string|max:255',
             'zpp_jenis_bantuan' => 'nullable|array',
             'isejahtera_program' => 'nullable|string|max:255',
             'bkb_program' => 'nullable|string|max:255',
@@ -659,12 +675,22 @@ class ReportsController extends Controller
             $validated['bantuan_lain'] = implode(', ', $bantuanLain);
         }
 
+        if (isset($validated['perkeso_bantuan']) && is_array($validated['perkeso_bantuan'])) {
+            $perkesoBantuan = $validated['perkeso_bantuan'];
+            $hasLainLain = count(array_filter($perkesoBantuan, fn($item) => stripos($item, 'lain') !== false)) > 0;
+            if ($hasLainLain && !empty($validated['perkeso_bantuan_lain'])) {
+                $perkesoBantuan = array_filter($perkesoBantuan, fn($item) => stripos($item, 'lain') === false);
+                $perkesoBantuan[] = $validated['perkeso_bantuan_lain'];
+            }
+            $validated['perkeso_bantuan'] = implode(', ', $perkesoBantuan);
+        }
+
         if (isset($validated['zpp_jenis_bantuan']) && is_array($validated['zpp_jenis_bantuan'])) {
             $validated['zpp_jenis_bantuan'] = implode(', ', $validated['zpp_jenis_bantuan']);
         }
 
         // Remove the _lain fields as they're not in the database
-        unset($validated['jenis_sumbangan_lain'], $validated['tujuan_sumbangan_lain'], $validated['bantuan_lain_lain']);
+        unset($validated['jenis_sumbangan_lain'], $validated['tujuan_sumbangan_lain'], $validated['bantuan_lain_lain'], $validated['perkeso_bantuan_lain']);
 
         // Handle file upload
         if ($request->hasFile('kad_pengenalan')) {

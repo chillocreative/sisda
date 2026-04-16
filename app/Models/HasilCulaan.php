@@ -35,6 +35,7 @@ class HasilCulaan extends Model
         'jenis_sumbangan',
         'tujuan_sumbangan',
         'bantuan_lain',
+        'perkeso_bantuan',
         'zpp_jenis_bantuan',
         'isejahtera_program',
         'bkb_program',
