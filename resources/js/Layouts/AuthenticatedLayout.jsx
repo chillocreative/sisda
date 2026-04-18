@@ -149,8 +149,8 @@ export default function AuthenticatedLayout({ children }) {
                 submenu: userLaporanSubmenu
             }
         ] : []),
-        // Call Center (Super Admin, Admin, Super User, and User)
-        ...(user.role === 'super_admin' || user.role === 'admin' || user.role === 'user' || user.role === 'super_user' ? [
+        // Call Center (Super Admin, Admin, and Super User — hidden from plain user)
+        ...(user.role === 'super_admin' || user.role === 'admin' || user.role === 'super_user' ? [
             {
                 name: 'Pusat Panggilan',
                 href: route('call-center.index'),
