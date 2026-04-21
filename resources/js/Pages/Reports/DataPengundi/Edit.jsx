@@ -790,14 +790,13 @@ export default function Edit({
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Keanggotaan Parti
-                                    {sumbanganEnabled && <span className="text-rose-500"> *</span>}
+                                    Keanggotaan Parti <span className="text-rose-500">*</span>
                                 </label>
                                 <select
                                     value={data.keahlian_parti}
                                     onChange={(e) => setData('keahlian_parti', e.target.value)}
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                    required={sumbanganEnabled}
+                                    required
                                 >
                                     <option value="">Pilih Keanggotaan Parti</option>
                                     {keahlianPartiList.map((item) => (
@@ -811,14 +810,13 @@ export default function Edit({
 
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Kecenderungan Politik
-                                    {sumbanganEnabled && <span className="text-rose-500"> *</span>}
+                                    Kecenderungan Politik <span className="text-rose-500">*</span>
                                 </label>
                                 <select
                                     value={data.kecenderungan_politik}
                                     onChange={(e) => setData('kecenderungan_politik', e.target.value)}
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                    required={sumbanganEnabled}
+                                    required
                                 >
                                     <option value="">Pilih Kecenderungan Politik</option>
                                     {kecenderunganPolitikList.map((item) => (
