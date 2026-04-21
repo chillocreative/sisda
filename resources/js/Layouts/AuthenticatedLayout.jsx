@@ -33,7 +33,8 @@ import {
     Zap,
     Play,
     List,
-    Upload
+    Upload,
+    ShieldAlert
 } from 'lucide-react';
 
 export default function AuthenticatedLayout({ children }) {
@@ -162,6 +163,7 @@ export default function AuthenticatedLayout({ children }) {
         ] : []),
         // Settings (Super Admin only)
         ...(user.role === 'super_admin' ? [
+            { name: 'Log Pengguna', href: route('user-log.index'), icon: ShieldAlert, current: route().current('user-log.*') },
             { name: 'Tetapan Sendora', href: route('settings.sendora'), icon: Settings, current: route().current('settings.sendora') },
             { name: 'Tetapan Claude AI', href: route('settings.claude'), icon: Settings, current: route().current('settings.claude') },
         ] : []),

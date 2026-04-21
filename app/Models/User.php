@@ -30,6 +30,8 @@ class User extends Authenticatable
         'approved_by',
         'approved_at',
         'last_login',
+        'last_login_ip',
+        'last_login_user_agent',
         'password',
         'must_change_password',
     ];
@@ -114,6 +116,21 @@ class User extends Authenticatable
     public function hasilCulaan()
     {
         return $this->hasMany(HasilCulaan::class, 'submitted_by');
+    }
+
+    public function loginLogs()
+    {
+        return $this->hasMany(UserLoginLog::class);
+    }
+
+    public function pageViews()
+    {
+        return $this->hasMany(UserPageView::class);
+    }
+
+    public function activityAlerts()
+    {
+        return $this->hasMany(UserActivityAlert::class);
     }
 
     /**

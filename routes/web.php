@@ -349,6 +349,15 @@ Route::get('/settings/claude', [\App\Http\Controllers\ClaudeSettingController::c
 Route::post('/settings/claude', [\App\Http\Controllers\ClaudeSettingController::class, 'update'])->name('settings.claude.update');
 Route::post('/settings/claude/test-connection', [\App\Http\Controllers\ClaudeSettingController::class, 'testConnection'])->name('settings.claude.test');
 
+// User Log (super_admin only — audit + Claude-powered anomaly alerts)
+Route::middleware(['auth', 'super_admin'])->group(function () {
+    Route::get('/user-log', [\App\Http\Controllers\UserLogController::class, 'index'])->name('user-log.index');
+    Route::get('/user-log/users/{user}', [\App\Http\Controllers\UserLogController::class, 'show'])->name('user-log.show');
+    Route::post('/user-log/analyze', [\App\Http\Controllers\UserLogController::class, 'analyze'])->name('user-log.analyze');
+    Route::post('/user-log/alerts/{alert}/acknowledge', [\App\Http\Controllers\UserLogController::class, 'acknowledge'])->name('user-log.alerts.acknowledge');
+    Route::delete('/user-log/alerts/{alert}', [\App\Http\Controllers\UserLogController::class, 'destroy'])->name('user-log.alerts.destroy');
+});
+
 // Mobile app API routes (token-based auth via Sanctum)
 Route::prefix('api/mobile')->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class])->group(function () {
     // Public routes (no auth)
