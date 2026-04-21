@@ -348,7 +348,7 @@ class ReportsController extends Controller
         ], [
             'jenis_sumbangan.required' => 'Sila pilih sekurang-kurangnya satu Jenis Sumbangan.',
             'tujuan_sumbangan.required' => 'Sila pilih sekurang-kurangnya satu Tujuan Sumbangan.',
-            'bantuan_lain.required' => 'Sila pilih sekurang-kurangnya satu Bantuan Lain Yang Diterima.',
+            'bantuan_lain.required' => 'Sila pilih sekurang-kurangnya satu Bantuan Lain Yang Telah Diterima.',
             'keahlian_parti.required' => 'Sila pilih Keanggotaan Parti.',
             'kecenderungan_politik.required' => 'Sila pilih Kecenderungan Politik.',
         ]);
@@ -630,7 +630,7 @@ class ReportsController extends Controller
         ], [
             'jenis_sumbangan.required' => 'Sila pilih sekurang-kurangnya satu Jenis Sumbangan.',
             'tujuan_sumbangan.required' => 'Sila pilih sekurang-kurangnya satu Tujuan Sumbangan.',
-            'bantuan_lain.required' => 'Sila pilih sekurang-kurangnya satu Bantuan Lain Yang Diterima.',
+            'bantuan_lain.required' => 'Sila pilih sekurang-kurangnya satu Bantuan Lain Yang Telah Diterima.',
             'keahlian_parti.required' => 'Sila pilih Keanggotaan Parti.',
             'kecenderungan_politik.required' => 'Sila pilih Kecenderungan Politik.',
         ]);

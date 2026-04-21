@@ -1359,7 +1359,7 @@ export default function Create({
 
                             <div className="md:col-span-2">
                                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                                    Bantuan Lain Yang Diterima <span className="text-rose-500">*</span>
+                                    Bantuan Lain Yang Telah Diterima <span className="text-rose-500">*</span>
                                 </label>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                     {[
