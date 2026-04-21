@@ -34,7 +34,7 @@ export default function Index({ hasilCulaan, icCounts = {}, filters, currentUser
     // Load bantuan history and edit history when viewing a record
     useEffect(() => {
         if (viewingItem) {
-            if (icCounts[viewingItem.no_ic]) {
+            if (viewingItem.no_ic && viewingItem.no_ic.length === 12) {
                 setLoadingHistory(true);
                 axios.get(route('api.hasil-culaan.by-ic'), { params: { ic: viewingItem.no_ic } })
                     .then(res => setViewHistory(res.data || []))
@@ -693,35 +693,43 @@ export default function Index({ hasilCulaan, icCounts = {}, filters, currentUser
                                 </div>
                             )}
 
-                            {/* Bantuan History Section - always at the bottom */}
-                            {viewHistory.filter(r => r.id !== viewingItem?.id).length > 0 && (
+                            {/* Sejarah Sumbangan - all records for this voter's IC, including current */}
+                            {viewHistory.length > 0 && (
                                 <div className="pt-6 border-t-2 border-blue-200">
                                     <h3 className="text-sm font-semibold text-slate-900 mb-3">
-                                        Sejarah Bantuan Terdahulu ({viewHistory.filter(r => r.id !== viewingItem?.id).length} rekod lain)
+                                        Sejarah Sumbangan ({viewHistory.length} rekod)
                                     </h3>
                                     <div className="space-y-2 max-h-64 overflow-y-auto">
-                                        {viewHistory.filter(r => r.id !== viewingItem?.id).map((record) => (
-                                            <div key={record.id} className="bg-slate-50 rounded-lg p-3 border border-slate-200">
-                                                <div className="flex justify-between items-start">
-                                                    <div>
-                                                        <p className="text-xs font-medium text-slate-700">
-                                                            {new Date(record.created_at).toLocaleDateString('ms-MY', { year: 'numeric', month: 'long', day: 'numeric' })}
-                                                            <span className="ml-2 text-slate-400">
-                                                                {new Date(record.created_at).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}
-                                                            </span>
-                                                        </p>
-                                                        <p className="text-xs text-slate-500 mt-1">Sumbangan: {record.jenis_sumbangan || '-'}</p>
-                                                        <p className="text-xs text-slate-500">Tujuan: {record.tujuan_sumbangan || '-'}</p>
-                                                        {record.submitted_by && (
-                                                            <p className="text-xs text-slate-400 mt-1">Dihantar Oleh: {record.submitted_by.name}</p>
+                                        {viewHistory.map((record) => {
+                                            const isCurrent = record.id === viewingItem?.id;
+                                            return (
+                                                <div key={record.id} className={`rounded-lg p-3 border ${isCurrent ? 'bg-blue-50 border-blue-300' : 'bg-slate-50 border-slate-200'}`}>
+                                                    <div className="flex justify-between items-start">
+                                                        <div>
+                                                            <p className="text-xs font-medium text-slate-700">
+                                                                {new Date(record.created_at).toLocaleDateString('ms-MY', { year: 'numeric', month: 'long', day: 'numeric' })}
+                                                                <span className="ml-2 text-slate-400">
+                                                                    {new Date(record.created_at).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}
+                                                                </span>
+                                                                {isCurrent && (
+                                                                    <span className="ml-2 inline-block px-1.5 py-0.5 text-[10px] font-bold bg-blue-600 text-white rounded uppercase">
+                                                                        Rekod Semasa
+                                                                    </span>
+                                                                )}
+                                                            </p>
+                                                            <p className="text-xs text-slate-500 mt-1">Sumbangan: {record.jenis_sumbangan || '-'}</p>
+                                                            <p className="text-xs text-slate-500">Tujuan: {record.tujuan_sumbangan || '-'}</p>
+                                                            {record.submitted_by && (
+                                                                <p className="text-xs text-slate-400 mt-1">Dihantar Oleh: {record.submitted_by.name}</p>
+                                                            )}
+                                                        </div>
+                                                        {Number.isFinite(Number(record.jumlah_wang_tunai)) && (
+                                                            <span className="text-xs font-medium text-blue-700">RM {Number(record.jumlah_wang_tunai).toLocaleString('en-MY', { minimumFractionDigits: 2 })}</span>
                                                         )}
                                                     </div>
-                                                    {Number.isFinite(Number(record.jumlah_wang_tunai)) && (
-                                                        <span className="text-xs font-medium text-blue-700">RM {Number(record.jumlah_wang_tunai).toLocaleString('en-MY', { minimumFractionDigits: 2 })}</span>
-                                                    )}
                                                 </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             )}
