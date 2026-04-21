@@ -1753,9 +1753,9 @@ export default function Edit({
                             aria-expanded={showHistoryDetails}
                         >
                             <div>
-                                <h2 className="text-lg font-semibold text-slate-900">Sejarah Bantuan Terdahulu</h2>
+                                <h2 className="text-lg font-semibold text-slate-900">Sejarah Sumbangan</h2>
                                 <p className="text-xs text-slate-500 mt-0.5">
-                                    {bantuanHistory.length} rekod bantuan untuk {hasilCulaan.nama} ({hasilCulaan.no_ic})
+                                    {bantuanHistory.length} rekod sumbangan untuk {hasilCulaan.nama} ({hasilCulaan.no_ic})
                                 </p>
                             </div>
                             <div className="flex-shrink-0 text-slate-500">

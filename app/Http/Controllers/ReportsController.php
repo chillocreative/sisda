@@ -945,6 +945,20 @@ class ReportsController extends Controller
                 ];
             });
 
+        $bantuanHistory = HasilCulaan::with('submittedBy:id,name,role')
+            ->where('no_ic', $dataPengundi->no_ic)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($record) use ($user) {
+                $locked = VoterDataMasker::isLocked($record) && ! VoterDataMasker::canUnmask($user);
+                $masked = VoterDataMasker::mask($record, $user);
+                $masked['submitted_by'] = $record->submittedBy
+                    ? ['id' => $record->submittedBy->id, 'name' => $record->submittedBy->name]
+                    : null;
+                $masked['is_locked'] = $locked;
+                return $masked;
+            });
+
         return Inertia::render('Reports/DataPengundi/Edit', [
             'dataPengundi' => $maskedRecord,
             'bangsaList' => $bangsaList,
@@ -961,6 +975,7 @@ class ReportsController extends Controller
             'canUnmaskSensitive' => $canUnmaskSensitive,
             'documents' => $documents,
             'sumbanganEnabled' => $sumbanganEnabled,
+            'bantuanHistory' => $bantuanHistory,
         ]);
     }
 

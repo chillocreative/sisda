@@ -1788,11 +1788,11 @@ export default function Create({
                                 </svg>
                             </div>
                             <div className="flex-1">
-                                <h2 className="text-lg font-semibold text-slate-900">Sejarah Bantuan Terdahulu</h2>
+                                <h2 className="text-lg font-semibold text-slate-900">Sejarah Sumbangan</h2>
                                 <p className="text-xs text-slate-500 mt-0.5">
                                     {bantuanHistory.length > 0
-                                        ? `${bantuanHistory.length} rekod bantuan untuk ${bantuanHistory[0].nama}`
-                                        : 'Tiada sejarah bantuan ditemui untuk pengundi ini.'}
+                                        ? `${bantuanHistory.length} rekod sumbangan untuk ${bantuanHistory[0].nama}`
+                                        : 'Tiada sejarah sumbangan ditemui untuk pengundi ini.'}
                                 </p>
                             </div>
                             <div className="flex-shrink-0 mt-1 text-slate-500">

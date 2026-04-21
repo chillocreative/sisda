@@ -1,6 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm, usePage, router } from '@inertiajs/react';
-import { ArrowLeft, Trash2, Upload, X, Loader2, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Trash2, Upload, X, Loader2, Image as ImageIcon, ChevronUp, ChevronDown } from 'lucide-react';
 
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
@@ -23,7 +23,9 @@ export default function Edit({
     canUnmaskSensitive = false,
     documents = [],
     sumbanganEnabled = false,
+    bantuanHistory = [],
 }) {
+    const [showBantuanHistory, setShowBantuanHistory] = useState(true);
     const { auth } = usePage().props;
     const sensitiveLocked = isRecordLocked && !canUnmaskSensitive;
     const [isDeceased, setIsDeceased] = useState(dataPengundi.is_deceased || false);
@@ -962,6 +964,117 @@ export default function Edit({
                         </button>
                     </div>
                 </form >
+
+                {/* Sejarah Sumbangan - HasilCulaan records for this voter's IC */}
+                {bantuanHistory.length > 0 && (
+                    <div className="bg-white rounded-xl border-2 border-blue-200 p-6 mt-6">
+                        <button
+                            type="button"
+                            onClick={() => setShowBantuanHistory(v => !v)}
+                            className="w-full flex items-start gap-3 mb-4 text-left cursor-pointer"
+                            aria-expanded={showBantuanHistory}
+                        >
+                            <div className="flex-shrink-0 mt-0.5">
+                                <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                </svg>
+                            </div>
+                            <div className="flex-1">
+                                <h2 className="text-lg font-semibold text-slate-900">Sejarah Sumbangan</h2>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                    {bantuanHistory.length} rekod sumbangan untuk {dataPengundi.nama}
+                                </p>
+                            </div>
+                            <div className="flex-shrink-0 mt-1 text-slate-500">
+                                {showBantuanHistory ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                            </div>
+                        </button>
+                        {showBantuanHistory && (
+                            <div className="space-y-3">
+                                {bantuanHistory.map((record) => (
+                                    <div
+                                        key={record.id}
+                                        className="rounded-lg border border-slate-200 bg-slate-50 p-4"
+                                    >
+                                        <div className="flex items-start justify-between mb-2">
+                                            <div>
+                                                <p className="text-sm font-semibold text-slate-900">
+                                                    {new Date(record.created_at).toLocaleDateString('ms-MY', { year: 'numeric', month: 'long', day: 'numeric' })}
+                                                    <span className="ml-2 text-xs font-normal text-slate-500">
+                                                        {new Date(record.created_at).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                </p>
+                                                {record.submitted_by?.name && (
+                                                    <p className="text-xs text-slate-500 mt-0.5">Dihantar oleh: {record.submitted_by.name}</p>
+                                                )}
+                                            </div>
+                                            {Number.isFinite(Number(record.jumlah_wang_tunai)) && (
+                                                <span className="text-sm font-semibold text-blue-700">
+                                                    RM {Number(record.jumlah_wang_tunai).toLocaleString('en-MY', { minimumFractionDigits: 2 })}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600">
+                                            {record.jenis_sumbangan && (
+                                                <div><span className="font-medium text-slate-700">Jenis Sumbangan:</span> {record.jenis_sumbangan}</div>
+                                            )}
+                                            {record.tujuan_sumbangan && (
+                                                <div><span className="font-medium text-slate-700">Tujuan:</span> {record.tujuan_sumbangan}</div>
+                                            )}
+                                            {record.bantuan_lain && (
+                                                <div><span className="font-medium text-slate-700">Bantuan Lain:</span> {record.bantuan_lain}</div>
+                                            )}
+                                            {record.pekerjaan && (
+                                                <div><span className="font-medium text-slate-700">Pekerjaan:</span> {record.pekerjaan}</div>
+                                            )}
+                                            {record.bil_isi_rumah && (
+                                                <div><span className="font-medium text-slate-700">Bil. Isi Rumah:</span> {record.bil_isi_rumah}</div>
+                                            )}
+                                            {Number.isFinite(Number(record.pendapatan_isi_rumah)) && (
+                                                <div><span className="font-medium text-slate-700">Pendapatan:</span> RM {Number(record.pendapatan_isi_rumah).toLocaleString('en-MY')}</div>
+                                            )}
+                                            {record.lokaliti && (
+                                                <div><span className="font-medium text-slate-700">Lokaliti:</span> {record.lokaliti}</div>
+                                            )}
+                                            {record.kadun && (
+                                                <div><span className="font-medium text-slate-700">KADUN:</span> {record.kadun}</div>
+                                            )}
+                                        </div>
+                                        {(record.kad_pengenalan || record.nota) && (
+                                            <div className="mt-3 pt-3 border-t border-slate-200 space-y-2">
+                                                {record.kad_pengenalan && (
+                                                    <div className="flex items-center gap-3 text-xs">
+                                                        <span className="font-medium text-slate-700">Dokumen:</span>
+                                                        <a
+                                                            href={`/storage/${record.kad_pengenalan}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-sky-600 hover:text-sky-700 underline"
+                                                        >
+                                                            Lihat
+                                                        </a>
+                                                        <a
+                                                            href={`/storage/${record.kad_pengenalan}`}
+                                                            download
+                                                            className="text-emerald-600 hover:text-emerald-700 underline"
+                                                        >
+                                                            Muat Turun
+                                                        </a>
+                                                    </div>
+                                                )}
+                                                {record.nota && record.nota.trim() !== '' && (
+                                                    <div className="text-xs text-slate-600">
+                                                        <span className="font-medium text-slate-700">Nota:</span> {record.nota}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* Dokumen Lampiran history — every document + note
                     uploaded for this voter, newest first. Each entry
