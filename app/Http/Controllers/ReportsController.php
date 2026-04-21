@@ -1025,6 +1025,14 @@ class ReportsController extends Controller
             }
         }
 
+        // From the dashboard entry point the edit form doubles as the
+        // pre-check before opening a Sumbangan record, so Maklumat Politik
+        // must be filled in before save. Laporan-table edits keep the
+        // fields optional.
+        $politikRule = $request->query('source') === 'dashboard'
+            ? 'required|string|max:255'
+            : 'nullable|string|max:255';
+
         $validated = $request->validate([
             'nama' => 'required|string|max:255',
             'no_ic' => 'required|string|digits:12|unique:data_pengundi,no_ic,' . $dataPengundi->id,
@@ -1041,14 +1049,16 @@ class ReportsController extends Controller
             'mpkk' => 'nullable|string|max:255',
             'daerah_mengundi' => 'nullable|string|max:255',
             'lokaliti' => 'nullable|string|max:255',
-            'keahlian_parti' => 'nullable|string|max:255',
-            'kecenderungan_politik' => 'nullable|string|max:255',
+            'keahlian_parti' => $politikRule,
+            'kecenderungan_politik' => $politikRule,
             'status_pengundi' => 'nullable|string|max:255',
             'nota' => 'nullable|string',
             'new_document' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
             'new_document_nota' => 'nullable|string',
         ], [
             'no_ic.unique' => 'No. Kad Pengenalan ini telah didaftarkan dalam Data Pengundi.',
+            'keahlian_parti.required' => 'Sila pilih Keanggotaan Parti.',
+            'kecenderungan_politik.required' => 'Sila pilih Kecenderungan Politik.',
         ]);
 
         // Pull the document-entry fields out of $validated — they live on
