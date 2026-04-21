@@ -965,6 +965,102 @@ export default function Edit({
                     </div>
                 </form >
 
+                {/* Dokumen Lampiran history — every document + note
+                    uploaded for this voter, newest first. Each entry
+                    is persisted in data_pengundi_documents. */}
+                {documents.length > 0 && (
+                    <div className="bg-white rounded-xl border-2 border-blue-200 p-6 mt-6">
+                        <h2 className="text-lg font-semibold text-slate-900 mb-1">Dokumen Lampiran</h2>
+                        <p className="text-xs text-slate-500 mb-4">{documents.length} rekod dokumen untuk pengundi ini</p>
+                        <div className="space-y-3">
+                            {documents.map((doc) => (
+                                <div key={doc.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                                    <div className="flex items-start justify-between mb-2">
+                                        <div>
+                                            <p className="text-sm font-semibold text-slate-900">
+                                                {new Date(doc.created_at).toLocaleDateString('ms-MY', { year: 'numeric', month: 'long', day: 'numeric' })}
+                                                <span className="ml-2 text-xs font-normal text-slate-500">
+                                                    {new Date(doc.created_at).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            </p>
+                                            {doc.submitted_by?.name && (
+                                                <p className="text-xs text-slate-500 mt-0.5">Dihantar oleh: {doc.submitted_by.name}</p>
+                                            )}
+                                        </div>
+                                        {doc.file_path && (
+                                            <div className="flex items-center space-x-3 text-xs">
+                                                <a
+                                                    href={`/storage/${doc.file_path}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-sky-600 hover:text-sky-700 underline"
+                                                >
+                                                    Lihat
+                                                </a>
+                                                <a
+                                                    href={`/storage/${doc.file_path}`}
+                                                    download
+                                                    className="text-emerald-600 hover:text-emerald-700 underline"
+                                                >
+                                                    Muat Turun
+                                                </a>
+                                            </div>
+                                        )}
+                                    </div>
+                                    {doc.nota && doc.nota.trim() !== '' && (
+                                        <p className="text-sm text-slate-700 whitespace-pre-wrap">{doc.nota}</p>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Edit History */}
+                {editHistories.length > 0 && (
+                    <div className="bg-white rounded-xl border border-slate-200 p-6 mt-6">
+                        <h2 className="text-lg font-semibold text-slate-900 mb-4">Sejarah Pengemaskinian</h2>
+                        <div className="space-y-3">
+                            {editHistories.map((history) => (
+                                <div key={history.id} className="flex items-start justify-between border-b border-slate-100 pb-3 last:border-0 last:pb-0">
+                                    <div>
+                                        <p className="text-sm font-medium text-slate-700">
+                                            {history.action === 'created' ? 'Dicipta' : 'Dikemaskini'}
+                                            <span className="ml-2 font-normal text-slate-500">oleh {history.user?.name || '-'}</span>
+                                        </p>
+                                        <p className="text-xs text-slate-400 mt-0.5">
+                                            {new Date(history.created_at).toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                            {' '}
+                                            {new Date(history.created_at).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                        {history.changes && (
+                                            <div className="mt-1">
+                                                {Object.entries(history.changes).slice(0, 3).map(([field, vals]) => (
+                                                    <p key={field} className="text-xs text-slate-500">
+                                                        <span className="font-medium">{field}</span>: {vals.old || '-'} → {vals.new || '-'}
+                                                    </p>
+                                                ))}
+                                                {Object.keys(history.changes).length > 3 && (
+                                                    <p className="text-xs text-slate-400">+{Object.keys(history.changes).length - 3} lagi perubahan</p>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                    {auth.user.role === 'super_admin' && (
+                                        <button
+                                            onClick={() => router.delete(route('edit-history.destroy', history.id), { preserveScroll: true })}
+                                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
+                                            title="Padam sejarah"
+                                        >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* Sejarah Sumbangan - HasilCulaan records for this voter's IC */}
                 {bantuanHistory.length > 0 && (
                     <div className="bg-white rounded-xl border-2 border-blue-200 p-6 mt-6">
@@ -1073,102 +1169,6 @@ export default function Edit({
                                 ))}
                             </div>
                         )}
-                    </div>
-                )}
-
-                {/* Dokumen Lampiran history — every document + note
-                    uploaded for this voter, newest first. Each entry
-                    is persisted in data_pengundi_documents. */}
-                {documents.length > 0 && (
-                    <div className="bg-white rounded-xl border-2 border-blue-200 p-6 mt-6">
-                        <h2 className="text-lg font-semibold text-slate-900 mb-1">Dokumen Lampiran</h2>
-                        <p className="text-xs text-slate-500 mb-4">{documents.length} rekod dokumen untuk pengundi ini</p>
-                        <div className="space-y-3">
-                            {documents.map((doc) => (
-                                <div key={doc.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                                    <div className="flex items-start justify-between mb-2">
-                                        <div>
-                                            <p className="text-sm font-semibold text-slate-900">
-                                                {new Date(doc.created_at).toLocaleDateString('ms-MY', { year: 'numeric', month: 'long', day: 'numeric' })}
-                                                <span className="ml-2 text-xs font-normal text-slate-500">
-                                                    {new Date(doc.created_at).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}
-                                                </span>
-                                            </p>
-                                            {doc.submitted_by?.name && (
-                                                <p className="text-xs text-slate-500 mt-0.5">Dihantar oleh: {doc.submitted_by.name}</p>
-                                            )}
-                                        </div>
-                                        {doc.file_path && (
-                                            <div className="flex items-center space-x-3 text-xs">
-                                                <a
-                                                    href={`/storage/${doc.file_path}`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="text-sky-600 hover:text-sky-700 underline"
-                                                >
-                                                    Lihat
-                                                </a>
-                                                <a
-                                                    href={`/storage/${doc.file_path}`}
-                                                    download
-                                                    className="text-emerald-600 hover:text-emerald-700 underline"
-                                                >
-                                                    Muat Turun
-                                                </a>
-                                            </div>
-                                        )}
-                                    </div>
-                                    {doc.nota && doc.nota.trim() !== '' && (
-                                        <p className="text-sm text-slate-700 whitespace-pre-wrap">{doc.nota}</p>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* Edit History */}
-                {editHistories.length > 0 && (
-                    <div className="bg-white rounded-xl border border-slate-200 p-6 mt-6">
-                        <h2 className="text-lg font-semibold text-slate-900 mb-4">Sejarah Pengemaskinian</h2>
-                        <div className="space-y-3">
-                            {editHistories.map((history) => (
-                                <div key={history.id} className="flex items-start justify-between border-b border-slate-100 pb-3 last:border-0 last:pb-0">
-                                    <div>
-                                        <p className="text-sm font-medium text-slate-700">
-                                            {history.action === 'created' ? 'Dicipta' : 'Dikemaskini'}
-                                            <span className="ml-2 font-normal text-slate-500">oleh {history.user?.name || '-'}</span>
-                                        </p>
-                                        <p className="text-xs text-slate-400 mt-0.5">
-                                            {new Date(history.created_at).toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' })}
-                                            {' '}
-                                            {new Date(history.created_at).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}
-                                        </p>
-                                        {history.changes && (
-                                            <div className="mt-1">
-                                                {Object.entries(history.changes).slice(0, 3).map(([field, vals]) => (
-                                                    <p key={field} className="text-xs text-slate-500">
-                                                        <span className="font-medium">{field}</span>: {vals.old || '-'} → {vals.new || '-'}
-                                                    </p>
-                                                ))}
-                                                {Object.keys(history.changes).length > 3 && (
-                                                    <p className="text-xs text-slate-400">+{Object.keys(history.changes).length - 3} lagi perubahan</p>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                    {auth.user.role === 'super_admin' && (
-                                        <button
-                                            onClick={() => router.delete(route('edit-history.destroy', history.id), { preserveScroll: true })}
-                                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
-                                            title="Padam sejarah"
-                                        >
-                                            <Trash2 className="h-3.5 w-3.5" />
-                                        </button>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
                     </div>
                 )}
             </div >

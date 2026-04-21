@@ -77,6 +77,7 @@ export default function Edit({
     editHistories = [],
     isRecordLocked = false,
     canUnmaskSensitive = false,
+    bantuanHistory: initialBantuanHistory = [],
 }) {
     const sensitiveLocked = isRecordLocked && !canUnmaskSensitive;
     const { auth } = usePage().props;
@@ -98,7 +99,7 @@ export default function Edit({
     const [loadingLokaliti, setLoadingLokaliti] = useState(false);
     const [icSuggestions, setIcSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
-    const [bantuanHistory, setBantuanHistory] = useState([]);
+    const [bantuanHistory, setBantuanHistory] = useState(initialBantuanHistory);
     const [showHistoryDetails, setShowHistoryDetails] = useState(true);
     const icDebounceRef = useRef(null);
     const icWrapperRef = useRef(null);
@@ -337,15 +338,6 @@ export default function Edit({
                 .catch(() => {});
         }
     }, [data.no_ic]);
-
-    // Load all bantuan history for this IC on mount
-    useEffect(() => {
-        if (hasilCulaan.no_ic && hasilCulaan.no_ic.length === 12) {
-            axios.get(route('api.hasil-culaan.by-ic'), { params: { ic: hasilCulaan.no_ic } })
-                .then(res => setBantuanHistory(res.data || []))
-                .catch(() => setBantuanHistory([]));
-        }
-    }, []);
 
     const handlePostcodeChange = (e) => {
         const value = e.target.value.replace(/\D/g, '');
@@ -1743,6 +1735,51 @@ export default function Edit({
                     </div>
                 </form>
 
+                {/* Edit History */}
+                {editHistories.length > 0 && (
+                    <div className="bg-white rounded-xl border border-slate-200 p-6 mt-6">
+                        <h2 className="text-lg font-semibold text-slate-900 mb-4">Sejarah Pengemaskinian</h2>
+                        <div className="space-y-3">
+                            {editHistories.map((history) => (
+                                <div key={history.id} className="flex items-start justify-between border-b border-slate-100 pb-3 last:border-0 last:pb-0">
+                                    <div className="flex-1">
+                                        <p className="text-sm font-medium text-slate-700">
+                                            {history.action === 'created' ? 'Dicipta' : 'Dikemaskini'}
+                                            <span className="ml-2 font-normal text-slate-500">oleh {history.user?.name || '-'}</span>
+                                        </p>
+                                        <p className="text-xs text-slate-400 mt-0.5">
+                                            {new Date(history.created_at).toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                            {' '}
+                                            {new Date(history.created_at).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                        {history.changes && Object.keys(history.changes).length > 0 && (
+                                            <div className="mt-2 space-y-1 bg-slate-50 rounded-lg p-3 border border-slate-100">
+                                                {Object.entries(history.changes).map(([field, vals]) => (
+                                                    <div key={field} className="text-xs text-slate-600 flex flex-wrap items-baseline gap-1">
+                                                        <span className="font-semibold text-slate-800">{labelFor(field)}:</span>
+                                                        <span className="text-slate-500 line-through">{formatValue(vals.old)}</span>
+                                                        <span className="text-slate-400">→</span>
+                                                        <span className="text-slate-900 font-medium">{formatValue(vals.new)}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                    {auth.user.role === 'super_admin' && (
+                                        <button
+                                            onClick={() => router.delete(route('edit-history.destroy', history.id), { preserveScroll: true })}
+                                            className="ml-3 p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
+                                            title="Padam sejarah"
+                                        >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* Bantuan History - comprehensive list of all records for this IC */}
                 {bantuanHistory.length > 0 && (
                     <div className="bg-white rounded-xl border-2 border-blue-200 p-6 mt-6">
@@ -1854,51 +1891,6 @@ export default function Edit({
                                 })}
                             </div>
                         )}
-                    </div>
-                )}
-
-                {/* Edit History */}
-                {editHistories.length > 0 && (
-                    <div className="bg-white rounded-xl border border-slate-200 p-6 mt-6">
-                        <h2 className="text-lg font-semibold text-slate-900 mb-4">Sejarah Pengemaskinian</h2>
-                        <div className="space-y-3">
-                            {editHistories.map((history) => (
-                                <div key={history.id} className="flex items-start justify-between border-b border-slate-100 pb-3 last:border-0 last:pb-0">
-                                    <div className="flex-1">
-                                        <p className="text-sm font-medium text-slate-700">
-                                            {history.action === 'created' ? 'Dicipta' : 'Dikemaskini'}
-                                            <span className="ml-2 font-normal text-slate-500">oleh {history.user?.name || '-'}</span>
-                                        </p>
-                                        <p className="text-xs text-slate-400 mt-0.5">
-                                            {new Date(history.created_at).toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' })}
-                                            {' '}
-                                            {new Date(history.created_at).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}
-                                        </p>
-                                        {history.changes && Object.keys(history.changes).length > 0 && (
-                                            <div className="mt-2 space-y-1 bg-slate-50 rounded-lg p-3 border border-slate-100">
-                                                {Object.entries(history.changes).map(([field, vals]) => (
-                                                    <div key={field} className="text-xs text-slate-600 flex flex-wrap items-baseline gap-1">
-                                                        <span className="font-semibold text-slate-800">{labelFor(field)}:</span>
-                                                        <span className="text-slate-500 line-through">{formatValue(vals.old)}</span>
-                                                        <span className="text-slate-400">→</span>
-                                                        <span className="text-slate-900 font-medium">{formatValue(vals.new)}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                    {auth.user.role === 'super_admin' && (
-                                        <button
-                                            onClick={() => router.delete(route('edit-history.destroy', history.id), { preserveScroll: true })}
-                                            className="ml-3 p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
-                                            title="Padam sejarah"
-                                        >
-                                            <Trash2 className="h-3.5 w-3.5" />
-                                        </button>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
                     </div>
                 )}
             </div >

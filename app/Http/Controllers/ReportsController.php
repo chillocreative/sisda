@@ -542,6 +542,20 @@ class ReportsController extends Controller
         $canUnmaskSensitive = VoterDataMasker::canUnmask($user);
         $maskedRecord = VoterDataMasker::mask($hasilCulaan, $user);
 
+        $bantuanHistory = HasilCulaan::with('submittedBy:id,name,role')
+            ->where('no_ic', $hasilCulaan->no_ic)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($record) use ($user) {
+                $locked = VoterDataMasker::isLocked($record) && ! VoterDataMasker::canUnmask($user);
+                $masked = VoterDataMasker::mask($record, $user);
+                $masked['submitted_by'] = $record->submittedBy
+                    ? ['id' => $record->submittedBy->id, 'name' => $record->submittedBy->name]
+                    : null;
+                $masked['is_locked'] = $locked;
+                return $masked;
+            });
+
         return Inertia::render('Reports/HasilCulaan/Edit', [
             'hasilCulaan' => $maskedRecord,
             'bangsaList' => $bangsaList,
@@ -559,6 +573,7 @@ class ReportsController extends Controller
             'editHistories' => $editHistories,
             'isRecordLocked' => $isRecordLocked,
             'canUnmaskSensitive' => $canUnmaskSensitive,
+            'bantuanHistory' => $bantuanHistory,
         ]);
     }
 
