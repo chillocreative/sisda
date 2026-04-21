@@ -34,15 +34,15 @@ export default function Index({ hasilCulaan, icCounts = {}, filters, currentUser
     // Load bantuan history and edit history when viewing a record
     useEffect(() => {
         if (viewingItem) {
-            if (viewingItem.no_ic && viewingItem.no_ic.length === 12) {
-                setLoadingHistory(true);
-                axios.get(route('api.hasil-culaan.by-ic'), { params: { ic: viewingItem.no_ic } })
-                    .then(res => setViewHistory(res.data || []))
-                    .catch(() => setViewHistory([]))
-                    .finally(() => setLoadingHistory(false));
-            } else {
-                setViewHistory([]);
-            }
+            const hasValidIc = viewingItem.no_ic && viewingItem.no_ic.length === 12;
+            const params = hasValidIc
+                ? { ic: viewingItem.no_ic }
+                : { hasil_culaan_id: viewingItem.id };
+            setLoadingHistory(true);
+            axios.get(route('api.hasil-culaan.by-ic'), { params })
+                .then(res => setViewHistory(res.data || []))
+                .catch(() => setViewHistory([]))
+                .finally(() => setLoadingHistory(false));
             axios.get('/api/edit-history', { params: { model_type: 'hasil_culaan', model_id: viewingItem.id } })
                 .then(res => setEditHistory(res.data || []))
                 .catch(() => setEditHistory([]));

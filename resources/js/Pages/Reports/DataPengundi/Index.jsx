@@ -33,13 +33,13 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
             axios.get('/api/edit-history', { params: { model_type: 'data_pengundi', model_id: viewingItem.id } })
                 .then(res => setViewHistory(res.data || []))
                 .catch(() => setViewHistory([]));
-            if (viewingItem.no_ic && viewingItem.no_ic.length === 12) {
-                axios.get(route('api.hasil-culaan.by-ic'), { params: { ic: viewingItem.no_ic } })
-                    .then(res => setSumbanganHistory(res.data || []))
-                    .catch(() => setSumbanganHistory([]));
-            } else {
-                setSumbanganHistory([]);
-            }
+            const hasValidIc = viewingItem.no_ic && viewingItem.no_ic.length === 12;
+            const params = hasValidIc
+                ? { ic: viewingItem.no_ic }
+                : { source_id: viewingItem.id };
+            axios.get(route('api.hasil-culaan.by-ic'), { params })
+                .then(res => setSumbanganHistory(res.data || []))
+                .catch(() => setSumbanganHistory([]));
         } else {
             setViewHistory([]);
             setSumbanganHistory([]);

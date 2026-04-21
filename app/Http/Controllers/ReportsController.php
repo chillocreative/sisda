@@ -171,11 +171,19 @@ class ReportsController extends Controller
         $request->validate([
             'ic' => 'nullable|string|digits:12',
             'source_id' => 'nullable|integer',
+            'hasil_culaan_id' => 'nullable|integer',
         ]);
 
         $ic = $request->input('ic');
         if (! $ic && $request->filled('source_id')) {
             $source = DataPengundi::find($request->input('source_id'));
+            if (! $source) {
+                return response()->json([]);
+            }
+            $ic = $source->no_ic;
+        }
+        if (! $ic && $request->filled('hasil_culaan_id')) {
+            $source = HasilCulaan::find($request->input('hasil_culaan_id'));
             if (! $source) {
                 return response()->json([]);
             }
