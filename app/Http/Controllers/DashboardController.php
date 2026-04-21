@@ -413,7 +413,12 @@ class DashboardController extends Controller
             ->get()
             ->unique(fn ($v) => $v->no_ic . '|' . $v->nama);
 
-        $existingIcs = collect($results)->pluck('no_ic')->toArray();
+        // Use the real (unmasked) IC from the Eloquent records for dedup;
+        // $results may hold masked values ('****') for locked rows, which
+        // would never match a PangkalanDataPengundi entry's real IC and
+        // would let the same person appear twice (once as Data Pengundi,
+        // once as DPPR/DPT).
+        $existingIcs = $dataPengundi->pluck('no_ic')->toArray();
 
         foreach ($voterResults as $voter) {
             // Skip if this IC+name already in results from Hasil Culaan or Data Pengundi
