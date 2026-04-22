@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\NotificationTemplate;
 use App\Models\User;
 use App\Services\WhatsappService;
 use Illuminate\Http\JsonResponse;
@@ -129,13 +130,34 @@ class MobileAuthController extends Controller
             'must_change_password' => true,
         ]);
 
-        $message = "*SISDA - Set Semula Kata Laluan*\n\n"
-            ."Kata laluan baharu anda ialah:\n"
-            ."`{$newPassword}`\n\n"
-            ."Sila log masuk dan tukar kata laluan anda segera.\n\n"
-            .'_Mesej ini dijana secara automatik._';
+        $vars = [
+            'nama' => $user->name,
+            'password' => $newPassword,
+            'pautan' => url('/login'),
+            'tempoh' => 24,
+            'tarikh_luput' => now()->addDay()->format('d/m/Y H:i'),
+            'username' => $user->telephone,
+            'peranan' => $user->role,
+            'admin_nama' => 'Pentadbir Sistem',
+            'masa' => now()->format('d/m/Y H:i'),
+            'tahun' => now()->year,
+        ];
 
-        $sent = WhatsappService::send($user->telephone, $message, 'password_reset');
+        $sent = WhatsappService::sendCategoryDefault(
+            NotificationTemplate::CATEGORY_PASSWORD_RESET,
+            $user->telephone,
+            $vars,
+            'password_reset'
+        );
+
+        if (!$sent) {
+            $fallback = "*SISDA - Set Semula Kata Laluan*\n\n"
+                ."Kata laluan baharu anda ialah:\n"
+                ."`{$newPassword}`\n\n"
+                ."Sila log masuk dan tukar kata laluan anda segera.\n\n"
+                .'_Mesej ini dijana secara automatik._';
+            $sent = WhatsappService::send($user->telephone, $fallback, 'password_reset');
+        }
 
         if ($sent) {
             return response()->json([

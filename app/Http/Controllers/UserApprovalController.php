@@ -63,13 +63,11 @@ class UserApprovalController extends Controller
             'approved_at' => now(),
         ]);
 
-        $message = "*SISDA - Akaun Diluluskan*\n\n"
-            . "Tahniah! Akaun anda telah *diluluskan* oleh pentadbir.\n\n"
-            . "Anda kini boleh log masuk ke sistem menggunakan nombor telefon dan kata laluan anda di:\n"
-            . "https://sistemdatapengundi.com/login\n\n"
-            . "_Hantaran ini dikuasakan oleh sendora.cc_";
-
-        WhatsappService::send($user->telephone, $message, 'user_approved');
+        WhatsappService::sendTemplate('sys_user_approved', $user->telephone, [
+            'nama' => $user->name,
+            'admin_nama' => $currentUser->name,
+            'pautan' => url('/login'),
+        ], 'user_approved');
 
         return redirect()->back()->with('success', 'Pengguna berjaya diluluskan.');
     }
@@ -100,12 +98,12 @@ class UserApprovalController extends Controller
             'approved_at' => now(),
         ]);
 
-        $message = "*SISDA - Permohonan Ditolak*\n\n"
-            . "Harap maaf, permohonan pendaftaran akaun anda telah *ditolak* oleh pentadbir.\n\n"
-            . "Untuk pertanyaan lanjut, sila hubungi pentadbir di https://wa.me/601110019843.\n\n"
-            . "_Hantaran ini dikuasakan oleh sendora.cc_";
+        $reason = $request->input('reason') ?: 'Tiada sebab dinyatakan.';
 
-        WhatsappService::send($user->telephone, $message, 'user_rejected');
+        WhatsappService::sendTemplate('sys_user_rejected', $user->telephone, [
+            'nama' => $user->name,
+            'sebab' => $reason,
+        ], 'user_rejected');
 
         return redirect()->back()->with('success', 'Pengguna telah ditolak.');
     }
