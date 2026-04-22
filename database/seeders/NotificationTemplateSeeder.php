@@ -492,6 +492,13 @@ class NotificationTemplateSeeder extends Seeder
                 'body' => "💾 *SANDARAN DATA*\n\n{{nama}},\n\nSandaran data SISDA telah selesai pada {{masa}}.\n\nSaiz: {{saiz}}\nLokasi: {{lokasi}}\n\nSistem sedia digunakan seperti biasa.",
                 'variables' => ['nama', 'masa', 'saiz', 'lokasi'],
             ],
+            [
+                'code' => 'sys_admin_security_alert',
+                'name' => 'Amaran Keselamatan Admin',
+                'description' => 'Amaran ke telefon super admin apabila aktiviti pengguna mencurigakan dikesan.',
+                'body' => "🚨 *SISDA ALERT [{{severity}}]*\n\n{{verdict}}\n\nRule: {{rule_code}}\nPengguna: {{pengguna}} ({{peranan}}) — Parlimen: {{parlimen}}\nTempoh: {{tempoh_mula}} → {{tempoh_tamat}}\n\n{{summary}}\n\nTindakan disyorkan: {{tindakan}}\n\nLihat: {{pautan}}",
+                'variables' => ['severity', 'verdict', 'rule_code', 'pengguna', 'peranan', 'parlimen', 'tempoh_mula', 'tempoh_tamat', 'summary', 'tindakan', 'pautan'],
+            ],
         ];
     }
 }

@@ -251,32 +251,21 @@ class UserLogAlertService
     {
         $user = $alert->user_id ? User::with('bandar:id,nama')->find($alert->user_id) : null;
 
-        $lines = [
-            '🚨 SISDA ALERT [' . strtoupper($alert->severity) . ']',
-            $alert->verdict ?: ('Aktiviti mencurigakan: ' . $alert->rule_code),
+        $vars = [
+            'severity' => strtoupper($alert->severity),
+            'verdict' => $alert->verdict ?: ('Aktiviti mencurigakan: ' . $alert->rule_code),
+            'rule_code' => $alert->rule_code,
+            'pengguna' => $user?->name ?? '-',
+            'peranan' => $user?->role ?? '-',
+            'parlimen' => optional($user?->bandar)->nama ?? '-',
+            'tempoh_mula' => $alert->window_start->toDateTimeString(),
+            'tempoh_tamat' => $alert->window_end->toDateTimeString(),
+            'summary' => $alert->summary ?: '-',
+            'tindakan' => $alert->details['claude_parsed']['recommended_action'] ?? '-',
+            'pautan' => rtrim(config('app.url'), '/') . '/user-log',
         ];
 
-        if ($user) {
-            $bandar = optional($user->bandar)->nama ?? '-';
-            $lines[] = "Pengguna: {$user->name} (role: {$user->role}) — Parlimen: {$bandar}";
-        }
-
-        $lines[] = 'Tempoh: ' . $alert->window_start->toDateTimeString() . ' → ' . $alert->window_end->toDateTimeString();
-
-        if ($alert->summary) {
-            $lines[] = $alert->summary;
-        }
-
-        $recommended = $alert->details['claude_parsed']['recommended_action'] ?? null;
-        if ($recommended) {
-            $lines[] = 'Tindakan disyorkan: ' . $recommended;
-        }
-
-        $lines[] = 'Lihat: ' . rtrim(config('app.url'), '/') . '/user-log';
-
-        $message = implode("\n", $lines);
-
-        $sent = WhatsappService::notifyAdmin($message, 'user_log_alert');
+        $sent = WhatsappService::notifyAdminTemplate('sys_admin_security_alert', $vars, 'user_log_alert');
 
         $alert->update([
             'whatsapp_status' => $sent ? 'sent' : 'failed',

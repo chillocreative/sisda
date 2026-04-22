@@ -88,6 +88,17 @@ class WhatsappService
     }
 
     /**
+     * Render a NotificationTemplate and send it to the configured admin_phone.
+     */
+    public static function notifyAdminTemplate(string $code, array $vars = [], ?string $type = null): bool
+    {
+        $adminPhone = self::getConfig()?->admin_phone;
+        if (!$adminPhone) return false;
+
+        return self::sendTemplate($code, $adminPhone, $vars, $type ?? ('admin_template:' . $code));
+    }
+
+    /**
      * Send using a stored NotificationTemplate code. Variables are substituted
      * with the provided array. Returns false silently if the template is missing
      * or inactive — caller can fall back to a hard-coded message.
