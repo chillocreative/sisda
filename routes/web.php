@@ -356,6 +356,16 @@ Route::middleware(['auth', 'super_admin'])->group(function () {
     Route::post('/user-log/analyze', [\App\Http\Controllers\UserLogController::class, 'analyze'])->name('user-log.analyze');
     Route::post('/user-log/alerts/{alert}/acknowledge', [\App\Http\Controllers\UserLogController::class, 'acknowledge'])->name('user-log.alerts.acknowledge');
     Route::delete('/user-log/alerts/{alert}', [\App\Http\Controllers\UserLogController::class, 'destroy'])->name('user-log.alerts.destroy');
+
+    // Notification Templates (WhatsApp, password reset, system)
+    Route::get('/settings/notifications', [\App\Http\Controllers\NotificationTemplateController::class, 'index'])->name('settings.notifications.index');
+    Route::post('/settings/notifications', [\App\Http\Controllers\NotificationTemplateController::class, 'store'])->name('settings.notifications.store');
+    Route::put('/settings/notifications/{template}', [\App\Http\Controllers\NotificationTemplateController::class, 'update'])->name('settings.notifications.update');
+    Route::delete('/settings/notifications/{template}', [\App\Http\Controllers\NotificationTemplateController::class, 'destroy'])->name('settings.notifications.destroy');
+    Route::post('/settings/notifications/{template}/duplicate', [\App\Http\Controllers\NotificationTemplateController::class, 'duplicate'])->name('settings.notifications.duplicate');
+    Route::post('/settings/notifications/{template}/toggle', [\App\Http\Controllers\NotificationTemplateController::class, 'toggle'])->name('settings.notifications.toggle');
+    Route::post('/settings/notifications/{template}/make-default', [\App\Http\Controllers\NotificationTemplateController::class, 'makeDefault'])->name('settings.notifications.make-default');
+    Route::post('/settings/notifications/{template}/test-send', [\App\Http\Controllers\NotificationTemplateController::class, 'testSend'])->name('settings.notifications.test-send');
 });
 
 // Mobile app API routes (token-based auth via Sanctum)

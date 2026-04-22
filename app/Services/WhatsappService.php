@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\NotificationTemplate;
 use App\Models\SendoraSetting;
 use App\Models\WhatsappMessage;
 use Illuminate\Support\Facades\Http;
@@ -84,5 +85,39 @@ class WhatsappService
         if (!$adminPhone) return false;
 
         return self::send($adminPhone, $message, $type);
+    }
+
+    /**
+     * Send using a stored NotificationTemplate code. Variables are substituted
+     * with the provided array. Returns false silently if the template is missing
+     * or inactive — caller can fall back to a hard-coded message.
+     */
+    public static function sendTemplate(string $code, string $phone, array $vars = [], ?string $type = null): bool
+    {
+        $template = NotificationTemplate::findByCode($code);
+
+        if (!$template || !$template->is_active) {
+            Log::warning("WhatsApp template '{$code}' not found or inactive.");
+            return false;
+        }
+
+        $message = $template->render($vars);
+        return self::send($phone, $message, $type ?? ('template:' . $code));
+    }
+
+    /**
+     * Send the default template for a given category.
+     */
+    public static function sendCategoryDefault(string $category, string $phone, array $vars = [], ?string $type = null): bool
+    {
+        $template = NotificationTemplate::defaultFor($category);
+
+        if (!$template) {
+            Log::warning("No default WhatsApp template for category '{$category}'.");
+            return false;
+        }
+
+        $message = $template->render($vars);
+        return self::send($phone, $message, $type ?? ('category:' . $category));
     }
 }

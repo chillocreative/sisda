@@ -1,13 +1,16 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     public function up(): void
     {
-        DB::statement('ALTER TABLE `pangkalan_data_pengundi` MODIFY `upload_batch_id` BIGINT UNSIGNED NULL');
+        Schema::table('pangkalan_data_pengundi', function (Blueprint $table) {
+            $table->unsignedBigInteger('upload_batch_id')->nullable()->change();
+        });
     }
 
     public function down(): void

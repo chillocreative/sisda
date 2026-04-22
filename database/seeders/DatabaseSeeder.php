@@ -41,6 +41,7 @@ class DatabaseSeeder extends Seeder
         );
 
         $this->call(LokalitSeeder::class);
+        $this->call(NotificationTemplateSeeder::class);
 
         // Example Admin (ensure territory tables are seeded first)
         // User::create([

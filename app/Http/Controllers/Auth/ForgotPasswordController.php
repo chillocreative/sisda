@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\NotificationTemplate;
 use App\Models\User;
 use App\Services\WhatsappService;
 use Illuminate\Http\Request;
@@ -30,29 +31,46 @@ class ForgotPasswordController extends Controller
             ]);
         }
 
-        // Generate random 8-character password
         $newPassword = Str::random(8);
 
-        // Update user password and flag for change
         $user->update([
             'password' => $newPassword,
             'must_change_password' => true,
         ]);
 
-        // Send via WhatsApp
-        $message = "*SISDA - Set Semula Kata Laluan*\n\n"
-            . "Kata laluan baharu anda ialah:\n"
-            . "`{$newPassword}`\n\n"
-            . "Sila log masuk dan tukar kata laluan anda segera.\n\n"
-            . "_Mesej ini dijana secara automatik._";
+        $vars = [
+            'nama' => $user->name,
+            'password' => $newPassword,
+            'pautan' => url('/login'),
+            'tempoh' => 24,
+            'tarikh_luput' => now()->addDay()->format('d/m/Y H:i'),
+            'username' => $user->telephone,
+            'peranan' => $user->role,
+            'admin_nama' => 'Pentadbir Sistem',
+            'masa' => now()->format('d/m/Y H:i'),
+            'tahun' => now()->year,
+        ];
 
-        $sent = WhatsappService::send($user->telephone, $message, 'password_reset');
+        $sent = WhatsappService::sendCategoryDefault(
+            NotificationTemplate::CATEGORY_PASSWORD_RESET,
+            $user->telephone,
+            $vars,
+            'password_reset'
+        );
+
+        if (!$sent) {
+            $fallback = "*SISDA - Set Semula Kata Laluan*\n\n"
+                . "Kata laluan baharu anda ialah:\n"
+                . "`{$newPassword}`\n\n"
+                . "Sila log masuk dan tukar kata laluan anda segera.\n\n"
+                . "_Mesej ini dijana secara automatik._";
+            $sent = WhatsappService::send($user->telephone, $fallback, 'password_reset');
+        }
 
         if ($sent) {
             return back()->with('status', 'Kata laluan baharu telah dihantar ke WhatsApp anda. Sila semak telefon anda.');
         }
 
-        // Password was still changed even if WhatsApp failed
         return back()->with('status', 'Kata laluan baharu telah ditetapkan. Kata laluan: ' . $newPassword . '. Sila simpan dan tukar selepas log masuk.');
     }
 }
