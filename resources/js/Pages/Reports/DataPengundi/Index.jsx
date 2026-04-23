@@ -61,6 +61,9 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
     // Only non-user roles may delete records.
     const canDelete = user.role !== 'user';
 
+    // Only non-user roles may export to Excel.
+    const canExport = user.role !== 'user';
+
     const ownItemsOnPage = dataPengundi.data.filter(canModifyRecord);
 
     const { data, setData, get, processing } = useForm({
@@ -133,13 +136,15 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
                         </p>
                     </div>
                     <div className="flex items-center space-x-3">
-                        <button
-                            onClick={handleExport}
-                            className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
-                        >
-                            <Download className="h-4 w-4" />
-                            <span>Export Excel</span>
-                        </button>
+                        {canExport && (
+                            <button
+                                onClick={handleExport}
+                                className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                            >
+                                <Download className="h-4 w-4" />
+                                <span>Export Excel</span>
+                            </button>
+                        )}
                         <button
                             onClick={() => router.visit(route('reports.hasil-culaan.create'))}
                             className="flex items-center space-x-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors"

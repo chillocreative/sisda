@@ -124,6 +124,8 @@ class ReportsController extends Controller
     {
         $user = auth()->user();
 
+        abort_if($user->isUser(), 403);
+
         // Mirror the deduplication applied on the index screen so the
         // exported workbook matches the on-screen list: one row per
         // voter, showing the latest bantuan record.
@@ -885,6 +887,9 @@ class ReportsController extends Controller
     public function exportDataPengundi(Request $request)
     {
         $user = auth()->user();
+
+        abort_if($user->isUser(), 403);
+
         $query = DataPengundi::query();
 
         // Admin Restriction: Only export data in their Parlimen (Bandar)
