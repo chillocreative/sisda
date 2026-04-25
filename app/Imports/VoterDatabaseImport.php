@@ -27,8 +27,19 @@ class VoterDatabaseImport implements ToCollection, WithHeadingRow, WithChunkRead
         $records = [];
 
         foreach ($rows as $row) {
-            // maatwebsite/excel lowercases headers and replaces spaces with underscores
-            $ic = isset($row['ic']) ? trim((string) $row['ic']) : '';
+            // maatwebsite/excel lowercases headers and strips non-alphanumerics.
+            $arr = is_array($row) ? $row : $row->toArray();
+
+            $get = function (array $aliases) use ($arr) {
+                foreach ($aliases as $key) {
+                    if (array_key_exists($key, $arr) && $arr[$key] !== null && $arr[$key] !== '') {
+                        return $arr[$key];
+                    }
+                }
+                return null;
+            };
+
+            $ic = trim((string) ($get(['ic', 'no_ic', 'noic']) ?? ''));
 
             // Zero-pad IC to 12 digits (Excel may store as number)
             if ($ic !== '') {
@@ -40,16 +51,26 @@ class VoterDatabaseImport implements ToCollection, WithHeadingRow, WithChunkRead
                 continue;
             }
 
+            $jantinaCode = strtoupper(trim((string) ($get(['kodjantina', 'jantina']) ?? '')));
+            $jantina = match ($jantinaCode) {
+                'L' => 'LELAKI',
+                'P' => 'PEREMPUAN',
+                default => $jantinaCode ?: null,
+            };
+
             $records[] = [
                 'upload_batch_id' => $this->uploadBatchId,
                 'no_ic'           => $ic,
-                'nama'            => strtoupper(trim((string) ($row['nama'] ?? ''))),
-                'lokaliti'        => strtoupper(trim((string) ($row['namalokaliti'] ?? ''))) ?: null,
-                'daerah_mengundi' => strtoupper(trim((string) ($row['namadm'] ?? ''))) ?: null,
-                'kadun'           => strtoupper(trim((string) ($row['namadun'] ?? ''))) ?: null,
-                'parlimen'        => strtoupper(trim((string) ($row['namaparlimen'] ?? ''))) ?: null,
-                'negeri'          => strtoupper(trim((string) ($row['negeri'] ?? ''))) ?: null,
-                'bangsa'          => strtoupper(trim((string) ($row['bangsa_spr'] ?? ''))) ?: null,
+                'nama'            => strtoupper(trim((string) ($get(['nama']) ?? ''))),
+                'lokaliti'        => strtoupper(trim((string) ($get(['namalokaliti', 'lokaliti']) ?? ''))) ?: null,
+                'kod_lokaliti'    => trim((string) ($get(['kodlokaliti', 'kod_lokaliti']) ?? '')) ?: null,
+                'daerah_mengundi' => strtoupper(trim((string) ($get(['namadm', 'daerah_mengundi', 'daerahmengundi']) ?? ''))) ?: null,
+                'kadun'           => strtoupper(trim((string) ($get(['namadun', 'kadun', 'dun']) ?? ''))) ?: null,
+                'parlimen'        => strtoupper(trim((string) ($get(['namaparlimen', 'parlimen']) ?? ''))) ?: null,
+                'negeri'          => strtoupper(trim((string) ($get(['namanegeri', 'negeri']) ?? ''))) ?: null,
+                'bangsa'          => strtoupper(trim((string) ($get(['bangsa_spr', 'bangsa']) ?? ''))) ?: null,
+                'jantina'         => $jantina,
+                'tahun_lahir'     => trim((string) ($get(['tahunlahir', 'tahun_lahir']) ?? '')) ?: null,
                 'created_at'      => now(),
                 'updated_at'      => now(),
             ];

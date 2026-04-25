@@ -79,7 +79,7 @@ export default function Index({ batches, flash }) {
                 {/* Header */}
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">Upload Database Pengundi</h1>
-                    <p className="text-sm text-slate-600 mt-1">Muat naik fail ZIP yang mengandungi data pengundi (format: DUN › Daerah Mengundi › LOCALITIES › *.xlsx)</p>
+                    <p className="text-sm text-slate-600 mt-1">Muat naik fail ZIP yang mengandungi data pengundi. Sebarang struktur folder diterima — semua fail .xlsx dalam ZIP akan dibaca.</p>
                 </div>
 
                 {/* Flash messages */}

@@ -47,12 +47,11 @@ class ProcessVoterUpload implements ShouldQueue
             new RecursiveDirectoryIterator($tempDir, RecursiveDirectoryIterator::SKIP_DOTS)
         );
         foreach ($iterator as $file) {
-            if ($file->isFile() && strtolower($file->getExtension()) === 'xlsx') {
-                $parentDir = strtoupper(basename(dirname($file->getPathname())));
-                if ($parentDir === 'LOCALITIES') {
-                    $xlsxFiles[] = $file->getPathname();
-                }
-            }
+            if (!$file->isFile()) continue;
+            if (strtolower($file->getExtension()) !== 'xlsx') continue;
+            // Skip macOS metadata duplicates that some zip tools include.
+            if (str_starts_with($file->getFilename(), '._')) continue;
+            $xlsxFiles[] = $file->getPathname();
         }
 
         foreach ($xlsxFiles as $xlsxPath) {
