@@ -167,7 +167,15 @@ class ImportMasterDataFromXlsx extends Command
         }
 
         foreach ($pairs as $p) {
-            $dm = DaerahMengundi::whereRaw('UPPER(TRIM(nama)) = ?', [strtoupper(trim($p['dm']))])->first();
+            $parlimenName = $dmParlimenMap[$p['dm']] ?? null;
+            $bandar = $parlimenName
+                ? Bandar::whereRaw('UPPER(TRIM(nama)) = ?', [strtoupper(trim($parlimenName))])->first()
+                : null;
+            $dmQuery = DaerahMengundi::whereRaw('UPPER(TRIM(nama)) = ?', [strtoupper(trim($p['dm']))]);
+            if ($bandar) {
+                $dmQuery->where('bandar_id', $bandar->id);
+            }
+            $dm = $dmQuery->first();
             if (!$dm) {
                 continue;
             }
