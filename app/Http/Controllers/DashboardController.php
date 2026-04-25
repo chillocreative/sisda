@@ -357,6 +357,16 @@ class DashboardController extends Controller
             return response()->json([]);
         }
 
+        // Non-super_admin viewers may only see records inside their own parlimen.
+        // A user with no bandar assigned therefore sees nothing.
+        $parlimenScope = null;
+        if (! $user->isSuperAdmin()) {
+            $parlimenScope = $user->bandar?->nama;
+            if (! $parlimenScope) {
+                return response()->json([]);
+            }
+        }
+
         $results = [];
 
         // Data Sumbangan (Hasil Culaan) is intentionally excluded from
@@ -368,17 +378,8 @@ class DashboardController extends Controller
         $dataPengundiQuery = DataPengundi::where('no_ic', 'like', "%{$icNumber}%")
             ->with('submittedBy');
 
-        // Territory restriction: records in territory OR submitted by user
-        if ($user->isAdmin()) {
-            $dataPengundiQuery->where(function ($q) use ($user) {
-                $q->where('bandar', $user->bandar->nama ?? '__none__')
-                  ->orWhere('submitted_by', $user->id);
-            });
-        } elseif ($user->isUser() || $user->isSuperUser()) {
-            $dataPengundiQuery->where(function ($q) use ($user) {
-                $q->where('kadun', $user->kadun->nama ?? '__none__')
-                  ->orWhere('submitted_by', $user->id);
-            });
+        if ($parlimenScope !== null) {
+            $dataPengundiQuery->whereRaw('UPPER(bandar) = ?', [strtoupper($parlimenScope)]);
         }
 
         $dataPengundi = $dataPengundiQuery->limit(5)->get();
@@ -403,12 +404,18 @@ class DashboardController extends Controller
 
         // Search in ALL voter database records (upload batch + DPT)
         // Deduplicate by no_ic + nama to avoid showing the same person multiple times
-        $voterResults = PangkalanDataPengundi::where(function ($q) use ($icNumber) {
+        $voterQuery = PangkalanDataPengundi::where(function ($q) use ($icNumber) {
                 $q->where('no_ic', 'like', "%{$icNumber}%");
                 if (strlen($icNumber) >= 6 && strlen($icNumber) <= 8) {
                     $q->orWhere('no_ic', $icNumber . '0000');
                 }
-            })
+            });
+
+        if ($parlimenScope !== null) {
+            $voterQuery->whereRaw('UPPER(parlimen) = ?', [strtoupper($parlimenScope)]);
+        }
+
+        $voterResults = $voterQuery
             ->limit(20)
             ->get()
             ->unique(fn ($v) => $v->no_ic . '|' . $v->nama);

@@ -111,9 +111,22 @@ class UploadDatabaseController extends Controller
 
         $viewer = auth()->user();
 
+        // Non-super_admin viewers can only see records inside their own parlimen.
+        $parlimenScope = null;
+        if (! $viewer->isSuperAdmin()) {
+            $parlimenScope = $viewer->bandar?->nama;
+            if (! $parlimenScope) {
+                return response()->json([]);
+            }
+        }
+
         // Data Pengundi matches (previously submitted records) - full fields for form auto-fill
-        $dataPengundi = DataPengundi::with('submittedBy:id,name,role')
-            ->where('no_ic', 'like', $query . '%')
+        $dataPengundiQuery = DataPengundi::with('submittedBy:id,name,role')
+            ->where('no_ic', 'like', $query . '%');
+        if ($parlimenScope !== null) {
+            $dataPengundiQuery->whereRaw('UPPER(bandar) = ?', [strtoupper($parlimenScope)]);
+        }
+        $dataPengundi = $dataPengundiQuery
             ->orderBy('id', 'desc')
             ->limit(10)
             ->get()
@@ -147,6 +160,9 @@ class UploadDatabaseController extends Controller
         // DPPR matches, excluding IC numbers already present in Data Pengundi
         $existingIcs = DataPengundi::where('no_ic', 'like', $query . '%')->pluck('no_ic')->unique()->toArray();
         $dpprQuery = PangkalanDataPengundi::where('no_ic', 'like', $query . '%');
+        if ($parlimenScope !== null) {
+            $dpprQuery->whereRaw('UPPER(parlimen) = ?', [strtoupper($parlimenScope)]);
+        }
         if (count($existingIcs) > 0) {
             $dpprQuery->whereNotIn('no_ic', $existingIcs);
         }
@@ -168,11 +184,23 @@ class UploadDatabaseController extends Controller
         $ic = $request->ic;
         $viewer = auth()->user();
 
+        // Non-super_admin viewers can only see records inside their own parlimen.
+        $parlimenScope = null;
+        if (! $viewer->isSuperAdmin()) {
+            $parlimenScope = $viewer->bandar?->nama;
+            if (! $parlimenScope) {
+                return response()->json(null);
+            }
+        }
+        $upperScope = $parlimenScope !== null ? strtoupper($parlimenScope) : null;
+
         // For 12-digit IC, check data_pengundi first, then DPPR fallback
         if (strlen($ic) === 12) {
-            $voter = DataPengundi::with('submittedBy:id,name,role')
-                ->where('no_ic', $ic)
-                ->first();
+            $dpQuery = DataPengundi::with('submittedBy:id,name,role')->where('no_ic', $ic);
+            if ($upperScope !== null) {
+                $dpQuery->whereRaw('UPPER(bandar) = ?', [$upperScope]);
+            }
+            $voter = $dpQuery->first();
 
             if ($voter) {
                 $locked = VoterDataMasker::isLocked($voter) && ! VoterDataMasker::canUnmask($viewer);
@@ -193,13 +221,20 @@ class UploadDatabaseController extends Controller
                 return response()->json($arr);
             }
 
-            $dpprVoter = PangkalanDataPengundi::where('no_ic', $ic)->first();
+            $dpprQuery = PangkalanDataPengundi::where('no_ic', $ic);
+            if ($upperScope !== null) {
+                $dpprQuery->whereRaw('UPPER(parlimen) = ?', [$upperScope]);
+            }
+            $dpprVoter = $dpprQuery->first();
             return response()->json($dpprVoter);
         }
 
         // For partial IC (6-11 digits): check data_pengundi first, then DPPR
-        $voters = DataPengundi::with('submittedBy:id,name,role')
-            ->where('no_ic', 'like', $ic . '%')
+        $partialDpQuery = DataPengundi::with('submittedBy:id,name,role')->where('no_ic', 'like', $ic . '%');
+        if ($upperScope !== null) {
+            $partialDpQuery->whereRaw('UPPER(bandar) = ?', [$upperScope]);
+        }
+        $voters = $partialDpQuery
             ->limit(15)
             ->get()
             ->map(function ($v) use ($viewer) {
@@ -219,7 +254,11 @@ class UploadDatabaseController extends Controller
             });
 
         if ($voters->isEmpty()) {
-            $voters = PangkalanDataPengundi::where('no_ic', 'like', $ic . '%')
+            $partialDpprQuery = PangkalanDataPengundi::where('no_ic', 'like', $ic . '%');
+            if ($upperScope !== null) {
+                $partialDpprQuery->whereRaw('UPPER(parlimen) = ?', [$upperScope]);
+            }
+            $voters = $partialDpprQuery
                 ->limit(15)
                 ->get(['no_ic', 'nama', 'lokaliti', 'daerah_mengundi', 'kadun', 'parlimen', 'negeri', 'bangsa']);
         }
