@@ -51,11 +51,15 @@ class UploadDatabaseController extends Controller
             'uploaded_by'  => auth()->id(),
         ]);
 
+        // Run the import after the HTTP response is sent so the upload returns
+        // immediately. A long-running synchronous dispatch trips Cloudflare's
+        // 100s proxy timeout (524) for sizeable zips. The UI polls batch
+        // status every 5s and surfaces completion/failure from there.
         set_time_limit(0);
-        ProcessVoterUpload::dispatchSync($batch->id, $zipPath);
+        ProcessVoterUpload::dispatchAfterResponse($batch->id, $zipPath);
 
         return redirect()->route('upload-database.index')
-            ->with('success', 'Fail ZIP berjaya dimuat naik dan diproses.');
+            ->with('success', 'Fail ZIP dimuat naik. Pemprosesan sedang berjalan di latar belakang.');
     }
 
     public function restore(UploadBatch $batch)
