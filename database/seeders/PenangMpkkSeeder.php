@@ -53,6 +53,16 @@ class PenangMpkkSeeder extends Seeder
                 'Permatang Tiga Ringgit',
                 'Pulau Mertajam',
             ],
+            'Telok Ayer Tawar' => [
+                'Jalan Masjid',
+                'Taman Wira',
+                'Taman Senangan',
+                'Permatang Kuching',
+                'Permatang Binjai',
+                'Pekan Darat',
+                'Bagan Ajam',
+                'Taman Perkasa',
+            ],
         ];
 
         foreach ($data as $kadunName => $mpkkList) {
