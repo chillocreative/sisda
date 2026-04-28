@@ -18,14 +18,18 @@ export default function Index({ mpkk, kadunList, selectedKadun, filters }) {
     const [editingId, setEditingId] = useState(null);
     const [showAddModal, setShowAddModal] = useState(false);
 
+    const KUOTA_PARTI_OPTIONS = ['PKR', 'DAP', 'AMANAH', 'BN'];
+
     const { data: addData, setData: setAddData, post, processing: addProcessing, errors: addErrors, reset: resetAdd } = useForm({
         nama: '',
         kadun_id: selectedKadun?.id || '',
+        kuota_parti: '',
     });
 
     const { data: editData, setData: setEditData, put, processing: editProcessing, errors: editErrors, reset: resetEdit } = useForm({
         nama: '',
         kadun_id: '',
+        kuota_parti: '',
     });
 
     const handleSearch = (e) => {
@@ -54,6 +58,7 @@ export default function Index({ mpkk, kadunList, selectedKadun, filters }) {
         setEditData({
             nama: item.nama,
             kadun_id: item.kadun_id,
+            kuota_parti: item.kuota_parti || '',
         });
     };
 
@@ -157,13 +162,14 @@ export default function Index({ mpkk, kadunList, selectedKadun, filters }) {
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Parlimen</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Nama KADUN</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Nama MPKK</th>
+                                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase w-36">Kuota Parti</th>
                                     <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 uppercase w-32">Tindakan</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {mpkk.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan="5" className="py-8 text-center text-slate-500">
+                                        <td colSpan="6" className="py-8 text-center text-slate-500">
                                             Tiada rekod dijumpai
                                         </td>
                                     </tr>
@@ -217,6 +223,35 @@ export default function Index({ mpkk, kadunList, selectedKadun, filters }) {
                                                 )}
                                                 {editErrors.nama && editingId === item.id && (
                                                     <p className="text-sm text-rose-600 mt-1">{editErrors.nama}</p>
+                                                )}
+                                            </td>
+                                            <td className="py-3 px-4">
+                                                {editingId === item.id ? (
+                                                    <select
+                                                        value={editData.kuota_parti}
+                                                        onChange={(e) => setEditData('kuota_parti', e.target.value)}
+                                                        className="w-full px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                                    >
+                                                        <option value="">—</option>
+                                                        {KUOTA_PARTI_OPTIONS.map((parti) => (
+                                                            <option key={parti} value={parti}>{parti}</option>
+                                                        ))}
+                                                    </select>
+                                                ) : item.kuota_parti ? (
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                                                        item.kuota_parti === 'PKR' ? 'bg-sky-100 text-sky-800' :
+                                                        item.kuota_parti === 'DAP' ? 'bg-rose-100 text-rose-800' :
+                                                        item.kuota_parti === 'AMANAH' ? 'bg-orange-100 text-orange-800' :
+                                                        item.kuota_parti === 'BN' ? 'bg-blue-100 text-blue-800' :
+                                                        'bg-slate-100 text-slate-700'
+                                                    }`}>
+                                                        {item.kuota_parti}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-sm text-slate-400">—</span>
+                                                )}
+                                                {editErrors.kuota_parti && editingId === item.id && (
+                                                    <p className="text-sm text-rose-600 mt-1">{editErrors.kuota_parti}</p>
                                                 )}
                                             </td>
                                             <td className="py-3 px-4">
@@ -335,6 +370,22 @@ export default function Index({ mpkk, kadunList, selectedKadun, filters }) {
                                     ))}
                                 </select>
                                 {addErrors.kadun_id && <p className="text-sm text-rose-600 mt-1">{addErrors.kadun_id}</p>}
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">
+                                    Kuota Parti
+                                </label>
+                                <select
+                                    value={addData.kuota_parti}
+                                    onChange={(e) => setAddData('kuota_parti', e.target.value)}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                >
+                                    <option value="">— Tiada —</option>
+                                    {KUOTA_PARTI_OPTIONS.map((parti) => (
+                                        <option key={parti} value={parti}>{parti}</option>
+                                    ))}
+                                </select>
+                                {addErrors.kuota_parti && <p className="text-sm text-rose-600 mt-1">{addErrors.kuota_parti}</p>}
                             </div>
                             <div className="flex items-center justify-end space-x-3 pt-4">
                                 <button

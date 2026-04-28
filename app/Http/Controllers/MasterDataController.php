@@ -647,6 +647,7 @@ class MasterDataController extends Controller
         $validated = $request->validate([
             'nama' => 'required|string|max:255',
             'kadun_id' => 'required|exists:kadun,id',
+            'kuota_parti' => 'nullable|string|max:50',
         ]);
 
         // Admin Restriction: Can only add MPKK to KADUN in their assigned Parlimen
@@ -686,6 +687,7 @@ class MasterDataController extends Controller
         $validated = $request->validate([
             'nama' => 'required|string|max:255',
             'kadun_id' => 'required|exists:kadun,id',
+            'kuota_parti' => 'nullable|string|max:50',
         ]);
 
         // Admin Restriction: Cannot move MPKK to KADUN in another Parlimen

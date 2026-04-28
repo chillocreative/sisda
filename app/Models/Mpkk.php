@@ -14,6 +14,7 @@ class Mpkk extends Model
     protected $fillable = [
         'nama',
         'kadun_id',
+        'kuota_parti',
     ];
 
     public function kadun()
