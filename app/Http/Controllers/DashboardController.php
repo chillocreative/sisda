@@ -397,6 +397,7 @@ class DashboardController extends Controller
                 'kadun' => $record->kadun,
                 'can_edit' => $canEdit,
                 'is_locked' => $locked,
+                'is_deceased' => (bool) $record->is_deceased,
                 'edit_url' => $canEdit ? route('reports.data-pengundi.edit', ['dataPengundi' => $record->id, 'source' => 'dashboard']) : null,
                 'updated_at' => optional($record->updated_at)->format('d/m/Y h:i A'),
             ];
@@ -443,6 +444,7 @@ class DashboardController extends Controller
                 'daerah_mengundi' => $voter->daerah_mengundi ?? null,
                 'lokaliti'   => $voter->lokaliti ?? null,
                 'can_edit'   => true,
+                'is_deceased' => (bool) ($voter->is_deceased ?? false),
                 'edit_url'   => null,
                 'create_url' => route('reports.hasil-culaan.create'),
             ];

@@ -120,6 +120,11 @@ export default function UserDashboard() {
                                                     }`}>
                                                         {result.type === 'hasil_culaan' ? 'Data Sumbangan' : result.type === 'dpt' ? 'DPT' : result.type === 'voter_db' ? 'DPPR' : 'Data Pengundi'}
                                                     </span>
+                                                    {result.is_deceased && (
+                                                        <span className="px-2 py-0.5 text-xs font-semibold rounded bg-rose-100 text-rose-700 border border-rose-200">
+                                                            Kematian
+                                                        </span>
+                                                    )}
                                                     {result.updated_at && (
                                                         <span className="text-xs text-slate-500">{result.updated_at}</span>
                                                     )}
