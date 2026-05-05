@@ -1447,29 +1447,35 @@ class ReportsController extends Controller
             return response()->json([]);
         }
 
-        // Primary: query voter database for distinct DM values
+        // Voter database DMs: prefer the active upload batch, fall back to
+        // all batches when none is marked active so the dropdown still
+        // works. Merge with master DaerahMengundi entries for the bandar
+        // so manually-curated rows also appear.
         $activeBatch = \App\Models\UploadBatch::where('is_active', true)->first();
+        $voterQuery = \App\Models\PangkalanDataPengundi::query()
+            ->whereRaw('LOWER(parlimen) = ?', [strtolower($bandarNama)])
+            ->whereNotNull('daerah_mengundi')
+            ->where('daerah_mengundi', '!=', '');
         if ($activeBatch) {
-            $voterDM = \App\Models\PangkalanDataPengundi::where('upload_batch_id', $activeBatch->id)
-                ->whereRaw('LOWER(parlimen) = ?', [strtolower($bandarNama)])
-                ->whereNotNull('daerah_mengundi')
-                ->where('daerah_mengundi', '!=', '')
-                ->distinct()
-                ->orderBy('daerah_mengundi')
-                ->pluck('daerah_mengundi');
-
-            if ($voterDM->isNotEmpty()) {
-                return response()->json($voterDM->map(fn($nama, $i) => (object) ['id' => $i + 1, 'nama' => $nama])->values());
-            }
+            $voterQuery->where('upload_batch_id', $activeBatch->id);
         }
+        $voterDM = $voterQuery->distinct()->orderBy('daerah_mengundi')->pluck('daerah_mengundi');
 
-        // Fallback: master data
         $bandar = \App\Models\Bandar::whereRaw('LOWER(nama) = ?', [strtolower($bandarNama)])->first();
-        if ($bandar) {
-            return response()->json(\App\Models\DaerahMengundi::where('bandar_id', $bandar->id)->orderBy('nama')->get());
-        }
+        $masterDM = $bandar
+            ? \App\Models\DaerahMengundi::where('bandar_id', $bandar->id)->orderBy('nama')->pluck('nama')
+            : collect();
 
-        return response()->json([]);
+        $merged = $voterDM
+            ->merge($masterDM)
+            ->filter()
+            ->unique(fn ($n) => strtolower(trim($n)))
+            ->sort(SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
+
+        return response()->json(
+            $merged->map(fn ($nama, $i) => (object) ['id' => $i + 1, 'nama' => $nama])->values()
+        );
     }
 
     /**
@@ -1483,29 +1489,35 @@ class ReportsController extends Controller
             return response()->json([]);
         }
 
-        // Primary: query voter database for distinct lokaliti values
+        // Voter database localities: prefer the active upload batch, but
+        // fall back to all batches when none is marked active so the
+        // dropdown stays populated. Then merge with the master Lokaliti
+        // table so manually-curated entries also appear.
         $activeBatch = \App\Models\UploadBatch::where('is_active', true)->first();
+        $voterQuery = \App\Models\PangkalanDataPengundi::query()
+            ->whereRaw('LOWER(daerah_mengundi) = ?', [strtolower($dmNama)])
+            ->whereNotNull('lokaliti')
+            ->where('lokaliti', '!=', '');
         if ($activeBatch) {
-            $voterLokaliti = \App\Models\PangkalanDataPengundi::where('upload_batch_id', $activeBatch->id)
-                ->whereRaw('LOWER(daerah_mengundi) = ?', [strtolower($dmNama)])
-                ->whereNotNull('lokaliti')
-                ->where('lokaliti', '!=', '')
-                ->distinct()
-                ->orderBy('lokaliti')
-                ->pluck('lokaliti');
-
-            if ($voterLokaliti->isNotEmpty()) {
-                return response()->json($voterLokaliti->map(fn($nama, $i) => (object) ['id' => $i + 1, 'nama' => $nama])->values());
-            }
+            $voterQuery->where('upload_batch_id', $activeBatch->id);
         }
+        $voterLokaliti = $voterQuery->distinct()->orderBy('lokaliti')->pluck('lokaliti');
 
-        // Fallback: master data
         $dmIds = \App\Models\DaerahMengundi::whereRaw('LOWER(nama) = ?', [strtolower($dmNama)])->pluck('id');
-        if ($dmIds->isNotEmpty()) {
-            return response()->json(\App\Models\Lokaliti::whereIn('daerah_mengundi_id', $dmIds)->orderBy('nama')->get());
-        }
+        $masterLokaliti = $dmIds->isNotEmpty()
+            ? \App\Models\Lokaliti::whereIn('daerah_mengundi_id', $dmIds)->orderBy('nama')->pluck('nama')
+            : collect();
 
-        return response()->json([]);
+        $merged = $voterLokaliti
+            ->merge($masterLokaliti)
+            ->filter()
+            ->unique(fn ($n) => strtolower(trim($n)))
+            ->sort(SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
+
+        return response()->json(
+            $merged->map(fn ($nama, $i) => (object) ['id' => $i + 1, 'nama' => $nama])->values()
+        );
     }
 
     /**
