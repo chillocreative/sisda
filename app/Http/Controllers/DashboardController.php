@@ -450,6 +450,40 @@ class DashboardController extends Controller
             ];
         }
 
+        // Cross-source deceased flag: if any record (DataPengundi, HasilCulaan,
+        // or PangkalanDataPengundi) for the same IC is marked deceased, mark
+        // every result row for that IC as deceased — covers the case where
+        // parlimen scoping hides the canonical row from this user.
+        $candidateIcs = collect()
+            ->merge($dataPengundi->pluck('no_ic'))
+            ->merge($voterResults->pluck('no_ic'))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($candidateIcs->isNotEmpty()) {
+            $deceasedIcs = collect()
+                ->merge(DataPengundi::whereIn('no_ic', $candidateIcs)->where('is_deceased', true)->pluck('no_ic'))
+                ->merge(HasilCulaan::whereIn('no_ic', $candidateIcs)->where('is_deceased', true)->pluck('no_ic'))
+                ->merge(PangkalanDataPengundi::whereIn('no_ic', $candidateIcs)->where('is_deceased', true)->pluck('no_ic'))
+                ->unique()
+                ->flip();
+
+            // Use the real IC for masked rows: data_pengundi rows mask no_ic
+            // when the row is locked, but the real IC came from $dataPengundi.
+            $realIcByDpId = $dataPengundi->pluck('no_ic', 'id');
+            foreach ($results as &$row) {
+                $ic = $row['no_ic'];
+                if ($ic === VoterDataMasker::MASK && !empty($row['id'])) {
+                    $ic = $realIcByDpId[$row['id']] ?? null;
+                }
+                if ($ic && $deceasedIcs->has($ic)) {
+                    $row['is_deceased'] = true;
+                }
+            }
+            unset($row);
+        }
+
         return response()->json($results);
     }
 

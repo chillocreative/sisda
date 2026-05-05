@@ -269,6 +269,18 @@ class ReportsController extends Controller
             }
         }
 
+        // Resolve the deceased flag from any existing record sharing this IC
+        // so the toggle reflects the saved state when a user revisits the
+        // create form (e.g. after parlimen scoping hid the DataPengundi row
+        // from the dashboard search dropdown).
+        $initialDeceased = false;
+        $icCandidate = $request->query('ic') ?: ($initialVoter['no_ic'] ?? null);
+        if ($icCandidate && preg_match('/^\d{12}$/', $icCandidate)) {
+            $initialDeceased = DataPengundi::where('no_ic', $icCandidate)->where('is_deceased', true)->exists()
+                || HasilCulaan::where('no_ic', $icCandidate)->where('is_deceased', true)->exists()
+                || \App\Models\PangkalanDataPengundi::where('no_ic', $icCandidate)->where('is_deceased', true)->exists();
+        }
+
         return Inertia::render('Reports/HasilCulaan/Create', [
             'bangsaList' => $bangsaList,
             'negeriList' => $negeriList,
@@ -284,6 +296,7 @@ class ReportsController extends Controller
             'lokalitiList' => $lokalitiList,
             'initialVoter' => $initialVoter,
             'initialSourceId' => $initialSourceId,
+            'initialDeceased' => $initialDeceased,
         ]);
     }
 

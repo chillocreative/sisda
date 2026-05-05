@@ -30,6 +30,7 @@ export default function Create({
     lokalitiList,
     initialVoter = null,
     initialSourceId = null,
+    initialDeceased = false,
 }) {
     const [uploadProgress, setUploadProgress] = useState(0);
     const [isUploading, setIsUploading] = useState(false);
@@ -98,7 +99,7 @@ export default function Create({
         status_pengundi: initialVoter?.status_pengundi || '',
         kad_pengenalan: null,
         nota: '',
-        is_deceased: false,
+        is_deceased: !!initialDeceased,
         has_sumbangan: !!initialSourceId,
         update_status_pengundi: false,
         locked_source_id: initialSourceId || '',

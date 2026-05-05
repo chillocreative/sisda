@@ -122,7 +122,7 @@ export default function UserDashboard() {
                                                     </span>
                                                     {result.is_deceased && (
                                                         <span className="px-2 py-0.5 text-xs font-semibold rounded bg-rose-100 text-rose-700 border border-rose-200">
-                                                            Kematian
+                                                            Meninggal
                                                         </span>
                                                     )}
                                                     {result.updated_at && (
