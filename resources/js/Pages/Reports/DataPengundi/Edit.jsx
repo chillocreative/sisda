@@ -122,17 +122,21 @@ export default function Edit({
                 setKadunOptions(kadunRes.data);
                 setDaerahMengundiOptions(dmRes.data);
 
-                // Apply pending voter data if available
+                // Apply pending voter data if available, falling back to
+                // the raw voter value when no master match exists so the
+                // field still submits and the dropdown render appends an
+                // option for the value below.
                 if (pendingVoterData.current) {
                     const pending = pendingVoterData.current;
+                    const norm = (s) => (s || '').toString().trim().toLowerCase();
                     const updates = {};
                     if (pending.kadun) {
-                        const match = kadunRes.data.find(k => k.nama.toLowerCase() === pending.kadun.toLowerCase());
-                        if (match) updates.kadun = match.nama;
+                        const match = kadunRes.data.find(k => norm(k.nama) === norm(pending.kadun));
+                        updates.kadun = match ? match.nama : pending.kadun;
                     }
                     if (pending.daerah_mengundi) {
-                        const match = dmRes.data.find(d => d.nama.toLowerCase() === pending.daerah_mengundi.toLowerCase());
-                        if (match) updates.daerah_mengundi = match.nama;
+                        const match = dmRes.data.find(d => norm(d.nama) === norm(pending.daerah_mengundi));
+                        updates.daerah_mengundi = match ? match.nama : pending.daerah_mengundi;
                     }
                     if (Object.keys(updates).length > 0) {
                         setData(prev => ({ ...prev, ...updates }));
@@ -191,12 +195,12 @@ export default function Edit({
                 });
                 setLokalitiOptions(response.data);
 
-                // Apply pending voter lokaliti if available
+                // Apply pending voter lokaliti if available, falling
+                // back to the raw voter value when no master match exists.
                 if (pendingVoterData.current?.lokaliti) {
-                    const match = response.data.find(l => l.nama.toLowerCase() === pendingVoterData.current.lokaliti.toLowerCase());
-                    if (match) {
-                        setData(prev => ({ ...prev, lokaliti: match.nama }));
-                    }
+                    const target = pendingVoterData.current.lokaliti;
+                    const match = response.data.find(l => (l.nama || '').toString().trim().toLowerCase() === target.toString().trim().toLowerCase());
+                    setData(prev => ({ ...prev, lokaliti: match ? match.nama : target }));
                     pendingVoterData.current = null;
                 }
             } catch (error) {
@@ -265,7 +269,7 @@ export default function Edit({
             nama: voter.nama || data.nama,
             bangsa: locked ? data.bangsa : (voter.bangsa || data.bangsa),
             negeri: locked ? data.negeri : (voter.negeri ? toTitleCase(voter.negeri) : data.negeri),
-            parlimen: parlimenMatch ? parlimenMatch.nama : data.parlimen,
+            parlimen: parlimenMatch ? parlimenMatch.nama : (voter.parlimen || data.parlimen),
         });
         setShowSuggestions(false);
         setIcSuggestions([]);
@@ -290,7 +294,7 @@ export default function Edit({
                             nama: res.data.nama || prev.nama,
                             bangsa: locked ? prev.bangsa : (res.data.bangsa || prev.bangsa),
                             negeri: locked ? prev.negeri : (res.data.negeri ? toTitleCase(res.data.negeri) : prev.negeri),
-                            parlimen: parlimenMatch ? parlimenMatch.nama : prev.parlimen,
+                            parlimen: parlimenMatch ? parlimenMatch.nama : (res.data.parlimen || prev.parlimen),
                         }));
                     }
                 })
@@ -662,6 +666,9 @@ export default function Edit({
                                         {parlimenList.map((item) => (
                                             <option key={item.id} value={item.nama}>{item.nama}</option>
                                         ))}
+                                        {data.parlimen && !parlimenList.some(p => p.nama === data.parlimen) && (
+                                            <option value={data.parlimen}>{data.parlimen}</option>
+                                        )}
                                     </select>
                                     {errors.parlimen && <p className="text-sm text-rose-600 mt-1">{errors.parlimen}</p>}
                                 </div>
@@ -680,6 +687,9 @@ export default function Edit({
                                         {kadunOptions.map((item) => (
                                             <option key={item.id} value={item.nama}>{item.nama}</option>
                                         ))}
+                                        {data.kadun && !kadunOptions.some(k => k.nama === data.kadun) && (
+                                            <option value={data.kadun}>{data.kadun}</option>
+                                        )}
                                     </select>
                                     {errors.kadun && <p className="text-sm text-rose-600 mt-1">{errors.kadun}</p>}
                                 </div>
@@ -698,6 +708,9 @@ export default function Edit({
                                         {mpkkOptions.map((item) => (
                                             <option key={item.id} value={item.nama}>{item.nama}</option>
                                         ))}
+                                        {data.mpkk && !mpkkOptions.some(m => m.nama === data.mpkk) && (
+                                            <option value={data.mpkk}>{data.mpkk}</option>
+                                        )}
                                     </select>
                                     {errors.mpkk && <p className="text-sm text-rose-600 mt-1">{errors.mpkk}</p>}
                                 </div>
@@ -716,6 +729,9 @@ export default function Edit({
                                         {daerahMengundiOptions.map((item) => (
                                             <option key={item.id} value={item.nama}>{item.nama}</option>
                                         ))}
+                                        {data.daerah_mengundi && !daerahMengundiOptions.some(d => d.nama === data.daerah_mengundi) && (
+                                            <option value={data.daerah_mengundi}>{data.daerah_mengundi}</option>
+                                        )}
                                     </select>
                                     {errors.daerah_mengundi && <p className="text-sm text-rose-600 mt-1">{errors.daerah_mengundi}</p>}
                                 </div>
@@ -733,6 +749,9 @@ export default function Edit({
                                         {lokalitiOptions.map((item) => (
                                             <option key={item.id} value={item.nama}>{item.nama}</option>
                                         ))}
+                                        {data.lokaliti && !lokalitiOptions.some(l => l.nama === data.lokaliti) && (
+                                            <option value={data.lokaliti}>{data.lokaliti}</option>
+                                        )}
                                     </select>
                                     {errors.lokaliti && <p className="text-sm text-rose-600 mt-1">{errors.lokaliti}</p>}
                                 </div>

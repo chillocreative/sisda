@@ -194,17 +194,23 @@ export default function Create({
                 setKadunOptions(kadunRes.data);
                 setDaerahMengundiOptions(dmRes.data);
 
-                // Apply pending voter data if available
+                // Apply pending voter data if available. When the voter
+                // value cannot be matched against the dropdown options
+                // (e.g. casing differs, master row is missing) keep the
+                // raw voter value so the field still submits and the
+                // dropdown render falls back to displaying it via an
+                // appended option.
                 if (pendingVoterData.current) {
                     const pending = pendingVoterData.current;
+                    const norm = (s) => (s || '').toString().trim().toLowerCase();
                     const updates = {};
                     if (pending.kadun) {
-                        const match = kadunRes.data.find(k => k.nama.toLowerCase() === pending.kadun.toLowerCase());
-                        if (match) updates.kadun = match.nama;
+                        const match = kadunRes.data.find(k => norm(k.nama) === norm(pending.kadun));
+                        updates.kadun = match ? match.nama : pending.kadun;
                     }
                     if (pending.daerah_mengundi) {
-                        const match = dmRes.data.find(d => d.nama.toLowerCase() === pending.daerah_mengundi.toLowerCase());
-                        if (match) updates.daerah_mengundi = match.nama;
+                        const match = dmRes.data.find(d => norm(d.nama) === norm(pending.daerah_mengundi));
+                        updates.daerah_mengundi = match ? match.nama : pending.daerah_mengundi;
                     }
                     if (Object.keys(updates).length > 0) {
                         setData(prev => ({ ...prev, ...updates }));
@@ -263,12 +269,12 @@ export default function Create({
                 });
                 setLokalitiOptions(response.data);
 
-                // Apply pending voter lokaliti if available
+                // Apply pending voter lokaliti if available. Fall back
+                // to the raw voter value when no master match exists.
                 if (pendingVoterData.current?.lokaliti) {
-                    const match = response.data.find(l => l.nama.toLowerCase() === pendingVoterData.current.lokaliti.toLowerCase());
-                    if (match) {
-                        setData(prev => ({ ...prev, lokaliti: match.nama }));
-                    }
+                    const target = pendingVoterData.current.lokaliti;
+                    const match = response.data.find(l => (l.nama || '').toString().trim().toLowerCase() === target.toString().trim().toLowerCase());
+                    setData(prev => ({ ...prev, lokaliti: match ? match.nama : target }));
                     pendingVoterData.current = null;
                 }
             } catch (error) {
@@ -454,7 +460,7 @@ export default function Create({
                                 bandar: MASK,
                                 pendapatan_isi_rumah: MASK,
                                 nota: MASK,
-                                parlimen: parlimenMatch ? parlimenMatch.nama : prev.parlimen,
+                                parlimen: parlimenMatch ? parlimenMatch.nama : (voter.parlimen || prev.parlimen),
                                 mpkk: voter.mpkk || prev.mpkk,
                                 keahlian_parti: voter.keahlian_parti || prev.keahlian_parti,
                                 kecenderungan_politik: voter.kecenderungan_politik || prev.kecenderungan_politik,
@@ -467,7 +473,7 @@ export default function Create({
                                 nama: prev.nama || voter.nama || '',
                                 bangsa: prev.bangsa || voter.bangsa || '',
                                 negeri: voter.negeri ? toTitleCase(voter.negeri) : prev.negeri,
-                                parlimen: parlimenMatch ? parlimenMatch.nama : prev.parlimen,
+                                parlimen: parlimenMatch ? parlimenMatch.nama : (voter.parlimen || prev.parlimen),
                             }));
                         }
                     }
@@ -1535,6 +1541,9 @@ export default function Create({
                                     <select value={data.parlimen} onChange={(e) => setData({...data, parlimen: e.target.value, kadun: '', mpkk: '', daerah_mengundi: '', lokaliti: ''})} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400" required>
                                         <option value="">Pilih Parlimen</option>
                                         {parlimenList.map((item) => (<option key={item.id} value={item.nama}>{item.nama}</option>))}
+                                        {data.parlimen && !parlimenList.some(p => p.nama === data.parlimen) && (
+                                            <option value={data.parlimen}>{data.parlimen}</option>
+                                        )}
                                     </select>
                                     {errors.parlimen && <p className="text-sm text-rose-600 mt-1">{errors.parlimen}</p>}
                                 </div>
@@ -1543,6 +1552,9 @@ export default function Create({
                                     <select value={data.kadun} onChange={(e) => setData({...data, kadun: e.target.value, mpkk: ''})} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400" required>
                                         <option value="">{loadingKadun ? "Memuat..." : "Pilih KADUN"}</option>
                                         {kadunOptions.map((item) => (<option key={item.id} value={item.nama}>{item.nama}</option>))}
+                                        {data.kadun && !kadunOptions.some(k => k.nama === data.kadun) && (
+                                            <option value={data.kadun}>{data.kadun}</option>
+                                        )}
                                     </select>
                                     {errors.kadun && <p className="text-sm text-rose-600 mt-1">{errors.kadun}</p>}
                                 </div>
@@ -1551,6 +1563,9 @@ export default function Create({
                                     <select value={data.mpkk} onChange={(e) => setData('mpkk', e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400" required>
                                         <option value="">{loadingMpkk ? "Memuat..." : "Pilih MPKK"}</option>
                                         {mpkkOptions.map((item) => (<option key={item.id} value={item.nama}>{item.nama}</option>))}
+                                        {data.mpkk && !mpkkOptions.some(m => m.nama === data.mpkk) && (
+                                            <option value={data.mpkk}>{data.mpkk}</option>
+                                        )}
                                     </select>
                                     {errors.mpkk && <p className="text-sm text-rose-600 mt-1">{errors.mpkk}</p>}
                                 </div>
@@ -1559,6 +1574,9 @@ export default function Create({
                                     <select value={data.daerah_mengundi} onChange={(e) => setData({...data, daerah_mengundi: e.target.value, lokaliti: ''})} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400" required>
                                         <option value="">{loadingDaerahMengundi ? "Memuat..." : "Pilih Daerah Mengundi"}</option>
                                         {daerahMengundiOptions.map((item) => (<option key={item.id} value={item.nama}>{item.nama}</option>))}
+                                        {data.daerah_mengundi && !daerahMengundiOptions.some(d => d.nama === data.daerah_mengundi) && (
+                                            <option value={data.daerah_mengundi}>{data.daerah_mengundi}</option>
+                                        )}
                                     </select>
                                     {errors.daerah_mengundi && <p className="text-sm text-rose-600 mt-1">{errors.daerah_mengundi}</p>}
                                 </div>
@@ -1567,6 +1585,9 @@ export default function Create({
                                     <select value={data.lokaliti} onChange={(e) => setData('lokaliti', e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400">
                                         <option value="">{loadingLokaliti ? "Memuat..." : "Pilih Lokaliti"}</option>
                                         {lokalitiOptions.map((item) => (<option key={item.id} value={item.nama}>{item.nama}</option>))}
+                                        {data.lokaliti && !lokalitiOptions.some(l => l.nama === data.lokaliti) && (
+                                            <option value={data.lokaliti}>{data.lokaliti}</option>
+                                        )}
                                     </select>
                                     {errors.lokaliti && <p className="text-sm text-rose-600 mt-1">{errors.lokaliti}</p>}
                                 </div>
