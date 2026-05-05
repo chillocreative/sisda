@@ -181,6 +181,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/reports/hasil-culaan/export', [\App\Http\Controllers\ReportsController::class, 'exportHasilCulaan'])->name('reports.hasil-culaan.export');
     Route::get('/api/hasil-culaan/by-ic', [\App\Http\Controllers\ReportsController::class, 'hasilCulaanByIc'])->name('api.hasil-culaan.by-ic');
     Route::post('/reports/hasil-culaan/{hasilCulaan}/toggle-deceased', [\App\Http\Controllers\ReportsController::class, 'hasilCulaanToggleDeceased'])->name('reports.hasil-culaan.toggle-deceased');
+    Route::post('/reports/hasil-culaan/store-deceased', [\App\Http\Controllers\ReportsController::class, 'hasilCulaanStoreDeceased'])->name('reports.hasil-culaan.store-deceased');
 
     // Data Pengundi
     Route::get('/reports/data-pengundi', [\App\Http\Controllers\ReportsController::class, 'dataPengundiIndex'])->name('reports.data-pengundi.index');

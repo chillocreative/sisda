@@ -45,6 +45,7 @@ export default function Create({
     const [bantuanHistory, setBantuanHistory] = useState([]);
     const [bantuanHistoryLoaded, setBantuanHistoryLoaded] = useState(false);
     const [showBantuanHistory, setShowBantuanHistory] = useState(true);
+    const [savingDeceased, setSavingDeceased] = useState(false);
     const pendingVoterData = useRef(null);
     const sumbanganCardRef = useRef(null);
     const sumbanganAnchorTop = useRef(null);
@@ -605,15 +606,39 @@ export default function Create({
                 <div className={`rounded-xl border p-4 flex items-center justify-between ${data.is_deceased ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-[#FFCEE3]'}`}>
                     <div>
                         <span className={`text-sm font-medium ${data.is_deceased ? 'text-rose-700' : 'text-slate-700'}`}>
-                            {data.is_deceased ? 'Ditandakan sebagai kematian — semua medan dikunci' : 'Tandakan sebagai kematian'}
+                            {savingDeceased
+                                ? 'Menyimpan rekod kematian…'
+                                : data.is_deceased
+                                    ? 'Ditandakan sebagai kematian — semua medan dikunci'
+                                    : 'Tandakan sebagai kematian'}
                         </span>
                     </div>
                     <label className="flex items-center gap-2 cursor-pointer">
                         <span className={`text-sm font-medium ${data.is_deceased ? 'text-rose-600' : 'text-slate-500'}`}>Kematian</span>
                         <button
                             type="button"
-                            onClick={() => setData('is_deceased', !data.is_deceased)}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${data.is_deceased ? 'bg-rose-500' : 'bg-slate-300'}`}
+                            disabled={savingDeceased || data.is_deceased}
+                            onClick={() => {
+                                if (data.is_deceased || savingDeceased) return;
+                                if (!data.no_ic || data.no_ic.length !== 12) {
+                                    alert('Sila masukkan No. IC (12 digit) dahulu sebelum menandakan sebagai kematian.');
+                                    return;
+                                }
+                                if (!confirm('Tandakan rekod ini sebagai kematian? Rekod akan disimpan secara automatik.')) {
+                                    return;
+                                }
+                                setData('is_deceased', true);
+                                setSavingDeceased(true);
+                                post(route('reports.hasil-culaan.store-deceased'), {
+                                    preserveScroll: true,
+                                    onError: () => {
+                                        setData('is_deceased', false);
+                                        setSavingDeceased(false);
+                                    },
+                                    onFinish: () => setSavingDeceased(false),
+                                });
+                            }}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${data.is_deceased ? 'bg-rose-500' : 'bg-slate-300'} ${savingDeceased ? 'opacity-60 cursor-wait' : ''}`}
                         >
                             <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${data.is_deceased ? 'translate-x-6' : 'translate-x-1'}`} />
                         </button>

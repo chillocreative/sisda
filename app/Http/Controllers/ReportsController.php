@@ -787,6 +787,114 @@ class ReportsController extends Controller
     }
 
     /**
+     * Mark a voter as deceased directly from the Borang Data Pengundi
+     * create page. Updates any existing DataPengundi/HasilCulaan rows for
+     * the IC, or creates a minimal DataPengundi row when none exists yet.
+     */
+    public function hasilCulaanStoreDeceased(Request $request)
+    {
+        $user = auth()->user();
+
+        // Masked-create flow: unmask sensitive fields against the source
+        // record before validating, mirroring hasilCulaanStore().
+        if ($request->filled('locked_source_id')) {
+            $source = DataPengundi::find($request->input('locked_source_id'));
+            if ($source) {
+                foreach (VoterDataMasker::SENSITIVE_FIELDS as $field) {
+                    if ($request->input($field) === VoterDataMasker::MASK) {
+                        $request->merge([$field => $source->{$field}]);
+                    }
+                }
+            }
+        }
+
+        $validated = $request->validate([
+            'no_ic' => 'required|string|digits:12',
+            'nama' => 'nullable|string|max:255',
+            'umur' => 'nullable|integer|min:0|max:150',
+            'no_tel' => 'nullable|string|max:255',
+            'bangsa' => 'nullable|string|max:255',
+            'alamat' => 'nullable|string',
+            'poskod' => 'nullable|string|max:255',
+            'negeri' => 'nullable|string|max:255',
+            'bandar' => 'nullable|string|max:255',
+            'parlimen' => 'nullable|string|max:255',
+            'kadun' => 'nullable|string|max:255',
+            'mpkk' => 'nullable|string|max:255',
+            'daerah_mengundi' => 'nullable|string|max:255',
+            'lokaliti' => 'nullable|string|max:255',
+            'keahlian_parti' => 'nullable|string|max:255',
+            'kecenderungan_politik' => 'nullable|string|max:255',
+            'status_pengundi' => 'nullable|string|max:255',
+            'nota' => 'nullable|string',
+        ]);
+
+        // Parlimen restriction: admin/user roles can only mark records
+        // within their own Parlimen when the parlimen is provided.
+        if (($user->isAdmin() || $user->isUser()) && !empty($validated['parlimen'])) {
+            if ($validated['parlimen'] !== ($user->bandar->nama ?? '')) {
+                abort(403, 'You can only mark deceased records for your Parlimen (' . ($user->bandar->nama ?? 'Unknown') . ').');
+            }
+        }
+
+        $existingDataPengundi = DataPengundi::where('no_ic', $validated['no_ic'])->get();
+        $existingHasilCulaan = HasilCulaan::where('no_ic', $validated['no_ic'])->get();
+
+        // If any existing record exists for this IC, mark them all deceased
+        // and let the sync service propagate the flag across both tables.
+        if ($existingDataPengundi->isNotEmpty() || $existingHasilCulaan->isNotEmpty()) {
+            foreach ($existingDataPengundi as $row) {
+                if (! $row->is_deceased) {
+                    $row->update(['is_deceased' => true]);
+                    EditHistory::log('data_pengundi', $row->id, 'marked deceased');
+                }
+            }
+            foreach ($existingHasilCulaan as $row) {
+                if (! $row->is_deceased) {
+                    $row->update(['is_deceased' => true]);
+                    EditHistory::log('hasil_culaan', $row->id, 'marked deceased');
+                }
+            }
+            if ($first = $existingDataPengundi->first()) {
+                VoterSyncService::syncFromDataPengundi($first->fresh());
+            } elseif ($first = $existingHasilCulaan->first()) {
+                VoterSyncService::syncFromHasilCulaan($first->fresh());
+            }
+            return redirect()->route('reports.data-pengundi.index')->with('success', 'Rekod telah ditandakan sebagai kematian');
+        }
+
+        // Otherwise create a minimal DataPengundi marked deceased. Required
+        // schema columns get safe defaults so the create succeeds even when
+        // the voter database lookup did not pre-fill every field.
+        $record = DataPengundi::create([
+            'nama' => $validated['nama'] ?: 'Tidak Diketahui',
+            'no_ic' => $validated['no_ic'],
+            'umur' => $validated['umur'] ?? 0,
+            'no_tel' => $validated['no_tel'] ?: '-',
+            'bangsa' => $validated['bangsa'] ?: '-',
+            'alamat' => $validated['alamat'] ?: '-',
+            'poskod' => $validated['poskod'] ?: '-',
+            'negeri' => $validated['negeri'] ?: '-',
+            'bandar' => $validated['bandar'] ?: '-',
+            'parlimen' => $validated['parlimen'] ?: '-',
+            'kadun' => $validated['kadun'] ?: '-',
+            'mpkk' => $validated['mpkk'] ?? null,
+            'daerah_mengundi' => $validated['daerah_mengundi'] ?? null,
+            'lokaliti' => $validated['lokaliti'] ?? null,
+            'keahlian_parti' => $validated['keahlian_parti'] ?? null,
+            'kecenderungan_politik' => $validated['kecenderungan_politik'] ?? null,
+            'status_pengundi' => $validated['status_pengundi'] ?? null,
+            'nota' => $validated['nota'] ?? null,
+            'hubungan' => null,
+            'is_deceased' => true,
+            'submitted_by' => auth()->id(),
+        ]);
+        EditHistory::log('data_pengundi', $record->id, 'created (deceased)');
+
+        return redirect()->route('reports.data-pengundi.index')->with('success', 'Rekod telah ditandakan sebagai kematian');
+    }
+
+    /**
      * Remove multiple Hasil Culaan records.
      */
     public function hasilCulaanBulkDelete(Request $request)
