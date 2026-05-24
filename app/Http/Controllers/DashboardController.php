@@ -346,16 +346,25 @@ class DashboardController extends Controller
     }
 
     /**
-     * Search for records by IC number
+     * Search for records by IC number or name.
+     *
+     * Accepts `q` (preferred) or legacy `ic` query string. When the term is
+     * purely numeric, it matches IC only (preserves the old DOB-prefix
+     * padding heuristic for DPPR). Otherwise it matches both IC and name so
+     * the dashboard dropdown surfaces results regardless of which field the
+     * user typed into.
      */
     public function searchIC(Request $request)
     {
         $user = auth()->user();
-        $icNumber = $request->input('ic');
+        $term = trim((string) ($request->input('q') ?? $request->input('ic') ?? ''));
 
-        if (!$icNumber || strlen($icNumber) < 3) {
+        if ($term === '' || strlen($term) < 3) {
             return response()->json([]);
         }
+
+        $isNumeric = ctype_digit($term);
+        $like = '%' . $term . '%';
 
         // Non-super_admin viewers may only see records inside their own parlimen.
         // A user with no bandar assigned therefore sees nothing.
@@ -374,15 +383,21 @@ class DashboardController extends Controller
         // Pengundi appear in the dropdown. Sumbangan history is still
         // accessible via the edit page and the Sejarah Bantuan card.
 
-        // Search in Data Pengundi
-        $dataPengundiQuery = DataPengundi::where('no_ic', 'like', "%{$icNumber}%")
+        // Search in Data Pengundi (IC always; name when query is non-numeric)
+        $dataPengundiQuery = DataPengundi::query()
+            ->where(function ($q) use ($like, $isNumeric) {
+                $q->where('no_ic', 'like', $like);
+                if (! $isNumeric) {
+                    $q->orWhere('nama', 'like', $like);
+                }
+            })
             ->with('submittedBy');
 
         if ($parlimenScope !== null) {
             $dataPengundiQuery->whereRaw('UPPER(bandar) = ?', [strtoupper($parlimenScope)]);
         }
 
-        $dataPengundi = $dataPengundiQuery->limit(5)->get();
+        $dataPengundi = $dataPengundiQuery->limit(10)->get();
 
         foreach ($dataPengundi as $record) {
             $canEdit = $this->canModifyDataPengundi($record, $user);
@@ -405,10 +420,13 @@ class DashboardController extends Controller
 
         // Search in ALL voter database records (upload batch + DPT)
         // Deduplicate by no_ic + nama to avoid showing the same person multiple times
-        $voterQuery = PangkalanDataPengundi::where(function ($q) use ($icNumber) {
-                $q->where('no_ic', 'like', "%{$icNumber}%");
-                if (strlen($icNumber) >= 6 && strlen($icNumber) <= 8) {
-                    $q->orWhere('no_ic', $icNumber . '0000');
+        $voterQuery = PangkalanDataPengundi::where(function ($q) use ($term, $like, $isNumeric) {
+                $q->where('no_ic', 'like', $like);
+                if (! $isNumeric) {
+                    $q->orWhere('nama', 'like', $like);
+                }
+                if ($isNumeric && strlen($term) >= 6 && strlen($term) <= 8) {
+                    $q->orWhere('no_ic', $term . '0000');
                 }
             });
 

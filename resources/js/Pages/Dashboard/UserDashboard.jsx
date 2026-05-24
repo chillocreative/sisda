@@ -42,7 +42,7 @@ export default function UserDashboard() {
         setIsSearching(true);
         try {
             const response = await axios.get(route('dashboard.search-ic'), {
-                params: { ic: searchQuery }
+                params: { q: searchQuery }
             });
             setSearchResults(response.data);
             setShowResults(true);
@@ -76,9 +76,9 @@ export default function UserDashboard() {
                     <p className="text-slate-600 mt-2">Sistem Maklumat Sumber Data</p>
                 </div>
 
-                {/* IC Search Section */}
+                {/* Pengundi Search Section */}
                 <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
-                    <h2 className="text-xl font-semibold text-slate-900 mb-4">Carian No. Kad Pengenalan</h2>
+                    <h2 className="text-xl font-semibold text-slate-900 mb-4">Carian Pengundi</h2>
                     <div className="relative" ref={searchRef}>
                         <div className="relative">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
@@ -86,7 +86,7 @@ export default function UserDashboard() {
                                 type="text"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="Masukkan No Kad Pengenalan"
+                                placeholder="Masukkan No Kad Pengenalan atau Nama"
                                 className="w-full pl-14 pr-4 py-4 text-lg border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                             />
                             {isSearching && (
