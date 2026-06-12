@@ -35,7 +35,9 @@ import {
     List,
     Upload,
     ShieldAlert,
-    MessageSquare
+    MessageSquare,
+    Swords,
+    Radar
 } from 'lucide-react';
 
 export default function AuthenticatedLayout({ children }) {
@@ -151,6 +153,20 @@ export default function AuthenticatedLayout({ children }) {
                 submenu: userLaporanSubmenu
             }
         ] : []),
+        // Pilihanraya — Digital War Room (Super Admin only)
+        ...(user.role === 'super_admin' ? [
+            {
+                name: 'Pilihanraya',
+                href: route('pilihanraya.war-room'),
+                icon: Swords,
+                current: route().current('pilihanraya.*'),
+                hasSubmenu: true,
+                submenu: [
+                    { name: 'War Room', href: route('pilihanraya.war-room'), icon: Radar },
+                    { name: 'Pusat Simulasi', href: route('pilihanraya.simulasi'), icon: Brain },
+                ]
+            }
+        ] : []),
         // Call Center (Super Admin, Admin, and Super User — hidden from plain user)
         ...(user.role === 'super_admin' || user.role === 'admin' || user.role === 'super_user' ? [
             {
@@ -187,6 +203,8 @@ export default function AuthenticatedLayout({ children }) {
             setOpenDropdown('Laporan');
         } else if (route().current('call-center.*')) {
             setOpenDropdown('Pusat Panggilan');
+        } else if (route().current('pilihanraya.*')) {
+            setOpenDropdown('Pilihanraya');
         }
     }, [route().current()]);
 

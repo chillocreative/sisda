@@ -1,0 +1,339 @@
+import { useEffect, useReducer, useRef, useState } from 'react';
+import { Head } from '@inertiajs/react';
+import axios from 'axios';
+import {
+    Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart,
+    ResponsiveContainer, Tooltip, XAxis, YAxis,
+} from 'recharts';
+import {
+    Activity, AlertTriangle, Crosshair, Landmark, LayoutDashboard,
+    Loader2, Map, PieChart as PieChartIcon, RefreshCw, Scale, Users, Vote,
+} from 'lucide-react';
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { EMPTY_FILTERS, cleanParams } from './filters';
+import PilihanrayaShell, { usePilihanrayaTheme } from './components/PilihanrayaShell';
+import TabBar from './components/TabBar';
+import FilterBar from './components/FilterBar';
+import KpiCard from './components/KpiCard';
+import SentimentDonut from './components/SentimentDonut';
+import TrendChart from './components/TrendChart';
+import PopulationPyramid from './components/PopulationPyramid';
+import HeatTable from './components/HeatTable';
+import SeatHealthGrid from './components/SeatHealthGrid';
+import BattlefieldTable from './components/BattlefieldTable';
+import AlertList from './components/AlertList';
+import { CHART_COLORS } from './theme';
+
+const TABS = [
+    { key: 'gambaran', label: 'Gambaran', icon: LayoutDashboard, route: 'pilihanraya.api.overview' },
+    { key: 'komposisi', label: 'Komposisi', icon: PieChartIcon, route: 'pilihanraya.api.composition' },
+    { key: 'sentimen', label: 'Sentimen', icon: Activity, route: 'pilihanraya.api.sentiment' },
+    { key: 'skor', label: 'Skor Kerusi', icon: Scale, route: 'pilihanraya.api.seat-scores' },
+    { key: 'medan', label: 'Medan Tempur', icon: Crosshair, route: 'pilihanraya.api.battlefield' },
+    { key: 'amaran', label: 'Amaran Awal', icon: AlertTriangle, route: 'pilihanraya.api.alerts' },
+];
+
+/**
+ * Lazy per-tab data layer: each tab fetches on first activation and is
+ * memoised until the filters change. Switching to an already-cached
+ * tab clears the loading flag (an in-flight fetch for another tab must
+ * not strand the spinner), and responses from a superseded filter set
+ * are discarded instead of polluting the fresh cache.
+ */
+function useTabData(activeTab, filters, seed) {
+    const cacheRef = useRef({ gambaran: seed });
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [reloadNonce, setReloadNonce] = useState(0);
+    const [, force] = useReducer((x) => x + 1, 0);
+    const filterKey = JSON.stringify(filters);
+    const currentKeyRef = useRef(filterKey);
+    const pendingRef = useRef(null);
+
+    useEffect(() => {
+        if (currentKeyRef.current !== filterKey) {
+            currentKeyRef.current = filterKey;
+            cacheRef.current = {};
+            force();
+        }
+    }, [filterKey]);
+
+    useEffect(() => {
+        setError(null);
+        if (cacheRef.current[activeTab] !== undefined) {
+            pendingRef.current = null;
+            setLoading(false);
+            return;
+        }
+        const tabDef = TABS.find((tab) => tab.key === activeTab);
+        if (!tabDef) return;
+
+        const requestKey = `${activeTab}|${filterKey}`;
+        pendingRef.current = requestKey;
+        setLoading(true);
+        axios.get(route(tabDef.route), { params: cleanParams(filters) })
+            .then((res) => {
+                if (filterKey === currentKeyRef.current) {
+                    cacheRef.current[activeTab] = res.data;
+                    force();
+                }
+            })
+            .catch(() => {
+                if (pendingRef.current === requestKey) {
+                    setError('Gagal memuatkan data. Sila cuba semula.');
+                }
+            })
+            .finally(() => {
+                if (pendingRef.current === requestKey) {
+                    pendingRef.current = null;
+                    setLoading(false);
+                }
+            });
+    }, [activeTab, filterKey, reloadNonce]);
+
+    const retry = () => setReloadNonce((n) => n + 1);
+
+    return { data: cacheRef.current[activeTab], loading, error, retry };
+}
+
+function Spinner() {
+    const { t } = usePilihanrayaTheme();
+
+    return (
+        <div className={`${t.card} flex items-center justify-center py-20`}>
+            <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+        </div>
+    );
+}
+
+function LoadError({ message, onRetry }) {
+    const { t } = usePilihanrayaTheme();
+
+    return (
+        <div className={`${t.card} flex flex-col items-center justify-center gap-4 py-16`}>
+            <p className={`${t.subtext} text-sm`}>{message}</p>
+            <button type="button" onClick={onRetry} className={t.buttonSecondary}>
+                <RefreshCw className="h-4 w-4" /> Cuba Semula
+            </button>
+        </div>
+    );
+}
+
+function GambaranTab({ data }) {
+    const { t } = usePilihanrayaTheme();
+    const growthTrend = data.growth_prior_30d > 0
+        ? Math.round(((data.growth_recent_30d - data.growth_prior_30d) / data.growth_prior_30d) * 100)
+        : null;
+
+    return (
+        <div className="space-y-6">
+            {data.empty_roll && (
+                <div className={t.banner}>
+                    Tiada pangkalan data pengundi aktif — jumlah pengundi berdaftar dan liputan tidak dapat dikira.
+                    Muat naik dan aktifkan batch di Upload Database.
+                </div>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <KpiCard label="Jumlah Pengundi Berdaftar" value={data.roll_total.toLocaleString()} icon={Users} />
+                <KpiCard
+                    label="Diculaan"
+                    value={data.canvassed.toLocaleString()}
+                    sub={`Liputan ${data.coverage_pct}% daripada daftar pemilih`}
+                    icon={Crosshair}
+                    iconBg="bg-blue-500/15"
+                    iconColor="text-blue-500"
+                    trend={growthTrend}
+                />
+                <KpiCard
+                    label="Sokongan PH (Putih)"
+                    value={`${data.putih_pct}%`}
+                    sub={`${data.putih.toLocaleString()} pengundi`}
+                    icon={Activity}
+                />
+                <KpiCard
+                    label="Atas Pagar (Kelabu)"
+                    value={`${data.kelabu_pct}%`}
+                    sub={`${data.kelabu.toLocaleString()} pengundi — sasaran pemujukan`}
+                    icon={Scale}
+                    iconBg="bg-slate-500/15"
+                    iconColor="text-slate-400"
+                />
+                <KpiCard
+                    label="Pembangkang (Hitam)"
+                    value={`${data.hitam_pct}%`}
+                    sub={`${data.hitam.toLocaleString()} pengundi`}
+                    icon={AlertTriangle}
+                    iconBg="bg-red-500/15"
+                    iconColor="text-red-500"
+                />
+                <KpiCard label="Kerusi Parlimen" value={data.seats.parlimen} icon={Landmark} iconBg="bg-violet-500/15" iconColor="text-violet-500" />
+                <KpiCard label="KADUN" value={data.seats.kadun} icon={Vote} iconBg="bg-violet-500/15" iconColor="text-violet-500" />
+                <KpiCard
+                    label="Daerah Mengundi / Lokaliti"
+                    value={`${data.seats.daerah_mengundi} / ${data.seats.lokaliti}`}
+                    icon={Map}
+                    iconBg="bg-amber-500/15"
+                    iconColor="text-amber-500"
+                />
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <SentimentDonut
+                    title="Pecahan Sentimen Semasa"
+                    data={[
+                        { name: 'PH (Putih)', key: 'putih', value: data.putih },
+                        { name: 'Pembangkang (Hitam)', key: 'hitam', value: data.hitam },
+                        { name: 'Atas Pagar (Kelabu)', key: 'kelabu', value: data.kelabu },
+                    ]}
+                />
+                <div className={`${t.card} lg:col-span-2`}>
+                    <h3 className={t.cardTitle}>Status Operasi Culaan</h3>
+                    <dl className="grid grid-cols-2 gap-4">
+                        <div>
+                            <dt className={t.kpiLabel}>Rekod 30 hari terkini</dt>
+                            <dd className={t.kpiValue}>{data.growth_recent_30d.toLocaleString()}</dd>
+                        </div>
+                        <div>
+                            <dt className={t.kpiLabel}>30 hari sebelumnya</dt>
+                            <dd className={t.kpiValue}>{data.growth_prior_30d.toLocaleString()}</dd>
+                        </div>
+                        <div>
+                            <dt className={t.kpiLabel}>Pengundi berdaftar yang diculaan</dt>
+                            <dd className={t.kpiValue}>{data.covered.toLocaleString()}</dd>
+                        </div>
+                        <div>
+                            <dt className={t.kpiLabel}>Culaan terakhir</dt>
+                            <dd className={`text-lg font-semibold ${t.text} mt-2`}>
+                                {/* MySQL datetimes need the T separator — Safari rejects the space form */}
+                                {data.last_canvass_at ? new Date(String(data.last_canvass_at).replace(' ', 'T')).toLocaleDateString('ms-MY') : '-'}
+                            </dd>
+                        </div>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+const RACE_COLORS = [CHART_COLORS.putih, CHART_COLORS.blue, CHART_COLORS.amber, CHART_COLORS.kelabu];
+
+function KomposisiTab({ data }) {
+    const { t } = usePilihanrayaTheme();
+
+    return (
+        <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className={t.card}>
+                    <h3 className={t.cardTitle}>Taburan Umur (Daftar Pemilih)</h3>
+                    {data.ageBands.length === 0 ? (
+                        <p className={`${t.subtext} text-sm py-12 text-center`}>Tiada pangkalan data pengundi aktif.</p>
+                    ) : (
+                        <ResponsiveContainer width="100%" height={300}>
+                            <BarChart data={data.ageBands}>
+                                <CartesianGrid strokeDasharray="3 3" stroke={t.chartGrid} vertical={false} />
+                                <XAxis dataKey="band" stroke={t.chartTick} style={{ fontSize: '11px' }} />
+                                <YAxis stroke={t.chartTick} style={{ fontSize: '11px' }} />
+                                <Tooltip contentStyle={t.tooltip} formatter={(v) => v.toLocaleString()} />
+                                <Bar dataKey="jumlah" name="Pengundi" fill={CHART_COLORS.blue} radius={[8, 8, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    )}
+                </div>
+                <div className={t.card}>
+                    <h3 className={t.cardTitle}>Komposisi Bangsa (Daftar Pemilih)</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                        <PieChart>
+                            <Pie data={data.race} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={2} dataKey="jumlah" nameKey="bangsa">
+                                {data.race.map((entry, i) => (
+                                    <Cell key={entry.bangsa} fill={RACE_COLORS[i % RACE_COLORS.length]} />
+                                ))}
+                            </Pie>
+                            <Tooltip contentStyle={t.tooltip} formatter={(v) => v.toLocaleString()} />
+                            <Legend wrapperStyle={{ fontSize: '12px' }} />
+                        </PieChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <PopulationPyramid data={data.genderPyramid} />
+                <div className={t.card}>
+                    <h3 className={t.cardTitle}>Sentimen Mengikut Generasi (Culaan)</h3>
+                    <ResponsiveContainer width="100%" height={320}>
+                        <BarChart data={data.canvassAgeColor}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={t.chartGrid} vertical={false} />
+                            <XAxis dataKey="band" stroke={t.chartTick} style={{ fontSize: '11px' }} />
+                            <YAxis stroke={t.chartTick} style={{ fontSize: '11px' }} />
+                            <Tooltip contentStyle={t.tooltip} />
+                            <Legend wrapperStyle={{ fontSize: '12px' }} />
+                            <Bar dataKey="putih" name="Putih" stackId="a" fill={CHART_COLORS.putih} />
+                            <Bar dataKey="kelabu" name="Kelabu" stackId="a" fill={CHART_COLORS.kelabu} />
+                            <Bar dataKey="hitam" name="Hitam" stackId="a" fill={CHART_COLORS.hitam} radius={[8, 8, 0, 0]} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function SentimenTab({ data }) {
+    return (
+        <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <SentimentDonut data={data.donut} />
+                <div className="lg:col-span-2">
+                    <TrendChart data={data.weeklyTrend} />
+                </div>
+            </div>
+            <HeatTable rows={data.kadunHeatRows} title="Ranking & Peta Haba KADUN" />
+        </div>
+    );
+}
+
+function WarRoomContent({ filters, setFilters, seedOverview, lists }) {
+    const [activeTab, setActiveTab] = useState('gambaran');
+    const { data, loading, error, retry } = useTabData(activeTab, filters, seedOverview);
+
+    return (
+        <>
+            <FilterBar filters={filters} onChange={setFilters} {...lists} />
+            <div className="mb-6">
+                <TabBar tabs={TABS} active={activeTab} onChange={setActiveTab} />
+            </div>
+            {error && data === undefined ? (
+                <LoadError message={error} onRetry={retry} />
+            ) : loading || data === undefined ? (
+                <Spinner />
+            ) : (
+                <>
+                    {activeTab === 'gambaran' && <GambaranTab data={data} />}
+                    {activeTab === 'komposisi' && <KomposisiTab data={data} />}
+                    {activeTab === 'sentimen' && <SentimenTab data={data} />}
+                    {activeTab === 'skor' && <SeatHealthGrid parlimenRows={data.parlimen} kadunRows={data.kadun} />}
+                    {activeTab === 'medan' && <BattlefieldTable data={data} />}
+                    {activeTab === 'amaran' && <AlertList alerts={data} />}
+                </>
+            )}
+        </>
+    );
+}
+
+export default function WarRoom({ overview, negeriList, parlimenList, kadunList }) {
+    const [filters, setFilters] = useState(EMPTY_FILTERS);
+
+    return (
+        <AuthenticatedLayout>
+            <Head title="Pilihanraya — War Room" />
+            <PilihanrayaShell
+                title="Digital War Room"
+                subtitle="Pusat perisikan pilihanraya — sentimen, skor kerusi dan amaran awal daripada data culaan SISDA"
+            >
+                <WarRoomContent
+                    filters={filters}
+                    setFilters={setFilters}
+                    seedOverview={overview}
+                    lists={{ negeriList, parlimenList, kadunList }}
+                />
+            </PilihanrayaShell>
+        </AuthenticatedLayout>
+    );
+}

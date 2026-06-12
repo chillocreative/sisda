@@ -369,6 +369,32 @@ Route::middleware(['auth', 'super_admin'])->group(function () {
     Route::post('/settings/notifications/{template}/test-send', [\App\Http\Controllers\NotificationTemplateController::class, 'testSend'])->name('settings.notifications.test-send');
 });
 
+// Pilihanraya — Digital War Room & Election Intelligence Center (super_admin only)
+Route::middleware(['auth', 'super_admin'])->prefix('pilihanraya')->name('pilihanraya.')->group(function () {
+    // Pages
+    Route::get('/war-room', [\App\Http\Controllers\PilihanrayaController::class, 'warRoom'])->name('war-room');
+    Route::get('/simulasi', [\App\Http\Controllers\PilihanrayaController::class, 'simulasi'])->name('simulasi');
+
+    // War Room tab data (lazy-loaded, cached aggregates)
+    Route::get('/api/overview', [\App\Http\Controllers\PilihanrayaController::class, 'overview'])->name('api.overview');
+    Route::get('/api/composition', [\App\Http\Controllers\PilihanrayaController::class, 'composition'])->name('api.composition');
+    Route::get('/api/sentiment', [\App\Http\Controllers\PilihanrayaController::class, 'sentiment'])->name('api.sentiment');
+    Route::get('/api/seat-scores', [\App\Http\Controllers\PilihanrayaController::class, 'seatScores'])->name('api.seat-scores');
+    Route::get('/api/battlefield', [\App\Http\Controllers\PilihanrayaController::class, 'battlefield'])->name('api.battlefield');
+    Route::get('/api/alerts', [\App\Http\Controllers\PilihanrayaController::class, 'alerts'])->name('api.alerts');
+
+    // Simulation Center
+    Route::get('/api/baseline', [\App\Http\Controllers\PilihanrayaController::class, 'baseline'])->name('api.baseline');
+    Route::post('/api/forecast', [\App\Http\Controllers\PilihanrayaController::class, 'runForecast'])->name('api.forecast');
+    Route::post('/api/war-game', [\App\Http\Controllers\PilihanrayaController::class, 'warGame'])->name('api.war-game');
+    Route::post('/api/resources', [\App\Http\Controllers\PilihanrayaController::class, 'resources'])->name('api.resources');
+    Route::post('/api/briefing', [\App\Http\Controllers\PilihanrayaController::class, 'briefing'])->name('api.briefing');
+
+    // Briefing exports (POST — the rendered briefing JSON travels in the body)
+    Route::post('/briefing/export/excel', [\App\Http\Controllers\PilihanrayaController::class, 'exportBriefingExcel'])->name('briefing.export.excel');
+    Route::post('/briefing/export/pdf', [\App\Http\Controllers\PilihanrayaController::class, 'exportBriefingPdf'])->name('briefing.export.pdf');
+});
+
 // Mobile app API routes (token-based auth via Sanctum)
 Route::prefix('api/mobile')->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class])->group(function () {
     // Public routes (no auth)
