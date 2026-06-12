@@ -59,12 +59,15 @@ class ProcessVoterUpload implements ShouldQueue
         }
 
         $totalRecords = PangkalanDataPengundi::where('upload_batch_id', $this->batchId)->count();
-        UploadBatch::where('id', '!=', $this->batchId)->update(['is_active' => false]);
+        // Additive activation: multiple batches can be active at once
+        // (e.g. one roll per parliament), so completing an upload no
+        // longer deactivates the others.
         $batch->update([
             'jumlah_rekod' => $totalRecords,
             'status'       => 'completed',
             'is_active'    => true,
         ]);
+        \Illuminate\Support\Facades\Cache::forget('pilihanraya:active_batches');
 
         $this->deleteDirectory($tempDir);
 

@@ -59,10 +59,14 @@ class ElectionAnalyticsService
         ];
     }
 
-    public function activeBatchId(): ?int
+    /**
+     * IDs of all active upload batches — several can be active at once
+     * (e.g. one roll per parliament); the voter roll is their union.
+     */
+    public function activeBatchIds(): array
     {
-        return Cache::remember('pilihanraya:active_batch', 60, function () {
-            return UploadBatch::where('is_active', true)->value('id');
+        return Cache::remember('pilihanraya:active_batches', 60, function () {
+            return UploadBatch::activeIds();
         });
     }
 
@@ -100,7 +104,7 @@ class ElectionAnalyticsService
         $key = sprintf(
             'pilihanraya:%s:b%s:cv%s:%s',
             $method,
-            $this->activeBatchId() ?? 0,
+            md5(json_encode($this->activeBatchIds())),
             $this->canvassVersion(),
             md5(json_encode($f))
         );
@@ -208,7 +212,7 @@ class ElectionAnalyticsService
     private function rollQuery(array $f)
     {
         $query = PangkalanDataPengundi::query()
-            ->where('upload_batch_id', $this->activeBatchId() ?? -1)
+            ->whereIn('upload_batch_id', $this->activeBatchIds() ?: [-1])
             ->where('is_deceased', false);
 
         foreach (['negeri', 'parlimen', 'kadun'] as $col) {
@@ -262,9 +266,9 @@ class ElectionAnalyticsService
     public function overview(array $f): array
     {
         return $this->remember('overview', $f, function () use ($f) {
-            $batchId = $this->activeBatchId();
+            $hasBatch = $this->activeBatchIds() !== [];
 
-            $rollTotal = $batchId ? (clone $this->rollQuery($f))->count() : 0;
+            $rollTotal = $hasBatch ? (clone $this->rollQuery($f))->count() : 0;
 
             [$dedupSql, $dedupBindings] = $this->canvassDedupedSql($f);
             $colors = DB::selectOne("
@@ -275,7 +279,7 @@ class ElectionAnalyticsService
             ", $dedupBindings);
 
             $covered = 0;
-            if ($batchId && $rollTotal > 0) {
+            if ($hasBatch && $rollTotal > 0) {
                 $rollSql = $this->rollQuery($f)->select('no_ic')->toSql();
                 $rollBindings = $this->rollQuery($f)->getBindings();
                 $covered = DB::selectOne("
@@ -301,7 +305,7 @@ class ElectionAnalyticsService
             ", $unionBindings);
 
             $seatCounts = ['parlimen' => 0, 'kadun' => 0, 'daerah_mengundi' => 0, 'lokaliti' => 0];
-            if ($batchId) {
+            if ($hasBatch) {
                 $row = (clone $this->rollQuery($f))->selectRaw("
                     COUNT(DISTINCT NULLIF(parlimen, '')) AS parlimen,
                     COUNT(DISTINCT NULLIF(kadun, '')) AS kadun,
@@ -319,7 +323,7 @@ class ElectionAnalyticsService
             $pct = fn ($n) => $canvassed > 0 ? round(($n / $canvassed) * 100, 1) : 0;
 
             return [
-                'empty_roll' => ! $batchId || $rollTotal === 0,
+                'empty_roll' => ! $hasBatch || $rollTotal === 0,
                 'roll_total' => $rollTotal,
                 'canvassed' => $canvassed,
                 'covered' => (int) $covered,
@@ -341,14 +345,14 @@ class ElectionAnalyticsService
     public function composition(array $f): array
     {
         return $this->remember('composition', $f, function () use ($f) {
-            $batchId = $this->activeBatchId();
+            $hasBatch = $this->activeBatchIds() !== [];
 
             $ageBands = [];
             $genderPyramid = [];
             $race = ['Melayu' => 0, 'Cina' => 0, 'India' => 0, 'Lain-lain' => 0];
             $gender = ['L' => 0, 'P' => 0];
 
-            if ($batchId) {
+            if ($hasBatch) {
                 $ageExpr = $this->rollAgeExpr();
                 $bandSelects = [];
                 foreach (self::AGE_BANDS as $i => $band) {
@@ -511,7 +515,7 @@ class ElectionAnalyticsService
             // because DPT names are uppercase but seat names may come
             // from mixed-case canvass rows.
             $youthByKadun = [];
-            if ($this->activeBatchId()) {
+            if ($this->activeBatchIds() !== []) {
                 $ageExpr = $this->rollAgeExpr();
                 $youthRows = (clone $this->rollQuery($f))
                     ->selectRaw("kadun, COUNT(*) AS total,
@@ -629,7 +633,7 @@ class ElectionAnalyticsService
             // names merge with mixed-case canvass names.
             $rollEthnic = [];
             $rollAge = [];
-            if ($this->activeBatchId()) {
+            if ($this->activeBatchIds() !== []) {
                 $rows = (clone $this->rollQuery($f))
                     ->selectRaw('kadun, bangsa, COUNT(*) AS jumlah')
                     ->whereNotNull('kadun')->where('kadun', '!=', '')
@@ -755,11 +759,11 @@ class ElectionAnalyticsService
      */
     private function seatRollup(array $f, string $groupBy): array
     {
-        $batchId = $this->activeBatchId();
+        $hasBatch = $this->activeBatchIds() !== [];
 
         // Query A — roll totals + coverage, grouped by the ROLL's geography
         $rollRows = collect();
-        if ($batchId) {
+        if ($hasBatch) {
             $rollBuilder = $this->rollQuery($f)
                 ->whereNotNull($groupBy)->where($groupBy, '!=', '');
             $selectCols = $groupBy === 'parlimen' ? ['no_ic', 'parlimen'] : ['no_ic', $groupBy, 'parlimen'];

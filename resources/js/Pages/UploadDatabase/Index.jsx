@@ -1,10 +1,16 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm, router } from '@inertiajs/react';
 import { useState, useRef, useEffect } from 'react';
-import { Upload, Loader2, CheckCircle, XCircle, X, RefreshCw, Trash2, Database, AlertTriangle } from 'lucide-react';
+import { Upload, Loader2, CheckCircle, XCircle, X, Power, PowerOff, Trash2, Database, AlertTriangle } from 'lucide-react';
 
 export default function Index({ batches, flash }) {
     const [confirmDelete, setConfirmDelete] = useState(null);
+    const [selected, setSelected] = useState([]);
+    const [activating, setActivating] = useState(false);
+
+    // Only completed batches can be activated as the voter database
+    const completedIds = batches.data.filter((b) => b.status === 'completed').map((b) => b.id);
+    const allSelected = completedIds.length > 0 && completedIds.every((id) => selected.includes(id));
 
     const { data, setData, post, processing, errors, reset } = useForm({
         fail: null,
@@ -38,8 +44,23 @@ export default function Index({ batches, flash }) {
         });
     };
 
-    const handleRestore = (batch) => {
-        router.post(route('upload-database.restore', batch.id));
+    const toggleSelect = (id) => {
+        setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    };
+
+    const toggleSelectAll = () => {
+        setSelected(allSelected ? [] : completedIds);
+    };
+
+    // Activate/deactivate one or many batches — several batches can be
+    // active at the same time (the voter database is their union).
+    const handleSetActive = (batchIds, action) => {
+        setActivating(true);
+        router.post(route('upload-database.set-active'), { batch_ids: batchIds, action }, {
+            preserveScroll: true,
+            onSuccess: () => setSelected([]),
+            onFinish: () => setActivating(false),
+        });
     };
 
     const handleDelete = (batch) => {
@@ -79,7 +100,7 @@ export default function Index({ batches, flash }) {
                 {/* Header */}
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">Upload Database Pengundi</h1>
-                    <p className="text-sm text-slate-600 mt-1">Muat naik fail ZIP yang mengandungi data pengundi. Sebarang struktur folder diterima — semua fail .xlsx dalam ZIP akan dibaca.</p>
+                    <p className="text-sm text-slate-600 mt-1">Muat naik fail ZIP yang mengandungi data pengundi. Sebarang struktur folder diterima — semua fail .xlsx dalam ZIP akan dibaca. Beberapa batch boleh diaktifkan serentak — pangkalan data pengundi ialah gabungan semua batch yang aktif.</p>
                 </div>
 
                 {/* Flash messages */}
@@ -155,10 +176,33 @@ export default function Index({ batches, flash }) {
 
                 {/* Upload History */}
                 <div className="bg-white rounded-xl border border-slate-200 p-6">
-                    <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                        <Database className="h-5 w-5" />
-                        Sejarah Muat Naik
-                    </h2>
+                    <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                        <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                            <Database className="h-5 w-5" />
+                            Sejarah Muat Naik
+                        </h2>
+                        {selected.length > 0 && (
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm text-slate-600">{selected.length} dipilih</span>
+                                <button
+                                    onClick={() => handleSetActive(selected, 'activate')}
+                                    disabled={activating}
+                                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                                >
+                                    {activating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Power className="h-4 w-4" />}
+                                    Aktifkan ({selected.length})
+                                </button>
+                                <button
+                                    onClick={() => handleSetActive(selected, 'deactivate')}
+                                    disabled={activating}
+                                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors disabled:opacity-50"
+                                >
+                                    <PowerOff className="h-4 w-4" />
+                                    Nyahaktifkan ({selected.length})
+                                </button>
+                            </div>
+                        )}
+                    </div>
 
                     {batches.data.length === 0 ? (
                         <p className="text-sm text-slate-500 text-center py-8">Tiada rekod muat naik.</p>
@@ -168,6 +212,16 @@ export default function Index({ batches, flash }) {
                                 <table className="w-full text-sm">
                                     <thead>
                                         <tr className="border-b border-slate-200">
+                                            <th className="py-3 px-3 w-10">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={allSelected}
+                                                    onChange={toggleSelectAll}
+                                                    disabled={completedIds.length === 0}
+                                                    title="Pilih semua batch selesai"
+                                                    className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                                                />
+                                            </th>
                                             <th className="text-left py-3 px-3 font-medium text-slate-600">Bil</th>
                                             <th className="text-left py-3 px-3 font-medium text-slate-600">Nama Fail</th>
                                             <th className="text-left py-3 px-3 font-medium text-slate-600">Tarikh Upload</th>
@@ -180,6 +234,16 @@ export default function Index({ batches, flash }) {
                                     <tbody className="divide-y divide-slate-100">
                                         {batches.data.map((batch, index) => (
                                             <tr key={batch.id} className="hover:bg-slate-50">
+                                                <td className="py-3 px-3">
+                                                    {batch.status === 'completed' && (
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selected.includes(batch.id)}
+                                                            onChange={() => toggleSelect(batch.id)}
+                                                            className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                                                        />
+                                                    )}
+                                                </td>
                                                 <td className="py-3 px-3 text-slate-600">
                                                     {(batches.current_page - 1) * batches.per_page + index + 1}
                                                 </td>
@@ -216,19 +280,29 @@ export default function Index({ batches, flash }) {
                                                                 <X className="h-3 w-3" />
                                                                 Batal
                                                             </button>
-                                                        ) : (
-                                                            <>
+                                                        ) : batch.status === 'completed' ? (
+                                                            batch.is_active ? (
                                                                 <button
-                                                                    onClick={() => handleRestore(batch)}
-                                                                    disabled={batch.is_active}
-                                                                    title="Jadikan aktif"
-                                                                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                                                    onClick={() => handleSetActive([batch.id], 'deactivate')}
+                                                                    disabled={activating}
+                                                                    title="Nyahaktifkan batch ini"
+                                                                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors disabled:opacity-40"
                                                                 >
-                                                                    <RefreshCw className="h-3 w-3" />
-                                                                    Restore
+                                                                    <PowerOff className="h-3 w-3" />
+                                                                    Nyahaktif
                                                                 </button>
-                                                            </>
-                                                        )}
+                                                            ) : (
+                                                                <button
+                                                                    onClick={() => handleSetActive([batch.id], 'activate')}
+                                                                    disabled={activating}
+                                                                    title="Aktifkan batch ini"
+                                                                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition-colors disabled:opacity-40"
+                                                                >
+                                                                    <Power className="h-3 w-3" />
+                                                                    Aktifkan
+                                                                </button>
+                                                            )
+                                                        ) : null}
                                                         <button
                                                             onClick={() => handleDelete(batch)}
                                                             title="Padam"

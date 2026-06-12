@@ -1412,9 +1412,9 @@ class ReportsController extends Controller
         }
 
         // Primary: query voter database for distinct KADUN values
-        $activeBatch = \App\Models\UploadBatch::where('is_active', true)->first();
-        if ($activeBatch) {
-            $voterKadun = \App\Models\PangkalanDataPengundi::where('upload_batch_id', $activeBatch->id)
+        $activeBatchIds = \App\Models\UploadBatch::activeIds();
+        if (! empty($activeBatchIds)) {
+            $voterKadun = \App\Models\PangkalanDataPengundi::whereIn('upload_batch_id', $activeBatchIds)
                 ->whereRaw('LOWER(parlimen) = ?', [strtolower($bandarNama)])
                 ->whereNotNull('kadun')
                 ->where('kadun', '!=', '')
@@ -1447,17 +1447,17 @@ class ReportsController extends Controller
             return response()->json([]);
         }
 
-        // Voter database DMs: prefer the active upload batch, fall back to
-        // all batches when none is marked active so the dropdown still
+        // Voter database DMs: prefer the active upload batches, fall back
+        // to all batches when none is marked active so the dropdown still
         // works. Merge with master DaerahMengundi entries for the bandar
         // so manually-curated rows also appear.
-        $activeBatch = \App\Models\UploadBatch::where('is_active', true)->first();
+        $activeBatchIds = \App\Models\UploadBatch::activeIds();
         $voterQuery = \App\Models\PangkalanDataPengundi::query()
             ->whereRaw('LOWER(parlimen) = ?', [strtolower($bandarNama)])
             ->whereNotNull('daerah_mengundi')
             ->where('daerah_mengundi', '!=', '');
-        if ($activeBatch) {
-            $voterQuery->where('upload_batch_id', $activeBatch->id);
+        if (! empty($activeBatchIds)) {
+            $voterQuery->whereIn('upload_batch_id', $activeBatchIds);
         }
         $voterDM = $voterQuery->distinct()->orderBy('daerah_mengundi')->pluck('daerah_mengundi');
 
@@ -1489,17 +1489,17 @@ class ReportsController extends Controller
             return response()->json([]);
         }
 
-        // Voter database localities: prefer the active upload batch, but
+        // Voter database localities: prefer the active upload batches, but
         // fall back to all batches when none is marked active so the
         // dropdown stays populated. Then merge with the master Lokaliti
         // table so manually-curated entries also appear.
-        $activeBatch = \App\Models\UploadBatch::where('is_active', true)->first();
+        $activeBatchIds = \App\Models\UploadBatch::activeIds();
         $voterQuery = \App\Models\PangkalanDataPengundi::query()
             ->whereRaw('LOWER(daerah_mengundi) = ?', [strtolower($dmNama)])
             ->whereNotNull('lokaliti')
             ->where('lokaliti', '!=', '');
-        if ($activeBatch) {
-            $voterQuery->where('upload_batch_id', $activeBatch->id);
+        if (! empty($activeBatchIds)) {
+            $voterQuery->whereIn('upload_batch_id', $activeBatchIds);
         }
         $voterLokaliti = $voterQuery->distinct()->orderBy('lokaliti')->pluck('lokaliti');
 

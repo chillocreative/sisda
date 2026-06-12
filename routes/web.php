@@ -205,7 +205,7 @@ Route::middleware('auth')->group(function () {
     // Upload Database (Super Admin only)
     Route::get('/upload-database', [\App\Http\Controllers\UploadDatabaseController::class, 'index'])->name('upload-database.index');
     Route::post('/upload-database', [\App\Http\Controllers\UploadDatabaseController::class, 'store'])->name('upload-database.store');
-    Route::post('/upload-database/{batch}/restore', [\App\Http\Controllers\UploadDatabaseController::class, 'restore'])->name('upload-database.restore');
+    Route::post('/upload-database/set-active', [\App\Http\Controllers\UploadDatabaseController::class, 'setActive'])->name('upload-database.set-active');
     Route::post('/upload-database/{batch}/cancel', [\App\Http\Controllers\UploadDatabaseController::class, 'cancel'])->name('upload-database.cancel');
     Route::delete('/upload-database/{batch}', [\App\Http\Controllers\UploadDatabaseController::class, 'destroy'])->name('upload-database.destroy');
     Route::get('/api/voter/search-ic', [\App\Http\Controllers\UploadDatabaseController::class, 'searchByIc'])->name('api.voter.search-ic');
@@ -235,12 +235,14 @@ Route::middleware('auth')->group(function () {
         $fixed = \App\Models\UploadBatch::where('status', 'processing')->update(['status' => 'failed']);
         $messages[] = "Fixed {$fixed} stuck batch(es).";
 
-        // Sync master data from active batch
-        $active = \App\Models\UploadBatch::where('is_active', true)->first();
-        if ($active) {
+        // Sync master data from every active batch
+        $activeBatches = \App\Models\UploadBatch::active()->get();
+        if ($activeBatches->isNotEmpty()) {
             try {
-                \App\Jobs\ProcessVoterUpload::syncMasterData($active->id);
-                $messages[] = "Synced master data from batch: {$active->nama_fail} (ID: {$active->id})";
+                foreach ($activeBatches as $active) {
+                    \App\Jobs\ProcessVoterUpload::syncMasterData($active->id);
+                    $messages[] = "Synced master data from batch: {$active->nama_fail} (ID: {$active->id})";
+                }
 
                 // Show counts
                 $messages[] = 'Negeri: '.\App\Models\Negeri::count();
@@ -273,9 +275,9 @@ Route::middleware('auth')->group(function () {
         }
 
         // Check voter DB
-        $activeBatch = \App\Models\UploadBatch::where('is_active', true)->first();
-        if ($activeBatch) {
-            $voterLokaliti = \App\Models\PangkalanDataPengundi::where('upload_batch_id', $activeBatch->id)
+        $activeBatchIds = \App\Models\UploadBatch::activeIds();
+        if (! empty($activeBatchIds)) {
+            $voterLokaliti = \App\Models\PangkalanDataPengundi::whereIn('upload_batch_id', $activeBatchIds)
                 ->whereRaw('LOWER(daerah_mengundi) = ?', [strtolower($dm)])
                 ->whereNotNull('lokaliti')
                 ->where('lokaliti', '!=', '')

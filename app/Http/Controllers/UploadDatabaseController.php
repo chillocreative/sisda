@@ -4,11 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Jobs\ProcessVoterUpload;
 use App\Models\DataPengundi;
-use App\Models\Lokaliti;
 use App\Models\PangkalanDataPengundi;
 use App\Models\UploadBatch;
 use App\Services\VoterDataMasker;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use RecursiveDirectoryIterator;
@@ -24,9 +24,9 @@ class UploadDatabaseController extends Controller
 
         return Inertia::render('UploadDatabase/Index', [
             'batches' => $batches,
-            'flash'   => [
+            'flash' => [
                 'success' => session('success'),
-                'error'   => session('error'),
+                'error' => session('error'),
             ],
         ]);
     }
@@ -43,12 +43,12 @@ class UploadDatabaseController extends Controller
         $zipPath = $file->storeAs('voter-uploads', "{$timestamp}_{$originalName}", 'private');
 
         $batch = UploadBatch::create([
-            'nama_fail'    => $originalName,
-            'fail_path'    => $zipPath,
+            'nama_fail' => $originalName,
+            'fail_path' => $zipPath,
             'jumlah_rekod' => 0,
-            'status'       => 'processing',
-            'is_active'    => false,
-            'uploaded_by'  => auth()->id(),
+            'status' => 'processing',
+            'is_active' => false,
+            'uploaded_by' => auth()->id(),
         ]);
 
         // Run the import after the HTTP response is sent so the upload returns
@@ -62,16 +62,58 @@ class UploadDatabaseController extends Controller
             ->with('success', 'Fail ZIP dimuat naik. Pemprosesan sedang berjalan di latar belakang.');
     }
 
-    public function restore(UploadBatch $batch)
+    /**
+     * Activate or deactivate a selection of batches. Multiple batches
+     * can be active at once — the super admin picks one, several, or
+     * all completed uploads and the voter database becomes the union
+     * of the active set.
+     */
+    public function setActive(Request $request)
     {
-        UploadBatch::where('id', '!=', $batch->id)->update(['is_active' => false]);
-        $batch->update(['is_active' => true]);
+        abort_unless($request->user()->isSuperAdmin(), 403);
 
-        // Sync master data tables from voter database
-        \App\Jobs\ProcessVoterUpload::syncMasterData($batch->id);
+        $validated = $request->validate([
+            'batch_ids' => 'required|array|min:1',
+            'batch_ids.*' => 'integer|exists:upload_batches,id',
+            'action' => 'required|in:activate,deactivate',
+        ]);
 
-        return redirect()->route('upload-database.index')
-            ->with('success', "Batch '{$batch->nama_fail}' telah dijadikan aktif.");
+        if ($validated['action'] === 'activate') {
+            // Only completed batches can serve as the voter database;
+            // sync master data only for batches that were inactive.
+            $batches = UploadBatch::whereIn('id', $validated['batch_ids'])
+                ->where('status', 'completed')
+                ->get();
+
+            if ($batches->isEmpty()) {
+                return redirect()->route('upload-database.index')
+                    ->with('error', 'Tiada batch yang selesai dalam pilihan — hanya batch berstatus Selesai boleh diaktifkan.');
+            }
+
+            $newlyActivated = $batches->where('is_active', false);
+            UploadBatch::whereIn('id', $batches->pluck('id'))->update(['is_active' => true]);
+
+            foreach ($newlyActivated as $batch) {
+                ProcessVoterUpload::syncMasterData($batch->id);
+            }
+
+            $message = $batches->count() === 1
+                ? "Batch '{$batches->first()->nama_fail}' telah diaktifkan."
+                : "{$batches->count()} batch telah diaktifkan.";
+        } else {
+            $count = UploadBatch::whereIn('id', $validated['batch_ids'])
+                ->where('is_active', true)
+                ->update(['is_active' => false]);
+
+            $message = $count === 1
+                ? 'Batch telah dinyahaktifkan.'
+                : "{$count} batch telah dinyahaktifkan.";
+        }
+
+        // Bust caches keyed on the active-batch set
+        Cache::forget('pilihanraya:active_batches');
+
+        return redirect()->route('upload-database.index')->with('success', $message);
     }
 
     public function cancel(UploadBatch $batch)
@@ -100,6 +142,8 @@ class UploadDatabaseController extends Controller
         // Cascade delete handles pangkalan_data_pengundi records
         $batch->delete();
 
+        Cache::forget('pilihanraya:active_batches');
+
         return redirect()->route('upload-database.index')
             ->with('success', 'Rekod berjaya dipadam.');
     }
@@ -107,7 +151,9 @@ class UploadDatabaseController extends Controller
     public function suggestIc(Request $request)
     {
         $query = $request->input('ic', '');
-        if (strlen($query) < 3) return response()->json([]);
+        if (strlen($query) < 3) {
+            return response()->json([]);
+        }
 
         $viewer = auth()->user();
 
@@ -122,7 +168,7 @@ class UploadDatabaseController extends Controller
 
         // Data Pengundi matches (previously submitted records) - full fields for form auto-fill
         $dataPengundiQuery = DataPengundi::with('submittedBy:id,name,role')
-            ->where('no_ic', 'like', $query . '%');
+            ->where('no_ic', 'like', $query.'%');
         if ($parlimenScope !== null) {
             $dataPengundiQuery->whereRaw('UPPER(bandar) = ?', [strtoupper($parlimenScope)]);
         }
@@ -154,12 +200,13 @@ class UploadDatabaseController extends Controller
                     'source' => 'data_pengundi',
                     'is_locked' => $locked,
                 ];
+
                 return $arr;
             });
 
         // DPPR matches, excluding IC numbers already present in Data Pengundi
-        $existingIcs = DataPengundi::where('no_ic', 'like', $query . '%')->pluck('no_ic')->unique()->toArray();
-        $dpprQuery = PangkalanDataPengundi::where('no_ic', 'like', $query . '%');
+        $existingIcs = DataPengundi::where('no_ic', 'like', $query.'%')->pluck('no_ic')->unique()->toArray();
+        $dpprQuery = PangkalanDataPengundi::where('no_ic', 'like', $query.'%');
         if ($parlimenScope !== null) {
             $dpprQuery->whereRaw('UPPER(parlimen) = ?', [strtoupper($parlimenScope)]);
         }
@@ -173,6 +220,7 @@ class UploadDatabaseController extends Controller
                 $arr = $v->toArray();
                 $arr['source'] = 'dppr';
                 $arr['is_locked'] = false;
+
                 return $arr;
             });
 
@@ -218,6 +266,7 @@ class UploadDatabaseController extends Controller
                 }
                 $arr['source'] = 'data_pengundi';
                 $arr['is_locked'] = $locked;
+
                 return response()->json($arr);
             }
 
@@ -226,11 +275,12 @@ class UploadDatabaseController extends Controller
                 $dpprQuery->whereRaw('UPPER(parlimen) = ?', [$upperScope]);
             }
             $dpprVoter = $dpprQuery->first();
+
             return response()->json($dpprVoter);
         }
 
         // For partial IC (6-11 digits): check data_pengundi first, then DPPR
-        $partialDpQuery = DataPengundi::with('submittedBy:id,name,role')->where('no_ic', 'like', $ic . '%');
+        $partialDpQuery = DataPengundi::with('submittedBy:id,name,role')->where('no_ic', 'like', $ic.'%');
         if ($upperScope !== null) {
             $partialDpQuery->whereRaw('UPPER(bandar) = ?', [$upperScope]);
         }
@@ -239,6 +289,7 @@ class UploadDatabaseController extends Controller
             ->get()
             ->map(function ($v) use ($viewer) {
                 $locked = VoterDataMasker::isLocked($v) && ! VoterDataMasker::canUnmask($viewer);
+
                 return [
                     'no_ic' => $locked ? VoterDataMasker::MASK : $v->no_ic,
                     'nama' => $v->nama,
@@ -254,7 +305,7 @@ class UploadDatabaseController extends Controller
             });
 
         if ($voters->isEmpty()) {
-            $partialDpprQuery = PangkalanDataPengundi::where('no_ic', 'like', $ic . '%');
+            $partialDpprQuery = PangkalanDataPengundi::where('no_ic', 'like', $ic.'%');
             if ($upperScope !== null) {
                 $partialDpprQuery->whereRaw('UPPER(parlimen) = ?', [$upperScope]);
             }
@@ -278,7 +329,7 @@ class UploadDatabaseController extends Controller
 
     private function deleteDirectory(string $dir): void
     {
-        if (!is_dir($dir)) {
+        if (! is_dir($dir)) {
             return;
         }
 
