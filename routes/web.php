@@ -395,6 +395,9 @@ Route::middleware(['auth', 'super_admin'])->prefix('pilihanraya')->name('pilihan
     // Briefing exports (POST — the rendered briefing JSON travels in the body)
     Route::post('/briefing/export/excel', [\App\Http\Controllers\PilihanrayaController::class, 'exportBriefingExcel'])->name('briefing.export.excel');
     Route::post('/briefing/export/pdf', [\App\Http\Controllers\PilihanrayaController::class, 'exportBriefingPdf'])->name('briefing.export.pdf');
+
+    // User manual PDF (GET)
+    Route::get('/manual/simulasi', [\App\Http\Controllers\PilihanrayaController::class, 'manualSimulasi'])->name('manual.simulasi');
 });
 
 // Mobile app API routes (token-based auth via Sanctum)

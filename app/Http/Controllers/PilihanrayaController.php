@@ -214,4 +214,15 @@ class PilihanrayaController extends Controller
 
         return [$briefing, $seatScores];
     }
+
+    /* -------------------------- User Manuals -------------------------- */
+
+    public function manualSimulasi()
+    {
+        $pdf = Pdf::loadView('pdf.manual-simulasi')
+            ->setPaper('a4', 'portrait')
+            ->setOptions(['isHtml5ParserEnabled' => true, 'isRemoteEnabled' => false, 'defaultFont' => 'DejaVu Sans']);
+
+        return $pdf->download('manual-pusat-simulasi-pilihanraya.pdf');
+    }
 }
