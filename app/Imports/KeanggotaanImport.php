@@ -2,76 +2,104 @@
 
 namespace App\Imports;
 
-use App\Models\Keanggotaan;
-use Illuminate\Support\Collection;
-use Maatwebsite\Excel\Concerns\ToCollection;
-use Maatwebsite\Excel\Concerns\WithChunkReading;
-
 /**
- * Imports a membership spreadsheet into the keanggotaan table.
+ * Parses membership rows into [no_ic, nama, no_tel] records.
  *
- * Detection is CONTENT-based, not header-based: each row is scanned for a
- * cell that looks like a Malaysian IC (12 digits, valid month/day, after
- * stripping dashes/spaces). This survives title rows, arbitrary/missing
- * header names, dashed ICs and extra columns — the things that make real
- * membership exports fail a fixed-column parser. The name is taken as the
- * most alphabetic cell in the same row.
+ * Strategy: find the HEADER row (scanning past any title rows) and map the
+ * Nama / IC / Tel columns by their header names, so each field is read
+ * from its real column. ICs are normalised (dashes/spaces stripped, valid
+ * month/day checked). If a file has no recognisable header, it falls back
+ * to content detection (IC by pattern, name by the most alphabetic cell).
  *
  * The SISDA match (kawasan / DUN / age / voter_color) is computed
- * afterwards in one set-based pass by MemberMatchService::syncTable().
+ * afterwards by MemberMatchService::syncTable().
  */
-class KeanggotaanImport implements ToCollection, WithChunkReading
+class KeanggotaanImport
 {
-    public function __construct(protected int $batchId) {}
+    /** Header aliases, compared after lowercasing + stripping non-alphanumerics. */
+    private const NAMA_KEYS = ['nama', 'namaahli', 'namapenuh', 'namaanggota', 'name', 'fullname'];
 
-    public function chunkSize(): int
+    private const IC_KEYS = ['noic', 'ic', 'nokp', 'kp', 'kadpengenalan', 'nokadpengenalan', 'nombokadpengenalan', 'nokadpengenalanbaru', 'mykad', 'icnumber'];
+
+    private const TEL_KEYS = ['notel', 'notelefon', 'telefon', 'tel', 'phone', 'nohp', 'hp', 'nombortelefon', 'telbimbit'];
+
+    /**
+     * @param  array  $rows  array of rows, each an array of cell values
+     * @return array<int, array{no_ic:string, nama:string, no_tel:?string}>
+     */
+    public static function extract(array $rows): array
     {
-        return 500;
-    }
+        [$headerIdx, $map] = self::detectHeader($rows);
+        $start = $headerIdx === null ? 0 : $headerIdx + 1;
 
-    public function collection(Collection $rows): void
-    {
-        $records = [];
+        $out = [];
+        $count = count($rows);
+        for ($i = $start; $i < $count; $i++) {
+            $cells = array_values($rows[$i]);
 
-        foreach ($rows as $row) {
-            $cells = array_values(is_array($row) ? $row : $row->toArray());
-
-            $ic = null;
-            $icIndex = null;
-            foreach ($cells as $i => $cell) {
-                $candidate = self::normaliseIc((string) $cell);
-                if ($candidate !== null) {
-                    $ic = $candidate;
-                    $icIndex = $i;
-                    break;
-                }
+            // IC: header column first, else detect by content.
+            $ic = ($map['ic'] !== null && isset($cells[$map['ic']]))
+                ? self::normaliseIc((string) $cells[$map['ic']])
+                : null;
+            if ($ic === null) {
+                $ic = self::detectIcInRow($cells);
             }
             if ($ic === null) {
-                continue; // title rows, header rows, blank rows — no IC, skip
+                continue;
             }
 
-            $nama = self::pickName($cells, $icIndex);
-            $tel = self::pickPhone($cells, $icIndex);
+            // Nama: header column first, else the most alphabetic cell.
+            $nama = ($map['nama'] !== null && isset($cells[$map['nama']]))
+                ? self::cleanName((string) $cells[$map['nama']])
+                : '';
+            if ($nama === '') {
+                $nama = self::pickName($cells);
+            }
 
-            $records[] = [
-                'batch_id' => $this->batchId,
-                'no_ic' => $ic,
-                'nama' => $nama ?: '-',
-                'no_tel' => $tel,
-                'status_kawasan' => 'luar_kawasan',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ];
+            // Phone: header column first, else a 0-prefixed number.
+            $tel = ($map['tel'] !== null && isset($cells[$map['tel']]))
+                ? (preg_replace('/\D/', '', (string) $cells[$map['tel']]) ?: null)
+                : null;
+            if ($tel === null) {
+                $tel = self::pickPhone($cells);
+            }
 
-            if (count($records) >= 500) {
-                Keanggotaan::insert($records);
-                $records = [];
+            $out[] = ['no_ic' => $ic, 'nama' => $nama ?: '-', 'no_tel' => $tel];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Find the header row and the column indices for nama / ic / tel.
+     *
+     * @return array{0:?int, 1:array{nama:?int, ic:?int, tel:?int}}
+     */
+    private static function detectHeader(array $rows): array
+    {
+        $limit = min(count($rows), 30);
+        for ($i = 0; $i < $limit; $i++) {
+            $map = ['nama' => null, 'ic' => null, 'tel' => null];
+            foreach (array_values($rows[$i]) as $idx => $cell) {
+                $key = preg_replace('/[^a-z0-9]/', '', strtolower((string) $cell));
+                if ($key === '') {
+                    continue;
+                }
+                if ($map['nama'] === null && in_array($key, self::NAMA_KEYS, true)) {
+                    $map['nama'] = $idx;
+                } elseif ($map['ic'] === null && in_array($key, self::IC_KEYS, true)) {
+                    $map['ic'] = $idx;
+                } elseif ($map['tel'] === null && in_array($key, self::TEL_KEYS, true)) {
+                    $map['tel'] = $idx;
+                }
+            }
+            // A real header row names at least the Nama or IC column.
+            if ($map['nama'] !== null || $map['ic'] !== null) {
+                return [$i, $map];
             }
         }
 
-        if (! empty($records)) {
-            Keanggotaan::insert($records);
-        }
+        return [null, ['nama' => null, 'ic' => null, 'tel' => null]];
     }
 
     /** A 12-digit Malaysian IC (after stripping non-digits) with a plausible birth date, else null. */
@@ -84,22 +112,39 @@ class KeanggotaanImport implements ToCollection, WithChunkReading
         $mm = (int) substr($digits, 2, 2);
         $dd = (int) substr($digits, 4, 2);
         if ($mm < 1 || $mm > 12 || $dd < 1 || $dd > 31) {
-            return null; // a phone/other number, not an IC
+            return null;
         }
 
         return $digits;
     }
 
-    /** The cell with the most alphabetic characters (the name), excluding the IC cell. */
-    private static function pickName(array $cells, ?int $icIndex): string
+    private static function detectIcInRow(array $cells): ?string
+    {
+        foreach ($cells as $cell) {
+            $ic = self::normaliseIc((string) $cell);
+            if ($ic !== null) {
+                return $ic;
+            }
+        }
+
+        return null;
+    }
+
+    private static function cleanName(string $value): string
+    {
+        return strtoupper(trim(preg_replace('/\s+/', ' ', $value)));
+    }
+
+    /** Fallback only: the cell with the most letters. */
+    private static function pickName(array $cells): string
     {
         $best = '';
         $bestScore = 0;
-        foreach ($cells as $i => $cell) {
-            if ($i === $icIndex) {
+        foreach ($cells as $cell) {
+            $text = trim((string) $cell);
+            if (self::normaliseIc($text) !== null) {
                 continue;
             }
-            $text = trim((string) $cell);
             $letters = preg_match_all('/\p{L}/u', $text);
             if ($letters >= 3 && $letters > $bestScore) {
                 $bestScore = $letters;
@@ -107,16 +152,12 @@ class KeanggotaanImport implements ToCollection, WithChunkReading
             }
         }
 
-        return strtoupper(preg_replace('/\s+/', ' ', $best));
+        return self::cleanName($best);
     }
 
-    /** A phone-like cell: 9–11 digits starting with 0, distinct from the IC. */
-    private static function pickPhone(array $cells, ?int $icIndex): ?string
+    private static function pickPhone(array $cells): ?string
     {
-        foreach ($cells as $i => $cell) {
-            if ($i === $icIndex) {
-                continue;
-            }
+        foreach ($cells as $cell) {
             $digits = preg_replace('/\D/', '', (string) $cell);
             if (preg_match('/^0\d{8,10}$/', $digits)) {
                 return $digits;

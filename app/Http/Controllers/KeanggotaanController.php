@@ -106,7 +106,31 @@ class KeanggotaanController extends Controller
         } elseif ($ext === 'pdf') {
             $this->importPdf($batchId, $absolutePath);
         } else {
-            Excel::import(new KeanggotaanImport($batchId), $absolutePath);
+            $this->importExcel($batchId, $absolutePath);
+        }
+    }
+
+    /** Read a spreadsheet to raw rows, map columns by header, then bulk insert. */
+    private function importExcel(int $batchId, string $path): void
+    {
+        $sheet = Excel::toArray(null, $path)[0] ?? [];
+        $members = KeanggotaanImport::extract($sheet);
+
+        $records = [];
+        foreach ($members as $m) {
+            $records[] = $m + [
+                'batch_id' => $batchId,
+                'status_kawasan' => 'luar_kawasan',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+            if (count($records) >= 500) {
+                Keanggotaan::insert($records);
+                $records = [];
+            }
+        }
+        if (! empty($records)) {
+            Keanggotaan::insert($records);
         }
     }
 
@@ -129,7 +153,7 @@ class KeanggotaanController extends Controller
             }
             $e = strtolower($file->getExtension());
             if (in_array($e, ['xlsx', 'xls', 'csv'], true)) {
-                Excel::import(new KeanggotaanImport($batchId), $file->getPathname());
+                $this->importExcel($batchId, $file->getPathname());
             } elseif ($e === 'pdf') {
                 $this->importPdf($batchId, $file->getPathname());
             }
