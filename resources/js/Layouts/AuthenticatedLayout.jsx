@@ -198,8 +198,18 @@ export default function AuthenticatedLayout({ children }) {
         ...(user.role === 'super_admin' ? [
             { name: 'Log Pengguna', href: route('user-log.index'), icon: ShieldAlert, current: route().current('user-log.*') },
             { name: 'Templat Notifikasi', href: route('settings.notifications.index'), icon: MessageSquare, current: route().current('settings.notifications.*') },
-            { name: 'Tetapan Sendora', href: route('settings.sendora'), icon: Settings, current: route().current('settings.sendora') },
-            { name: 'Tetapan Claude AI', href: route('settings.claude'), icon: Settings, current: route().current('settings.claude') },
+            {
+                name: 'Tetapan',
+                href: route('settings.sendora'),
+                icon: Settings,
+                current: route().current('settings.sendora') || route().current('settings.claude') || route().current('settings.ai-usage'),
+                hasSubmenu: true,
+                submenu: [
+                    { name: 'Tetapan Sendora', href: route('settings.sendora'), icon: Settings },
+                    { name: 'Tetapan Claude AI', href: route('settings.claude'), icon: Brain },
+                    { name: 'Log Aktiviti AI', href: route('settings.ai-usage'), icon: Zap },
+                ]
+            },
         ] : []),
         { name: 'Profil', href: route('profile.edit'), icon: User, current: route().current('profile.edit') },
     ];
@@ -223,6 +233,8 @@ export default function AuthenticatedLayout({ children }) {
             setOpenDropdown('Pilihanraya');
         } else if (route().current('keanggotaan.*')) {
             setOpenDropdown('Keanggotaan');
+        } else if (route().current('settings.sendora') || route().current('settings.claude') || route().current('settings.ai-usage')) {
+            setOpenDropdown('Tetapan');
         }
     }, [route().current()]);
 

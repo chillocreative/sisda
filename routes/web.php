@@ -352,6 +352,9 @@ Route::get('/settings/claude', [\App\Http\Controllers\ClaudeSettingController::c
 Route::post('/settings/claude', [\App\Http\Controllers\ClaudeSettingController::class, 'update'])->name('settings.claude.update');
 Route::post('/settings/claude/test-connection', [\App\Http\Controllers\ClaudeSettingController::class, 'testConnection'])->name('settings.claude.test');
 
+// AI Activity Log — token usage & cost (super_admin only)
+Route::get('/settings/ai-usage', [\App\Http\Controllers\AiUsageLogController::class, 'index'])->name('settings.ai-usage');
+
 // User Log (super_admin only — audit + Claude-powered anomaly alerts)
 Route::middleware(['auth', 'super_admin'])->group(function () {
     Route::get('/user-log', [\App\Http\Controllers\UserLogController::class, 'index'])->name('user-log.index');
