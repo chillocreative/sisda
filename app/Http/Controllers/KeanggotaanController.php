@@ -122,7 +122,10 @@ class KeanggotaanController extends Controller
 
     public function senarai(Request $request)
     {
-        $query = $this->memberQuery();
+        // Show every uploaded/manual member here — regardless of batch
+        // active state, SISDA match, or "dicula" status — so the full
+        // membership roll is always visible after an upload.
+        $query = Keanggotaan::query();
 
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
