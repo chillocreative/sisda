@@ -148,13 +148,20 @@ class KeanggotaanController extends Controller
         $text = (new Parser)->parseFile($pdfPath)->getText();
         $records = [];
         foreach (preg_split('/\r\n|\r|\n/', $text) as $line) {
-            if (! preg_match('/(\d{12})\s*(.*)/', trim($line), $m)) {
+            // Match an IC with or without dashes/spaces (e.g. 880515-01-5555).
+            if (! preg_match('/(\d{6}[\s-]?\d{2}[\s-]?\d{4})(.*)/', trim($line), $m)) {
                 continue;
             }
+            $ic = KeanggotaanImport::normaliseIc($m[1]);
+            if ($ic === null) {
+                continue;
+            }
+            // Name = trailing text with any stray digits/punctuation stripped.
+            $nama = strtoupper(trim(preg_replace('/[^\p{L}\s]+/u', ' ', $m[2])));
             $records[] = [
                 'batch_id' => $batchId,
-                'no_ic' => $m[1],
-                'nama' => strtoupper(trim(preg_replace('/\s+/', ' ', $m[2]))) ?: '-',
+                'no_ic' => $ic,
+                'nama' => preg_replace('/\s+/', ' ', $nama) ?: '-',
                 'status_kawasan' => 'luar_kawasan',
                 'created_at' => now(),
                 'updated_at' => now(),
