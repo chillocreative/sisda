@@ -50,8 +50,11 @@ class KeanggotaanJawatankuasaController extends Controller
                 'dicula_pct' => $r->total > 0 ? round(($r->dicula / $r->total) * 100, 1) : 0,
             ]);
 
+        // Alias as dun_label (not "dun") so it doesn't collide with the dun
+        // column — under ONLY_FULL_GROUP_BY that collision makes MySQL treat
+        // the column as not covered by GROUP BY (error 1055).
         $rows = KeanggotaanJawatankuasa::selectRaw("
-                COALESCE(NULLIF(dun, ''), matched_kadun) AS dun, jenis,
+                COALESCE(NULLIF(dun, ''), matched_kadun) AS dun_label, jenis,
                 COUNT(*) AS jumlah, SUM(is_dicula) AS dicula
             ")
             ->groupByRaw("COALESCE(NULLIF(dun, ''), matched_kadun), jenis")
@@ -60,7 +63,7 @@ class KeanggotaanJawatankuasaController extends Controller
         // Pivot to one row per DUN with a column per jenis.
         $byDun = [];
         foreach ($rows as $r) {
-            $key = $r->dun ?: 'Tidak Diketahui';
+            $key = $r->dun_label ?: 'Tidak Diketahui';
             $byDun[$key] ??= ['dun' => $key, 'total' => 0, 'dicula' => 0]
                 + array_fill_keys(KeanggotaanJawatankuasa::JENIS, 0);
             $byDun[$key][$r->jenis] = (int) $r->jumlah;
