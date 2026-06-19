@@ -25,7 +25,15 @@ class ElectionForecastService
         .'(no personal data). In the data: putih = pro-PH voters, hitam = opposition-leaning voters, '
         .'kelabu = fence-sitters (atas pagar). Seat health scores 0-100 are precomputed '
         .'(>=75 Selamat, 65-74 Cenderung Kuat, 55-64 Cenderung, 45-54 Berayun, 35-44 Kritikal, <35 Risiko Kalah) '
-        .'— do not recompute them; reason on top of them. Be conservative when liputan (coverage) is below 30%. ';
+        .'— do not recompute them; reason on top of them. Be conservative when liputan (coverage) is below 30%. '
+        .'CRITICAL LANGUAGE RULE: every piece of human-readable text you output (narrative, tajuk, '
+        .'kandungan, bullet_points, kategori, catatan, kesimpulan, tindakan_segera, answer, '
+        .'recommendations, summary, expected_impact, recommended_action, anggaran_perubahan, dll.) '
+        .'MUST be written entirely in formal Bahasa Malaysia. Do NOT use any English words or sentences. '
+        .'NEVER write raw data field names from the JSON payload in your prose — keys such as '
+        .'putih_pct, hitam_pct, kelabu_pct, tren_putih_30h, liputan_pct, roll_total are internal '
+        .'identifiers, not words; always describe them in natural Bahasa Malaysia instead '
+        .'(e.g. "peratusan sokongan putih", "kadar liputan culaan", "tren sokongan 30 hari"). ';
 
     public function __construct(
         protected ElectionAnalyticsService $analytics,
