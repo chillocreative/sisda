@@ -254,15 +254,28 @@ class ElectionAnalyticsService
         return $query;
     }
 
-    /** SQL expression: voter age derived from tahun_lahir (string column). */
+    /**
+     * SQL expression: voter age. Prefers the 4-digit tahun_lahir, but
+     * falls back to the birth date encoded in the IC (first 6 digits,
+     * pivot YY<=25) when tahun_lahir is missing — many DPPR uploads carry
+     * no birth year, so without this the roll age charts stay empty.
+     */
     private function rollAgeExpr(): string
     {
-        return '(YEAR(CURDATE()) - CAST(tahun_lahir AS UNSIGNED))';
+        return "CASE
+            WHEN tahun_lahir REGEXP '^[0-9]{4}$' THEN (YEAR(CURDATE()) - CAST(tahun_lahir AS UNSIGNED))
+            WHEN no_ic REGEXP '^[0-9]{12}$' THEN TIMESTAMPDIFF(
+                YEAR,
+                STR_TO_DATE(CONCAT(IF(CAST(SUBSTRING(no_ic, 1, 2) AS UNSIGNED) <= 25, '20', '19'), SUBSTRING(no_ic, 1, 6)), '%Y%m%d'),
+                CURDATE()
+            )
+            ELSE NULL
+        END";
     }
 
     private function rollAgeGuard(): string
     {
-        return "tahun_lahir REGEXP '^[0-9]{4}$'";
+        return "(tahun_lahir REGEXP '^[0-9]{4}$' OR no_ic REGEXP '^[0-9]{12}$')";
     }
 
     /** Normalised gender: jantina column with IC 12th-digit fallback. */
