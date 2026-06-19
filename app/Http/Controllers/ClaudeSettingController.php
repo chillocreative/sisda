@@ -19,7 +19,7 @@ class ClaudeSettingController extends Controller
                 'model' => $settings->model,
                 'max_tokens' => $settings->max_tokens,
                 'is_active' => $settings->is_active,
-                'has_key' => !empty($settings->api_key),
+                'has_key' => ! empty($settings->api_key),
             ] : null,
         ]);
     }
@@ -57,7 +57,7 @@ class ClaudeSettingController extends Controller
             $apiKey = $settings?->api_key;
         }
 
-        if (!$apiKey) {
+        if (! $apiKey) {
             return back()->with('error', 'Sila masukkan API Key.');
         }
 
@@ -69,7 +69,7 @@ class ClaudeSettingController extends Controller
                 ])
                 ->acceptJson()
                 ->post('https://api.anthropic.com/v1/messages', [
-                    'model' => $request->input('model', 'claude-sonnet-4-20250514'),
+                    'model' => $request->input('model', 'claude-sonnet-4-6'),
                     'max_tokens' => 100,
                     'messages' => [
                         ['role' => 'user', 'content' => 'Reply with exactly: "SISDA connection test successful"'],
@@ -80,13 +80,15 @@ class ClaudeSettingController extends Controller
                 $reply = $response->json('content.0.text') ?? 'OK';
                 $model = $response->json('model') ?? 'unknown';
                 $usage = $response->json('usage') ?? [];
+
                 return back()->with('success', "Berjaya disambungkan! Model: {$model}. Respons: {$reply}");
             }
 
             $error = $response->json('error.message') ?? $response->body();
+
             return back()->with('error', "Sambungan gagal: {$error}");
         } catch (\Exception $e) {
-            return back()->with('error', 'Sambungan gagal: ' . $e->getMessage());
+            return back()->with('error', 'Sambungan gagal: '.$e->getMessage());
         }
     }
 }

@@ -9,15 +9,15 @@ export default function Claude({ settings }) {
 
     const { data, setData, post, processing } = useForm({
         api_key: settings?.api_key || '',
-        model: settings?.model || 'claude-sonnet-4-20250514',
+        model: settings?.model || 'claude-opus-4-8',
         max_tokens: settings?.max_tokens || 4096,
         is_active: settings?.is_active || false,
     });
 
     const models = [
-        { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4 (Terbaru, Seimbang)' },
-        { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5 (Pantas, Jimat)' },
-        { value: 'claude-opus-4-20250514', label: 'Claude Opus 4 (Terkuat)' },
+        { value: 'claude-opus-4-8', label: 'Claude Opus 4.8 (Terkuat)' },
+        { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6 (Seimbang)' },
+        { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5 (Pantas, Jimat)' },
     ];
 
     const handleSave = (e) => {
