@@ -1,10 +1,10 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Users, MapPin, UserX, Crosshair } from 'lucide-react';
 import KeanggotaanNav from './Nav';
 
-const COLORS = { putih: '#10b981', hitam: '#ef4444', kelabu: '#94a3b8', belum_dicula: '#cbd5e1' };
+const COLORS = { putih: '#10b981', hitam: '#0f172a', kelabu: '#94a3b8', belum_dicula: '#cbd5e1' };
 
 function Kpi({ label, value, sub, icon: Icon, color = 'text-slate-900' }) {
     return (
@@ -28,7 +28,7 @@ function Card({ title, children }) {
     );
 }
 
-export default function Analisa({ summary, ageBands, byNegeri, byDun, byColor }) {
+export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byDun, byColor, parlimenList = [], filters = {} }) {
     const pct = (n) => (summary.total > 0 ? Math.round((n / summary.total) * 100) : 0);
     const kawasanPie = [
         { name: 'Dalam Kawasan', value: summary.dalam_kawasan, fill: '#10b981' },
@@ -36,19 +36,45 @@ export default function Analisa({ summary, ageBands, byNegeri, byDun, byColor })
     ];
     const colorPie = byColor.map((c) => ({ name: c.voter_color, value: c.jumlah, fill: COLORS[c.voter_color] || '#cbd5e1' }));
 
+    const setParlimen = (parlimen) => router.get(route('keanggotaan.analisa'), { parlimen }, { preserveState: true, replace: true });
+
     return (
         <AuthenticatedLayout>
             <Head title="Keanggotaan — Analisa" />
-            <div className="max-w-6xl mx-auto space-y-6">
-                <h1 className="text-2xl font-bold text-slate-900">Analisa Keanggotaan</h1>
+            <div className="max-w-7xl mx-auto space-y-6">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h1 className="text-2xl font-bold text-slate-900">Analisa Keanggotaan</h1>
+                    <div>
+                        <select value={filters.parlimen || ''} onChange={(e) => setParlimen(e.target.value)} className="px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                            <option value="">Semua Parlimen / Cabang</option>
+                            {parlimenList.map((p) => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                    </div>
+                </div>
                 <KeanggotaanNav />
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <Kpi label="Jumlah Ahli" value={summary.total.toLocaleString()} icon={Users} />
                     <Kpi label="Dalam Kawasan" value={summary.dalam_kawasan.toLocaleString()} sub={`${pct(summary.dalam_kawasan)}% daripada ahli`} icon={MapPin} color="text-emerald-600" />
-                    <Kpi label="Luar Kawasan" value={summary.luar_kawasan.toLocaleString()} sub={`${pct(summary.luar_kawasan)}% — tiada dalam DPT aktif`} icon={UserX} color="text-amber-600" />
+                    <Kpi label="Luar Kawasan" value={summary.luar_kawasan.toLocaleString()} sub={`${pct(summary.luar_kawasan)}% — tiada dalam DPT/DPPR`} icon={UserX} color="text-amber-600" />
                     <Kpi label="Dicula (Hitam)" value={summary.dicula.toLocaleString()} sub={`${pct(summary.dicula)}% disokong pembangkang`} icon={Crosshair} color="text-red-600" />
                 </div>
+
+                <Card title="Ahli & Culaan Mengikut Parlimen / Cabang">
+                    {byParlimen.length === 0 ? <p className="text-sm text-slate-500 py-12 text-center">Tiada data padanan parlimen.</p> : (
+                        <ResponsiveContainer width="100%" height={Math.max(240, byParlimen.length * 38)}>
+                            <BarChart data={byParlimen} layout="vertical" margin={{ left: 40 }}>
+                                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                                <XAxis type="number" style={{ fontSize: '11px' }} />
+                                <YAxis type="category" dataKey="nama" width={140} style={{ fontSize: '11px' }} />
+                                <Tooltip formatter={(v) => v.toLocaleString()} />
+                                <Legend wrapperStyle={{ fontSize: '12px' }} />
+                                <Bar dataKey="jumlah" name="Jumlah Ahli" fill="#3b82f6" radius={[0, 6, 6, 0]} />
+                                <Bar dataKey="dicula" name="Dicula" fill="#ef4444" radius={[0, 6, 6, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    )}
+                </Card>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <Card title="Taburan Umur Ahli">

@@ -19,6 +19,8 @@ class Keanggotaan extends Model
         'matched_negeri',
         'tahun_lahir',
         'umur',
+        'bangsa',
+        'jantina',
         'voter_color',
         'is_dicula',
         'is_pendaftaran_baru',

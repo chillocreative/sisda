@@ -12,12 +12,15 @@ use Illuminate\Support\Facades\DB;
  * Cross-references party members (and committee members) against SISDA's
  * existing voter data, keyed on no_ic:
  *
- *  - the active voter roll (pangkalan_data_pengundi) gives kawasan / DUN /
- *    age / registration status. No roll match ⇒ "pengundi luar kawasan".
+ *  - umur & jantina are derived from the IC itself (independent of any
+ *    match) — first 6 digits = birth date, 12th digit parity = gender.
+ *  - the DPPR/DPT voter roll (pangkalan_data_pengundi, active batches)
+ *    gives kawasan / DUN / Cabang (parlimen) / bangsa. No roll match ⇒
+ *    "pengundi luar kawasan".
  *  - the canvass tables (data_pengundi + hasil_culaan) give the latest
  *    voter_color; voter_color = 'hitam' ⇒ the member has been "dicula".
  *
- * Both the keanggotaan and keanggotaan_jawatankuasa tables carry the same
+ * Both the keanggotaan and keanggotaan_jawatankuasa tables share the same
  * cached-match columns, so the set-based sync below works for either one.
  */
 class MemberMatchService
@@ -25,27 +28,63 @@ class MemberMatchService
     /** Tables that may be synced (whitelist — names are interpolated into SQL). */
     private const SYNCABLE = ['keanggotaan', 'keanggotaan_jawatankuasa'];
 
+    /** Age from the first 6 IC digits (YYMMDD), same pivot as the front-end forms. */
+    public static function ageFromIc(string $ic): ?int
+    {
+        if (! preg_match('/^[0-9]{6}/', $ic)) {
+            return null;
+        }
+        $yy = (int) substr($ic, 0, 2);
+        $mm = (int) substr($ic, 2, 2);
+        $dd = (int) substr($ic, 4, 2);
+        $fullYear = $yy <= 25 ? 2000 + $yy : 1900 + $yy;
+        if (! checkdate($mm, $dd, $fullYear)) {
+            return null;
+        }
+        $age = (int) date('Y') - $fullYear;
+        $monthNow = (int) date('n');
+        $dayNow = (int) date('j');
+        if ($monthNow < $mm || ($monthNow === $mm && $dayNow < $dd)) {
+            $age--;
+        }
+
+        return ($age >= 0 && $age <= 150) ? $age : null;
+    }
+
+    /** Gender from the IC's 12th digit (odd = male). */
+    public static function jantinaFromIc(string $ic): ?string
+    {
+        if (! preg_match('/^[0-9]{12}$/', $ic)) {
+            return null;
+        }
+
+        return ((int) substr($ic, 11, 1)) % 2 === 1 ? 'LELAKI' : 'PEREMPUAN';
+    }
+
     /**
      * Resolve a single IC to its cached-match column values — used when a
      * member is added or edited manually.
      */
     public function match(string $ic): array
     {
-        $blank = [
+        $ic = trim($ic);
+
+        $base = [
             'matched_kadun' => null,
             'matched_parlimen' => null,
             'matched_negeri' => null,
             'tahun_lahir' => null,
-            'umur' => null,
+            'umur' => self::ageFromIc($ic),
+            'bangsa' => null,
+            'jantina' => self::jantinaFromIc($ic),
             'voter_color' => null,
             'is_dicula' => false,
             'is_pendaftaran_baru' => false,
             'status_kawasan' => 'luar_kawasan',
         ];
 
-        $ic = trim($ic);
         if ($ic === '') {
-            return $blank;
+            return $base;
         }
 
         $activeIds = UploadBatch::activeIds() ?: [-1];
@@ -55,29 +94,24 @@ class MemberMatchService
             ->first();
 
         $color = $this->latestVoterColor($ic);
+        $base['voter_color'] = $color;
+        $base['is_dicula'] = $color === 'hitam';
 
         if (! $roll) {
-            return array_merge($blank, [
-                'voter_color' => $color,
-                'is_dicula' => $color === 'hitam',
-            ]);
+            return $base;
         }
 
-        $umur = (is_string($roll->tahun_lahir) && preg_match('/^[0-9]{4}$/', $roll->tahun_lahir))
-            ? ((int) date('Y') - (int) $roll->tahun_lahir)
-            : null;
-
-        return [
+        return array_merge($base, [
             'matched_kadun' => $roll->kadun,
             'matched_parlimen' => $roll->parlimen,
             'matched_negeri' => $roll->negeri,
             'tahun_lahir' => $roll->tahun_lahir,
-            'umur' => $umur,
-            'voter_color' => $color,
-            'is_dicula' => $color === 'hitam',
+            'bangsa' => $roll->bangsa,
+            // Prefer the roll's recorded gender, fall back to the IC.
+            'jantina' => $roll->jantina ?: $base['jantina'],
             'is_pendaftaran_baru' => (bool) $roll->pendaftaran_baru,
             'status_kawasan' => 'dalam_kawasan',
-        ];
+        ]);
     }
 
     /** Latest canvass colour for an IC (data_pengundi wins over hasil_culaan). */
@@ -90,12 +124,12 @@ class MemberMatchService
         }
 
         return HasilCulaan::where('no_ic', $ic)->where('is_deceased', false)
-            ->orderByDesc('id')->value('voter_color') ?: $dp;
+            ->orderByDesc('id')->value('voter_color') ?: null;
     }
 
     /**
      * Recompute cached-match columns for every row in a table (optionally
-     * scoped to one batch) in three set-based statements. Far cheaper than
+     * scoped to one batch) in set-based statements. Far cheaper than
      * per-row matching for bulk imports.
      */
     public function syncTable(string $table, ?int $batchId = null): void
@@ -108,16 +142,31 @@ class MemberMatchService
         $scopeK = $batchId !== null ? ' WHERE k.batch_id = ?' : '';
         $bind = $batchId !== null ? [$batchId] : [];
 
-        // 1. Reset everything in scope to the "luar kawasan" baseline.
+        // 1. Reset roll/canvass-derived fields to the "luar kawasan" baseline.
         DB::update("
             UPDATE {$table} SET
                 matched_kadun = NULL, matched_parlimen = NULL, matched_negeri = NULL,
-                tahun_lahir = NULL, umur = NULL, voter_color = NULL,
+                tahun_lahir = NULL, bangsa = NULL, voter_color = NULL,
                 is_dicula = 0, is_pendaftaran_baru = 0, status_kawasan = 'luar_kawasan'
             {$scope}
         ", $bind);
 
-        // 2. Roll match → kawasan / DUN / age / registration status.
+        // 2. IC-derived umur & jantina (independent of any match).
+        DB::update("
+            UPDATE {$table} SET
+                umur = CASE WHEN no_ic REGEXP '^[0-9]{6}'
+                    THEN TIMESTAMPDIFF(
+                        YEAR,
+                        STR_TO_DATE(CONCAT(IF(CAST(SUBSTRING(no_ic,1,2) AS UNSIGNED) <= 25, '20', '19'), SUBSTRING(no_ic,1,6)), '%Y%m%d'),
+                        CURDATE()
+                    ) ELSE umur END,
+                jantina = CASE WHEN no_ic REGEXP '^[0-9]{12}$'
+                    THEN IF(MOD(CAST(SUBSTRING(no_ic,12,1) AS UNSIGNED), 2) = 1, 'LELAKI', 'PEREMPUAN')
+                    ELSE jantina END
+            {$scope}
+        ", $bind);
+
+        // 3. Roll match → kawasan / DUN / Cabang / bangsa / registration status.
         $activeIds = UploadBatch::activeIds();
         if ($activeIds !== []) {
             $placeholders = implode(',', array_fill(0, count($activeIds), '?'));
@@ -126,6 +175,7 @@ class MemberMatchService
                 JOIN (
                     SELECT no_ic,
                            MAX(kadun) AS kadun, MAX(parlimen) AS parlimen, MAX(negeri) AS negeri,
+                           MAX(bangsa) AS bangsa, MAX(jantina) AS jantina,
                            MAX(tahun_lahir) AS tahun_lahir, MAX(pendaftaran_baru) AS pendaftaran_baru
                       FROM pangkalan_data_pengundi
                      WHERE is_deceased = 0 AND upload_batch_id IN ({$placeholders})
@@ -134,16 +184,16 @@ class MemberMatchService
                 SET k.matched_kadun = p.kadun,
                     k.matched_parlimen = p.parlimen,
                     k.matched_negeri = p.negeri,
+                    k.bangsa = p.bangsa,
+                    k.jantina = COALESCE(NULLIF(p.jantina, ''), k.jantina),
                     k.tahun_lahir = p.tahun_lahir,
-                    k.umur = CASE WHEN p.tahun_lahir REGEXP '^[0-9]{4}$'
-                                  THEN (YEAR(CURDATE()) - CAST(p.tahun_lahir AS UNSIGNED)) ELSE NULL END,
                     k.is_pendaftaran_baru = p.pendaftaran_baru,
                     k.status_kawasan = 'dalam_kawasan'
                 {$scopeK}
             ", array_merge($activeIds, $bind));
         }
 
-        // 3. Canvass match → latest voter_color, "dicula" = hitam.
+        // 4. Canvass match → latest voter_color, "dicula" = hitam.
         DB::update("
             UPDATE {$table} k
             JOIN (
