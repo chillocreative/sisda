@@ -34,7 +34,7 @@ export default function FilterBar({ filters, onChange, negeriList, parlimenList,
 
     return (
         <div className={`${t.cardTight} mb-6`}>
-            <div className={`grid grid-cols-1 md:grid-cols-3 ${showDates ? 'xl:grid-cols-6' : 'xl:grid-cols-4'} gap-3 items-end`}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 items-end">
                 <div>
                     <label className={t.label}>Negeri</label>
                     <select value={filters.negeri_id} onChange={(e) => set('negeri_id', e.target.value)} className={t.input}>
@@ -74,6 +74,22 @@ export default function FilterBar({ filters, onChange, negeriList, parlimenList,
                         </div>
                     </>
                 )}
+                <div>
+                    <label className={t.label}>Umur Dari</label>
+                    <input type="number" min="0" max="200" value={filters.umur_dari} onChange={(e) => set('umur_dari', e.target.value)} placeholder="cth. 18" className={t.input} />
+                </div>
+                <div>
+                    <label className={t.label}>Umur Hingga</label>
+                    <input type="number" min="0" max="200" value={filters.umur_hingga} onChange={(e) => set('umur_hingga', e.target.value)} placeholder="cth. 29" className={t.input} />
+                </div>
+                <div>
+                    <label className={t.label}>Status Pengundi</label>
+                    <select value={filters.status_pengundi} onChange={(e) => set('status_pengundi', e.target.value)} className={t.input}>
+                        <option value="">Semua Pengundi</option>
+                        <option value="baru">Pengundi Baru</option>
+                        <option value="lama">Pengundi Lama</option>
+                    </select>
+                </div>
                 <div>
                     <button type="button" onClick={reset} className={`${t.buttonSecondary} w-full justify-center`}>
                         Set Semula

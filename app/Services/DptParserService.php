@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\DptUpload;
-use App\Models\PangkalanDataPengundi;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -13,7 +12,7 @@ class DptParserService
 {
     public static function parse(string $filePath, DptUpload $upload): array
     {
-        $parser = new Parser();
+        $parser = new Parser;
         $pdf = $parser->parseFile($filePath);
         $pages = $pdf->getPages();
 
@@ -27,7 +26,7 @@ class DptParserService
         foreach ($pages as $page) {
             $text = $page->getText();
             $pageHeader = self::parseHeader($text);
-            if (!empty($pageHeader)) {
+            if (! empty($pageHeader)) {
                 $headerInfo = array_merge($headerInfo, $pageHeader);
             }
         }
@@ -74,7 +73,7 @@ class DptParserService
         // Extract actual Negeri from "NEGERI : PULAU PINANG" (line without N.XX)
         if (preg_match('/^NEGERI\s*:\s*([A-Z][A-Z\s]+)$/mi', $text, $m)) {
             $negeri = trim($m[1]);
-            if (!preg_match('/^N\.\d+/', $negeri)) {
+            if (! preg_match('/^N\.\d+/', $negeri)) {
                 $info['negeri'] = $negeri;
             }
         }
@@ -112,14 +111,17 @@ class DptParserService
 
             if (stripos($line, 'PENDAFTARAN BARU') !== false) {
                 $currentSection = 'new';
+
                 continue;
             }
             if (stripos($line, 'PEMOTONGAN - KEMATIAN') !== false) {
                 $currentSection = 'deceased';
+
                 continue;
             }
             if (stripos($line, 'PEMOTONGAN - PEMILIH BERTUKAR') !== false) {
                 $currentSection = 'moved';
+
                 continue;
             }
 
@@ -139,7 +141,7 @@ class DptParserService
 
                 // Check if this person already exists (same 8-digit prefix + same name)
                 $existingByName = DB::table('pangkalan_data_pengundi')
-                    ->where('no_ic', 'like', $icPartial . '%')
+                    ->where('no_ic', 'like', $icPartial.'%')
                     ->where('nama', $nameUpper)
                     ->first();
 
@@ -148,15 +150,15 @@ class DptParserService
                 } else {
                     // Find next available suffix for this 8-digit prefix
                     $lastIc = DB::table('pangkalan_data_pengundi')
-                        ->where('no_ic', 'like', $icPartial . '%')
+                        ->where('no_ic', 'like', $icPartial.'%')
                         ->orderBy('no_ic', 'desc')
                         ->value('no_ic');
 
                     if ($lastIc) {
                         $lastSuffix = (int) substr($lastIc, 8);
-                        $noIc = $icPartial . str_pad($lastSuffix + 1, 4, '0', STR_PAD_LEFT);
+                        $noIc = $icPartial.str_pad($lastSuffix + 1, 4, '0', STR_PAD_LEFT);
                     } else {
-                        $noIc = $icPartial . '0000';
+                        $noIc = $icPartial.'0000';
                     }
                 }
 
@@ -179,6 +181,11 @@ class DptParserService
                         $baseData['tahun_lahir'] = $yearBorn;
                         $baseData['is_deceased'] = $isDeceased ? 1 : 0;
                         $baseData['dpt_upload_id'] = $upload->id;
+                        // Flag voters added under a "PENDAFTARAN BARU" section so
+                        // the war room can sort pengundi baru vs lama.
+                        if (Schema::hasColumn('pangkalan_data_pengundi', 'pendaftaran_baru')) {
+                            $baseData['pendaftaran_baru'] = $currentSection === 'new' ? 1 : 0;
+                        }
                     }
 
                     if ($existing) {
@@ -192,9 +199,15 @@ class DptParserService
                     }
 
                     $stats['total']++;
-                    if ($currentSection === 'new') $stats['new']++;
-                    if ($currentSection === 'deceased') $stats['deceased']++;
-                    if ($currentSection === 'moved') $stats['moved']++;
+                    if ($currentSection === 'new') {
+                        $stats['new']++;
+                    }
+                    if ($currentSection === 'deceased') {
+                        $stats['deceased']++;
+                    }
+                    if ($currentSection === 'moved') {
+                        $stats['moved']++;
+                    }
                 } catch (\Exception $e) {
                     // On failure, retry with minimal columns
                     try {
@@ -215,14 +228,20 @@ class DptParserService
                             DB::table('pangkalan_data_pengundi')->insert($minData);
                         }
                         $stats['total']++;
-                        if ($currentSection === 'new') $stats['new']++;
-                        if ($currentSection === 'deceased') $stats['deceased']++;
-                        if ($currentSection === 'moved') $stats['moved']++;
+                        if ($currentSection === 'new') {
+                            $stats['new']++;
+                        }
+                        if ($currentSection === 'deceased') {
+                            $stats['deceased']++;
+                        }
+                        if ($currentSection === 'moved') {
+                            $stats['moved']++;
+                        }
                     } catch (\Exception $e2) {
                         $stats['errors']++;
                         if ($stats['errors'] <= 3) {
-                            Log::error("DPT save error IC {$noIc}: " . $e->getMessage());
-                            Log::error("DPT retry error IC {$noIc}: " . $e2->getMessage());
+                            Log::error("DPT save error IC {$noIc}: ".$e->getMessage());
+                            Log::error("DPT retry error IC {$noIc}: ".$e2->getMessage());
                         }
                     }
                 }

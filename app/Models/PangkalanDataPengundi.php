@@ -24,10 +24,12 @@ class PangkalanDataPengundi extends Model
         'jantina',
         'tahun_lahir',
         'is_deceased',
+        'pendaftaran_baru',
     ];
 
     protected $casts = [
         'is_deceased' => 'boolean',
+        'pendaftaran_baru' => 'boolean',
     ];
 
     public function uploadBatch(): BelongsTo

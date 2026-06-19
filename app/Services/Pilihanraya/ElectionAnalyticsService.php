@@ -56,6 +56,11 @@ class ElectionAnalyticsService
             'kadun' => ! empty($input['kadun_id']) ? Kadun::find($input['kadun_id'])?->nama : null,
             'tarikh_dari' => $input['tarikh_dari'] ?? null,
             'tarikh_hingga' => $input['tarikh_hingga'] ?? null,
+            'umur_dari' => $input['umur_dari'] ?? null,
+            'umur_hingga' => $input['umur_hingga'] ?? null,
+            // 'baru' | 'lama' — roll-only (pendaftaran_baru flag).
+            'status_pengundi' => in_array($input['status_pengundi'] ?? null, ['baru', 'lama'], true)
+                ? $input['status_pengundi'] : null,
         ];
     }
 
@@ -136,6 +141,17 @@ class ElectionAnalyticsService
         if (! empty($f['kadun'])) {
             $sql .= ' AND kadun = ?';
             $bindings[] = $f['kadun'];
+        }
+
+        // Age range on the canvass `umur` column (rows with null age drop
+        // out when an age filter is active — intended).
+        if (! empty($f['umur_dari'])) {
+            $sql .= ' AND umur >= ?';
+            $bindings[] = (int) $f['umur_dari'];
+        }
+        if (! empty($f['umur_hingga'])) {
+            $sql .= ' AND umur <= ?';
+            $bindings[] = (int) $f['umur_hingga'];
         }
 
         if ($withDates) {
@@ -219,6 +235,20 @@ class ElectionAnalyticsService
             if (! empty($f[$col])) {
                 $query->where($col, $f[$col]);
             }
+        }
+
+        // Age range — computed from tahun_lahir, guarded against junk values.
+        $ageExpr = $this->rollAgeExpr();
+        if (! empty($f['umur_dari'])) {
+            $query->whereRaw("{$this->rollAgeGuard()} AND {$ageExpr} >= ?", [(int) $f['umur_dari']]);
+        }
+        if (! empty($f['umur_hingga'])) {
+            $query->whereRaw("{$this->rollAgeGuard()} AND {$ageExpr} <= ?", [(int) $f['umur_hingga']]);
+        }
+
+        // Pengundi baru vs lama (DPT new-registration flag, roll-only).
+        if (! empty($f['status_pengundi'])) {
+            $query->where('pendaftaran_baru', $f['status_pengundi'] === 'baru' ? 1 : 0);
         }
 
         return $query;

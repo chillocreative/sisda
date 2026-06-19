@@ -7,6 +7,9 @@ export const EMPTY_FILTERS = {
     kadun_id: '',
     tarikh_dari: '',
     tarikh_hingga: '',
+    umur_dari: '',
+    umur_hingga: '',
+    status_pengundi: '', // '' | 'baru' | 'lama'
 };
 
 export function cleanParams(filters) {

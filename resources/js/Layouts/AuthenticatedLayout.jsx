@@ -116,6 +116,21 @@ export default function AuthenticatedLayout({ children }) {
             { name: 'Upload Database', href: route('upload-database.index'), icon: Upload, current: route().current('upload-database.*') },
             { name: 'Upload DPT', href: route('dpt-upload.index'), icon: Upload, current: route().current('dpt-upload.*') },
         ] : []),
+        // Keanggotaan (party membership) menu (Super Admin only)
+        ...(user.role === 'super_admin' ? [
+            {
+                name: 'Keanggotaan',
+                href: route('keanggotaan.index'),
+                icon: Users2,
+                current: route().current('keanggotaan.*'),
+                hasSubmenu: true,
+                submenu: [
+                    { name: 'Muat Naik', href: route('keanggotaan.index'), icon: Upload },
+                    { name: 'Senarai Ahli', href: route('keanggotaan.senarai'), icon: List },
+                    { name: 'Analisa', href: route('keanggotaan.analisa'), icon: TrendingUp },
+                ]
+            }
+        ] : []),
         // Data Induk menu (Super Admin and Admin only)
         ...(user.role === 'super_admin' || user.role === 'admin' ? [
             {
@@ -164,6 +179,7 @@ export default function AuthenticatedLayout({ children }) {
                 submenu: [
                     { name: 'War Room', href: route('pilihanraya.war-room'), icon: Radar },
                     { name: 'Pusat Simulasi', href: route('pilihanraya.simulasi'), icon: Brain },
+                    { name: 'Jawatankuasa', href: route('pilihanraya.jawatankuasa.index'), icon: ClipboardList },
                 ]
             }
         ] : []),
@@ -205,6 +221,8 @@ export default function AuthenticatedLayout({ children }) {
             setOpenDropdown('Pusat Panggilan');
         } else if (route().current('pilihanraya.*')) {
             setOpenDropdown('Pilihanraya');
+        } else if (route().current('keanggotaan.*')) {
+            setOpenDropdown('Keanggotaan');
         }
     }, [route().current()]);
 

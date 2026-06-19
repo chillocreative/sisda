@@ -398,6 +398,31 @@ Route::middleware(['auth', 'super_admin'])->prefix('pilihanraya')->name('pilihan
 
     // User manual PDF (GET)
     Route::get('/manual/simulasi', [\App\Http\Controllers\PilihanrayaController::class, 'manualSimulasi'])->name('manual.simulasi');
+
+    // Jawatankuasa Pilihanraya (JPRC/JPRD/AJK Cabang/Wanita/AMK) tracking
+    Route::get('/jawatankuasa', [\App\Http\Controllers\KeanggotaanJawatankuasaController::class, 'index'])->name('jawatankuasa.index');
+    Route::post('/jawatankuasa', [\App\Http\Controllers\KeanggotaanJawatankuasaController::class, 'store'])->name('jawatankuasa.store');
+    Route::put('/jawatankuasa/{member}', [\App\Http\Controllers\KeanggotaanJawatankuasaController::class, 'update'])->name('jawatankuasa.update');
+    Route::delete('/jawatankuasa/{member}', [\App\Http\Controllers\KeanggotaanJawatankuasaController::class, 'destroy'])->name('jawatankuasa.destroy');
+    Route::post('/jawatankuasa/upload', [\App\Http\Controllers\KeanggotaanJawatankuasaController::class, 'upload'])->name('jawatankuasa.upload');
+    Route::post('/jawatankuasa/resync', [\App\Http\Controllers\KeanggotaanJawatankuasaController::class, 'resync'])->name('jawatankuasa.resync');
+});
+
+// Keanggotaan (party membership) — upload, manual CRUD & analysis (super_admin only)
+Route::middleware(['auth', 'super_admin'])->prefix('keanggotaan')->name('keanggotaan.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\KeanggotaanController::class, 'index'])->name('index');
+    Route::post('/', [\App\Http\Controllers\KeanggotaanController::class, 'store'])->name('store');
+    Route::post('/set-active', [\App\Http\Controllers\KeanggotaanController::class, 'setActive'])->name('set-active');
+    Route::post('/{batch}/cancel', [\App\Http\Controllers\KeanggotaanController::class, 'cancel'])->name('cancel');
+    Route::delete('/{batch}', [\App\Http\Controllers\KeanggotaanController::class, 'destroy'])->name('destroy');
+
+    Route::get('/senarai', [\App\Http\Controllers\KeanggotaanController::class, 'senarai'])->name('senarai');
+    Route::post('/member', [\App\Http\Controllers\KeanggotaanController::class, 'memberStore'])->name('member.store');
+    Route::put('/member/{member}', [\App\Http\Controllers\KeanggotaanController::class, 'memberUpdate'])->name('member.update');
+    Route::delete('/member/{member}', [\App\Http\Controllers\KeanggotaanController::class, 'memberDestroy'])->name('member.destroy');
+    Route::post('/resync', [\App\Http\Controllers\KeanggotaanController::class, 'resync'])->name('resync');
+
+    Route::get('/analisa', [\App\Http\Controllers\KeanggotaanController::class, 'analisa'])->name('analisa');
 });
 
 // Mobile app API routes (token-based auth via Sanctum)

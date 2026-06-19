@@ -174,6 +174,7 @@ class PilihanrayaController extends Controller
     {
         return $this->analytics->resolveFilters($request->only([
             'negeri_id', 'parlimen_id', 'kadun_id', 'tarikh_dari', 'tarikh_hingga',
+            'umur_dari', 'umur_hingga', 'status_pengundi',
         ]));
     }
 
