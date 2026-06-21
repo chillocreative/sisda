@@ -5,6 +5,23 @@ import { Plus, Search, RefreshCw, Pencil, Trash2, X } from 'lucide-react';
 import useDragScroll from '@/Hooks/useDragScroll';
 import KeanggotaanNav from './Nav';
 
+// Windowed page numbers: 1 … current-1 current current+1 … last
+function pageWindow(current, last, delta = 2) {
+    const range = [];
+    for (let i = Math.max(1, current - delta); i <= Math.min(last, current + delta); i++) range.push(i);
+    const out = [];
+    if (range[0] > 1) {
+        out.push(1);
+        if (range[0] > 2) out.push('...');
+    }
+    out.push(...range);
+    if (range[range.length - 1] < last) {
+        if (range[range.length - 1] < last - 1) out.push('...');
+        out.push(last);
+    }
+    return out;
+}
+
 const SENTIMEN = {
     putih: { label: 'Putih', cls: 'bg-emerald-500 text-white' },
     hitam: { label: 'Hitam', cls: 'bg-slate-900 text-white' },
@@ -89,6 +106,11 @@ export default function Senarai({ members, filters, parlimenList = [], flash }) 
 
     const applyFilters = (extra = {}) => {
         router.get(route('keanggotaan.senarai'), { search, status_kawasan: filters.status_kawasan, parlimen: filters.parlimen, ...extra }, { preserveState: true, replace: true });
+    };
+
+    const goToPage = (page) => {
+        if (page < 1 || page > members.last_page || page === members.current_page) return;
+        router.get(route('keanggotaan.senarai'), { search, status_kawasan: filters.status_kawasan, parlimen: filters.parlimen, page }, { preserveState: true, replace: true, preserveScroll: true });
     };
 
     const remove = (member) => {
@@ -190,11 +212,20 @@ export default function Senarai({ members, filters, parlimenList = [], flash }) 
                 </div>
 
                 {members.last_page > 1 && (
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
                         <p className="text-sm text-slate-600">Halaman {members.current_page} / {members.last_page} ({members.total} ahli)</p>
-                        <div className="flex gap-2">
-                            {members.prev_page_url && <a href={members.prev_page_url} className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg hover:bg-slate-100">Sebelum</a>}
-                            {members.next_page_url && <a href={members.next_page_url} className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg hover:bg-slate-100">Seterusnya</a>}
+                        <div className="flex flex-wrap items-center gap-1">
+                            <button onClick={() => goToPage(members.current_page - 1)} disabled={members.current_page === 1} className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent">Sebelum</button>
+                            {pageWindow(members.current_page, members.last_page).map((p, i) => (
+                                p === '...'
+                                    ? <span key={`d${i}`} className="px-2 text-slate-400 select-none">…</span>
+                                    : <button
+                                        key={p}
+                                        onClick={() => goToPage(p)}
+                                        className={`min-w-[2.25rem] px-3 py-1.5 text-sm border rounded-lg ${p === members.current_page ? 'bg-slate-900 text-white border-slate-900' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`}
+                                    >{p}</button>
+                            ))}
+                            <button onClick={() => goToPage(members.current_page + 1)} disabled={members.current_page === members.last_page} className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent">Seterusnya</button>
                         </div>
                     </div>
                 )}
