@@ -45,13 +45,20 @@ function WingKpi({ label, value, grace, color }) {
     );
 }
 
-export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byDun, byColor, wings, parlimenList = [], filters = {} }) {
+const JANTINA_COLORS = { Lelaki: '#3b82f6', Perempuan: '#ec4899', 'Tidak Diketahui': '#cbd5e1' };
+
+export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byDun, byColor, byJantina, wings, parlimenList = [], filters = {} }) {
     const pct = (n) => (summary.total > 0 ? Math.round((n / summary.total) * 100) : 0);
     const kawasanPie = [
         { name: 'Dalam Kawasan', value: summary.dalam_kawasan, fill: '#10b981' },
         { name: 'Luar Kawasan', value: summary.luar_kawasan, fill: '#f59e0b' },
     ];
     const colorPie = byColor.map((c) => ({ name: c.voter_color, value: c.jumlah, fill: COLORS[c.voter_color] || '#cbd5e1' }));
+    const jantinaData = [
+        { name: 'Lelaki', value: byJantina?.lelaki || 0 },
+        { name: 'Perempuan', value: byJantina?.perempuan || 0 },
+        ...(byJantina?.tidak_diketahui ? [{ name: 'Tidak Diketahui', value: byJantina.tidak_diketahui }] : []),
+    ].map((d) => ({ ...d, fill: JANTINA_COLORS[d.name] }));
 
     const setParlimen = (parlimen) => router.get(route('keanggotaan.analisa'), { parlimen }, { preserveState: true, replace: true });
 
@@ -76,6 +83,30 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byDun
                     <Kpi label="Luar Kawasan" value={summary.luar_kawasan.toLocaleString()} sub={`${pct(summary.luar_kawasan)}% — tiada dalam DPT/DPPR`} icon={UserX} color="text-amber-600" />
                     <Kpi label="Dicula (Hitam)" value={summary.dicula.toLocaleString()} sub={`${pct(summary.dicula)}% disokong pembangkang`} icon={Crosshair} color="text-red-600" />
                 </div>
+
+                <Card title="Jantina Ahli">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                        <ResponsiveContainer width="100%" height={240}>
+                            <PieChart>
+                                <Pie data={jantinaData} cx="50%" cy="50%" innerRadius={55} outerRadius={95} paddingAngle={2} dataKey="value" nameKey="name">
+                                    {jantinaData.map((e) => <Cell key={e.name} fill={e.fill} />)}
+                                </Pie>
+                                <Tooltip formatter={(v) => v.toLocaleString()} />
+                                <Legend wrapperStyle={{ fontSize: '12px' }} />
+                            </PieChart>
+                        </ResponsiveContainer>
+                        <div className="space-y-3">
+                            {jantinaData.map((j) => (
+                                <div key={j.name} className="flex items-center justify-between border-b border-slate-100 pb-2">
+                                    <span className="flex items-center gap-2 text-sm text-slate-600">
+                                        <span className="h-3 w-3 rounded-full" style={{ backgroundColor: j.fill }} />{j.name}
+                                    </span>
+                                    <span className="text-lg font-bold text-slate-900">{j.value.toLocaleString()}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </Card>
 
                 {wings && (
                     <div className="space-y-4">

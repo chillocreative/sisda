@@ -399,6 +399,15 @@ class KeanggotaanController extends Controller
         $byColor = (clone $base())->selectRaw("COALESCE(NULLIF(voter_color, ''), 'belum_dicula') AS voter_color, COUNT(*) AS jumlah")
             ->groupBy('voter_color')->get();
 
+        // Jantina (cross-checked against the DPPR/DPT roll, IC fallback), respects the Parlimen filter.
+        $jantinaRaw = (clone $base())->selectRaw("COALESCE(NULLIF(jantina, ''), 'TIDAK DIKETAHUI') AS jantina, COUNT(*) AS jumlah")
+            ->groupBy('jantina')->pluck('jumlah', 'jantina');
+        $byJantina = [
+            'lelaki' => (int) ($jantinaRaw['LELAKI'] ?? 0),
+            'perempuan' => (int) ($jantinaRaw['PEREMPUAN'] ?? 0),
+            'tidak_diketahui' => (int) ($jantinaRaw['TIDAK DIKETAHUI'] ?? 0),
+        ];
+
         $wings = $this->wingBreakdown($base());
 
         return Inertia::render('Keanggotaan/Analisa', [
@@ -414,6 +423,7 @@ class KeanggotaanController extends Controller
             'byNegeri' => $byNegeri,
             'byDun' => $byDun,
             'byColor' => $byColor,
+            'byJantina' => $byJantina,
             'wings' => $wings,
             'parlimenList' => $this->parlimenList(),
             'filters' => ['parlimen' => $parlimen],

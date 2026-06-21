@@ -7,6 +7,7 @@ use App\Models\HasilCulaan;
 use App\Models\PangkalanDataPengundi;
 use App\Models\UploadBatch;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Cross-references party members (and committee members) against SISDA's
@@ -87,10 +88,18 @@ class MemberMatchService
             return $base;
         }
 
-        $activeIds = UploadBatch::activeIds() ?: [-1];
-        $roll = PangkalanDataPengundi::whereIn('upload_batch_id', $activeIds)
-            ->where('no_ic', $ic)
+        // Match against the combined voter roll: active DPPR upload batches plus
+        // any DPT-uploaded rows (DPT writes dpt_upload_id, not upload_batch_id).
+        $activeIds = UploadBatch::activeIds();
+        $hasDpt = Schema::hasColumn('pangkalan_data_pengundi', 'dpt_upload_id');
+        $roll = PangkalanDataPengundi::where('no_ic', $ic)
             ->where('is_deceased', false)
+            ->where(function ($q) use ($activeIds, $hasDpt) {
+                $q->whereIn('upload_batch_id', $activeIds ?: [-1]);
+                if ($hasDpt) {
+                    $q->orWhereNotNull('dpt_upload_id');
+                }
+            })
             ->first();
 
         $color = $this->latestVoterColor($ic);
@@ -167,9 +176,22 @@ class MemberMatchService
         ", $bind);
 
         // 3. Roll match → kawasan / DUN / Cabang / bangsa / registration status.
+        // Combined voter roll: active DPPR upload batches plus DPT-uploaded rows
+        // (DPT writes dpt_upload_id, not upload_batch_id).
         $activeIds = UploadBatch::activeIds();
+        $hasDpt = Schema::hasColumn('pangkalan_data_pengundi', 'dpt_upload_id');
+        $sourceConds = [];
+        $sourceBinds = [];
         if ($activeIds !== []) {
             $placeholders = implode(',', array_fill(0, count($activeIds), '?'));
+            $sourceConds[] = "upload_batch_id IN ({$placeholders})";
+            $sourceBinds = array_merge($sourceBinds, $activeIds);
+        }
+        if ($hasDpt) {
+            $sourceConds[] = 'dpt_upload_id IS NOT NULL';
+        }
+        if ($sourceConds !== []) {
+            $sourceWhere = '('.implode(' OR ', $sourceConds).')';
             DB::update("
                 UPDATE {$table} k
                 JOIN (
@@ -178,7 +200,7 @@ class MemberMatchService
                            MAX(bangsa) AS bangsa, MAX(jantina) AS jantina,
                            MAX(tahun_lahir) AS tahun_lahir, MAX(pendaftaran_baru) AS pendaftaran_baru
                       FROM pangkalan_data_pengundi
-                     WHERE is_deceased = 0 AND upload_batch_id IN ({$placeholders})
+                     WHERE is_deceased = 0 AND {$sourceWhere}
                      GROUP BY no_ic
                 ) p ON p.no_ic = k.no_ic
                 SET k.matched_kadun = p.kadun,
@@ -190,7 +212,7 @@ class MemberMatchService
                     k.is_pendaftaran_baru = p.pendaftaran_baru,
                     k.status_kawasan = 'dalam_kawasan'
                 {$scopeK}
-            ", array_merge($activeIds, $bind));
+            ", array_merge($sourceBinds, $bind));
         }
 
         // 4. Canvass match → latest voter_color, "dicula" = hitam.
