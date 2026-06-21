@@ -1,10 +1,11 @@
 import { Link } from '@inertiajs/react';
-import { Upload, List, BarChart3 } from 'lucide-react';
+import { Upload, List, BarChart3, Settings } from 'lucide-react';
 
 const TABS = [
     { name: 'Muat Naik', route: 'keanggotaan.index', match: 'keanggotaan.index', icon: Upload },
     { name: 'Senarai Ahli', route: 'keanggotaan.senarai', match: 'keanggotaan.senarai', icon: List },
     { name: 'Analisa', route: 'keanggotaan.analisa', match: 'keanggotaan.analisa', icon: BarChart3 },
+    { name: 'Tetapan', route: 'keanggotaan.tetapan', match: 'keanggotaan.tetapan', icon: Settings },
 ];
 
 export default function KeanggotaanNav() {

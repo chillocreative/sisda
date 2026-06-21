@@ -426,6 +426,9 @@ Route::middleware(['auth', 'super_admin'])->prefix('keanggotaan')->name('keanggo
     Route::post('/resync', [\App\Http\Controllers\KeanggotaanController::class, 'resync'])->name('resync');
 
     Route::get('/analisa', [\App\Http\Controllers\KeanggotaanController::class, 'analisa'])->name('analisa');
+
+    Route::get('/tetapan', [\App\Http\Controllers\KeanggotaanController::class, 'tetapan'])->name('tetapan');
+    Route::post('/tetapan', [\App\Http\Controllers\KeanggotaanController::class, 'tetapanUpdate'])->name('tetapan.update');
 });
 
 // Mobile app API routes (token-based auth via Sanctum)

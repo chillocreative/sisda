@@ -28,7 +28,24 @@ function Card({ title, children }) {
     );
 }
 
-export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byDun, byColor, parlimenList = [], filters = {} }) {
+const WING_COLORS = { AMK: '#2563eb', Srikandi: '#db2777', Wanita: '#9333ea' };
+
+function WingKpi({ label, value, grace, color }) {
+    return (
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-slate-500">{label}</span>
+                <span className="h-3 w-3 rounded-full" style={{ backgroundColor: color }} />
+            </div>
+            <div className="text-3xl font-bold mt-2 text-slate-900">{value.toLocaleString()}</div>
+            {grace > 0
+                ? <p className="text-xs text-red-600 mt-1">{grace.toLocaleString()} melepasi 35 — sah sehingga tamat penggal</p>
+                : <p className="text-xs text-slate-400 mt-1">≤ 35 tahun</p>}
+        </div>
+    );
+}
+
+export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byDun, byColor, wings, parlimenList = [], filters = {} }) {
     const pct = (n) => (summary.total > 0 ? Math.round((n / summary.total) * 100) : 0);
     const kawasanPie = [
         { name: 'Dalam Kawasan', value: summary.dalam_kawasan, fill: '#10b981' },
@@ -59,6 +76,40 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byDun
                     <Kpi label="Luar Kawasan" value={summary.luar_kawasan.toLocaleString()} sub={`${pct(summary.luar_kawasan)}% — tiada dalam DPT/DPPR`} icon={UserX} color="text-amber-600" />
                     <Kpi label="Dicula (Hitam)" value={summary.dicula.toLocaleString()} sub={`${pct(summary.dicula)}% disokong pembangkang`} icon={Crosshair} color="text-red-600" />
                 </div>
+
+                {wings && (
+                    <div className="space-y-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <h2 className="text-lg font-semibold text-slate-900">Sayap Parti (≤ 35 tahun)</h2>
+                            <span className="text-xs text-slate-500">
+                                {wings.term.tahun_mula && wings.term.tahun_tamat
+                                    ? `Penggal Pemilihan Parti: ${wings.term.tahun_mula}–${wings.term.tahun_tamat}${wings.within_term ? '' : ' (tamat)'}`
+                                    : 'Penggal Pemilihan Parti belum ditetapkan — tetapkan di tab Tetapan.'}
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <WingKpi label="AMK (Lelaki)" value={wings.totals.AMK} grace={wings.grace.AMK} color={WING_COLORS.AMK} />
+                            <WingKpi label="Srikandi (Perempuan)" value={wings.totals.Srikandi} grace={wings.grace.Srikandi} color={WING_COLORS.Srikandi} />
+                            <WingKpi label="Wanita (Perempuan)" value={wings.totals.Wanita} grace={wings.grace.Wanita} color={WING_COLORS.Wanita} />
+                        </div>
+                        <Card title="Sayap Mengikut Cabang">
+                            {wings.byCabang.length === 0 ? <p className="text-sm text-slate-500 py-12 text-center">Tiada ahli sayap.</p> : (
+                                <ResponsiveContainer width="100%" height={Math.max(260, wings.byCabang.length * 46)}>
+                                    <BarChart data={wings.byCabang} layout="vertical" margin={{ left: 40 }}>
+                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                                        <XAxis type="number" style={{ fontSize: '11px' }} />
+                                        <YAxis type="category" dataKey="nama" width={140} style={{ fontSize: '11px' }} />
+                                        <Tooltip formatter={(v) => v.toLocaleString()} />
+                                        <Legend wrapperStyle={{ fontSize: '12px' }} />
+                                        <Bar dataKey="AMK" name="AMK" fill={WING_COLORS.AMK} radius={[0, 4, 4, 0]} />
+                                        <Bar dataKey="Srikandi" name="Srikandi" fill={WING_COLORS.Srikandi} radius={[0, 4, 4, 0]} />
+                                        <Bar dataKey="Wanita" name="Wanita" fill={WING_COLORS.Wanita} radius={[0, 4, 4, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            )}
+                        </Card>
+                    </div>
+                )}
 
                 <Card title="Ahli & Culaan Mengikut Parlimen / Cabang">
                     {byParlimen.length === 0 ? <p className="text-sm text-slate-500 py-12 text-center">Tiada data padanan parlimen.</p> : (

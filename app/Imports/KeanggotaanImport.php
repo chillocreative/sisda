@@ -25,10 +25,13 @@ class KeanggotaanImport
 
     /**
      * @param  array  $rows  array of rows, each an array of cell values
+     * @param  array{kept?:int, skipped_no_ic?:int}  $tally  filled in-place with counts
      * @return array<int, array{no_ic:string, nama:string, no_tel:?string}>
      */
-    public static function extract(array $rows): array
+    public static function extract(array $rows, array &$tally = []): array
     {
+        $tally += ['kept' => 0, 'skipped_no_ic' => 0];
+
         [$headerIdx, $map] = self::detectHeader($rows);
         $start = $headerIdx === null ? 0 : $headerIdx + 1;
 
@@ -45,6 +48,11 @@ class KeanggotaanImport
                 $ic = self::detectIcInRow($cells);
             }
             if ($ic === null) {
+                // Only count rows that carry some content (ignore blank spacer rows).
+                if (trim(implode('', array_map('strval', $cells))) !== '') {
+                    $tally['skipped_no_ic']++;
+                }
+
                 continue;
             }
 
@@ -65,6 +73,7 @@ class KeanggotaanImport
             }
 
             $out[] = ['no_ic' => $ic, 'nama' => $nama ?: '-', 'no_tel' => $tel];
+            $tally['kept']++;
         }
 
         return $out;
@@ -106,6 +115,14 @@ class KeanggotaanImport
     public static function normaliseIc(string $value): ?string
     {
         $digits = preg_replace('/\D/', '', $value);
+
+        // Excel stores numeric IC cells as numbers and eats leading zeros, so
+        // members born in 2000+ (IC starts with 0) arrive with 9-11 digits.
+        // Restore the zeros, but only trust the result if the birth date validates.
+        if (strlen($digits) >= 9 && strlen($digits) < 12) {
+            $digits = str_pad($digits, 12, '0', STR_PAD_LEFT);
+        }
+
         if (strlen($digits) !== 12) {
             return null;
         }

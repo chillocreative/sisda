@@ -19,6 +19,20 @@ function SentimenCell({ color }) {
     return <span className={`inline-block px-3 py-1 rounded text-xs font-semibold ${s.cls}`}>{s.label}</span>;
 }
 
+function SayapCell({ wings, grace }) {
+    if (!wings || wings.length === 0) {
+        return <span className="text-xs text-slate-400">-</span>;
+    }
+    const cls = grace ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-indigo-100 text-indigo-700';
+    return (
+        <div className="flex flex-wrap gap-1">
+            {wings.map((w) => (
+                <span key={w} className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${cls}`}>{w}</span>
+            ))}
+        </div>
+    );
+}
+
 function MemberModal({ member, onClose }) {
     const isEdit = !!member;
     const { data, setData, post, put, processing, errors } = useForm({
@@ -134,6 +148,7 @@ export default function Senarai({ members, filters, parlimenList = [], flash }) 
                                 <th className="py-3 px-3 font-medium whitespace-nowrap">Umur</th>
                                 <th className="py-3 px-3 font-medium whitespace-nowrap">Bangsa</th>
                                 <th className="py-3 px-3 font-medium whitespace-nowrap">Jantina</th>
+                                <th className="py-3 px-3 font-medium whitespace-nowrap">Sayap</th>
                                 <th className="py-3 px-3 font-medium whitespace-nowrap">Status</th>
                                 <th className="py-3 px-3 font-medium whitespace-nowrap">DUN</th>
                                 <th className="py-3 px-3 font-medium whitespace-nowrap">Cabang</th>
@@ -143,15 +158,16 @@ export default function Senarai({ members, filters, parlimenList = [], flash }) 
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {members.data.length === 0 && (
-                                <tr><td colSpan={10} className="py-8 text-center text-slate-500">Tiada ahli.</td></tr>
+                                <tr><td colSpan={11} className="py-8 text-center text-slate-500">Tiada ahli.</td></tr>
                             )}
                             {members.data.map((m) => (
-                                <tr key={m.id} className="hover:bg-slate-50">
+                                <tr key={m.id} className={m.wing_grace ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-slate-50'}>
                                     <td className="py-3 px-3 text-slate-900 font-medium whitespace-nowrap">{m.nama}</td>
                                     <td className="py-3 px-3 text-slate-600 whitespace-nowrap">{m.no_ic}</td>
                                     <td className="py-3 px-3 text-slate-600">{m.umur ?? '-'}</td>
                                     <td className="py-3 px-3 text-slate-600 whitespace-nowrap">{m.bangsa || '-'}</td>
                                     <td className="py-3 px-3 text-slate-600 whitespace-nowrap">{m.jantina || '-'}</td>
+                                    <td className="py-3 px-3 whitespace-nowrap"><SayapCell wings={m.wings} grace={m.wing_grace} /></td>
                                     <td className="py-3 px-3 whitespace-nowrap">
                                         {m.status_kawasan === 'dalam_kawasan'
                                             ? <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">Pengundi Dalam Kawasan</span>

@@ -128,6 +128,7 @@ export default function AuthenticatedLayout({ children }) {
                     { name: 'Muat Naik', href: route('keanggotaan.index'), icon: Upload },
                     { name: 'Senarai Ahli', href: route('keanggotaan.senarai'), icon: List },
                     { name: 'Analisa', href: route('keanggotaan.analisa'), icon: TrendingUp },
+                    { name: 'Tetapan', href: route('keanggotaan.tetapan'), icon: Settings },
                 ]
             }
         ] : []),
