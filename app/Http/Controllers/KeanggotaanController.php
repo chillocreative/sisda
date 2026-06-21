@@ -390,17 +390,26 @@ class KeanggotaanController extends Controller
             ];
         }
 
-        // Group by the Cabang/Negeri, bucketing members not in any roll under
-        // "Tiada Padanan" so the charts include everyone and sum to the total.
-        $parlimenExpr = "COALESCE(NULLIF(matched_parlimen, ''), 'Tiada Padanan')";
-        $byParlimen = (clone $base())
-            ->selectRaw("{$parlimenExpr} AS nama, COUNT(*) AS jumlah, SUM(is_dicula) AS dicula")
-            ->groupByRaw($parlimenExpr)->orderByDesc('jumlah')->get();
+        // Aggregate by Cabang/Negeri in PHP (avoids ONLY_FULL_GROUP_BY on the
+        // COALESCE expression), bucketing unmatched members under "Tiada Padanan"
+        // so the charts include everyone and sum to the total.
+        $rollRows = (clone $base())->get(['matched_parlimen', 'matched_negeri', 'is_dicula']);
+        $pAgg = [];
+        $nAgg = [];
+        foreach ($rollRows as $r) {
+            $p = ($r->matched_parlimen !== null && $r->matched_parlimen !== '') ? $r->matched_parlimen : 'Tiada Padanan';
+            $pAgg[$p] ??= ['nama' => $p, 'jumlah' => 0, 'dicula' => 0];
+            $pAgg[$p]['jumlah']++;
+            if ($r->is_dicula) {
+                $pAgg[$p]['dicula']++;
+            }
 
-        $negeriExpr = "COALESCE(NULLIF(matched_negeri, ''), 'Tiada Padanan')";
-        $byNegeri = (clone $base())
-            ->selectRaw("{$negeriExpr} AS nama, COUNT(*) AS jumlah")
-            ->groupByRaw($negeriExpr)->orderByDesc('jumlah')->get();
+            $n = ($r->matched_negeri !== null && $r->matched_negeri !== '') ? $r->matched_negeri : 'Tiada Padanan';
+            $nAgg[$n] ??= ['nama' => $n, 'jumlah' => 0];
+            $nAgg[$n]['jumlah']++;
+        }
+        $byParlimen = collect($pAgg)->sortByDesc('jumlah')->values();
+        $byNegeri = collect($nAgg)->sortByDesc('jumlah')->values();
 
         $byDun = (clone $base())->whereNotNull('matched_kadun')->where('matched_kadun', '!=', '')
             ->selectRaw('matched_kadun AS nama, COUNT(*) AS jumlah')
