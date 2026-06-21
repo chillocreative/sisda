@@ -390,13 +390,17 @@ class KeanggotaanController extends Controller
             ];
         }
 
-        $byParlimen = (clone $base())->whereNotNull('matched_parlimen')->where('matched_parlimen', '!=', '')
-            ->selectRaw('matched_parlimen AS nama, COUNT(*) AS jumlah, SUM(is_dicula) AS dicula')
-            ->groupBy('matched_parlimen')->orderByDesc('jumlah')->get();
+        // Group by the Cabang/Negeri, bucketing members not in any roll under
+        // "Tiada Padanan" so the charts include everyone and sum to the total.
+        $parlimenExpr = "COALESCE(NULLIF(matched_parlimen, ''), 'Tiada Padanan')";
+        $byParlimen = (clone $base())
+            ->selectRaw("{$parlimenExpr} AS nama, COUNT(*) AS jumlah, SUM(is_dicula) AS dicula")
+            ->groupByRaw($parlimenExpr)->orderByDesc('jumlah')->get();
 
-        $byNegeri = (clone $base())->whereNotNull('matched_negeri')->where('matched_negeri', '!=', '')
-            ->selectRaw('matched_negeri AS nama, COUNT(*) AS jumlah')
-            ->groupBy('matched_negeri')->orderByDesc('jumlah')->get();
+        $negeriExpr = "COALESCE(NULLIF(matched_negeri, ''), 'Tiada Padanan')";
+        $byNegeri = (clone $base())
+            ->selectRaw("{$negeriExpr} AS nama, COUNT(*) AS jumlah")
+            ->groupByRaw($negeriExpr)->orderByDesc('jumlah')->get();
 
         $byDun = (clone $base())->whereNotNull('matched_kadun')->where('matched_kadun', '!=', '')
             ->selectRaw('matched_kadun AS nama, COUNT(*) AS jumlah')
