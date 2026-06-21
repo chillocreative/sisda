@@ -297,7 +297,7 @@ class KeanggotaanController extends Controller
             $query->where('status_kawasan', $request->input('status_kawasan'));
         }
         if ($parlimen = $request->input('parlimen')) {
-            $query->where('matched_parlimen', $parlimen);
+            $query->where(fn ($w) => $w->where('matched_parlimen', $parlimen)->orWhere('status_kawasan', 'luar_kawasan'));
         }
 
         $setting = KeanggotaanSetting::current();
@@ -370,7 +370,12 @@ class KeanggotaanController extends Controller
     public function analisa(Request $request)
     {
         $parlimen = $request->input('parlimen') ?: null;
-        $base = fn () => $this->memberQuery()->when($parlimen, fn ($q) => $q->where('matched_parlimen', $parlimen));
+        // Filtering by Cabang must still include members who aren't in any
+        // DPT/DPPR roll (luar kawasan) — the upload is a single-Cabang list,
+        // so the dashboard should reflect everyone from the keanggotaan file.
+        $base = fn () => $this->memberQuery()->when($parlimen, fn ($q) => $q->where(
+            fn ($w) => $w->where('matched_parlimen', $parlimen)->orWhere('status_kawasan', 'luar_kawasan')
+        ));
 
         $total = $base()->count();
         $dalam = (clone $base())->where('status_kawasan', 'dalam_kawasan')->count();
