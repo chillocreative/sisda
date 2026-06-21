@@ -88,9 +88,9 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byDun
                             </span>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <WingKpi label="AMK (Lelaki)" value={wings.totals.AMK} grace={wings.grace.AMK} color={WING_COLORS.AMK} />
-                            <WingKpi label="Srikandi (Perempuan)" value={wings.totals.Srikandi} grace={wings.grace.Srikandi} color={WING_COLORS.Srikandi} />
-                            <WingKpi label="Wanita (Perempuan)" value={wings.totals.Wanita} grace={wings.grace.Wanita} color={WING_COLORS.Wanita} />
+                            <WingKpi label="AMK" value={wings.totals.AMK} grace={wings.grace.AMK} color={WING_COLORS.AMK} />
+                            <WingKpi label="Srikandi" value={wings.totals.Srikandi} grace={wings.grace.Srikandi} color={WING_COLORS.Srikandi} />
+                            <WingKpi label="Wanita" value={wings.totals.Wanita} grace={wings.grace.Wanita} color={WING_COLORS.Wanita} />
                         </div>
                         <Card title="Sayap Mengikut Cabang">
                             {wings.byCabang.length === 0 ? <p className="text-sm text-slate-500 py-12 text-center">Tiada ahli sayap.</p> : (
