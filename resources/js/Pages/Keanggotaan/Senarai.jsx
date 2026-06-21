@@ -19,16 +19,17 @@ function SentimenCell({ color }) {
     return <span className={`inline-block px-3 py-1 rounded text-xs font-semibold ${s.cls}`}>{s.label}</span>;
 }
 
-function SayapCell({ wings, grace }) {
+function SayapCell({ wings, graceWings = [] }) {
     if (!wings || wings.length === 0) {
         return <span className="text-xs text-slate-400">-</span>;
     }
-    const cls = grace ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-indigo-100 text-indigo-700';
     return (
         <div className="flex flex-wrap gap-1">
-            {wings.map((w) => (
-                <span key={w} className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${cls}`}>{w}</span>
-            ))}
+            {wings.map((w) => {
+                const isGrace = graceWings.includes(w);
+                const cls = isGrace ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-indigo-100 text-indigo-700';
+                return <span key={w} className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${cls}`}>{w}</span>;
+            })}
         </div>
     );
 }
@@ -167,7 +168,7 @@ export default function Senarai({ members, filters, parlimenList = [], flash }) 
                                     <td className="py-3 px-3 text-slate-600">{m.umur ?? '-'}</td>
                                     <td className="py-3 px-3 text-slate-600 whitespace-nowrap">{m.bangsa || '-'}</td>
                                     <td className="py-3 px-3 text-slate-600 whitespace-nowrap">{m.jantina || '-'}</td>
-                                    <td className="py-3 px-3 whitespace-nowrap"><SayapCell wings={m.wings} grace={m.wing_grace} /></td>
+                                    <td className="py-3 px-3 whitespace-nowrap"><SayapCell wings={m.wings} graceWings={m.grace_wings} /></td>
                                     <td className="py-3 px-3 whitespace-nowrap">
                                         {m.status_kawasan === 'dalam_kawasan'
                                             ? <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">Pengundi Dalam Kawasan</span>

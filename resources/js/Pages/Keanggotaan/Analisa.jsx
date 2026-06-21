@@ -30,7 +30,7 @@ function Card({ title, children }) {
 
 const WING_COLORS = { AMK: '#2563eb', Srikandi: '#db2777', Wanita: '#9333ea' };
 
-function WingKpi({ label, value, grace, color }) {
+function WingKpi({ label, value, grace, note, color }) {
     return (
         <div className="bg-white rounded-xl border border-slate-200 p-5">
             <div className="flex items-center justify-between">
@@ -40,7 +40,7 @@ function WingKpi({ label, value, grace, color }) {
             <div className="text-3xl font-bold mt-2 text-slate-900">{value.toLocaleString()}</div>
             {grace > 0
                 ? <p className="text-xs text-red-600 mt-1">{grace.toLocaleString()} melepasi 35 — sah sehingga tamat penggal</p>
-                : <p className="text-xs text-slate-400 mt-1">≤ 35 tahun</p>}
+                : <p className="text-xs text-slate-400 mt-1">{note}</p>}
         </div>
     );
 }
@@ -111,7 +111,7 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byDun
                 {wings && (
                     <div className="space-y-4">
                         <div className="flex flex-wrap items-center justify-between gap-2">
-                            <h2 className="text-lg font-semibold text-slate-900">Sayap Parti (≤ 35 tahun)</h2>
+                            <h2 className="text-lg font-semibold text-slate-900">Sayap Parti</h2>
                             <span className="text-xs text-slate-500">
                                 {wings.term.tahun_mula && wings.term.tahun_tamat
                                     ? `Penggal Pemilihan Parti: ${wings.term.tahun_mula}–${wings.term.tahun_tamat}${wings.within_term ? '' : ' (tamat)'}`
@@ -119,9 +119,9 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byDun
                             </span>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <WingKpi label="AMK" value={wings.totals.AMK} grace={wings.grace.AMK} color={WING_COLORS.AMK} />
-                            <WingKpi label="Srikandi" value={wings.totals.Srikandi} grace={wings.grace.Srikandi} color={WING_COLORS.Srikandi} />
-                            <WingKpi label="Wanita" value={wings.totals.Wanita} grace={wings.grace.Wanita} color={WING_COLORS.Wanita} />
+                            <WingKpi label="AMK" value={wings.totals.AMK} grace={wings.grace.AMK} note="Lelaki ≤ 35 tahun" color={WING_COLORS.AMK} />
+                            <WingKpi label="Srikandi" value={wings.totals.Srikandi} grace={wings.grace.Srikandi} note="Perempuan ≤ 35 tahun" color={WING_COLORS.Srikandi} />
+                            <WingKpi label="Wanita" value={wings.totals.Wanita} grace={wings.grace.Wanita} note="Semua perempuan" color={WING_COLORS.Wanita} />
                         </div>
                         <Card title="Sayap Mengikut Cabang">
                             {wings.byCabang.length === 0 ? <p className="text-sm text-slate-500 py-12 text-center">Tiada ahli sayap.</p> : (

@@ -307,6 +307,7 @@ class KeanggotaanController extends Controller
         $members->through(function ($m) use ($setting, $year) {
             $wing = MemberWingService::classify($m->umur, $m->jantina, $setting->tahun_mula, $setting->tahun_tamat, $year);
             $m->wings = $wing['wings'];
+            $m->grace_wings = $wing['graceWings'];
             $m->wing_grace = $wing['grace'];
 
             return $m;
@@ -453,9 +454,10 @@ class KeanggotaanController extends Controller
                 continue;
             }
             $cabang = $r->matched_parlimen ?: 'Tiada Padanan';
+            $graceWings = array_flip($wing['graceWings']);
             foreach ($wing['wings'] as $w) {
                 $totals[$w]++;
-                if ($wing['grace']) {
+                if (isset($graceWings[$w])) {
                     $grace[$w]++;
                 }
                 $byCabang[$cabang] ??= array_fill_keys($labels, 0) + ['nama' => $cabang];
