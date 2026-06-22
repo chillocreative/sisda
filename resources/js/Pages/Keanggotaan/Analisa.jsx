@@ -244,7 +244,15 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
                     </Card>
                 </div>
 
-                <Card title="Ahli Mengikut DUN (30 teratas)">
+                <Kpi
+                    label={filters.parlimen ? `Daftar Mengundi di Luar Parlimen ${filters.parlimen}` : 'Daftar Mengundi di Luar Parlimen Cabang'}
+                    value={(summary.luar_parlimen || 0).toLocaleString()}
+                    sub={`${pct(summary.luar_parlimen || 0)}% daripada ahli — berdaftar mengundi di luar cabang`}
+                    icon={MapPin}
+                    color="text-amber-600"
+                />
+
+                <Card title="Ahli Mengikut DUN">
                     {byDun.length === 0 ? <p className="text-sm text-slate-500 py-12 text-center">Tiada data padanan DUN.</p> : (
                         <ResponsiveContainer width="100%" height={Math.max(260, byDun.length * 28)}>
                             <BarChart data={byDun} layout="vertical" margin={{ left: 60 }}>

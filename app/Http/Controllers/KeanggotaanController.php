@@ -451,9 +451,20 @@ class KeanggotaanController extends Controller
         $byNegeri = collect(array_values($nAgg))->sortByDesc('jumlah')->values();
         $byBangsa = collect(array_values($bAgg))->sortByDesc('jumlah')->values();
 
+        // DUN comes from the voter-roll match. When a Cabang is selected, keep
+        // only DUNs in that Cabang's Parlimen (members registered elsewhere are
+        // surfaced via the "luar parlimen" card below, not this chart).
         $byDun = (clone $base())->whereNotNull('matched_kadun')->where('matched_kadun', '!=', '')
+            ->when($parlimen, fn ($q) => $q->whereRaw('UPPER(matched_parlimen) = ?', [strtoupper($parlimen)]))
             ->selectRaw('matched_kadun AS nama, COUNT(*) AS jumlah')
-            ->groupBy('matched_kadun')->orderByDesc('jumlah')->limit(30)->get();
+            ->groupBy('matched_kadun')->orderByDesc('jumlah')->get();
+
+        // Members in the roll but registered to vote in a different Parlimen than
+        // their party Cabang.
+        $luarParlimen = (clone $base())
+            ->whereNotNull('matched_parlimen')->where('matched_parlimen', '!=', '')
+            ->whereRaw('UPPER(matched_parlimen) <> UPPER(cabang)')
+            ->count();
 
         $byColor = (clone $base())->selectRaw("COALESCE(NULLIF(voter_color, ''), 'belum_dicula') AS voter_color, COUNT(*) AS jumlah")
             ->groupBy('voter_color')->get();
@@ -477,6 +488,7 @@ class KeanggotaanController extends Controller
                 'belum_sync' => $total - $dalam - $luar,
                 'dicula' => $dicula,
                 'pendaftaran_baru' => $baru,
+                'luar_parlimen' => $luarParlimen,
             ],
             'ageBands' => $ageBands,
             'byParlimen' => $byParlimen,
