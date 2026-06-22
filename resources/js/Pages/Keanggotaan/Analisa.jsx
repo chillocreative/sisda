@@ -49,7 +49,7 @@ const JANTINA_COLORS = { Lelaki: '#3b82f6', Perempuan: '#ec4899', 'Tidak Diketah
 
 const BANGSA_COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#14b8a6', '#94a3b8'];
 
-export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBangsa = [], byDun, byColor, byJantina, wings, parlimenList = [], filters = {} }) {
+export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBangsa = [], byDun, byColor, byJantina, wings, parlimenList = [], dunList = [], filters = {} }) {
     const pct = (n) => (summary.total > 0 ? Math.round((n / summary.total) * 100) : 0);
     const kawasanPie = [
         { name: 'Dalam Kawasan', value: summary.dalam_kawasan, fill: '#10b981' },
@@ -64,7 +64,7 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
 
     const bangsaData = byBangsa.map((b, i) => ({ name: b.nama, value: b.jumlah, fill: BANGSA_COLORS[i % BANGSA_COLORS.length] }));
 
-    const setParlimen = (parlimen) => router.get(route('keanggotaan.analisa'), { parlimen }, { preserveState: true, replace: true });
+    const apply = (params) => router.get(route('keanggotaan.analisa'), params, { preserveState: true, replace: true });
 
     return (
         <AuthenticatedLayout>
@@ -72,10 +72,19 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
             <div className="max-w-7xl mx-auto space-y-6">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <h1 className="text-2xl font-bold text-slate-900">Analisa Keanggotaan</h1>
-                    <div>
-                        <select value={filters.parlimen || ''} onChange={(e) => setParlimen(e.target.value)} className="px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <select value={filters.parlimen || ''} onChange={(e) => apply({ parlimen: e.target.value })} className="px-3 py-2 border border-slate-300 rounded-lg text-sm">
                             <option value="">Semua Parlimen / Cabang</option>
                             {parlimenList.map((p) => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                        <select
+                            value={filters.dun || ''}
+                            onChange={(e) => apply({ parlimen: filters.parlimen, dun: e.target.value })}
+                            disabled={!filters.parlimen}
+                            className="px-3 py-2 border border-slate-300 rounded-lg text-sm disabled:bg-slate-100 disabled:text-slate-400"
+                        >
+                            <option value="">{filters.parlimen ? 'Semua DUN' : 'Pilih Parlimen dahulu'}</option>
+                            {dunList.map((d) => <option key={d} value={d}>{d}</option>)}
                         </select>
                     </div>
                 </div>
@@ -88,7 +97,7 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
                     <Kpi label="Dicula (Hitam)" value={summary.dicula.toLocaleString()} sub={`${pct(summary.dicula)}% disokong pembangkang`} icon={Crosshair} color="text-red-600" />
                 </div>
 
-                <Card title="Jantina Ahli">
+                <Card title={filters.dun ? `Jantina Ahli — DUN ${filters.dun}` : 'Jantina Ahli'}>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
                         <ResponsiveContainer width="100%" height={240}>
                             <PieChart>

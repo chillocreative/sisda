@@ -407,8 +407,21 @@ class KeanggotaanController extends Controller
         }
 
         $parlimen = $request->input('parlimen') ?: null;
-        // Cabang comes straight from the uploaded file (not the DPT/DPPR roll).
-        $base = fn () => $this->memberQuery()->when($parlimen, fn ($q) => $q->where('cabang', $parlimen));
+        $dun = $request->input('dun') ?: null;
+        // Cabang comes from the file; DUN (matched_kadun) from the roll. Selecting
+        // a DUN drills the whole dashboard down to that DUN's members.
+        $base = fn () => $this->memberQuery()
+            ->when($parlimen, fn ($q) => $q->where('cabang', $parlimen))
+            ->when($dun, fn ($q) => $q->where('matched_kadun', $dun));
+
+        // DUNs available for the DUN dropdown: those within the selected Parlimen
+        // (only populated once a Parlimen/Cabang is chosen).
+        $dunList = $parlimen
+            ? Keanggotaan::where('cabang', $parlimen)
+                ->whereNotNull('matched_kadun')->where('matched_kadun', '!=', '')
+                ->whereRaw('UPPER(matched_parlimen) = ?', [strtoupper($parlimen)])
+                ->distinct()->orderBy('matched_kadun')->pluck('matched_kadun')->all()
+            : [];
 
         $total = $base()->count();
         // Kawasan/dicula are only known after a DPT/DPPR sync — 0 until then.
@@ -499,7 +512,8 @@ class KeanggotaanController extends Controller
             'byJantina' => $byJantina,
             'wings' => $wings,
             'parlimenList' => $this->parlimenList(),
-            'filters' => ['parlimen' => $parlimen],
+            'dunList' => $dunList,
+            'filters' => ['parlimen' => $parlimen, 'dun' => $dun],
         ]);
     }
 
