@@ -253,13 +253,24 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
                     </Card>
                 </div>
 
-                <Kpi
-                    label={filters.parlimen ? `Daftar Mengundi di Luar Parlimen ${filters.parlimen}` : 'Daftar Mengundi di Luar Parlimen Cabang'}
-                    value={(summary.luar_parlimen || 0).toLocaleString()}
-                    sub={`${pct(summary.luar_parlimen || 0)}% daripada ahli — berdaftar mengundi di luar cabang`}
-                    icon={MapPin}
-                    color="text-amber-600"
-                />
+                <div className={`grid grid-cols-1 gap-4 ${filters.dun ? 'sm:grid-cols-2' : ''}`}>
+                    <Kpi
+                        label={filters.parlimen ? `Daftar Mengundi di Luar Parlimen ${filters.parlimen}` : 'Daftar Mengundi di Luar Parlimen Cabang'}
+                        value={(summary.luar_parlimen || 0).toLocaleString()}
+                        sub={`${pct(summary.luar_parlimen || 0)}% daripada ahli — berdaftar mengundi di luar cabang`}
+                        icon={MapPin}
+                        color="text-amber-600"
+                    />
+                    {filters.dun && (
+                        <Kpi
+                            label={`Daftar Mengundi di Luar DUN ${filters.dun}`}
+                            value={(summary.luar_dun || 0).toLocaleString()}
+                            sub={`${pct(summary.luar_dun || 0)}% daripada ahli — berdaftar mengundi di luar DUN ini`}
+                            icon={MapPin}
+                            color="text-amber-600"
+                        />
+                    )}
+                </div>
 
                 <Card title="Ahli Mengikut DUN">
                     {byDun.length === 0 ? <p className="text-sm text-slate-500 py-12 text-center">Tiada data padanan DUN.</p> : (

@@ -408,11 +408,10 @@ class KeanggotaanController extends Controller
 
         $parlimen = $request->input('parlimen') ?: null;
         $dun = $request->input('dun') ?: null;
-        // Cabang comes from the file; DUN (matched_kadun) from the roll. Selecting
-        // a DUN drills the whole dashboard down to that DUN's members.
-        $base = fn () => $this->memberQuery()
-            ->when($parlimen, fn ($q) => $q->where('cabang', $parlimen))
-            ->when($dun, fn ($q) => $q->where('matched_kadun', $dun));
+        // Cabang (from the file) scopes the whole dashboard. The DUN selection
+        // (matched_kadun, from the roll) only "focuses" the Jantina + "luar DUN"
+        // cards — it does not narrow the rest of the dashboard.
+        $base = fn () => $this->memberQuery()->when($parlimen, fn ($q) => $q->where('cabang', $parlimen));
 
         // DUNs available for the DUN dropdown: those within the selected Parlimen
         // (only populated once a Parlimen/Cabang is chosen).
@@ -479,11 +478,20 @@ class KeanggotaanController extends Controller
             ->whereRaw('UPPER(matched_parlimen) <> UPPER(cabang)')
             ->count();
 
+        // When a DUN is focused: members of this Cabang registered to vote in a
+        // DUN other than the selected one (parallel to the "luar parlimen" card).
+        $luarDun = $dun
+            ? (clone $base())->whereNotNull('matched_kadun')->where('matched_kadun', '!=', '')
+                ->where('matched_kadun', '!=', $dun)->count()
+            : 0;
+
         $byColor = (clone $base())->selectRaw("COALESCE(NULLIF(voter_color, ''), 'belum_dicula') AS voter_color, COUNT(*) AS jumlah")
             ->groupBy('voter_color')->get();
 
-        // Jantina straight from the file (IC fallback at import), respects the Cabang filter.
-        $jantinaRaw = (clone $base())->selectRaw("COALESCE(NULLIF(jantina, ''), 'TIDAK DIKETAHUI') AS jantina, COUNT(*) AS jumlah")
+        // Jantina straight from the file (IC fallback at import). Respects the
+        // Cabang filter, and the DUN selection when one is focused.
+        $jantinaRaw = (clone $base())->when($dun, fn ($q) => $q->where('matched_kadun', $dun))
+            ->selectRaw("COALESCE(NULLIF(jantina, ''), 'TIDAK DIKETAHUI') AS jantina, COUNT(*) AS jumlah")
             ->groupBy('jantina')->pluck('jumlah', 'jantina');
         $byJantina = [
             'lelaki' => (int) ($jantinaRaw['LELAKI'] ?? 0),
@@ -502,6 +510,7 @@ class KeanggotaanController extends Controller
                 'dicula' => $dicula,
                 'pendaftaran_baru' => $baru,
                 'luar_parlimen' => $luarParlimen,
+                'luar_dun' => $luarDun,
             ],
             'ageBands' => $ageBands,
             'byParlimen' => $byParlimen,
