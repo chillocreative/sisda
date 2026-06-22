@@ -408,10 +408,16 @@ class KeanggotaanController extends Controller
 
         $parlimen = $request->input('parlimen') ?: null;
         $dun = $request->input('dun') ?: null;
-        // Cabang (from the file) scopes the whole dashboard. The DUN selection
-        // (matched_kadun, from the roll) only "focuses" the Jantina + "luar DUN"
-        // cards — it does not narrow the rest of the dashboard.
-        $base = fn () => $this->memberQuery()->when($parlimen, fn ($q) => $q->where('cabang', $parlimen));
+        // Main scope follows Parlimen (Cabang, from the file) then DUN
+        // (matched_kadun, from the roll) — the KPI/age/jantina/wings/etc. cards
+        // drill down with both filters.
+        $base = fn () => $this->memberQuery()
+            ->when($parlimen, fn ($q) => $q->where('cabang', $parlimen))
+            ->when($dun, fn ($q) => $q->where('matched_kadun', $dun));
+        // Parlimen-only scope for the DUN chart and the "luar" cards — they must
+        // see the whole Cabang to list all DUNs / count members registered
+        // outside the focused DUN.
+        $parlimenBase = fn () => $this->memberQuery()->when($parlimen, fn ($q) => $q->where('cabang', $parlimen));
 
         // DUNs available for the DUN dropdown: those within the selected Parlimen
         // (only populated once a Parlimen/Cabang is chosen).
@@ -466,14 +472,14 @@ class KeanggotaanController extends Controller
         // DUN comes from the voter-roll match. When a Cabang is selected, keep
         // only DUNs in that Cabang's Parlimen (members registered elsewhere are
         // surfaced via the "luar parlimen" card below, not this chart).
-        $byDun = (clone $base())->whereNotNull('matched_kadun')->where('matched_kadun', '!=', '')
+        $byDun = (clone $parlimenBase())->whereNotNull('matched_kadun')->where('matched_kadun', '!=', '')
             ->when($parlimen, fn ($q) => $q->whereRaw('UPPER(matched_parlimen) = ?', [strtoupper($parlimen)]))
             ->selectRaw('matched_kadun AS nama, COUNT(*) AS jumlah')
             ->groupBy('matched_kadun')->orderByDesc('jumlah')->get();
 
         // Members in the roll but registered to vote in a different Parlimen than
-        // their party Cabang.
-        $luarParlimen = (clone $base())
+        // their party Cabang (Cabang scope — independent of the focused DUN).
+        $luarParlimen = (clone $parlimenBase())
             ->whereNotNull('matched_parlimen')->where('matched_parlimen', '!=', '')
             ->whereRaw('UPPER(matched_parlimen) <> UPPER(cabang)')
             ->count();
@@ -481,16 +487,16 @@ class KeanggotaanController extends Controller
         // When a DUN is focused: members of this Cabang registered to vote in a
         // DUN other than the selected one (parallel to the "luar parlimen" card).
         $luarDun = $dun
-            ? (clone $base())->whereNotNull('matched_kadun')->where('matched_kadun', '!=', '')
+            ? (clone $parlimenBase())->whereNotNull('matched_kadun')->where('matched_kadun', '!=', '')
                 ->where('matched_kadun', '!=', $dun)->count()
             : 0;
 
         $byColor = (clone $base())->selectRaw("COALESCE(NULLIF(voter_color, ''), 'belum_dicula') AS voter_color, COUNT(*) AS jumlah")
             ->groupBy('voter_color')->get();
 
-        // Jantina straight from the file (IC fallback at import). Respects the
-        // Cabang filter, and the DUN selection when one is focused.
-        $jantinaRaw = (clone $base())->when($dun, fn ($q) => $q->where('matched_kadun', $dun))
+        // Jantina straight from the file (IC fallback at import). Follows the
+        // main Parlimen > DUN scope.
+        $jantinaRaw = (clone $base())
             ->selectRaw("COALESCE(NULLIF(jantina, ''), 'TIDAK DIKETAHUI') AS jantina, COUNT(*) AS jumlah")
             ->groupBy('jantina')->pluck('jumlah', 'jantina');
         $byJantina = [
