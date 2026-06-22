@@ -286,7 +286,7 @@ class KeanggotaanController extends Controller
             ->update(['is_active' => $isActive]);
 
         // Re-match everything — kawasan/DUN depend on which voter batches are active.
-        $this->matcher->syncTable('keanggotaan');
+        $this->matcher->syncTable('keanggotaan', keepFileFields: true);
 
         return redirect()->route('keanggotaan.index')
             ->with('success', "{$count} batch keanggotaan telah ".($isActive ? 'diaktifkan' : 'dinyahaktifkan').'.');
@@ -389,7 +389,7 @@ class KeanggotaanController extends Controller
 
     public function resync()
     {
-        $this->matcher->syncTable('keanggotaan');
+        $this->matcher->syncTable('keanggotaan', keepFileFields: true);
 
         return redirect()->back()->with('success', 'Padanan keanggotaan dengan SISDA telah disegerakkan semula.');
     }
@@ -398,6 +398,14 @@ class KeanggotaanController extends Controller
 
     public function analisa(Request $request)
     {
+        // Auto-cross-check freshly-uploaded members against the DPT/DPPR roll so
+        // kawasan/DUN/dicula fill in without a manual "Sync Semula". Only runs
+        // while there's unsynced data (status_kawasan still blank); file fields
+        // (cabang/negeri/no_anggota/bangsa/jantina) are preserved.
+        if (Keanggotaan::whereNull('status_kawasan')->exists()) {
+            $this->matcher->syncTable('keanggotaan', keepFileFields: true);
+        }
+
         $parlimen = $request->input('parlimen') ?: null;
         // Cabang comes straight from the uploaded file (not the DPT/DPPR roll).
         $base = fn () => $this->memberQuery()->when($parlimen, fn ($q) => $q->where('cabang', $parlimen));

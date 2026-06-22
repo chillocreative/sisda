@@ -141,7 +141,7 @@ class MemberMatchService
      * scoped to one batch) in set-based statements. Far cheaper than
      * per-row matching for bulk imports.
      */
-    public function syncTable(string $table, ?int $batchId = null): void
+    public function syncTable(string $table, ?int $batchId = null, bool $keepFileFields = false): void
     {
         if (! in_array($table, self::SYNCABLE, true)) {
             throw new \InvalidArgumentException("Cannot sync table [{$table}].");
@@ -152,15 +152,21 @@ class MemberMatchService
         $bind = $batchId !== null ? [$batchId] : [];
 
         // 1. Reset roll/canvass-derived fields to the "luar kawasan" baseline.
-        DB::update("
-            UPDATE {$table} SET
-                matched_kadun = NULL, matched_parlimen = NULL, matched_negeri = NULL,
-                tahun_lahir = NULL, bangsa = NULL, voter_color = NULL,
-                is_dicula = 0, is_pendaftaran_baru = 0, status_kawasan = 'luar_kawasan'
-            {$scope}
-        ", $bind);
+        // When keepFileFields is set, bangsa stays as the value read from the
+        // uploaded file (the roll cross-check must not clobber file data).
+        $reset = [
+            'matched_kadun = NULL', 'matched_parlimen = NULL', 'matched_negeri = NULL',
+            'tahun_lahir = NULL', 'voter_color = NULL',
+            'is_dicula = 0', 'is_pendaftaran_baru = 0', "status_kawasan = 'luar_kawasan'",
+        ];
+        if (! $keepFileFields) {
+            $reset[] = 'bangsa = NULL';
+        }
+        DB::update("UPDATE {$table} SET ".implode(', ', $reset)." {$scope}", $bind);
 
-        // 2. IC-derived umur & jantina (independent of any match).
+        // 2. IC-derived umur (always) & jantina. With keepFileFields, jantina
+        // from the file is preserved — only filled from the IC when missing.
+        $jantinaGuard = $keepFileFields ? "(jantina IS NULL OR jantina = '') AND " : '';
         DB::update("
             UPDATE {$table} SET
                 umur = CASE WHEN no_ic REGEXP '^[0-9]{6}'
@@ -169,7 +175,7 @@ class MemberMatchService
                         STR_TO_DATE(CONCAT(IF(CAST(SUBSTRING(no_ic,1,2) AS UNSIGNED) <= 25, '20', '19'), SUBSTRING(no_ic,1,6)), '%Y%m%d'),
                         CURDATE()
                     ) ELSE umur END,
-                jantina = CASE WHEN no_ic REGEXP '^[0-9]{12}$'
+                jantina = CASE WHEN {$jantinaGuard} no_ic REGEXP '^[0-9]{12}$'
                     THEN IF(MOD(CAST(SUBSTRING(no_ic,12,1) AS UNSIGNED), 2) = 1, 'LELAKI', 'PEREMPUAN')
                     ELSE jantina END
             {$scope}
@@ -192,6 +198,21 @@ class MemberMatchService
         }
         if ($sourceConds !== []) {
             $sourceWhere = '('.implode(' OR ', $sourceConds).')';
+            // Roll-derived fields. bangsa/jantina are only taken from the roll
+            // when NOT keeping file fields (committee table); for keanggotaan
+            // they stay as the uploaded file's values.
+            $set = [
+                'k.matched_kadun = p.kadun',
+                'k.matched_parlimen = p.parlimen',
+                'k.matched_negeri = p.negeri',
+                'k.tahun_lahir = p.tahun_lahir',
+                'k.is_pendaftaran_baru = p.pendaftaran_baru',
+                "k.status_kawasan = 'dalam_kawasan'",
+            ];
+            if (! $keepFileFields) {
+                $set[] = 'k.bangsa = p.bangsa';
+                $set[] = "k.jantina = COALESCE(NULLIF(p.jantina, ''), k.jantina)";
+            }
             DB::update("
                 UPDATE {$table} k
                 JOIN (
@@ -203,14 +224,7 @@ class MemberMatchService
                      WHERE is_deceased = 0 AND {$sourceWhere}
                      GROUP BY no_ic
                 ) p ON p.no_ic = k.no_ic
-                SET k.matched_kadun = p.kadun,
-                    k.matched_parlimen = p.parlimen,
-                    k.matched_negeri = p.negeri,
-                    k.bangsa = p.bangsa,
-                    k.jantina = COALESCE(NULLIF(p.jantina, ''), k.jantina),
-                    k.tahun_lahir = p.tahun_lahir,
-                    k.is_pendaftaran_baru = p.pendaftaran_baru,
-                    k.status_kawasan = 'dalam_kawasan'
+                SET ".implode(', ', $set)."
                 {$scopeK}
             ", array_merge($sourceBinds, $bind));
         }
