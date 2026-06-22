@@ -47,7 +47,9 @@ function WingKpi({ label, value, grace, note, color }) {
 
 const JANTINA_COLORS = { Lelaki: '#3b82f6', Perempuan: '#ec4899', 'Tidak Diketahui': '#cbd5e1' };
 
-export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byDun, byColor, byJantina, wings, parlimenList = [], filters = {} }) {
+const BANGSA_COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#14b8a6', '#94a3b8'];
+
+export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBangsa = [], byDun, byColor, byJantina, wings, parlimenList = [], filters = {} }) {
     const pct = (n) => (summary.total > 0 ? Math.round((n / summary.total) * 100) : 0);
     const kawasanPie = [
         { name: 'Dalam Kawasan', value: summary.dalam_kawasan, fill: '#10b981' },
@@ -59,6 +61,8 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byDun
         { name: 'Perempuan', value: byJantina?.perempuan || 0 },
         ...(byJantina?.tidak_diketahui ? [{ name: 'Tidak Diketahui', value: byJantina.tidak_diketahui }] : []),
     ].map((d) => ({ ...d, fill: JANTINA_COLORS[d.name] }));
+
+    const bangsaData = byBangsa.map((b, i) => ({ name: b.nama, value: b.jumlah, fill: BANGSA_COLORS[i % BANGSA_COLORS.length] }));
 
     const setParlimen = (parlimen) => router.get(route('keanggotaan.analisa'), { parlimen }, { preserveState: true, replace: true });
 
@@ -108,6 +112,32 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byDun
                     </div>
                 </Card>
 
+                <Card title="Ahli Mengikut Bangsa">
+                    {bangsaData.length === 0 ? <p className="text-sm text-slate-500 py-12 text-center">Tiada data bangsa.</p> : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                            <ResponsiveContainer width="100%" height={240}>
+                                <PieChart>
+                                    <Pie data={bangsaData} cx="50%" cy="50%" innerRadius={55} outerRadius={95} paddingAngle={2} dataKey="value" nameKey="name">
+                                        {bangsaData.map((e) => <Cell key={e.name} fill={e.fill} />)}
+                                    </Pie>
+                                    <Tooltip formatter={(v) => v.toLocaleString()} />
+                                    <Legend wrapperStyle={{ fontSize: '12px' }} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                            <div className="space-y-3">
+                                {bangsaData.map((b) => (
+                                    <div key={b.name} className="flex items-center justify-between border-b border-slate-100 pb-2">
+                                        <span className="flex items-center gap-2 text-sm text-slate-600">
+                                            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: b.fill }} />{b.name}
+                                        </span>
+                                        <span className="text-lg font-bold text-slate-900">{b.value.toLocaleString()}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </Card>
+
                 {wings && (
                     <div className="space-y-4">
                         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -142,8 +172,8 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byDun
                     </div>
                 )}
 
-                <Card title="Ahli & Culaan Mengikut Parlimen / Cabang">
-                    {byParlimen.length === 0 ? <p className="text-sm text-slate-500 py-12 text-center">Tiada data padanan parlimen.</p> : (
+                <Card title="Ahli Mengikut Cabang">
+                    {byParlimen.length === 0 ? <p className="text-sm text-slate-500 py-12 text-center">Tiada data cabang.</p> : (
                         <ResponsiveContainer width="100%" height={Math.max(240, byParlimen.length * 38)}>
                             <BarChart data={byParlimen} layout="vertical" margin={{ left: 40 }}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
@@ -171,21 +201,25 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byDun
                         </ResponsiveContainer>
                     </Card>
                     <Card title="Status Kawasan">
-                        <ResponsiveContainer width="100%" height={300}>
-                            <PieChart>
-                                <Pie data={kawasanPie} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={2} dataKey="value" nameKey="name">
-                                    {kawasanPie.map((e) => <Cell key={e.name} fill={e.fill} />)}
-                                </Pie>
-                                <Tooltip formatter={(v) => v.toLocaleString()} />
-                                <Legend wrapperStyle={{ fontSize: '12px' }} />
-                            </PieChart>
-                        </ResponsiveContainer>
+                        {(summary.dalam_kawasan + summary.luar_kawasan) === 0 ? (
+                            <p className="text-sm text-slate-500 py-24 text-center">Belum disync dengan DPT / DPPR.<br />Tekan "Sync Semula" di Senarai Ahli untuk padankan.</p>
+                        ) : (
+                            <ResponsiveContainer width="100%" height={300}>
+                                <PieChart>
+                                    <Pie data={kawasanPie} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={2} dataKey="value" nameKey="name">
+                                        {kawasanPie.map((e) => <Cell key={e.name} fill={e.fill} />)}
+                                    </Pie>
+                                    <Tooltip formatter={(v) => v.toLocaleString()} />
+                                    <Legend wrapperStyle={{ fontSize: '12px' }} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        )}
                     </Card>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <Card title="Ahli Mengikut Negeri">
-                        {byNegeri.length === 0 ? <p className="text-sm text-slate-500 py-12 text-center">Tiada data padanan.</p> : (
+                        {byNegeri.length === 0 ? <p className="text-sm text-slate-500 py-12 text-center">Tiada data negeri.</p> : (
                             <ResponsiveContainer width="100%" height={Math.max(220, byNegeri.length * 32)}>
                                 <BarChart data={byNegeri} layout="vertical" margin={{ left: 40 }}>
                                     <CartesianGrid strokeDasharray="3 3" horizontal={false} />

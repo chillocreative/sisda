@@ -166,6 +166,7 @@ export default function Senarai({ members, filters, parlimenList = [], flash }) 
                     <table className="w-full text-sm min-w-[1100px]">
                         <thead>
                             <tr className="border-b border-slate-200 text-left text-slate-600 bg-slate-50">
+                                <th className="py-3 px-3 font-medium whitespace-nowrap">No. Anggota</th>
                                 <th className="py-3 px-3 font-medium whitespace-nowrap">Nama</th>
                                 <th className="py-3 px-3 font-medium whitespace-nowrap">No. IC</th>
                                 <th className="py-3 px-3 font-medium whitespace-nowrap">Umur</th>
@@ -181,10 +182,11 @@ export default function Senarai({ members, filters, parlimenList = [], flash }) 
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {members.data.length === 0 && (
-                                <tr><td colSpan={11} className="py-8 text-center text-slate-500">Tiada ahli.</td></tr>
+                                <tr><td colSpan={12} className="py-8 text-center text-slate-500">Tiada ahli.</td></tr>
                             )}
                             {members.data.map((m) => (
                                 <tr key={m.id} className={m.wing_grace ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-slate-50'}>
+                                    <td className="py-3 px-3 text-slate-600 whitespace-nowrap">{m.no_anggota || '-'}</td>
                                     <td className="py-3 px-3 text-slate-900 font-medium whitespace-nowrap">{m.nama}</td>
                                     <td className="py-3 px-3 text-slate-600 whitespace-nowrap">{m.no_ic}</td>
                                     <td className="py-3 px-3 text-slate-600">{m.umur ?? '-'}</td>
@@ -194,10 +196,12 @@ export default function Senarai({ members, filters, parlimenList = [], flash }) 
                                     <td className="py-3 px-3 whitespace-nowrap">
                                         {m.status_kawasan === 'dalam_kawasan'
                                             ? <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">Pengundi Dalam Kawasan</span>
-                                            : <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">Pengundi Luar</span>}
+                                            : m.status_kawasan === 'luar_kawasan'
+                                                ? <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">Pengundi Luar</span>
+                                                : <span className="text-xs text-slate-400 italic">Belum Sync</span>}
                                     </td>
                                     <td className="py-3 px-3 text-slate-600 whitespace-nowrap">{m.matched_kadun || '-'}</td>
-                                    <td className="py-3 px-3 text-slate-600 whitespace-nowrap">{m.matched_parlimen || '-'}</td>
+                                    <td className="py-3 px-3 text-slate-600 whitespace-nowrap">{m.cabang || '-'}</td>
                                     <td className="py-3 px-3 whitespace-nowrap"><SentimenCell color={m.voter_color} /></td>
                                     <td className="py-3 px-3 whitespace-nowrap">
                                         <div className="flex items-center justify-center gap-2">

@@ -3,16 +3,17 @@
 namespace App\Imports;
 
 /**
- * Parses membership rows into [no_ic, nama, no_tel] records.
+ * Parses membership rows straight from the uploaded file — no SISDA cross-check.
  *
- * Strategy: find the HEADER row (scanning past any title rows) and map the
- * Nama / IC / Tel columns by their header names, so each field is read
- * from its real column. ICs are normalised (dashes/spaces stripped, valid
- * month/day checked). If a file has no recognisable header, it falls back
+ * Strategy: find the HEADER row (scanning past any title rows) and map each
+ * field column by its header name, so values are read from their real column.
+ * Captured per row: no_anggota, nama, no_ic, no_tel, jantina, bangsa, cabang,
+ * negeri. ICs are normalised (dashes/spaces stripped, leading zeros restored,
+ * valid month/day checked). If a file has no recognisable header, it falls back
  * to content detection (IC by pattern, name by the most alphabetic cell).
  *
- * The SISDA match (kawasan / DUN / age / voter_color) is computed
- * afterwards by MemberMatchService::syncTable().
+ * Members may be spread across sheets with different layouts; the caller merges
+ * rows by IC to assemble the most complete record.
  */
 class KeanggotaanImport
 {
@@ -21,12 +22,25 @@ class KeanggotaanImport
 
     private const IC_KEYS = ['noic', 'ic', 'nokp', 'kp', 'kadpengenalan', 'nokadpengenalan', 'nombokadpengenalan', 'nokadpengenalanbaru', 'mykad', 'icnumber'];
 
-    private const TEL_KEYS = ['notel', 'notelefon', 'telefon', 'tel', 'phone', 'nohp', 'hp', 'nombortelefon', 'telbimbit'];
+    private const TEL_KEYS = ['notel', 'notelefon', 'telefon', 'tel', 'phone', 'nohp', 'hp', 'nombortelefon', 'telbimbit', 'mobilenumber', 'mobile', 'nombormobile'];
+
+    private const ANGGOTA_KEYS = ['noanggota', 'noahli', 'nokeanggotaan', 'nokeahlian', 'membershipno', 'memberno', 'idanggota'];
+
+    private const JANTINA_KEYS = ['jantina', 'gender', 'sex'];
+
+    private const BANGSA_KEYS = ['bangsa', 'kaum', 'race'];
+
+    private const CABANG_KEYS = ['cabang', 'bahagian', 'parlimen', 'branch'];
+
+    private const NEGERI_KEYS = ['negeri', 'state'];
+
+    /** Empty per-field map. */
+    private const EMPTY_MAP = ['nama' => null, 'ic' => null, 'tel' => null, 'anggota' => null, 'jantina' => null, 'bangsa' => null, 'cabang' => null, 'negeri' => null];
 
     /**
      * @param  array  $rows  array of rows, each an array of cell values
      * @param  array{kept?:int, skipped_no_ic?:int}  $tally  filled in-place with counts
-     * @return array<int, array{no_ic:string, nama:string, no_tel:?string}>
+     * @return array<int, array{no_ic:string, nama:string, no_tel:?string, no_anggota:?string, jantina:?string, bangsa:?string, cabang:?string, negeri:?string}>
      */
     public static function extract(array $rows, array &$tally = []): array
     {
@@ -48,7 +62,6 @@ class KeanggotaanImport
                 $ic = self::detectIcInRow($cells);
             }
             if ($ic === null) {
-                // Only count rows that carry some content (ignore blank spacer rows).
                 if (trim(implode('', array_map('strval', $cells))) !== '') {
                     $tally['skipped_no_ic']++;
                 }
@@ -72,7 +85,16 @@ class KeanggotaanImport
                 $tel = self::pickPhone($cells);
             }
 
-            $out[] = ['no_ic' => $ic, 'nama' => $nama ?: '-', 'no_tel' => $tel];
+            $out[] = [
+                'no_ic' => $ic,
+                'nama' => $nama ?: '-',
+                'no_tel' => $tel,
+                'no_anggota' => self::cell($cells, $map['anggota']),
+                'jantina' => self::normaliseJantina(self::cell($cells, $map['jantina'])),
+                'bangsa' => self::upperOrNull(self::cell($cells, $map['bangsa'])),
+                'cabang' => self::upperOrNull(self::cell($cells, $map['cabang'])),
+                'negeri' => self::upperOrNull(self::cell($cells, $map['negeri'])),
+            ];
             $tally['kept']++;
         }
 
@@ -80,26 +102,31 @@ class KeanggotaanImport
     }
 
     /**
-     * Find the header row and the column indices for nama / ic / tel.
+     * Find the header row and the column index for each known field.
      *
-     * @return array{0:?int, 1:array{nama:?int, ic:?int, tel:?int}}
+     * @return array{0:?int, 1:array<string,?int>}
      */
     private static function detectHeader(array $rows): array
     {
+        $aliases = [
+            'nama' => self::NAMA_KEYS, 'ic' => self::IC_KEYS, 'tel' => self::TEL_KEYS,
+            'anggota' => self::ANGGOTA_KEYS, 'jantina' => self::JANTINA_KEYS,
+            'bangsa' => self::BANGSA_KEYS, 'cabang' => self::CABANG_KEYS, 'negeri' => self::NEGERI_KEYS,
+        ];
+
         $limit = min(count($rows), 30);
         for ($i = 0; $i < $limit; $i++) {
-            $map = ['nama' => null, 'ic' => null, 'tel' => null];
+            $map = self::EMPTY_MAP;
             foreach (array_values($rows[$i]) as $idx => $cell) {
                 $key = preg_replace('/[^a-z0-9]/', '', strtolower((string) $cell));
                 if ($key === '') {
                     continue;
                 }
-                if ($map['nama'] === null && in_array($key, self::NAMA_KEYS, true)) {
-                    $map['nama'] = $idx;
-                } elseif ($map['ic'] === null && in_array($key, self::IC_KEYS, true)) {
-                    $map['ic'] = $idx;
-                } elseif ($map['tel'] === null && in_array($key, self::TEL_KEYS, true)) {
-                    $map['tel'] = $idx;
+                foreach ($aliases as $field => $keys) {
+                    if ($map[$field] === null && in_array($key, $keys, true)) {
+                        $map[$field] = $idx;
+                        break;
+                    }
                 }
             }
             // A real header row names at least the Nama or IC column.
@@ -108,7 +135,7 @@ class KeanggotaanImport
             }
         }
 
-        return [null, ['nama' => null, 'ic' => null, 'tel' => null]];
+        return [null, self::EMPTY_MAP];
     }
 
     /** A 12-digit Malaysian IC (after stripping non-digits) with a plausible birth date, else null. */
@@ -142,6 +169,39 @@ class KeanggotaanImport
             if ($ic !== null) {
                 return $ic;
             }
+        }
+
+        return null;
+    }
+
+    /** Value at a mapped column index, trimmed, or null. */
+    private static function cell(array $cells, ?int $idx): ?string
+    {
+        if ($idx === null || ! isset($cells[$idx])) {
+            return null;
+        }
+        $v = trim((string) $cells[$idx]);
+
+        return $v === '' ? null : $v;
+    }
+
+    private static function upperOrNull(?string $v): ?string
+    {
+        return $v === null ? null : strtoupper($v);
+    }
+
+    /** Normalise a gender cell to LELAKI / PEREMPUAN, else null. */
+    private static function normaliseJantina(?string $v): ?string
+    {
+        if ($v === null) {
+            return null;
+        }
+        $k = strtoupper(trim($v));
+        if (in_array($k, ['L', 'LELAKI', 'MALE', 'M'], true)) {
+            return 'LELAKI';
+        }
+        if (in_array($k, ['P', 'PEREMPUAN', 'FEMALE', 'F', 'W', 'WANITA'], true)) {
+            return 'PEREMPUAN';
         }
 
         return null;

@@ -39,8 +39,8 @@ class KeanggotaanController extends Controller
 
     public function __construct(protected MemberMatchService $matcher) {}
 
-    /** Per-import state: ICs already inserted this batch, and a skip tally. */
-    private array $seenIc = [];
+    /** Per-import state: members merged by IC across sheets/files, and a skip tally. */
+    private array $merged = [];
 
     private array $importTally = ['kept' => 0, 'skipped_no_ic' => 0, 'duplicates' => 0];
 
@@ -50,11 +50,11 @@ class KeanggotaanController extends Controller
         return Keanggotaan::query();
     }
 
-    /** Distinct Parlimen (Cabang) that members have been matched to. */
+    /** Distinct Cabang (from the uploaded file) that members belong to. */
     private function parlimenList(): array
     {
-        return Keanggotaan::whereNotNull('matched_parlimen')->where('matched_parlimen', '!=', '')
-            ->distinct()->orderBy('matched_parlimen')->pluck('matched_parlimen')->all();
+        return Keanggotaan::whereNotNull('cabang')->where('cabang', '!=', '')
+            ->distinct()->orderBy('cabang')->pluck('cabang')->all();
     }
 
     public function index()
@@ -90,13 +90,15 @@ class KeanggotaanController extends Controller
         // queue/after-response worker that may not run on every host.
         set_time_limit(0);
         try {
+            // Read everything straight from the file. The DPT/DPPR cross-check is
+            // NOT run here — it's a separate step via "Sync Semula".
             $this->processFile($batch->id, Storage::disk('private')->path($path), $ext);
-            $this->matcher->syncTable('keanggotaan', $batch->id);
+            $this->flushMembers($batch->id);
 
             $count = Keanggotaan::where('batch_id', $batch->id)->count();
             $batch->update(['jumlah_rekod' => $count, 'status' => 'completed', 'is_active' => true]);
 
-            $message = number_format($count).' ahli berjaya dimuat naik & dipadankan dengan SISDA.';
+            $message = number_format($count).' ahli berjaya dimuat naik.';
             $notes = [];
             if ($this->importTally['skipped_no_ic'] > 0) {
                 $notes[] = number_format($this->importTally['skipped_no_ic']).' baris dilangkau (IC tidak sah)';
@@ -129,35 +131,62 @@ class KeanggotaanController extends Controller
     }
 
     /**
-     * Read every worksheet (members may be split across tabs, e.g. by race),
-     * map columns by header and bulk insert. Duplicate ICs are dropped by
-     * persistMembers() — workbooks often repeat the same people across tabs.
+     * Read every worksheet (members may be split across tabs with different
+     * layouts) and merge rows by IC so the richest record wins.
      */
     private function importExcel(int $batchId, string $path): void
     {
         foreach (Excel::toArray(null, $path) as $sheet) {
-            $members = KeanggotaanImport::extract($sheet, $this->importTally);
-            $this->persistMembers($batchId, $members);
+            $this->mergeMembers(KeanggotaanImport::extract($sheet, $this->importTally));
         }
     }
 
     /**
-     * Insert members, skipping any IC already seen this batch. Records are
-     * [no_ic, nama, no_tel] maps; the cached match is filled later by syncTable.
+     * Merge parsed rows into the per-batch set keyed by IC: first occurrence
+     * wins for each field, later sheets fill in any blanks (e.g. cabang/negeri
+     * that only one layout carries).
+     *
+     * @param  array<int, array<string, mixed>>  $members
      */
-    private function persistMembers(int $batchId, array $members): void
+    private function mergeMembers(array $members): void
     {
-        $records = [];
         foreach ($members as $m) {
-            if (isset($this->seenIc[$m['no_ic']])) {
-                $this->importTally['duplicates']++;
+            $ic = $m['no_ic'];
+            if (! isset($this->merged[$ic])) {
+                $this->merged[$ic] = $m;
 
                 continue;
             }
-            $this->seenIc[$m['no_ic']] = true;
-            $records[] = $m + [
+            $this->importTally['duplicates']++;
+            foreach ($m as $k => $v) {
+                if (($this->merged[$ic][$k] ?? null) === null && $v !== null && $v !== '') {
+                    $this->merged[$ic][$k] = $v;
+                }
+            }
+        }
+    }
+
+    /**
+     * Insert the merged members for this batch. Fields come straight from the
+     * file; umur is derived from the IC; status_kawasan stays blank until a
+     * DPT/DPPR sync is run.
+     */
+    private function flushMembers(int $batchId): void
+    {
+        $records = [];
+        foreach ($this->merged as $m) {
+            $records[] = [
                 'batch_id' => $batchId,
-                'status_kawasan' => 'luar_kawasan',
+                'no_anggota' => $m['no_anggota'] ?? null,
+                'no_ic' => $m['no_ic'],
+                'nama' => $m['nama'] ?: '-',
+                'no_tel' => $m['no_tel'] ?? null,
+                'jantina' => $m['jantina'] ?? MemberMatchService::jantinaFromIc($m['no_ic']),
+                'bangsa' => $m['bangsa'] ?? null,
+                'cabang' => $m['cabang'] ?? null,
+                'negeri' => $m['negeri'] ?? null,
+                'umur' => MemberMatchService::ageFromIc($m['no_ic']),
+                'status_kawasan' => null,
                 'created_at' => now(),
                 'updated_at' => now(),
             ];
@@ -225,7 +254,7 @@ class KeanggotaanController extends Controller
                 'no_tel' => null,
             ];
         }
-        $this->persistMembers($batchId, $members);
+        $this->mergeMembers($members);
     }
 
     private function deleteDirectory(string $dir): void
@@ -297,7 +326,7 @@ class KeanggotaanController extends Controller
             $query->where('status_kawasan', $request->input('status_kawasan'));
         }
         if ($parlimen = $request->input('parlimen')) {
-            $query->where(fn ($w) => $w->where('matched_parlimen', $parlimen)->orWhere('status_kawasan', 'luar_kawasan'));
+            $query->where('cabang', $parlimen);
         }
 
         $setting = KeanggotaanSetting::current();
@@ -370,15 +399,13 @@ class KeanggotaanController extends Controller
     public function analisa(Request $request)
     {
         $parlimen = $request->input('parlimen') ?: null;
-        // Filtering by Cabang must still include members who aren't in any
-        // DPT/DPPR roll (luar kawasan) — the upload is a single-Cabang list,
-        // so the dashboard should reflect everyone from the keanggotaan file.
-        $base = fn () => $this->memberQuery()->when($parlimen, fn ($q) => $q->where(
-            fn ($w) => $w->where('matched_parlimen', $parlimen)->orWhere('status_kawasan', 'luar_kawasan')
-        ));
+        // Cabang comes straight from the uploaded file (not the DPT/DPPR roll).
+        $base = fn () => $this->memberQuery()->when($parlimen, fn ($q) => $q->where('cabang', $parlimen));
 
         $total = $base()->count();
+        // Kawasan/dicula are only known after a DPT/DPPR sync — 0 until then.
         $dalam = (clone $base())->where('status_kawasan', 'dalam_kawasan')->count();
+        $luar = (clone $base())->where('status_kawasan', 'luar_kawasan')->count();
         $dicula = (clone $base())->where('is_dicula', true)->count();
         $baru = (clone $base())->where('is_pendaftaran_baru', true)->count();
 
@@ -390,26 +417,31 @@ class KeanggotaanController extends Controller
             ];
         }
 
-        // Aggregate by Cabang/Negeri in PHP (avoids ONLY_FULL_GROUP_BY on the
-        // COALESCE expression), bucketing unmatched members under "Tiada Padanan"
-        // so the charts include everyone and sum to the total.
-        $rollRows = (clone $base())->get(['matched_parlimen', 'matched_negeri', 'is_dicula']);
-        $pAgg = [];
+        // File-based breakdowns (cabang / negeri / bangsa) aggregated in PHP —
+        // straight from the uploaded file, no DPT/DPPR cross-check.
+        $rows = (clone $base())->get(['cabang', 'negeri', 'bangsa', 'is_dicula']);
+        $cAgg = [];
         $nAgg = [];
-        foreach ($rollRows as $r) {
-            $p = ($r->matched_parlimen !== null && $r->matched_parlimen !== '') ? $r->matched_parlimen : 'Tiada Padanan';
-            $pAgg[$p] ??= ['nama' => $p, 'jumlah' => 0, 'dicula' => 0];
-            $pAgg[$p]['jumlah']++;
+        $bAgg = [];
+        foreach ($rows as $r) {
+            $c = ($r->cabang !== null && $r->cabang !== '') ? $r->cabang : 'Tiada Cabang';
+            $cAgg[$c] ??= ['nama' => $c, 'jumlah' => 0, 'dicula' => 0];
+            $cAgg[$c]['jumlah']++;
             if ($r->is_dicula) {
-                $pAgg[$p]['dicula']++;
+                $cAgg[$c]['dicula']++;
             }
 
-            $n = ($r->matched_negeri !== null && $r->matched_negeri !== '') ? $r->matched_negeri : 'Tiada Padanan';
+            $n = ($r->negeri !== null && $r->negeri !== '') ? $r->negeri : 'Tiada Negeri';
             $nAgg[$n] ??= ['nama' => $n, 'jumlah' => 0];
             $nAgg[$n]['jumlah']++;
+
+            $b = ($r->bangsa !== null && $r->bangsa !== '') ? $r->bangsa : 'Tidak Dinyatakan';
+            $bAgg[$b] ??= ['nama' => $b, 'jumlah' => 0];
+            $bAgg[$b]['jumlah']++;
         }
-        $byParlimen = collect($pAgg)->sortByDesc('jumlah')->values();
-        $byNegeri = collect($nAgg)->sortByDesc('jumlah')->values();
+        $byParlimen = collect(array_values($cAgg))->sortByDesc('jumlah')->values();
+        $byNegeri = collect(array_values($nAgg))->sortByDesc('jumlah')->values();
+        $byBangsa = collect(array_values($bAgg))->sortByDesc('jumlah')->values();
 
         $byDun = (clone $base())->whereNotNull('matched_kadun')->where('matched_kadun', '!=', '')
             ->selectRaw('matched_kadun AS nama, COUNT(*) AS jumlah')
@@ -418,7 +450,7 @@ class KeanggotaanController extends Controller
         $byColor = (clone $base())->selectRaw("COALESCE(NULLIF(voter_color, ''), 'belum_dicula') AS voter_color, COUNT(*) AS jumlah")
             ->groupBy('voter_color')->get();
 
-        // Jantina (cross-checked against the DPPR/DPT roll, IC fallback), respects the Parlimen filter.
+        // Jantina straight from the file (IC fallback at import), respects the Cabang filter.
         $jantinaRaw = (clone $base())->selectRaw("COALESCE(NULLIF(jantina, ''), 'TIDAK DIKETAHUI') AS jantina, COUNT(*) AS jumlah")
             ->groupBy('jantina')->pluck('jumlah', 'jantina');
         $byJantina = [
@@ -433,13 +465,15 @@ class KeanggotaanController extends Controller
             'summary' => [
                 'total' => $total,
                 'dalam_kawasan' => $dalam,
-                'luar_kawasan' => $total - $dalam,
+                'luar_kawasan' => $luar,
+                'belum_sync' => $total - $dalam - $luar,
                 'dicula' => $dicula,
                 'pendaftaran_baru' => $baru,
             ],
             'ageBands' => $ageBands,
             'byParlimen' => $byParlimen,
             'byNegeri' => $byNegeri,
+            'byBangsa' => $byBangsa,
             'byDun' => $byDun,
             'byColor' => $byColor,
             'byJantina' => $byJantina,
@@ -465,13 +499,13 @@ class KeanggotaanController extends Controller
         $grace = array_fill_keys($labels, 0);
         $byCabang = [];
 
-        $rows = $base->select('umur', 'jantina', 'matched_parlimen')->get();
+        $rows = $base->select('umur', 'jantina', 'cabang')->get();
         foreach ($rows as $r) {
             $wing = MemberWingService::classify($r->umur, $r->jantina, $setting->tahun_mula, $setting->tahun_tamat, $year);
             if ($wing['wings'] === []) {
                 continue;
             }
-            $cabang = $r->matched_parlimen ?: 'Tiada Padanan';
+            $cabang = $r->cabang ?: 'Tiada Cabang';
             $graceWings = array_flip($wing['graceWings']);
             foreach ($wing['wings'] as $w) {
                 $totals[$w]++;

@@ -11,9 +11,12 @@ class Keanggotaan extends Model
 
     protected $fillable = [
         'batch_id',
+        'no_anggota',
         'no_ic',
         'nama',
         'no_tel',
+        'cabang',
+        'negeri',
         'matched_kadun',
         'matched_parlimen',
         'matched_negeri',
