@@ -65,7 +65,7 @@ class KeanggotaanJawatankuasaController extends Controller
                 'jprc' => (int) ($perJenis['JPRC'] ?? 0),
                 'jprd' => (int) ($perJenis['JPRD'] ?? 0),
                 'dun_count' => KeanggotaanJawatankuasa::whereNotNull('dun')->where('dun', '!=', '')->distinct()->count('dun'),
-                'with_ic' => KeanggotaanJawatankuasa::whereNotNull('no_ic')->count(),
+                'with_ic' => KeanggotaanJawatankuasa::whereNotNull('no_ic')->where('no_ic', '!=', '')->count(),
                 'dicula' => (int) KeanggotaanJawatankuasa::where('is_dicula', true)->count(),
             ],
             'byDun' => $byDun,
@@ -137,9 +137,12 @@ class KeanggotaanJawatankuasaController extends Controller
 
         $count = 0;
         foreach ($validated['rows'] as $row) {
+            // Store '' rather than null for a missing IC so the insert works
+            // whether or not no_ic has been migrated to nullable.
+            $row['no_ic'] = $row['no_ic'] ?? '';
             $member = new KeanggotaanJawatankuasa($row);
             // Voter-roll / dicula cross-check only runs for members with an IC.
-            if (! empty($row['no_ic'])) {
+            if ($row['no_ic'] !== '') {
                 $member->fill($this->matcher->match($row['no_ic']));
             }
             $member->save();
@@ -170,7 +173,7 @@ class KeanggotaanJawatankuasaController extends Controller
 
     private function validateMember(Request $request): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'no_ic' => 'nullable|string|max:12',
             'nama' => 'required|string|max:255',
             'jenis' => 'required|in:'.implode(',', KeanggotaanJawatankuasa::JENIS),
@@ -179,5 +182,9 @@ class KeanggotaanJawatankuasaController extends Controller
             'dun' => 'nullable|string|max:255',
             'no_tel' => 'nullable|string|max:30',
         ]);
+        // Never null — '' keeps the NOT NULL column happy and the cross-check skips it.
+        $data['no_ic'] = $data['no_ic'] ?? '';
+
+        return $data;
     }
 }
