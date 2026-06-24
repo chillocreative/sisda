@@ -12,8 +12,11 @@ const JENIS_COLORS = {
     AJK_CABANG: CHART_COLORS.amber,
     WANITA: '#ec4899',
     AMK: '#14b8a6',
+    MPKK: '#0ea5e9',
+    JBPP: '#f43f5e',
+    JPWK: '#a16207',
 };
-const JENIS_LABEL = { JPRC: 'JPRC', JPRD: 'JPRD', AJK_CABANG: 'Cabang', WANITA: 'Wanita', AMK: 'AMK' };
+const JENIS_LABEL = { JPRC: 'JPRC', JPRD: 'JPRD', AJK_CABANG: 'Cabang', WANITA: 'Wanita', AMK: 'AMK', MPKK: 'MPKK', JBPP: 'JBPP', JPWK: 'JPWK' };
 
 function MemberModal({ member, jenisOptions, onClose }) {
     const isEdit = !!member;

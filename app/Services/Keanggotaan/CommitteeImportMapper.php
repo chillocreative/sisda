@@ -139,6 +139,8 @@ class CommitteeImportMapper
         - AJK_CABANG = Ahli Jawatankuasa Cabang
         - WANITA = Wanita (women's wing)
         - AMK = Angkatan Muda (youth wing)
+        - MPKK = Majlis Pengurusan Komuniti Kampung
+        - JBPP, JPWK = match these by the acronym shown in the document title/heading
 
         Reply with JSON only, no prose:
         {"jenis_constant": <one of [{$jenisList}] if the whole document is a single type
@@ -242,6 +244,8 @@ class CommitteeImportMapper
         Committee types:
         - JPRC = Jawatankuasa Pilihan Raya Cabang (parliament / cabang level)
         - JPRD = Jawatankuasa Pilihan Raya DUN (one committee per DUN / state seat)
+        - AJK_CABANG = Cabang, WANITA, AMK = party wings; MPKK = Majlis Pengurusan
+          Komuniti Kampung; JBPP / JPWK = match by the acronym in the title/heading
 
         Target fields:
         - no_ic: IC / No. KP / Kad Pengenalan (a 12-digit number, may contain dashes) — often absent

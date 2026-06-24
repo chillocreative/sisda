@@ -332,6 +332,28 @@ class KeanggotaanController extends Controller
         $setting = KeanggotaanSetting::current();
         $year = (int) date('Y');
 
+        // Sentimen = latest voter colour (or "belum dicula" when none yet).
+        $sentimen = $request->input('sentimen');
+        if (in_array($sentimen, ['putih', 'kelabu', 'hitam'], true)) {
+            $query->where('voter_color', $sentimen);
+        } elseif ($sentimen === 'belum_dicula') {
+            $query->where(fn ($q) => $q->whereNull('voter_color')->orWhere('voter_color', ''));
+        }
+
+        // Sayap is derived live from jantina + umur + term — translate the same
+        // rule to SQL so the filter works across paginated results.
+        $sayap = $request->input('sayap');
+        if (in_array($sayap, ['AMK', 'Srikandi', 'Wanita'], true)) {
+            $within = MemberWingService::withinTerm($setting->tahun_mula, $setting->tahun_tamat, $year);
+            $youthMax = $within ? MemberWingService::MAX_AGE + ($year - $setting->tahun_mula) : MemberWingService::MAX_AGE;
+            if ($sayap === 'Wanita') {
+                $query->whereRaw('UPPER(jantina) = ?', ['PEREMPUAN']);
+            } else {
+                $query->whereRaw('UPPER(jantina) = ?', [$sayap === 'AMK' ? 'LELAKI' : 'PEREMPUAN'])
+                    ->whereNotNull('umur')->where('umur', '<=', $youthMax);
+            }
+        }
+
         $members = $query->orderByDesc('id')->paginate(25)->withQueryString();
         $members->through(function ($m) use ($setting, $year) {
             $wing = MemberWingService::classify($m->umur, $m->jantina, $setting->tahun_mula, $setting->tahun_tamat, $year);
@@ -344,7 +366,7 @@ class KeanggotaanController extends Controller
 
         return Inertia::render('Keanggotaan/Senarai', [
             'members' => $members,
-            'filters' => $request->only(['search', 'status_kawasan', 'parlimen']),
+            'filters' => $request->only(['search', 'status_kawasan', 'parlimen', 'sentimen', 'sayap']),
             'parlimenList' => $this->parlimenList(),
             'flash' => ['success' => session('success'), 'error' => session('error')],
         ]);

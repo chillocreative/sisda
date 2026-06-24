@@ -36,6 +36,9 @@ function SentimenCell({ color }) {
     return <span className={`inline-block px-3 py-1 rounded text-xs font-semibold ${s.cls}`}>{s.label}</span>;
 }
 
+// Match the "Sayap Mengikut Cabang" chart colours.
+const WING_COLORS = { AMK: '#2563eb', Srikandi: '#db2777', Wanita: '#9333ea' };
+
 function SayapCell({ wings, graceWings = [] }) {
     if (!wings || wings.length === 0) {
         return <span className="text-xs text-slate-400">-</span>;
@@ -44,8 +47,13 @@ function SayapCell({ wings, graceWings = [] }) {
         <div className="flex flex-wrap gap-1">
             {wings.map((w) => {
                 const isGrace = graceWings.includes(w);
-                const cls = isGrace ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-indigo-100 text-indigo-700';
-                return <span key={w} className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${cls}`}>{w}</span>;
+                return (
+                    <span
+                        key={w}
+                        className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${isGrace ? 'bg-red-100 text-red-700 border border-red-200' : 'text-white'}`}
+                        style={isGrace ? undefined : { backgroundColor: WING_COLORS[w] || '#6366f1' }}
+                    >{w}</span>
+                );
             })}
         </div>
     );
@@ -104,13 +112,15 @@ export default function Senarai({ members, filters, parlimenList = [], flash }) 
     const [modal, setModal] = useState(null);
     const scrollRef = useDragScroll();
 
+    const baseParams = { search, status_kawasan: filters.status_kawasan, parlimen: filters.parlimen, sentimen: filters.sentimen, sayap: filters.sayap };
+
     const applyFilters = (extra = {}) => {
-        router.get(route('keanggotaan.senarai'), { search, status_kawasan: filters.status_kawasan, parlimen: filters.parlimen, ...extra }, { preserveState: true, replace: true });
+        router.get(route('keanggotaan.senarai'), { ...baseParams, ...extra }, { preserveState: true, replace: true });
     };
 
     const goToPage = (page) => {
         if (page < 1 || page > members.last_page || page === members.current_page) return;
-        router.get(route('keanggotaan.senarai'), { search, status_kawasan: filters.status_kawasan, parlimen: filters.parlimen, page }, { preserveState: true, replace: true, preserveScroll: true });
+        router.get(route('keanggotaan.senarai'), { ...baseParams, page }, { preserveState: true, replace: true, preserveScroll: true });
     };
 
     const remove = (member) => {
@@ -137,7 +147,7 @@ export default function Senarai({ members, filters, parlimenList = [], flash }) 
 
                 {flash?.success && <div className="bg-green-50 border border-green-200 text-green-800 rounded-lg px-4 py-3 text-sm">{flash.success}</div>}
 
-                <div className="bg-white rounded-xl border border-slate-200 p-4 grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                <div className="bg-white rounded-xl border border-slate-200 p-4 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3 items-end">
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Carian (Nama / IC)</label>
                         <div className="flex gap-2">
@@ -158,6 +168,25 @@ export default function Senarai({ members, filters, parlimenList = [], flash }) 
                             <option value="">Semua</option>
                             <option value="dalam_kawasan">Pengundi Dalam Kawasan</option>
                             <option value="luar_kawasan">Pengundi Luar</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Sentimen</label>
+                        <select value={filters.sentimen || ''} onChange={(e) => applyFilters({ sentimen: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                            <option value="">Semua</option>
+                            <option value="putih">Putih</option>
+                            <option value="kelabu">Kelabu</option>
+                            <option value="hitam">Hitam</option>
+                            <option value="belum_dicula">Belum Dicula</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Sayap</label>
+                        <select value={filters.sayap || ''} onChange={(e) => applyFilters({ sayap: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                            <option value="">Semua</option>
+                            <option value="AMK">AMK</option>
+                            <option value="Srikandi">Srikandi</option>
+                            <option value="Wanita">Wanita</option>
                         </select>
                     </div>
                 </div>

@@ -181,11 +181,10 @@ function GambaranTab({ data }) {
                     <h3 className={t.cardTitle}>Pecahan Sentimen Semasa</h3>
                     <div className="grid grid-cols-3 gap-3 py-2">
                         {[
-                            // Person icon takes the sentiment colour (white / grey / black) on a
-                            // light-red circle.
+                            // White person icons on light-red circles.
                             { label: 'Pengundi Putih', pct: data.putih_pct, count: data.putih, circle: 'bg-red-100', icon: 'text-white' },
-                            { label: 'Pengundi Kelabu', pct: data.kelabu_pct, count: data.kelabu, circle: 'bg-red-100', icon: 'text-slate-400' },
-                            { label: 'Pengundi Hitam', pct: data.hitam_pct, count: data.hitam, circle: 'bg-red-100', icon: 'text-slate-900' },
+                            { label: 'Pengundi Kelabu', pct: data.kelabu_pct, count: data.kelabu, circle: 'bg-red-100', icon: 'text-white' },
+                            { label: 'Pengundi Hitam', pct: data.hitam_pct, count: data.hitam, circle: 'bg-red-100', icon: 'text-white' },
                         ].map((s) => (
                             <div key={s.label} className="flex flex-col items-center text-center">
                                 <div className={`h-16 w-16 sm:h-20 sm:w-20 rounded-full flex items-center justify-center shadow-sm ${s.circle}`}>

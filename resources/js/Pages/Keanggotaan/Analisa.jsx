@@ -1,7 +1,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, router } from '@inertiajs/react';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { Users, MapPin, UserX, Crosshair } from 'lucide-react';
+import { Users, MapPin, UserX, Crosshair, Mars, Venus } from 'lucide-react';
 import KeanggotaanNav from './Nav';
 
 const COLORS = { putih: '#10b981', hitam: '#0f172a', kelabu: '#94a3b8', belum_dicula: '#cbd5e1' };
@@ -116,14 +116,17 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
                             </PieChart>
                         </ResponsiveContainer>
                         <div className="space-y-3">
-                            {jantinaData.map((j) => (
-                                <div key={j.name} className="flex items-center justify-between border-b border-slate-100 pb-2">
-                                    <span className="flex items-center gap-2 text-sm text-slate-600">
-                                        <span className="h-3 w-3 rounded-full" style={{ backgroundColor: j.fill }} />{j.name}
-                                    </span>
-                                    <span className="text-lg font-bold text-slate-900">{j.value.toLocaleString()}</span>
-                                </div>
-                            ))}
+                            {jantinaData.map((j) => {
+                                const Icon = j.name === 'Lelaki' ? Mars : j.name === 'Perempuan' ? Venus : Users;
+                                return (
+                                    <div key={j.name} className="flex items-center justify-between border-b border-slate-100 pb-2">
+                                        <span className="flex items-center gap-2 text-sm text-slate-600">
+                                            <Icon className="h-5 w-5" style={{ color: j.fill }} aria-label={j.name} />
+                                        </span>
+                                        <span className="text-lg font-bold text-slate-900">{j.value.toLocaleString()}</span>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 </Card>
@@ -133,7 +136,7 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
                             <ResponsiveContainer width="100%" height={360}>
                                 <PieChart>
-                                    <Pie data={bangsaData} cx="50%" cy="50%" innerRadius="58%" outerRadius="92%" paddingAngle={2} dataKey="value" nameKey="name">
+                                    <Pie data={bangsaData} cx="50%" cy="50%" innerRadius="58%" outerRadius="92%" paddingAngle={0} dataKey="value" nameKey="name">
                                         {bangsaData.map((e) => <Cell key={e.name} fill={e.fill} />)}
                                     </Pie>
                                     <Tooltip formatter={(v) => v.toLocaleString()} />

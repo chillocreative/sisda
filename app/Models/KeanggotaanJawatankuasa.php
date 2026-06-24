@@ -8,9 +8,9 @@ class KeanggotaanJawatankuasa extends Model
 {
     protected $table = 'keanggotaan_jawatankuasa';
 
-    // JPRC (parliament/cabang level), JPRD (one per DUN), plus the party wings:
-    // AJK_CABANG (labelled "Cabang"), WANITA and AMK.
-    public const JENIS = ['JPRC', 'JPRD', 'AJK_CABANG', 'WANITA', 'AMK'];
+    // JPRC (parliament/cabang level), JPRD (one per DUN), the party wings
+    // AJK_CABANG (labelled "Cabang") / WANITA / AMK, plus MPKK, JBPP and JPWK.
+    public const JENIS = ['JPRC', 'JPRD', 'AJK_CABANG', 'WANITA', 'AMK', 'MPKK', 'JBPP', 'JPWK'];
 
     protected $fillable = [
         'no_ic',
