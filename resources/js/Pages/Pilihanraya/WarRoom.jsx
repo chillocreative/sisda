@@ -7,7 +7,7 @@ import {
 } from 'recharts';
 import {
     Activity, AlertTriangle, Crosshair, Landmark, LayoutDashboard,
-    Loader2, Map, PieChart as PieChartIcon, RefreshCw, Scale, Users, Vote,
+    Loader2, Map, PieChart as PieChartIcon, RefreshCw, Scale, Users, UserRound, Vote,
 } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { EMPTY_FILTERS, cleanParams } from './filters';
@@ -177,14 +177,27 @@ function GambaranTab({ data }) {
                 />
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <SentimentDonut
-                    title="Pecahan Sentimen Semasa"
-                    data={[
-                        { name: 'Pengundi Putih', key: 'putih', value: data.putih },
-                        { name: 'Pengundi Hitam', key: 'hitam', value: data.hitam },
-                        { name: 'Pengundi Kelabu', key: 'kelabu', value: data.kelabu },
-                    ]}
-                />
+                <div className={t.card}>
+                    <h3 className={t.cardTitle}>Pecahan Sentimen Semasa</h3>
+                    <div className="grid grid-cols-3 gap-3 py-2">
+                        {[
+                            // Person icon takes the sentiment colour; the circle behind it is
+                            // the opposite tone so white/grey/black each stay clearly visible.
+                            { label: 'Pengundi Putih', pct: data.putih_pct, count: data.putih, circle: 'bg-slate-800', icon: 'text-white' },
+                            { label: 'Pengundi Kelabu', pct: data.kelabu_pct, count: data.kelabu, circle: 'bg-slate-800', icon: 'text-slate-400' },
+                            { label: 'Pengundi Hitam', pct: data.hitam_pct, count: data.hitam, circle: 'bg-slate-100 border border-slate-300', icon: 'text-slate-900' },
+                        ].map((s) => (
+                            <div key={s.label} className="flex flex-col items-center text-center">
+                                <div className={`h-16 w-16 sm:h-20 sm:w-20 rounded-full flex items-center justify-center shadow-sm ${s.circle}`}>
+                                    <UserRound className={`h-9 w-9 sm:h-10 sm:w-10 ${s.icon}`} strokeWidth={2} />
+                                </div>
+                                <div className={`mt-3 text-xl font-bold ${t.text}`}>{s.pct}%</div>
+                                <div className={`text-xs font-medium ${t.text}`}>{s.label}</div>
+                                <div className={`text-xs ${t.subtext}`}>{(s.count ?? 0).toLocaleString()} pengundi</div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
                 <div className={`${t.card} lg:col-span-2`}>
                     <h3 className={t.cardTitle}>Status Operasi Culaan</h3>
                     <dl className="grid grid-cols-2 gap-4">
