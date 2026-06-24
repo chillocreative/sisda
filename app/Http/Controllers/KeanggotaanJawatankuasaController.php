@@ -171,7 +171,7 @@ class KeanggotaanJawatankuasaController extends Controller
     public function analyze(Request $request, CommitteeImportMapper $mapper)
     {
         $request->validate([
-            'fail' => 'required|file|mimes:xlsx,xls,csv|max:51200',
+            'fail' => 'required|file|mimes:xlsx,xls,csv,pdf,txt|max:51200',
             'jenis_default' => 'nullable|in:'.implode(',', KeanggotaanJawatankuasa::JENIS),
         ]);
 

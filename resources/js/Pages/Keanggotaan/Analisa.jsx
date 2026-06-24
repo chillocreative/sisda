@@ -47,7 +47,11 @@ function WingKpi({ label, value, grace, note, color }) {
 
 const JANTINA_COLORS = { Lelaki: '#3b82f6', Perempuan: '#ec4899', 'Tidak Diketahui': '#cbd5e1' };
 
-const BANGSA_COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#14b8a6', '#94a3b8'];
+// A wide, distinct palette so every bangsa gets its own colour (no repeats).
+const BANGSA_COLORS = [
+    '#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#14b8a6', '#ef4444', '#6366f1',
+    '#84cc16', '#f97316', '#06b6d4', '#a855f7', '#eab308', '#22c55e', '#64748b', '#d946ef',
+];
 
 export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBangsa = [], byDun, byColor, byJantina, wings, parlimenList = [], dunList = [], filters = {} }) {
     const pct = (n) => (summary.total > 0 ? Math.round((n / summary.total) * 100) : 0);
@@ -124,16 +128,15 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
                     </div>
                 </Card>
 
-                <Card title="Ahli Mengikut Bangsa">
+                <Card title="Keanggotaan Mengikut Bangsa">
                     {bangsaData.length === 0 ? <p className="text-sm text-slate-500 py-12 text-center">Tiada data bangsa.</p> : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
-                            <ResponsiveContainer width="100%" height={240}>
+                            <ResponsiveContainer width="100%" height={360}>
                                 <PieChart>
-                                    <Pie data={bangsaData} cx="50%" cy="50%" innerRadius={55} outerRadius={95} paddingAngle={2} dataKey="value" nameKey="name">
+                                    <Pie data={bangsaData} cx="50%" cy="50%" innerRadius="58%" outerRadius="92%" paddingAngle={2} dataKey="value" nameKey="name">
                                         {bangsaData.map((e) => <Cell key={e.name} fill={e.fill} />)}
                                     </Pie>
                                     <Tooltip formatter={(v) => v.toLocaleString()} />
-                                    <Legend wrapperStyle={{ fontSize: '12px' }} />
                                 </PieChart>
                             </ResponsiveContainer>
                             <div className="space-y-3">

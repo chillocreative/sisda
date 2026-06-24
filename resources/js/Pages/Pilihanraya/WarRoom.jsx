@@ -181,11 +181,11 @@ function GambaranTab({ data }) {
                     <h3 className={t.cardTitle}>Pecahan Sentimen Semasa</h3>
                     <div className="grid grid-cols-3 gap-3 py-2">
                         {[
-                            // Person icon takes the sentiment colour; the circle behind it is
-                            // the opposite tone so white/grey/black each stay clearly visible.
-                            { label: 'Pengundi Putih', pct: data.putih_pct, count: data.putih, circle: 'bg-slate-800', icon: 'text-white' },
-                            { label: 'Pengundi Kelabu', pct: data.kelabu_pct, count: data.kelabu, circle: 'bg-slate-800', icon: 'text-slate-400' },
-                            { label: 'Pengundi Hitam', pct: data.hitam_pct, count: data.hitam, circle: 'bg-slate-100 border border-slate-300', icon: 'text-slate-900' },
+                            // Person icon takes the sentiment colour (white / grey / black) on a
+                            // light-red circle.
+                            { label: 'Pengundi Putih', pct: data.putih_pct, count: data.putih, circle: 'bg-red-100', icon: 'text-white' },
+                            { label: 'Pengundi Kelabu', pct: data.kelabu_pct, count: data.kelabu, circle: 'bg-red-100', icon: 'text-slate-400' },
+                            { label: 'Pengundi Hitam', pct: data.hitam_pct, count: data.hitam, circle: 'bg-red-100', icon: 'text-slate-900' },
                         ].map((s) => (
                             <div key={s.label} className="flex flex-col items-center text-center">
                                 <div className={`h-16 w-16 sm:h-20 sm:w-20 rounded-full flex items-center justify-center shadow-sm ${s.circle}`}>
@@ -210,7 +210,7 @@ function GambaranTab({ data }) {
                             <dd className={t.kpiValue}>{data.growth_prior_30d.toLocaleString()}</dd>
                         </div>
                         <div>
-                            <dt className={t.kpiLabel}>Pengundi berdaftar yang diculaan</dt>
+                            <dt className={t.kpiLabel}>Pengundi berdaftar yang telah dicula</dt>
                             <dd className={t.kpiValue}>{data.covered.toLocaleString()}</dd>
                         </div>
                         <div>

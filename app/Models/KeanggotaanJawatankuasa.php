@@ -8,10 +8,9 @@ class KeanggotaanJawatankuasa extends Model
 {
     protected $table = 'keanggotaan_jawatankuasa';
 
-    // Only JPRC (parliament/cabang level) and JPRD (one per DUN) are used. The
-    // DB enum still permits the older wing values, but the app no longer offers
-    // them.
-    public const JENIS = ['JPRC', 'JPRD'];
+    // JPRC (parliament/cabang level), JPRD (one per DUN), plus the party wings:
+    // AJK_CABANG (labelled "Cabang"), WANITA and AMK.
+    public const JENIS = ['JPRC', 'JPRD', 'AJK_CABANG', 'WANITA', 'AMK'];
 
     protected $fillable = [
         'no_ic',

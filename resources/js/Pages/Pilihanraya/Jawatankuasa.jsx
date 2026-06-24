@@ -9,8 +9,11 @@ import { CHART_COLORS } from './theme';
 const JENIS_COLORS = {
     JPRC: CHART_COLORS.blue,
     JPRD: CHART_COLORS.violet,
+    AJK_CABANG: CHART_COLORS.amber,
+    WANITA: '#ec4899',
+    AMK: '#14b8a6',
 };
-const JENIS_LABEL = { JPRC: 'JPRC', JPRD: 'JPRD' };
+const JENIS_LABEL = { JPRC: 'JPRC', JPRD: 'JPRD', AJK_CABANG: 'Cabang', WANITA: 'Wanita', AMK: 'AMK' };
 
 function MemberModal({ member, jenisOptions, onClose }) {
     const isEdit = !!member;
@@ -202,8 +205,8 @@ function UploadForm({ jenisOptions }) {
         <>
             <form onSubmit={analyze} className="flex flex-wrap items-end gap-3">
                 <div>
-                    <label className={t.label}>Fail Excel/CSV</label>
-                    <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" onChange={(e) => setFile(e.target.files[0] || null)} className={t.input} required />
+                    <label className={t.label}>Fail Excel / PDF / TXT</label>
+                    <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv,.pdf,.txt" onChange={(e) => setFile(e.target.files[0] || null)} className={t.input} required />
                 </div>
                 <div>
                     <label className={t.label}>Jenis Lalai (jika tiada lajur)</label>

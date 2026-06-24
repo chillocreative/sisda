@@ -6,14 +6,18 @@ use App\Models\KeanggotaanJawatankuasa;
 use App\Services\ClaudeService;
 use Illuminate\Http\UploadedFile;
 use Maatwebsite\Excel\Facades\Excel;
+use Smalot\PdfParser\Parser as PdfParser;
 
 /**
- * Reads an uploaded committee-list spreadsheet and normalises its rows into
- * the keanggotaan_jawatankuasa shape — regardless of how the columns are
- * arranged. Claude inspects the top rows and returns a column mapping; PHP
- * then applies that mapping to every data row (cheap & deterministic — the
- * AI never sees, drops, or invents the bulk of the data). If Claude is
- * unavailable, a heuristic header-alias mapping is used instead.
+ * Reads an uploaded committee list and normalises it into the
+ * keanggotaan_jawatankuasa shape.
+ *
+ * Spreadsheets (xlsx/xls/csv): Claude inspects the top rows and returns a
+ * column mapping; PHP then applies it to every data row (cheap & deterministic;
+ * a heuristic header-alias mapping is the fallback when Claude is unavailable).
+ *
+ * Free-text files (pdf/txt): the structure is unpredictable, so Claude extracts
+ * the member list directly from the document text.
  */
 class CommitteeImportMapper
 {
@@ -37,6 +41,16 @@ class CommitteeImportMapper
      * @return array{ai_used:bool, mapping:array, rows:array<int,array<string,?string>>, skipped:int, total:int}
      */
     public function analyze(UploadedFile $file, ?string $jenisDefault, ?string $filename = null): array
+    {
+        $ext = strtolower($file->getClientOriginalExtension() ?: pathinfo((string) $filename, PATHINFO_EXTENSION));
+
+        return in_array($ext, ['pdf', 'txt'], true)
+            ? $this->analyzeText($file, $ext, $jenisDefault, $filename)
+            : $this->analyzeSpreadsheet($file, $jenisDefault, $filename);
+    }
+
+    /** Spreadsheet path: AI maps columns, PHP applies the mapping to every row. */
+    private function analyzeSpreadsheet(UploadedFile $file, ?string $jenisDefault, ?string $filename): array
     {
         $sheet = Excel::toCollection(null, $file)->first() ?? collect();
         // Normalise every cell to a flat array indexed from 0.
@@ -62,6 +76,147 @@ class CommitteeImportMapper
             'skipped' => $skipped,
             'total' => $total,
         ];
+    }
+
+    /**
+     * Free-text path (pdf/txt): the layout is unpredictable, so Claude extracts
+     * the member list straight from the document text. No heuristic fallback —
+     * this needs the AI.
+     */
+    private function analyzeText(UploadedFile $file, string $ext, ?string $jenisDefault, ?string $filename): array
+    {
+        $empty = ['ai_used' => false, 'mapping' => [], 'rows' => [], 'skipped' => 0, 'total' => 0];
+
+        try {
+            $text = $ext === 'pdf'
+                ? (new PdfParser)->parseFile($file->getRealPath())->getText()
+                : (string) file_get_contents($file->getRealPath());
+        } catch (\Throwable $e) {
+            return $empty;
+        }
+
+        if (trim($text) === '') {
+            return $empty;
+        }
+
+        $extracted = $this->aiExtractMembers($text, $filename);
+        if ($extracted === null) {
+            return $empty;
+        }
+
+        [$built, $skipped, $total] = $this->normalizeMembers(
+            $extracted['members'], $extracted['jenis_constant'], $extracted['dun_constant'], $jenisDefault
+        );
+
+        return [
+            'ai_used' => true,
+            'mapping' => ['header_row' => null, 'columns' => [], 'jenis_constant' => $extracted['jenis_constant'], 'dun_constant' => $extracted['dun_constant']],
+            'rows' => $built,
+            'skipped' => $skipped,
+            'total' => $total,
+        ];
+    }
+
+    /**
+     * Ask Claude to extract every committee member from free document text.
+     * Returns ['members'=>[...], 'jenis_constant'=>?string, 'dun_constant'=>?string]
+     * or null when the AI is unavailable / returns nothing usable.
+     */
+    private function aiExtractMembers(string $text, ?string $filename): ?array
+    {
+        $jenisList = implode(', ', KeanggotaanJawatankuasa::JENIS);
+        // Cap the text so the prompt stays within token limits.
+        $snippet = mb_substr($text, 0, 16000);
+
+        $system = <<<SYS
+        You extract committee members ("Ahli Jawatankuasa") from the raw text of a
+        Malaysian political party committee document. The text may be messy
+        (extracted from a PDF or TXT) and often has NO IC numbers.
+
+        Committee types (jenis):
+        - JPRC = Jawatankuasa Pilihan Raya Cabang
+        - JPRD = Jawatankuasa Pilihan Raya DUN (one per DUN / state seat)
+        - AJK_CABANG = Ahli Jawatankuasa Cabang
+        - WANITA = Wanita (women's wing)
+        - AMK = Angkatan Muda (youth wing)
+
+        Reply with JSON only, no prose:
+        {"jenis_constant": <one of [{$jenisList}] if the whole document is a single type
+                            (from the title/heading), otherwise null>,
+         "dun_constant": <the DUN / state-seat name if the document is for one DUN, else null>,
+         "members": [{"nama": <full name>, "no_ic": <12-digit IC or null>,
+                      "jenis": <one of [{$jenisList}] or null>, "jawatan": <position or null>,
+                      "cabang": <branch or null>, "dun": <DUN or null>, "no_tel": <phone or null>}]}
+        Extract every distinct member you can find. Leave a field null when unknown.
+        SYS;
+
+        $user = 'File name: '.($filename ?: '(unknown)')."\n\nDocument text:\n\n{$snippet}";
+
+        $res = $this->claude->chat($system, $user, 8000, 60, 'committee_import_text');
+        if (! ($res['ok'] ?? false)) {
+            return null;
+        }
+
+        $json = $this->claude->extractJson($res['content']);
+        if (! is_array($json) || ! isset($json['members']) || ! is_array($json['members'])) {
+            return null;
+        }
+
+        $jenisConstant = $this->normalizeJenis(is_string($json['jenis_constant'] ?? null) ? $json['jenis_constant'] : '');
+        $dunConstant = (isset($json['dun_constant']) && is_string($json['dun_constant']) && trim($json['dun_constant']) !== '')
+            ? strtoupper(trim($json['dun_constant'])) : null;
+
+        return ['members' => $json['members'], 'jenis_constant' => $jenisConstant, 'dun_constant' => $dunConstant];
+    }
+
+    /**
+     * Normalise an AI-extracted member list (from free text) into table rows,
+     * sharing the same rules as the spreadsheet path: IC optional, a row is kept
+     * if it has a name, jenis resolves to the enum, DUN falls back to the
+     * jawatan text.
+     *
+     * @return array{0:array<int,array<string,?string>>, 1:int, 2:int}
+     */
+    private function normalizeMembers(array $members, ?string $jenisConstant, ?string $dunConstant, ?string $jenisDefault): array
+    {
+        $jenisFallback = $jenisConstant ?: $this->normalizeJenis((string) $jenisDefault);
+
+        $clean = fn ($v) => (is_scalar($v) && trim((string) $v) !== '') ? trim((string) $v) : null;
+
+        $built = [];
+        $skipped = 0;
+        foreach ($members as $m) {
+            if (! is_array($m)) {
+                $skipped++;
+
+                continue;
+            }
+
+            $ic = preg_replace('/\D/', '', (string) ($m['no_ic'] ?? ''));
+            $ic = (strlen($ic) === 12 && ctype_digit($ic)) ? $ic : null;
+
+            $nama = $clean($m['nama'] ?? null);
+            $jenis = $this->normalizeJenis((string) ($m['jenis'] ?? '')) ?: $jenisFallback;
+            if (($nama === null && $ic === null) || ! $jenis) {
+                $skipped++;
+
+                continue;
+            }
+
+            $jawatan = $clean($m['jawatan'] ?? null);
+            $dun = $clean($m['dun'] ?? null) ?: $dunConstant ?: KeanggotaanJawatankuasa::extractDunFromJawatan($jawatan);
+            $built[] = [
+                'no_ic' => $ic,
+                'nama' => strtoupper((string) ($nama ?? '-')),
+                'jenis' => $jenis,
+                'jawatan' => $jawatan,
+                'cabang' => $clean($m['cabang'] ?? null),
+                'dun' => $dun ? strtoupper($dun) : null,
+                'no_tel' => $clean($m['no_tel'] ?? null),
+            ];
+        }
+
+        return [$built, $skipped, count($members)];
     }
 
     /**
