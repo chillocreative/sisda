@@ -53,27 +53,67 @@ class KeanggotaanJawatankuasaController extends Controller
         ], $this->dashboard()));
     }
 
-    /** JPRC/JPRD counts + per-DUN committee distribution. */
+    /**
+     * JPRC/JPRD counts + per-DUN committee distribution, counted by DISTINCT
+     * PERSON. The same person often holds several positions (several rows), and
+     * may sit on both the JPRC and a JPRD — they are counted once. Identity is
+     * the IC when present, otherwise the normalised name.
+     */
     private function dashboard(): array
     {
-        $perJenis = KeanggotaanJawatankuasa::selectRaw('jenis, COUNT(*) AS total')
-            ->groupBy('jenis')->pluck('total', 'jenis');
+        $rows = KeanggotaanJawatankuasa::get(['nama', 'no_ic', 'dun', 'matched_kadun', 'jenis', 'is_dicula', 'jawatan']);
 
-        // Pivot per DUN in PHP (grouping on a COALESCE expression trips
-        // ONLY_FULL_GROUP_BY on strict MySQL). The effective DUN comes from the
-        // dun column, else the DUN embedded in the jawatan text; JPRC positions
-        // with no DUN land under "Peringkat Cabang".
+        $personKey = function ($r) {
+            $ic = trim((string) $r->no_ic);
+
+            return $ic !== '' ? 'ic:'.$ic : 'nama:'.mb_strtoupper(preg_replace('/\s+/', ' ', trim((string) $r->nama)));
+        };
+
+        // Sets of person keys, deduped as we go.
+        $all = [];
+        $perJenis = array_fill_keys(KeanggotaanJawatankuasa::JENIS, []);
+        $withIc = [];
+        $dicula = [];
         $byDun = [];
-        foreach (KeanggotaanJawatankuasa::get(['dun', 'matched_kadun', 'jenis', 'is_dicula', 'jawatan']) as $r) {
+
+        foreach ($rows as $r) {
+            $pk = $personKey($r);
+            $all[$pk] = true;
+            if (in_array($r->jenis, KeanggotaanJawatankuasa::JENIS, true)) {
+                $perJenis[$r->jenis][$pk] = true;
+            }
+            if (trim((string) $r->no_ic) !== '') {
+                $withIc[$pk] = true;
+            }
+            if ($r->is_dicula) {
+                $dicula[$pk] = true;
+            }
+
+            // Effective DUN: dun column, else roll match, else embedded in the
+            // jawatan text; parliament-level positions land under "Peringkat
+            // Cabang".
             $dun = ($r->dun !== null && $r->dun !== '') ? $r->dun : ($r->matched_kadun ?: KeanggotaanJawatankuasa::extractDunFromJawatan($r->jawatan));
             $key = $dun ?: ($r->jenis === 'JPRC' ? 'Peringkat Cabang' : 'Tidak Diketahui');
-            $byDun[$key] ??= ['dun' => $key, 'total' => 0, 'dicula' => 0]
-                + array_fill_keys(KeanggotaanJawatankuasa::JENIS, 0);
-            $byDun[$key][$r->jenis] = ($byDun[$key][$r->jenis] ?? 0) + 1;
-            $byDun[$key]['total'] += 1;
-            $byDun[$key]['dicula'] += $r->is_dicula ? 1 : 0;
+            $byDun[$key] ??= ['dun' => $key, 'total' => [], 'dicula' => []]
+                + array_fill_keys(KeanggotaanJawatankuasa::JENIS, []);
+            $byDun[$key]['total'][$pk] = true;
+            if (in_array($r->jenis, KeanggotaanJawatankuasa::JENIS, true)) {
+                $byDun[$key][$r->jenis][$pk] = true;
+            }
+            if ($r->is_dicula) {
+                $byDun[$key]['dicula'][$pk] = true;
+            }
         }
-        $byDun = collect($byDun)->sortByDesc('total')->values()->all();
+
+        // Collapse the per-DUN person sets into counts.
+        $byDun = collect($byDun)->map(function ($d) {
+            $out = ['dun' => $d['dun'], 'total' => count($d['total']), 'dicula' => count($d['dicula'])];
+            foreach (KeanggotaanJawatankuasa::JENIS as $j) {
+                $out[$j] = count($d[$j]);
+            }
+
+            return $out;
+        })->sortByDesc('total')->values()->all();
 
         // Real DUNs only (exclude the parliament-level / unknown buckets).
         $dunOptions = collect($byDun)->pluck('dun')
@@ -82,12 +122,12 @@ class KeanggotaanJawatankuasaController extends Controller
 
         return [
             'summary' => [
-                'total' => KeanggotaanJawatankuasa::count(),
-                'jprc' => (int) ($perJenis['JPRC'] ?? 0),
-                'jprd' => (int) ($perJenis['JPRD'] ?? 0),
+                'total' => count($all),
+                'jprc' => count($perJenis['JPRC']),
+                'jprd' => count($perJenis['JPRD']),
                 'dun_count' => count($dunOptions),
-                'with_ic' => KeanggotaanJawatankuasa::whereNotNull('no_ic')->where('no_ic', '!=', '')->count(),
-                'dicula' => (int) KeanggotaanJawatankuasa::where('is_dicula', true)->count(),
+                'with_ic' => count($withIc),
+                'dicula' => count($dicula),
             ],
             'byDun' => $byDun,
             'dunOptions' => $dunOptions,
