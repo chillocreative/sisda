@@ -206,12 +206,15 @@ class CommitteeImportMapper
                 continue;
             }
 
-            $dun = $cell($columns['dun']) ?: $dunConstant;
+            $jawatan = $cell($columns['jawatan']);
+            // Prefer an explicit DUN column, then a file-level DUN, then the DUN
+            // embedded in the position text (e.g. "... DUN PINANG TUNGGAL").
+            $dun = $cell($columns['dun']) ?: $dunConstant ?: KeanggotaanJawatankuasa::extractDunFromJawatan($jawatan);
             $built[] = [
                 'no_ic' => $ic,
                 'nama' => strtoupper((string) ($nama ?? '-')),
                 'jenis' => $jenis,
-                'jawatan' => $cell($columns['jawatan']),
+                'jawatan' => $jawatan,
                 'cabang' => $cell($columns['cabang']),
                 'dun' => $dun ? strtoupper($dun) : null,
                 'no_tel' => $cell($columns['no_tel']),

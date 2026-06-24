@@ -221,7 +221,7 @@ function UploadForm({ jenisOptions }) {
     );
 }
 
-function Content({ members, filters, jenisOptions, summary, byDun }) {
+function Content({ members, filters, jenisOptions, summary, byDun, dunOptions = [] }) {
     const { t } = usePilihanrayaTheme();
     const [modal, setModal] = useState(null);
     const [search, setSearch] = useState(filters.search || '');
@@ -229,7 +229,7 @@ function Content({ members, filters, jenisOptions, summary, byDun }) {
     const [bulkDeleting, setBulkDeleting] = useState(false);
 
     const applyFilters = (extra = {}) => {
-        router.get(route('pilihanraya.jawatankuasa.index'), { search, jenis: filters.jenis, ...extra }, { preserveState: true, replace: true });
+        router.get(route('pilihanraya.jawatankuasa.index'), { search, jenis: filters.jenis, dun: filters.dun, ...extra }, { preserveState: true, replace: true });
     };
     const remove = (m) => { if (confirm('Padam ahli jawatankuasa ini?')) router.delete(route('pilihanraya.jawatankuasa.destroy', m.id), { preserveScroll: true }); };
 
@@ -282,30 +282,33 @@ function Content({ members, filters, jenisOptions, summary, byDun }) {
             <div className={`${t.card} mb-6`}>
                 <h3 className={t.cardTitle}>Jawatankuasa JPRC &amp; JPRD Mengikut DUN</h3>
                 {byDun.length === 0 ? <p className={`${t.subtext} text-sm py-12 text-center`}>Tiada data. Muat naik fail struktur JPRC/JPRD untuk bermula.</p> : (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr>
-                                        <th className={t.tableHead}>DUN / Peringkat</th>
-                                        <th className={t.tableHead + ' text-right'}>JPRC</th>
-                                        <th className={t.tableHead + ' text-right'}>JPRD</th>
-                                        <th className={t.tableHead + ' text-right'}>Jumlah</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {byDun.map((d) => (
-                                        <tr key={d.dun} className={t.tableRow}>
-                                            <td className={t.tableCell + ' font-medium'}>{d.dun}</td>
-                                            <td className={t.tableCell + ' text-right'} style={{ color: JENIS_COLORS.JPRC }}>{d.JPRC || 0}</td>
-                                            <td className={t.tableCell + ' text-right'} style={{ color: JENIS_COLORS.JPRD }}>{d.JPRD || 0}</td>
-                                            <td className={t.tableCell + ' text-right font-semibold'}>{d.total}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                    <>
+                        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 mb-6">
+                            {byDun.map((d) => {
+                                const isCabang = d.dun === 'Peringkat Cabang';
+                                const active = filters.dun === d.dun;
+                                const clickable = !isCabang && d.dun !== 'Tidak Diketahui';
+                                return (
+                                    <button
+                                        key={d.dun}
+                                        type="button"
+                                        onClick={() => clickable && applyFilters({ dun: active ? '' : d.dun })}
+                                        className={`${t.cardTight} text-left transition ${clickable ? 'cursor-pointer hover:ring-2 hover:ring-blue-400/40' : 'cursor-default'} ${active ? 'ring-2 ring-blue-500' : ''}`}
+                                    >
+                                        <div className="flex items-center gap-1.5 mb-1">
+                                            {isCabang ? <Landmark className="h-4 w-4 text-slate-400" /> : <MapPin className="h-4 w-4 text-emerald-500" />}
+                                            <span className={`text-xs font-semibold ${t.text} truncate`}>{d.dun}</span>
+                                        </div>
+                                        <div className={`text-2xl font-bold ${t.text}`}>{d.total}</div>
+                                        <div className="flex gap-3 mt-1 text-xs">
+                                            <span style={{ color: JENIS_COLORS.JPRC }}>JPRC {d.JPRC || 0}</span>
+                                            <span style={{ color: JENIS_COLORS.JPRD }}>JPRD {d.JPRD || 0}</span>
+                                        </div>
+                                    </button>
+                                );
+                            })}
                         </div>
-                        <ResponsiveContainer width="100%" height={Math.max(240, byDun.length * 38)}>
+                        <ResponsiveContainer width="100%" height={Math.max(220, byDun.length * 38)}>
                             <BarChart data={byDun} layout="vertical" margin={{ left: 40 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke={t.chartGrid} horizontal={false} />
                                 <XAxis type="number" stroke={t.chartTick} style={{ fontSize: '11px' }} allowDecimals={false} />
@@ -317,7 +320,7 @@ function Content({ members, filters, jenisOptions, summary, byDun }) {
                                 ))}
                             </BarChart>
                         </ResponsiveContainer>
-                    </div>
+                    </>
                 )}
             </div>
 
@@ -341,6 +344,13 @@ function Content({ members, filters, jenisOptions, summary, byDun }) {
                         <select value={filters.jenis || ''} onChange={(e) => applyFilters({ jenis: e.target.value })} className={t.input}>
                             <option value="">Semua</option>
                             {jenisOptions.map((j) => <option key={j} value={j}>{JENIS_LABEL[j]}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className={t.label}>DUN</label>
+                        <select value={filters.dun || ''} onChange={(e) => applyFilters({ dun: e.target.value })} className={t.input}>
+                            <option value="">Semua DUN</option>
+                            {dunOptions.map((d) => <option key={d} value={d}>{d}</option>)}
                         </select>
                     </div>
                     <div>

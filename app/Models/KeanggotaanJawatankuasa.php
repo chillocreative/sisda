@@ -38,4 +38,22 @@ class KeanggotaanJawatankuasa extends Model
         'is_dicula' => 'boolean',
         'is_pendaftaran_baru' => 'boolean',
     ];
+
+    /**
+     * Pull the DUN name out of a jawatan string when the position is tied to a
+     * state seat, e.g. "SETIAUSAHA DUN PINANG TUNGGAL" => "PINANG TUNGGAL".
+     * Parliament-level positions (no "DUN <name>") return null.
+     */
+    public static function extractDunFromJawatan(?string $jawatan): ?string
+    {
+        if (! $jawatan) {
+            return null;
+        }
+
+        if (preg_match('/\bA?DUN\s+([A-Za-z][A-Za-z\'.\s]+?)\s*$/i', trim($jawatan), $m)) {
+            return strtoupper(trim($m[1]));
+        }
+
+        return null;
+    }
 }

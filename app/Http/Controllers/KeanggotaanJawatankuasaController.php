@@ -29,10 +29,25 @@ class KeanggotaanJawatankuasaController extends Controller
                 $q->where('nama', 'like', "%{$search}%")->orWhere('no_ic', 'like', "%{$search}%");
             });
         }
+        // Match the stored DUN or a DUN still only embedded in the jawatan text,
+        // so the filter works for rows imported before DUN extraction.
+        if ($dun = $request->input('dun')) {
+            $query->where(function ($q) use ($dun) {
+                $q->where('dun', $dun)->orWhere('jawatan', 'like', "%{$dun}%");
+            });
+        }
+
+        // File order = insertion order = ascending id.
+        $members = $query->orderBy('id')->paginate(25)->withQueryString();
+        $members->getCollection()->transform(function ($m) {
+            $m->dun = $m->dun ?: KeanggotaanJawatankuasa::extractDunFromJawatan($m->jawatan);
+
+            return $m;
+        });
 
         return Inertia::render('Pilihanraya/Jawatankuasa', array_merge([
-            'members' => $query->orderByDesc('id')->paginate(25)->withQueryString(),
-            'filters' => $request->only(['jenis', 'search']),
+            'members' => $members,
+            'filters' => $request->only(['jenis', 'search', 'dun']),
             'jenisOptions' => KeanggotaanJawatankuasa::JENIS,
             'flash' => ['success' => session('success'), 'error' => session('error')],
         ], $this->dashboard()));
@@ -45,11 +60,12 @@ class KeanggotaanJawatankuasaController extends Controller
             ->groupBy('jenis')->pluck('total', 'jenis');
 
         // Pivot per DUN in PHP (grouping on a COALESCE expression trips
-        // ONLY_FULL_GROUP_BY on strict MySQL). JPRC is parliament-level and
-        // usually carries no DUN, so it lands under "Peringkat Cabang".
+        // ONLY_FULL_GROUP_BY on strict MySQL). The effective DUN comes from the
+        // dun column, else the DUN embedded in the jawatan text; JPRC positions
+        // with no DUN land under "Peringkat Cabang".
         $byDun = [];
-        foreach (KeanggotaanJawatankuasa::get(['dun', 'matched_kadun', 'jenis', 'is_dicula']) as $r) {
-            $dun = ($r->dun !== null && $r->dun !== '') ? $r->dun : ($r->matched_kadun ?: null);
+        foreach (KeanggotaanJawatankuasa::get(['dun', 'matched_kadun', 'jenis', 'is_dicula', 'jawatan']) as $r) {
+            $dun = ($r->dun !== null && $r->dun !== '') ? $r->dun : ($r->matched_kadun ?: KeanggotaanJawatankuasa::extractDunFromJawatan($r->jawatan));
             $key = $dun ?: ($r->jenis === 'JPRC' ? 'Peringkat Cabang' : 'Tidak Diketahui');
             $byDun[$key] ??= ['dun' => $key, 'total' => 0, 'dicula' => 0]
                 + array_fill_keys(KeanggotaanJawatankuasa::JENIS, 0);
@@ -59,16 +75,22 @@ class KeanggotaanJawatankuasaController extends Controller
         }
         $byDun = collect($byDun)->sortByDesc('total')->values()->all();
 
+        // Real DUNs only (exclude the parliament-level / unknown buckets).
+        $dunOptions = collect($byDun)->pluck('dun')
+            ->reject(fn ($d) => in_array($d, ['Peringkat Cabang', 'Tidak Diketahui'], true))
+            ->sort()->values()->all();
+
         return [
             'summary' => [
                 'total' => KeanggotaanJawatankuasa::count(),
                 'jprc' => (int) ($perJenis['JPRC'] ?? 0),
                 'jprd' => (int) ($perJenis['JPRD'] ?? 0),
-                'dun_count' => KeanggotaanJawatankuasa::whereNotNull('dun')->where('dun', '!=', '')->distinct()->count('dun'),
+                'dun_count' => count($dunOptions),
                 'with_ic' => KeanggotaanJawatankuasa::whereNotNull('no_ic')->where('no_ic', '!=', '')->count(),
                 'dicula' => (int) KeanggotaanJawatankuasa::where('is_dicula', true)->count(),
             ],
             'byDun' => $byDun,
+            'dunOptions' => $dunOptions,
         ];
     }
 
