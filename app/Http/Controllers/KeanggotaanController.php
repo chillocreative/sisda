@@ -378,6 +378,8 @@ class KeanggotaanController extends Controller
             'no_ic' => 'required|string|max:12',
             'nama' => 'required|string|max:255',
             'no_tel' => 'nullable|string|max:30',
+            'status_anggota' => 'nullable|in:aktif,tidak_aktif',
+            'daftar_tanpa_pengetahuan' => 'boolean',
         ]);
 
         $member = new Keanggotaan($validated);
@@ -393,6 +395,8 @@ class KeanggotaanController extends Controller
             'no_ic' => 'required|string|max:12',
             'nama' => 'required|string|max:255',
             'no_tel' => 'nullable|string|max:30',
+            'status_anggota' => 'nullable|in:aktif,tidak_aktif',
+            'daftar_tanpa_pengetahuan' => 'boolean',
         ]);
 
         $member->fill($validated);

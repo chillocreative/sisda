@@ -177,18 +177,18 @@ function GambaranTab({ data }) {
                 />
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <div className={t.card}>
+                <div className={`${t.card} !bg-red-100`}>
                     <h3 className={t.cardTitle}>Pecahan Sentimen Semasa</h3>
                     <div className="grid grid-cols-3 gap-3 py-2">
                         {[
-                            // White person icons on light-red circles.
-                            { label: 'Pengundi Putih', pct: data.putih_pct, count: data.putih, circle: 'bg-red-100', icon: 'text-white' },
-                            { label: 'Pengundi Kelabu', pct: data.kelabu_pct, count: data.kelabu, circle: 'bg-red-100', icon: 'text-white' },
-                            { label: 'Pengundi Hitam', pct: data.hitam_pct, count: data.hitam, circle: 'bg-red-100', icon: 'text-white' },
+                            { label: 'Pengundi Putih', pct: data.putih_pct, count: data.putih },
+                            { label: 'Pengundi Kelabu', pct: data.kelabu_pct, count: data.kelabu },
+                            { label: 'Pengundi Hitam', pct: data.hitam_pct, count: data.hitam },
                         ].map((s) => (
                             <div key={s.label} className="flex flex-col items-center text-center">
-                                <div className={`h-16 w-16 sm:h-20 sm:w-20 rounded-full flex items-center justify-center shadow-sm ${s.circle}`}>
-                                    <UserRound className={`h-9 w-9 sm:h-10 sm:w-10 ${s.icon}`} strokeWidth={2} />
+                                {/* Light-red card; circle outlined in white with a white icon. */}
+                                <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-full flex items-center justify-center bg-red-200 border-2 border-white shadow-sm">
+                                    <UserRound className="h-9 w-9 sm:h-10 sm:w-10 text-white" strokeWidth={2} />
                                 </div>
                                 <div className={`mt-3 text-xl font-bold ${t.text}`}>{s.pct}%</div>
                                 <div className={`text-xs font-medium ${t.text}`}>{s.label}</div>

@@ -1,6 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, router } from '@inertiajs/react';
-import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Cell, LabelList, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Users, MapPin, UserX, Crosshair, Mars, Venus } from 'lucide-react';
 import KeanggotaanNav from './Nav';
 
@@ -133,26 +133,20 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
 
                 <Card title="Keanggotaan Mengikut Bangsa">
                     {bangsaData.length === 0 ? <p className="text-sm text-slate-500 py-12 text-center">Tiada data bangsa.</p> : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
-                            <ResponsiveContainer width="100%" height={360}>
-                                <PieChart>
-                                    <Pie data={bangsaData} cx="50%" cy="50%" innerRadius="58%" outerRadius="92%" paddingAngle={0} dataKey="value" nameKey="name">
-                                        {bangsaData.map((e) => <Cell key={e.name} fill={e.fill} />)}
-                                    </Pie>
-                                    <Tooltip formatter={(v) => v.toLocaleString()} />
-                                </PieChart>
-                            </ResponsiveContainer>
-                            <div className="space-y-3">
-                                {bangsaData.map((b) => (
-                                    <div key={b.name} className="flex items-center justify-between border-b border-slate-100 pb-2">
-                                        <span className="flex items-center gap-2 text-sm text-slate-600">
-                                            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: b.fill }} />{b.name}
-                                        </span>
-                                        <span className="text-lg font-bold text-slate-900">{b.value.toLocaleString()}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+                        // Horizontal bars: a pie hid the tiny categories (1–3 members);
+                        // every bangsa now gets a labelled, colour-coded row.
+                        <ResponsiveContainer width="100%" height={Math.max(300, bangsaData.length * 40)}>
+                            <BarChart data={bangsaData} layout="vertical" margin={{ left: 20, right: 56 }}>
+                                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                                <XAxis type="number" style={{ fontSize: '11px' }} allowDecimals={false} />
+                                <YAxis type="category" dataKey="name" width={130} style={{ fontSize: '11px' }} />
+                                <Tooltip formatter={(v) => v.toLocaleString()} />
+                                <Bar dataKey="value" name="Ahli" radius={[0, 6, 6, 0]}>
+                                    {bangsaData.map((e) => <Cell key={e.name} fill={e.fill} />)}
+                                    <LabelList dataKey="value" position="right" style={{ fontSize: '11px', fill: '#475569' }} formatter={(v) => v.toLocaleString()} />
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
                     )}
                 </Card>
 

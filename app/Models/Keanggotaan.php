@@ -28,11 +28,14 @@ class Keanggotaan extends Model
         'is_dicula',
         'is_pendaftaran_baru',
         'status_kawasan',
+        'status_anggota',
+        'daftar_tanpa_pengetahuan',
     ];
 
     protected $casts = [
         'is_dicula' => 'boolean',
         'is_pendaftaran_baru' => 'boolean',
+        'daftar_tanpa_pengetahuan' => 'boolean',
     ];
 
     public function batch(): BelongsTo
