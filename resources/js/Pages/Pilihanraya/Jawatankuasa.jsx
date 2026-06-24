@@ -244,11 +244,11 @@ function Content({ members, filters, jenisOptions, summary, perJenis, byDun }) {
         if (!confirm(`Padam ${selected.size} ahli jawatankuasa yang dipilih?`)) return;
         setBulkDeleting(true);
         try {
-            await window.axios.post(route('pilihanraya.jawatankuasa.bulk-delete'), { ids: [...selected] });
+            await window.axios.post(route('pilihanraya.jawatankuasa.bulk-destroy'), { ids: [...selected] });
             setSelected(new Set());
             router.reload({ preserveScroll: true });
-        } catch {
-            alert('Gagal memadam.');
+        } catch (err) {
+            alert(err.response?.data?.message || 'Gagal memadam.');
         } finally {
             setBulkDeleting(false);
         }

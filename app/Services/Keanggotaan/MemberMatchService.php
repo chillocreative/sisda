@@ -166,15 +166,23 @@ class MemberMatchService
 
         // 2. IC-derived umur (always) & jantina. With keepFileFields, jantina
         // from the file is preserved — only filled from the IC when missing.
+        // Age is computed by integer arithmetic on the YYMMDD digits rather than
+        // STR_TO_DATE: a malformed date portion (e.g. '000000' from a junk IC)
+        // makes STR_TO_DATE raise error 1411 under strict mode and aborts the
+        // whole sync. The REGEXP guard now also requires a valid month (01-12)
+        // and day (01-31) so only plausible birthdates are aged.
         $jantinaGuard = $keepFileFields ? "(jantina IS NULL OR jantina = '') AND " : '';
         DB::update("
             UPDATE {$table} SET
-                umur = CASE WHEN no_ic REGEXP '^[0-9]{6}'
-                    THEN TIMESTAMPDIFF(
-                        YEAR,
-                        STR_TO_DATE(CONCAT(IF(CAST(SUBSTRING(no_ic,1,2) AS UNSIGNED) <= 25, '20', '19'), SUBSTRING(no_ic,1,6)), '%Y%m%d'),
-                        CURDATE()
-                    ) ELSE umur END,
+                umur = CASE WHEN no_ic REGEXP '^[0-9]{2}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])'
+                    THEN YEAR(CURDATE())
+                         - (IF(CAST(SUBSTRING(no_ic,1,2) AS UNSIGNED) <= 25, 2000, 1900) + CAST(SUBSTRING(no_ic,1,2) AS UNSIGNED))
+                         - IF(
+                             MONTH(CURDATE()) < CAST(SUBSTRING(no_ic,3,2) AS UNSIGNED)
+                             OR (MONTH(CURDATE()) = CAST(SUBSTRING(no_ic,3,2) AS UNSIGNED)
+                                 AND DAY(CURDATE()) < CAST(SUBSTRING(no_ic,5,2) AS UNSIGNED)),
+                             1, 0)
+                    ELSE umur END,
                 jantina = CASE WHEN {$jantinaGuard} no_ic REGEXP '^[0-9]{12}$'
                     THEN IF(MOD(CAST(SUBSTRING(no_ic,12,1) AS UNSIGNED), 2) = 1, 'LELAKI', 'PEREMPUAN')
                     ELSE jantina END
