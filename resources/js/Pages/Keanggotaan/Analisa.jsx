@@ -51,6 +51,9 @@ const BANGSA_COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#
 
 export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBangsa = [], byDun, byColor, byJantina, wings, parlimenList = [], dunList = [], filters = {} }) {
     const pct = (n) => (summary.total > 0 ? Math.round((n / summary.total) * 100) : 0);
+    // Kawasan cards are scoped to the whole Parlimen/Cabang, so their % is
+    // relative to the Cabang member total, not the (DUN-filtered) Jumlah Ahli.
+    const pctK = (n) => (summary.kawasan_total > 0 ? Math.round((n / summary.kawasan_total) * 100) : 0);
     const kawasanPie = [
         { name: 'Dalam Kawasan', value: summary.dalam_kawasan, fill: '#10b981' },
         { name: 'Luar Kawasan', value: summary.luar_kawasan, fill: '#f59e0b' },
@@ -92,8 +95,8 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <Kpi label="Jumlah Ahli" value={summary.total.toLocaleString()} icon={Users} />
-                    <Kpi label="Dalam Kawasan" value={summary.dalam_kawasan.toLocaleString()} sub={`${pct(summary.dalam_kawasan)}% daripada ahli`} icon={MapPin} color="text-emerald-600" />
-                    <Kpi label="Luar Kawasan" value={summary.luar_kawasan.toLocaleString()} sub={`${pct(summary.luar_kawasan)}% — tiada dalam DPT/DPPR`} icon={UserX} color="text-amber-600" />
+                    <Kpi label="Dalam Kawasan" value={summary.dalam_kawasan.toLocaleString()} sub={`${pctK(summary.dalam_kawasan)}% daripada cabang`} icon={MapPin} color="text-emerald-600" />
+                    <Kpi label="Luar Kawasan" value={summary.luar_kawasan.toLocaleString()} sub={`${pctK(summary.luar_kawasan)}% — tiada dalam DPT/DPPR`} icon={UserX} color="text-amber-600" />
                     <Kpi label="Dicula (Hitam)" value={summary.dicula.toLocaleString()} sub={`${pct(summary.dicula)}% disokong pembangkang`} icon={Crosshair} color="text-red-600" />
                 </div>
 

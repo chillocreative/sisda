@@ -429,9 +429,14 @@ class KeanggotaanController extends Controller
             : [];
 
         $total = $base()->count();
-        // Kawasan/dicula are only known after a DPT/DPPR sync — 0 until then.
-        $dalam = (clone $base())->where('status_kawasan', 'dalam_kawasan')->count();
-        $luar = (clone $base())->where('status_kawasan', 'luar_kawasan')->count();
+        // Kawasan (DPT/DPPR roll membership) is a Cabang-level property: a
+        // "luar kawasan" member is not in the roll and therefore has no
+        // matched_kadun, so scoping by DUN would always zero them out. Count
+        // these against the whole Parlimen/Cabang so the cards stay meaningful
+        // when a DUN is focused. (dicula/baru still drill down with the DUN.)
+        $kawasanTotal = (clone $parlimenBase())->count();
+        $dalam = (clone $parlimenBase())->where('status_kawasan', 'dalam_kawasan')->count();
+        $luar = (clone $parlimenBase())->where('status_kawasan', 'luar_kawasan')->count();
         $dicula = (clone $base())->where('is_dicula', true)->count();
         $baru = (clone $base())->where('is_pendaftaran_baru', true)->count();
 
@@ -510,9 +515,10 @@ class KeanggotaanController extends Controller
         return Inertia::render('Keanggotaan/Analisa', [
             'summary' => [
                 'total' => $total,
+                'kawasan_total' => $kawasanTotal,
                 'dalam_kawasan' => $dalam,
                 'luar_kawasan' => $luar,
-                'belum_sync' => $total - $dalam - $luar,
+                'belum_sync' => $kawasanTotal - $dalam - $luar,
                 'dicula' => $dicula,
                 'pendaftaran_baru' => $baru,
                 'luar_parlimen' => $luarParlimen,

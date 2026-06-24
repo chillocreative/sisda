@@ -136,7 +136,7 @@ function GambaranTab({ data }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <KpiCard label="Jumlah Pengundi Berdaftar" value={data.roll_total.toLocaleString()} icon={Users} />
                 <KpiCard
-                    label="Diculaan"
+                    label="Telah Dicula"
                     value={data.canvassed.toLocaleString()}
                     sub={`Liputan ${data.coverage_pct}% daripada daftar pemilih`}
                     icon={Crosshair}
@@ -145,13 +145,13 @@ function GambaranTab({ data }) {
                     trend={growthTrend}
                 />
                 <KpiCard
-                    label="Sokongan PH (Putih)"
+                    label="Pengundi Putih"
                     value={`${data.putih_pct}%`}
                     sub={`${data.putih.toLocaleString()} pengundi`}
                     icon={Activity}
                 />
                 <KpiCard
-                    label="Atas Pagar (Kelabu)"
+                    label="Pengundi Kelabu"
                     value={`${data.kelabu_pct}%`}
                     sub={`${data.kelabu.toLocaleString()} pengundi — sasaran pemujukan`}
                     icon={Scale}
@@ -159,7 +159,7 @@ function GambaranTab({ data }) {
                     iconColor="text-slate-400"
                 />
                 <KpiCard
-                    label="Pembangkang (Hitam)"
+                    label="Pengundi Hitam"
                     value={`${data.hitam_pct}%`}
                     sub={`${data.hitam.toLocaleString()} pengundi`}
                     icon={AlertTriangle}
@@ -180,9 +180,9 @@ function GambaranTab({ data }) {
                 <SentimentDonut
                     title="Pecahan Sentimen Semasa"
                     data={[
-                        { name: 'PH (Putih)', key: 'putih', value: data.putih },
-                        { name: 'Pembangkang (Hitam)', key: 'hitam', value: data.hitam },
-                        { name: 'Atas Pagar (Kelabu)', key: 'kelabu', value: data.kelabu },
+                        { name: 'Pengundi Putih', key: 'putih', value: data.putih },
+                        { name: 'Pengundi Hitam', key: 'hitam', value: data.hitam },
+                        { name: 'Pengundi Kelabu', key: 'kelabu', value: data.kelabu },
                     ]}
                 />
                 <div className={`${t.card} lg:col-span-2`}>
