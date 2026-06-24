@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { Head, useForm, router } from '@inertiajs/react';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { Plus, RefreshCw, Pencil, Trash2, X, Crosshair, Users, MapPin, Loader2, Sparkles } from 'lucide-react';
+import { Plus, RefreshCw, Pencil, Trash2, X, Users, MapPin, Loader2, Sparkles, Building2, Landmark } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PilihanrayaShell, { usePilihanrayaTheme } from './components/PilihanrayaShell';
 import { CHART_COLORS } from './theme';
@@ -9,11 +9,8 @@ import { CHART_COLORS } from './theme';
 const JENIS_COLORS = {
     JPRC: CHART_COLORS.blue,
     JPRD: CHART_COLORS.violet,
-    AJK_CABANG: CHART_COLORS.amber,
-    WANITA: '#ec4899',
-    AMK: CHART_COLORS.putih,
 };
-const JENIS_LABEL = { JPRC: 'JPRC', JPRD: 'JPRD', AJK_CABANG: 'AJK Cabang', WANITA: 'Wanita', AMK: 'AMK' };
+const JENIS_LABEL = { JPRC: 'JPRC', JPRD: 'JPRD' };
 
 function MemberModal({ member, jenisOptions, onClose }) {
     const isEdit = !!member;
@@ -45,8 +42,8 @@ function MemberModal({ member, jenisOptions, onClose }) {
                 <form onSubmit={submit} className="space-y-3">
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">No. IC *</label>
-                            <input value={data.no_ic} onChange={(e) => setData('no_ic', e.target.value)} maxLength={12} className={field} required />
+                            <label className="block text-sm font-medium text-slate-700 mb-1">No. IC</label>
+                            <input value={data.no_ic} onChange={(e) => setData('no_ic', e.target.value)} maxLength={12} className={field} placeholder="(pilihan)" />
                             {errors.no_ic && <p className="text-xs text-rose-600 mt-1">{errors.no_ic}</p>}
                         </div>
                         <div>
@@ -79,7 +76,7 @@ function MemberModal({ member, jenisOptions, onClose }) {
                             <input value={data.no_tel} onChange={(e) => setData('no_tel', e.target.value)} className={field} />
                         </div>
                     </div>
-                    <p className="text-xs text-slate-500">Status "dicula" & padanan kawasan dikira automatik daripada No. IC.</p>
+                    <p className="text-xs text-slate-500">No. IC pilihan — jika diisi, status "dicula" & padanan kawasan dikira automatik.</p>
                     <div className="flex justify-end gap-3 pt-2">
                         <button type="button" onClick={onClose} className="px-4 py-2 text-sm border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50">Batal</button>
                         <button type="submit" disabled={processing} className="px-4 py-2 text-sm bg-slate-900 text-white rounded-lg hover:bg-slate-800 disabled:opacity-50">Simpan</button>
@@ -96,6 +93,8 @@ function ImportPreviewModal({ result, committing, onConfirm, onClose }) {
     const rows = result.rows || [];
     const sample = rows.slice(0, 10);
     const cols = result.mapping?.columns || {};
+    const detectedJenis = result.mapping?.jenis_constant;
+    const detectedDun = result.mapping?.dun_constant;
 
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -109,8 +108,10 @@ function ImportPreviewModal({ result, committing, onConfirm, onClose }) {
                     <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full font-medium ${result.ai_used ? 'bg-violet-100 text-violet-700' : 'bg-slate-100 text-slate-600'}`}>
                         <Sparkles className="h-3.5 w-3.5" /> {result.ai_used ? 'Dibaca oleh AI' : 'Kaedah heuristik (AI tidak aktif)'}
                     </span>
+                    {detectedJenis && <span className="inline-flex px-2 py-1 rounded-full bg-blue-100 text-blue-700 font-medium">Jenis: {JENIS_LABEL[detectedJenis] || detectedJenis}</span>}
+                    {detectedDun && <span className="inline-flex px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 font-medium">DUN: {detectedDun}</span>}
                     <span className="inline-flex px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 font-medium">{rows.length} baris sah</span>
-                    {result.skipped > 0 && <span className="inline-flex px-2 py-1 rounded-full bg-amber-100 text-amber-700 font-medium">{result.skipped} dilangkau (IC tidak sah)</span>}
+                    {result.skipped > 0 && <span className="inline-flex px-2 py-1 rounded-full bg-amber-100 text-amber-700 font-medium">{result.skipped} dilangkau (tiada nama/jenis)</span>}
                 </div>
 
                 <div className="mb-4 text-xs text-slate-600">
@@ -132,7 +133,7 @@ function ImportPreviewModal({ result, committing, onConfirm, onClose }) {
                                 {sample.map((r, i) => (
                                     <tr key={i} className="border-t border-slate-100">
                                         <td className="px-3 py-1.5 text-slate-800">{r.nama}</td>
-                                        <td className="px-3 py-1.5 text-slate-600">{r.no_ic}</td>
+                                        <td className="px-3 py-1.5 text-slate-600">{r.no_ic || '-'}</td>
                                         <td className="px-3 py-1.5 text-slate-600">{JENIS_LABEL[r.jenis] || r.jenis}</td>
                                         <td className="px-3 py-1.5 text-slate-600">{r.jawatan || '-'}</td>
                                         <td className="px-3 py-1.5 text-slate-600">{r.dun || '-'}</td>
@@ -220,7 +221,7 @@ function UploadForm({ jenisOptions }) {
     );
 }
 
-function Content({ members, filters, jenisOptions, summary, perJenis, byDun }) {
+function Content({ members, filters, jenisOptions, summary, byDun }) {
     const { t } = usePilihanrayaTheme();
     const [modal, setModal] = useState(null);
     const [search, setSearch] = useState(filters.search || '');
@@ -256,56 +257,67 @@ function Content({ members, filters, jenisOptions, summary, perJenis, byDun }) {
 
     return (
         <>
-            {/* KPI summary */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            {/* KPI summary — JPRC + JPRD across the DUNs */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <div className={t.card}>
                     <div className="flex items-center justify-between"><span className={t.kpiLabel}>Jumlah Ahli Jawatankuasa</span><Users className="h-5 w-5 text-slate-400" /></div>
                     <div className={t.kpiValue}>{summary.total.toLocaleString()}</div>
                 </div>
                 <div className={t.card}>
-                    <div className="flex items-center justify-between"><span className={t.kpiLabel}>Telah Dicula (Hitam)</span><Crosshair className="h-5 w-5 text-red-500" /></div>
-                    <div className={`${t.kpiValue} text-red-500`}>{summary.dicula.toLocaleString()}</div>
-                    <p className={`${t.subtext} text-xs mt-1`}>{summary.dicula_pct}% daripada jumlah</p>
+                    <div className="flex items-center justify-between"><span className={t.kpiLabel}>JPRC (Peringkat Cabang)</span><Landmark className="h-5 w-5" style={{ color: JENIS_COLORS.JPRC }} /></div>
+                    <div className={t.kpiValue} style={{ color: JENIS_COLORS.JPRC }}>{summary.jprc.toLocaleString()}</div>
                 </div>
                 <div className={t.card}>
-                    <div className="flex items-center justify-between"><span className={t.kpiLabel}>Dalam Kawasan (DPT)</span><MapPin className="h-5 w-5 text-emerald-500" /></div>
-                    <div className={`${t.kpiValue} text-emerald-500`}>{summary.dalam_kawasan.toLocaleString()}</div>
+                    <div className="flex items-center justify-between"><span className={t.kpiLabel}>JPRD (Mengikut DUN)</span><Building2 className="h-5 w-5" style={{ color: JENIS_COLORS.JPRD }} /></div>
+                    <div className={t.kpiValue} style={{ color: JENIS_COLORS.JPRD }}>{summary.jprd.toLocaleString()}</div>
+                </div>
+                <div className={t.card}>
+                    <div className="flex items-center justify-between"><span className={t.kpiLabel}>DUN Diliputi</span><MapPin className="h-5 w-5 text-emerald-500" /></div>
+                    <div className={`${t.kpiValue} text-emerald-500`}>{summary.dun_count.toLocaleString()}</div>
+                    {summary.dicula > 0 && <p className={`${t.subtext} text-xs mt-1`}>{summary.dicula} dicula / {summary.with_ic} ahli ber-IC</p>}
                 </div>
             </div>
 
-            {/* Per-jenis dicula */}
+            {/* JPRC + JPRD per DUN */}
             <div className={`${t.card} mb-6`}>
-                <h3 className={t.cardTitle}>Culaan Mengikut Jenis Jawatankuasa</h3>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                    {jenisOptions.map((j) => {
-                        const row = perJenis.find((p) => p.jenis === j) || { total: 0, dicula: 0, dicula_pct: 0 };
-                        return (
-                            <div key={j} className={`${t.cardTight} text-center`}>
-                                <div className="text-xs font-semibold" style={{ color: JENIS_COLORS[j] }}>{JENIS_LABEL[j]}</div>
-                                <div className={`text-2xl font-bold ${t.text} mt-1`}>{row.dicula}/{row.total}</div>
-                                <div className={`${t.subtext} text-xs`}>{row.dicula_pct}% dicula</div>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-
-            {/* By DUN distribution */}
-            <div className={`${t.card} mb-6`}>
-                <h3 className={t.cardTitle}>Taburan Jawatankuasa Mengikut DUN</h3>
-                {byDun.length === 0 ? <p className={`${t.subtext} text-sm py-12 text-center`}>Tiada data.</p> : (
-                    <ResponsiveContainer width="100%" height={Math.max(280, byDun.length * 32)}>
-                        <BarChart data={byDun} layout="vertical" margin={{ left: 60 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke={t.chartGrid} horizontal={false} />
-                            <XAxis type="number" stroke={t.chartTick} style={{ fontSize: '11px' }} />
-                            <YAxis type="category" dataKey="dun" width={150} stroke={t.chartTick} style={{ fontSize: '10px' }} />
-                            <Tooltip contentStyle={t.tooltip} />
-                            <Legend wrapperStyle={{ fontSize: '12px' }} />
-                            {jenisOptions.map((j) => (
-                                <Bar key={j} dataKey={j} name={JENIS_LABEL[j]} stackId="a" fill={JENIS_COLORS[j]} />
-                            ))}
-                        </BarChart>
-                    </ResponsiveContainer>
+                <h3 className={t.cardTitle}>Jawatankuasa JPRC &amp; JPRD Mengikut DUN</h3>
+                {byDun.length === 0 ? <p className={`${t.subtext} text-sm py-12 text-center`}>Tiada data. Muat naik fail struktur JPRC/JPRD untuk bermula.</p> : (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr>
+                                        <th className={t.tableHead}>DUN / Peringkat</th>
+                                        <th className={t.tableHead + ' text-right'}>JPRC</th>
+                                        <th className={t.tableHead + ' text-right'}>JPRD</th>
+                                        <th className={t.tableHead + ' text-right'}>Jumlah</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {byDun.map((d) => (
+                                        <tr key={d.dun} className={t.tableRow}>
+                                            <td className={t.tableCell + ' font-medium'}>{d.dun}</td>
+                                            <td className={t.tableCell + ' text-right'} style={{ color: JENIS_COLORS.JPRC }}>{d.JPRC || 0}</td>
+                                            <td className={t.tableCell + ' text-right'} style={{ color: JENIS_COLORS.JPRD }}>{d.JPRD || 0}</td>
+                                            <td className={t.tableCell + ' text-right font-semibold'}>{d.total}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        <ResponsiveContainer width="100%" height={Math.max(240, byDun.length * 38)}>
+                            <BarChart data={byDun} layout="vertical" margin={{ left: 40 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke={t.chartGrid} horizontal={false} />
+                                <XAxis type="number" stroke={t.chartTick} style={{ fontSize: '11px' }} allowDecimals={false} />
+                                <YAxis type="category" dataKey="dun" width={130} stroke={t.chartTick} style={{ fontSize: '10px' }} />
+                                <Tooltip contentStyle={t.tooltip} />
+                                <Legend wrapperStyle={{ fontSize: '12px' }} />
+                                {jenisOptions.map((j) => (
+                                    <Bar key={j} dataKey={j} name={JENIS_LABEL[j]} stackId="a" fill={JENIS_COLORS[j]} />
+                                ))}
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
                 )}
             </div>
 
@@ -376,7 +388,7 @@ function Content({ members, filters, jenisOptions, summary, perJenis, byDun }) {
                                         <input type="checkbox" checked={selected.has(m.id)} onChange={() => toggleOne(m.id)} className="rounded border-slate-400" />
                                     </td>
                                     <td className={t.tableCell + ' font-medium'}>{m.nama}</td>
-                                    <td className={t.tableCell}>{m.no_ic}</td>
+                                    <td className={t.tableCell}>{m.no_ic || '-'}</td>
                                     <td className={t.tableCell}>{JENIS_LABEL[m.jenis]}</td>
                                     <td className={t.tableCell}>{m.jawatan || '-'}</td>
                                     <td className={t.tableCell}>{m.dun || m.matched_kadun || '-'}</td>
@@ -419,7 +431,7 @@ export default function Jawatankuasa(props) {
             <Head title="Pilihanraya — Jawatankuasa" />
             <PilihanrayaShell
                 title="Jawatankuasa Pilihanraya"
-                subtitle="JPRC / JPRD / AJK Cabang / Wanita / AMK — pantau anggota yang dicula dan taburan mengikut DUN"
+                subtitle="JPRC (peringkat cabang) & JPRD (mengikut DUN) — muat naik fail struktur, AI tentukan jenis & DUN"
             >
                 <Content {...props} />
             </PilihanrayaShell>

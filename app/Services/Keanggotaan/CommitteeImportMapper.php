@@ -36,7 +36,7 @@ class CommitteeImportMapper
     /**
      * @return array{ai_used:bool, mapping:array, rows:array<int,array<string,?string>>, skipped:int, total:int}
      */
-    public function analyze(UploadedFile $file, ?string $jenisDefault): array
+    public function analyze(UploadedFile $file, ?string $jenisDefault, ?string $filename = null): array
     {
         $sheet = Excel::toCollection(null, $file)->first() ?? collect();
         // Normalise every cell to a flat array indexed from 0.
@@ -47,7 +47,7 @@ class CommitteeImportMapper
             return ['ai_used' => false, 'mapping' => [], 'rows' => [], 'skipped' => 0, 'total' => 0];
         }
 
-        $mapping = $this->aiMapping($rows);
+        $mapping = $this->aiMapping($rows, $filename);
         $aiUsed = $mapping !== null;
         if (! $aiUsed) {
             $mapping = $this->heuristicMapping($rows);
@@ -66,9 +66,10 @@ class CommitteeImportMapper
 
     /**
      * Ask Claude to identify the header row and per-field column index from the
-     * top rows. Returns null when the AI is disabled or returns nothing usable.
+     * top rows, plus the committee type and DUN inferred from the file name /
+     * title. Returns null when the AI is disabled or returns nothing usable.
      */
-    private function aiMapping(array $rows): ?array
+    private function aiMapping(array $rows, ?string $filename): ?array
     {
         $preview = collect($rows)->take(15)
             ->map(fn ($cells, $i) => "Row {$i}: ".implode(' | ', $cells))
@@ -76,12 +77,19 @@ class CommitteeImportMapper
 
         $jenisList = implode(', ', KeanggotaanJawatankuasa::JENIS);
         $system = <<<SYS
-        You map the columns of a Malaysian political committee member list
-        ("Senarai Ahli Jawatankuasa") spreadsheet. Given the top rows, identify
-        the header row and which 0-based column index holds each target field.
+        You map the columns of a Malaysian political election committee list
+        ("Senarai Ahli Jawatankuasa") spreadsheet. Given the file name and the
+        top rows, identify the header row and which 0-based column index holds
+        each target field. Many of these files are "struktur" / structure files
+        listing positions and names with NO IC column — that is fine, return
+        null for no_ic then.
+
+        Committee types:
+        - JPRC = Jawatankuasa Pilihan Raya Cabang (parliament / cabang level)
+        - JPRD = Jawatankuasa Pilihan Raya DUN (one committee per DUN / state seat)
 
         Target fields:
-        - no_ic: IC / No. KP / Kad Pengenalan (a 12-digit number, may contain dashes)
+        - no_ic: IC / No. KP / Kad Pengenalan (a 12-digit number, may contain dashes) — often absent
         - nama: member full name
         - jenis: committee type, one of [{$jenisList}]
         - jawatan: position / jawatan held
@@ -95,11 +103,13 @@ class CommitteeImportMapper
                      "jenis": <col index or null>, "jawatan": <col index or null>,
                      "cabang": <col index or null>, "dun": <col index or null>,
                      "no_tel": <col index or null>},
-         "jenis_constant": <one of [{$jenisList}] if the whole file is a single committee
-                            type stated in a title/section, otherwise null>}
+         "jenis_constant": <one of [{$jenisList}] inferred from the file name or a title/section
+                            row (e.g. "Struktur JPRC ..." => JPRC), otherwise null>,
+         "dun_constant": <the DUN / state-seat name this file belongs to if it is a single-DUN
+                          (JPRD) file named/titled for one DUN, otherwise null>}
         SYS;
 
-        $user = "Top rows of the spreadsheet:\n\n{$preview}";
+        $user = 'File name: '.($filename ?: '(unknown)')."\n\nTop rows of the spreadsheet:\n\n{$preview}";
 
         $res = $this->claude->chat($system, $user, 1024, 30, 'committee_import_mapping');
         if (! ($res['ok'] ?? false)) {
@@ -126,10 +136,14 @@ class CommitteeImportMapper
         $jenisConstant = $json['jenis_constant'] ?? null;
         $jenisConstant = $this->normalizeJenis(is_string($jenisConstant) ? $jenisConstant : '');
 
+        $dunConstant = $json['dun_constant'] ?? null;
+        $dunConstant = is_string($dunConstant) && trim($dunConstant) !== '' ? strtoupper(trim($dunConstant)) : null;
+
         return [
             'header_row' => isset($json['header_row']) && is_numeric($json['header_row']) ? (int) $json['header_row'] : null,
             'columns' => $columns,
             'jenis_constant' => $jenisConstant,
+            'dun_constant' => $dunConstant,
         ];
     }
 
@@ -152,7 +166,7 @@ class CommitteeImportMapper
             }
         }
 
-        return ['header_row' => 0, 'columns' => $columns, 'jenis_constant' => null];
+        return ['header_row' => 0, 'columns' => $columns, 'jenis_constant' => null, 'dun_constant' => null];
     }
 
     /**
@@ -165,6 +179,7 @@ class CommitteeImportMapper
         $headerRow = $mapping['header_row'];
         $columns = $mapping['columns'];
         $jenisConstant = $mapping['jenis_constant'] ?: $this->normalizeJenis((string) $jenisDefault);
+        $dunConstant = $mapping['dun_constant'] ?? null;
 
         $start = is_int($headerRow) ? $headerRow + 1 : 0;
         $dataRows = array_slice($rows, $start);
@@ -174,26 +189,27 @@ class CommitteeImportMapper
         foreach ($dataRows as $cells) {
             $cell = fn (?int $idx) => ($idx !== null && isset($cells[$idx]) && $cells[$idx] !== '') ? trim((string) $cells[$idx]) : null;
 
-            $rawIc = $cell($columns['no_ic']);
-            $ic = preg_replace('/\D/', '', (string) $rawIc);
-            $ic = $ic !== '' ? str_pad($ic, 12, '0', STR_PAD_LEFT) : '';
-            if (strlen($ic) !== 12 || ! ctype_digit($ic)) {
-                $skipped++;
+            // IC is optional. When present, keep it only if it cleans up to a
+            // valid 12-digit number; otherwise store null rather than dropping
+            // the whole row.
+            $ic = preg_replace('/\D/', '', (string) $cell($columns['no_ic']));
+            $ic = (strlen($ic) === 12 && ctype_digit($ic)) ? $ic : null;
 
-                continue;
-            }
-
+            $nama = $cell($columns['nama']);
             $jenis = $this->normalizeJenis((string) $cell($columns['jenis'])) ?: $jenisConstant;
-            if (! $jenis) {
+
+            // A row is only meaningful if it identifies a person (name or IC)
+            // and we know which committee it belongs to.
+            if (($nama === null && $ic === null) || ! $jenis) {
                 $skipped++;
 
                 continue;
             }
 
-            $dun = $cell($columns['dun']);
+            $dun = $cell($columns['dun']) ?: $dunConstant;
             $built[] = [
                 'no_ic' => $ic,
-                'nama' => strtoupper((string) ($cell($columns['nama']) ?? '-')),
+                'nama' => strtoupper((string) ($nama ?? '-')),
                 'jenis' => $jenis,
                 'jawatan' => $cell($columns['jawatan']),
                 'cabang' => $cell($columns['cabang']),

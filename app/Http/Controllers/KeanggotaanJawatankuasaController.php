@@ -38,24 +38,19 @@ class KeanggotaanJawatankuasaController extends Controller
         ], $this->dashboard()));
     }
 
-    /** Per-jenis "dicula" counts + per-DUN wing distribution. */
+    /** JPRC/JPRD counts + per-DUN committee distribution. */
     private function dashboard(): array
     {
-        $perJenis = KeanggotaanJawatankuasa::selectRaw('jenis, COUNT(*) AS total, SUM(is_dicula) AS dicula')
-            ->groupBy('jenis')->get()
-            ->map(fn ($r) => [
-                'jenis' => $r->jenis,
-                'total' => (int) $r->total,
-                'dicula' => (int) $r->dicula,
-                'dicula_pct' => $r->total > 0 ? round(($r->dicula / $r->total) * 100, 1) : 0,
-            ]);
+        $perJenis = KeanggotaanJawatankuasa::selectRaw('jenis, COUNT(*) AS total')
+            ->groupBy('jenis')->pluck('total', 'jenis');
 
-        // Pivot per DUN in PHP rather than via SQL. Grouping by a
-        // COALESCE(...) expression trips ONLY_FULL_GROUP_BY (error 1055) on
-        // strict MySQL, so we aggregate the rows here instead.
+        // Pivot per DUN in PHP (grouping on a COALESCE expression trips
+        // ONLY_FULL_GROUP_BY on strict MySQL). JPRC is parliament-level and
+        // usually carries no DUN, so it lands under "Peringkat Cabang".
         $byDun = [];
         foreach (KeanggotaanJawatankuasa::get(['dun', 'matched_kadun', 'jenis', 'is_dicula']) as $r) {
-            $key = ($r->dun !== null && $r->dun !== '') ? $r->dun : ($r->matched_kadun ?: 'Tidak Diketahui');
+            $dun = ($r->dun !== null && $r->dun !== '') ? $r->dun : ($r->matched_kadun ?: null);
+            $key = $dun ?: ($r->jenis === 'JPRC' ? 'Peringkat Cabang' : 'Tidak Diketahui');
             $byDun[$key] ??= ['dun' => $key, 'total' => 0, 'dicula' => 0]
                 + array_fill_keys(KeanggotaanJawatankuasa::JENIS, 0);
             $byDun[$key][$r->jenis] = ($byDun[$key][$r->jenis] ?? 0) + 1;
@@ -64,17 +59,15 @@ class KeanggotaanJawatankuasaController extends Controller
         }
         $byDun = collect($byDun)->sortByDesc('total')->values()->all();
 
-        $total = KeanggotaanJawatankuasa::count();
-        $dicula = (int) KeanggotaanJawatankuasa::where('is_dicula', true)->count();
-
         return [
             'summary' => [
-                'total' => $total,
-                'dicula' => $dicula,
-                'dicula_pct' => $total > 0 ? round(($dicula / $total) * 100, 1) : 0,
-                'dalam_kawasan' => KeanggotaanJawatankuasa::where('status_kawasan', 'dalam_kawasan')->count(),
+                'total' => KeanggotaanJawatankuasa::count(),
+                'jprc' => (int) ($perJenis['JPRC'] ?? 0),
+                'jprd' => (int) ($perJenis['JPRD'] ?? 0),
+                'dun_count' => KeanggotaanJawatankuasa::whereNotNull('dun')->where('dun', '!=', '')->distinct()->count('dun'),
+                'with_ic' => KeanggotaanJawatankuasa::whereNotNull('no_ic')->count(),
+                'dicula' => (int) KeanggotaanJawatankuasa::where('is_dicula', true)->count(),
             ],
-            'perJenis' => $perJenis,
             'byDun' => $byDun,
         ];
     }
@@ -84,7 +77,7 @@ class KeanggotaanJawatankuasaController extends Controller
         $validated = $this->validateMember($request);
 
         $member = new KeanggotaanJawatankuasa($validated);
-        $member->fill($this->matcher->match($validated['no_ic']));
+        $member->fill($this->matcher->match($validated['no_ic'] ?? ''));
         $member->save();
 
         return redirect()->back()->with('success', 'Ahli jawatankuasa berjaya ditambah.');
@@ -95,7 +88,7 @@ class KeanggotaanJawatankuasaController extends Controller
         $validated = $this->validateMember($request);
 
         $member->fill($validated);
-        $member->fill($this->matcher->match($validated['no_ic']));
+        $member->fill($this->matcher->match($validated['no_ic'] ?? ''));
         $member->save();
 
         return redirect()->back()->with('success', 'Ahli jawatankuasa berjaya dikemaskini.');
@@ -120,7 +113,9 @@ class KeanggotaanJawatankuasaController extends Controller
             'jenis_default' => 'nullable|in:'.implode(',', KeanggotaanJawatankuasa::JENIS),
         ]);
 
-        return response()->json($mapper->analyze($request->file('fail'), $request->input('jenis_default')));
+        $file = $request->file('fail');
+
+        return response()->json($mapper->analyze($file, $request->input('jenis_default'), $file->getClientOriginalName()));
     }
 
     /**
@@ -131,7 +126,7 @@ class KeanggotaanJawatankuasaController extends Controller
     {
         $validated = $request->validate([
             'rows' => 'required|array|min:1',
-            'rows.*.no_ic' => 'required|digits:12',
+            'rows.*.no_ic' => 'nullable|digits:12',
             'rows.*.nama' => 'required|string|max:255',
             'rows.*.jenis' => 'required|in:'.implode(',', KeanggotaanJawatankuasa::JENIS),
             'rows.*.jawatan' => 'nullable|string|max:255',
@@ -143,7 +138,10 @@ class KeanggotaanJawatankuasaController extends Controller
         $count = 0;
         foreach ($validated['rows'] as $row) {
             $member = new KeanggotaanJawatankuasa($row);
-            $member->fill($this->matcher->match($row['no_ic']));
+            // Voter-roll / dicula cross-check only runs for members with an IC.
+            if (! empty($row['no_ic'])) {
+                $member->fill($this->matcher->match($row['no_ic']));
+            }
             $member->save();
             $count++;
         }
@@ -173,7 +171,7 @@ class KeanggotaanJawatankuasaController extends Controller
     private function validateMember(Request $request): array
     {
         return $request->validate([
-            'no_ic' => 'required|string|max:12',
+            'no_ic' => 'nullable|string|max:12',
             'nama' => 'required|string|max:255',
             'jenis' => 'required|in:'.implode(',', KeanggotaanJawatankuasa::JENIS),
             'jawatan' => 'nullable|string|max:255',
