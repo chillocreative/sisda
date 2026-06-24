@@ -3,10 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\KeanggotaanJawatankuasa;
+use App\Services\Keanggotaan\CommitteeImportMapper;
 use App\Services\Keanggotaan\MemberMatchService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use Maatwebsite\Excel\Facades\Excel;
 
 /**
  * JPRC / JPRD / AJK Cabang / Wanita / AMK committee tracking, under the
@@ -108,59 +108,59 @@ class KeanggotaanJawatankuasaController extends Controller
         return redirect()->back()->with('success', 'Ahli jawatankuasa berjaya dipadam.');
     }
 
-    public function upload(Request $request)
+    /**
+     * Step 1 of the upload: read the file, let AI (or the heuristic fallback)
+     * map its columns, and return the normalised rows for a preview — nothing
+     * is saved yet.
+     */
+    public function analyze(Request $request, CommitteeImportMapper $mapper)
     {
         $request->validate([
             'fail' => 'required|file|mimes:xlsx,xls,csv|max:51200',
             'jenis_default' => 'nullable|in:'.implode(',', KeanggotaanJawatankuasa::JENIS),
         ]);
 
-        $default = $request->input('jenis_default');
-        $rows = Excel::toCollection(null, $request->file('fail'))->first() ?? collect();
-        $header = collect($rows->first())->map(fn ($v) => strtolower(preg_replace('/[^a-z0-9]/i', '', (string) $v)))->all();
-        $inserted = 0;
+        return response()->json($mapper->analyze($request->file('fail'), $request->input('jenis_default')));
+    }
 
-        foreach ($rows->slice(1) as $row) {
-            $cells = $row->values()->all();
-            $get = function (array $aliases) use ($header, $cells) {
-                foreach ($aliases as $alias) {
-                    $i = array_search($alias, $header, true);
-                    if ($i !== false && isset($cells[$i]) && $cells[$i] !== null && $cells[$i] !== '') {
-                        return trim((string) $cells[$i]);
-                    }
-                }
+    /**
+     * Step 2: persist the rows confirmed in the preview. Every row is
+     * re-validated server-side (they round-tripped through the browser).
+     */
+    public function commit(Request $request)
+    {
+        $validated = $request->validate([
+            'rows' => 'required|array|min:1',
+            'rows.*.no_ic' => 'required|digits:12',
+            'rows.*.nama' => 'required|string|max:255',
+            'rows.*.jenis' => 'required|in:'.implode(',', KeanggotaanJawatankuasa::JENIS),
+            'rows.*.jawatan' => 'nullable|string|max:255',
+            'rows.*.cabang' => 'nullable|string|max:255',
+            'rows.*.dun' => 'nullable|string|max:255',
+            'rows.*.no_tel' => 'nullable|string|max:30',
+        ]);
 
-                return null;
-            };
-
-            $ic = str_pad((string) ($get(['ic', 'noic', 'nokp', 'kadpengenalan']) ?? ''), 12, '0', STR_PAD_LEFT);
-            if (strlen($ic) !== 12 || ! ctype_digit($ic)) {
-                continue;
-            }
-
-            $jenis = strtoupper(str_replace([' ', '-'], '_', (string) ($get(['jenis', 'kategori']) ?? $default ?? '')));
-            if (! in_array($jenis, KeanggotaanJawatankuasa::JENIS, true)) {
-                $jenis = $default;
-            }
-            if (! $jenis) {
-                continue;
-            }
-
-            $member = new KeanggotaanJawatankuasa([
-                'no_ic' => $ic,
-                'nama' => strtoupper((string) ($get(['nama', 'name']) ?? '-')),
-                'jenis' => $jenis,
-                'jawatan' => $get(['jawatan', 'position']),
-                'cabang' => $get(['cabang', 'branch']),
-                'dun' => $get(['dun', 'kadun']) ? strtoupper($get(['dun', 'kadun'])) : null,
-                'no_tel' => $get(['notel', 'telefon', 'phone']),
-            ]);
-            $member->fill($this->matcher->match($ic));
+        $count = 0;
+        foreach ($validated['rows'] as $row) {
+            $member = new KeanggotaanJawatankuasa($row);
+            $member->fill($this->matcher->match($row['no_ic']));
             $member->save();
-            $inserted++;
+            $count++;
         }
 
-        return redirect()->back()->with('success', "{$inserted} ahli jawatankuasa berjaya dimuat naik.");
+        return response()->json(['count' => $count]);
+    }
+
+    public function bulkDestroy(Request $request)
+    {
+        $validated = $request->validate([
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'integer',
+        ]);
+
+        $count = KeanggotaanJawatankuasa::whereIn('id', $validated['ids'])->delete();
+
+        return response()->json(['count' => $count]);
     }
 
     public function resync()

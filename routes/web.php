@@ -407,7 +407,9 @@ Route::middleware(['auth', 'super_admin'])->prefix('pilihanraya')->name('pilihan
     Route::post('/jawatankuasa', [\App\Http\Controllers\KeanggotaanJawatankuasaController::class, 'store'])->name('jawatankuasa.store');
     Route::put('/jawatankuasa/{member}', [\App\Http\Controllers\KeanggotaanJawatankuasaController::class, 'update'])->name('jawatankuasa.update');
     Route::delete('/jawatankuasa/{member}', [\App\Http\Controllers\KeanggotaanJawatankuasaController::class, 'destroy'])->name('jawatankuasa.destroy');
-    Route::post('/jawatankuasa/upload', [\App\Http\Controllers\KeanggotaanJawatankuasaController::class, 'upload'])->name('jawatankuasa.upload');
+    Route::post('/jawatankuasa/upload/analyze', [\App\Http\Controllers\KeanggotaanJawatankuasaController::class, 'analyze'])->name('jawatankuasa.upload.analyze');
+    Route::post('/jawatankuasa/upload/commit', [\App\Http\Controllers\KeanggotaanJawatankuasaController::class, 'commit'])->name('jawatankuasa.upload.commit');
+    Route::post('/jawatankuasa/bulk-delete', [\App\Http\Controllers\KeanggotaanJawatankuasaController::class, 'bulkDestroy'])->name('jawatankuasa.bulk-destroy');
     Route::post('/jawatankuasa/resync', [\App\Http\Controllers\KeanggotaanJawatankuasaController::class, 'resync'])->name('jawatankuasa.resync');
 });
 
