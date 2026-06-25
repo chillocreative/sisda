@@ -105,12 +105,12 @@ class CommitteeImportMapper
         }
 
         [$built, $skipped, $total] = $this->normalizeMembers(
-            $extracted['members'], $extracted['jenis_constant'], $extracted['dun_constant'], $jenisDefault
+            $extracted['members'], $extracted['jenis_constant'], $extracted['dun_constant'], $extracted['parlimen_constant'], $jenisDefault
         );
 
         return [
             'ai_used' => true,
-            'mapping' => ['header_row' => null, 'columns' => [], 'jenis_constant' => $extracted['jenis_constant'], 'dun_constant' => $extracted['dun_constant']],
+            'mapping' => ['header_row' => null, 'columns' => [], 'jenis_constant' => $extracted['jenis_constant'], 'dun_constant' => $extracted['dun_constant'], 'parlimen_constant' => $extracted['parlimen_constant']],
             'rows' => $built,
             'skipped' => $skipped,
             'total' => $total,
@@ -146,6 +146,8 @@ class CommitteeImportMapper
         {"jenis_constant": <one of [{$jenisList}] if the whole document is a single type
                             (from the title/heading), otherwise null>,
          "dun_constant": <the DUN / state-seat name if the document is for one DUN, else null>,
+         "parlimen_constant": <the Parlimen / Cabang name from the title/heading (e.g.
+                               "KEPALA BATAS"), else null>,
          "members": [{"nama": <full name>, "no_ic": <12-digit IC or null>,
                       "jenis": <one of [{$jenisList}] or null>, "jawatan": <position or null>,
                       "cabang": <branch or null>, "dun": <DUN or null>, "no_tel": <phone or null>}]}
@@ -167,8 +169,10 @@ class CommitteeImportMapper
         $jenisConstant = $this->normalizeJenis(is_string($json['jenis_constant'] ?? null) ? $json['jenis_constant'] : '');
         $dunConstant = (isset($json['dun_constant']) && is_string($json['dun_constant']) && trim($json['dun_constant']) !== '')
             ? strtoupper(trim($json['dun_constant'])) : null;
+        $parlimenConstant = (isset($json['parlimen_constant']) && is_string($json['parlimen_constant']) && trim($json['parlimen_constant']) !== '')
+            ? strtoupper(trim($json['parlimen_constant'])) : null;
 
-        return ['members' => $json['members'], 'jenis_constant' => $jenisConstant, 'dun_constant' => $dunConstant];
+        return ['members' => $json['members'], 'jenis_constant' => $jenisConstant, 'dun_constant' => $dunConstant, 'parlimen_constant' => $parlimenConstant];
     }
 
     /**
@@ -179,7 +183,7 @@ class CommitteeImportMapper
      *
      * @return array{0:array<int,array<string,?string>>, 1:int, 2:int}
      */
-    private function normalizeMembers(array $members, ?string $jenisConstant, ?string $dunConstant, ?string $jenisDefault): array
+    private function normalizeMembers(array $members, ?string $jenisConstant, ?string $dunConstant, ?string $parlimenConstant, ?string $jenisDefault): array
     {
         $jenisFallback = $jenisConstant ?: $this->normalizeJenis((string) $jenisDefault);
 
@@ -212,7 +216,7 @@ class CommitteeImportMapper
                 'nama' => strtoupper((string) ($nama ?? '-')),
                 'jenis' => $jenis,
                 'jawatan' => $jawatan,
-                'cabang' => $clean($m['cabang'] ?? null),
+                'cabang' => $clean($m['cabang'] ?? null) ?: $parlimenConstant,
                 'dun' => $dun ? strtoupper($dun) : null,
                 'no_tel' => $clean($m['no_tel'] ?? null),
             ];
@@ -265,7 +269,9 @@ class CommitteeImportMapper
          "jenis_constant": <one of [{$jenisList}] inferred from the file name or a title/section
                             row (e.g. "Struktur JPRC ..." => JPRC), otherwise null>,
          "dun_constant": <the DUN / state-seat name this file belongs to if it is a single-DUN
-                          (JPRD) file named/titled for one DUN, otherwise null>}
+                          (JPRD) file named/titled for one DUN, otherwise null>,
+         "parlimen_constant": <the Parlimen / Cabang name from the file name or title
+                               (e.g. "KEPALA BATAS"), otherwise null>}
         SYS;
 
         $user = 'File name: '.($filename ?: '(unknown)')."\n\nTop rows of the spreadsheet:\n\n{$preview}";
@@ -298,11 +304,15 @@ class CommitteeImportMapper
         $dunConstant = $json['dun_constant'] ?? null;
         $dunConstant = is_string($dunConstant) && trim($dunConstant) !== '' ? strtoupper(trim($dunConstant)) : null;
 
+        $parlimenConstant = $json['parlimen_constant'] ?? null;
+        $parlimenConstant = is_string($parlimenConstant) && trim($parlimenConstant) !== '' ? strtoupper(trim($parlimenConstant)) : null;
+
         return [
             'header_row' => isset($json['header_row']) && is_numeric($json['header_row']) ? (int) $json['header_row'] : null,
             'columns' => $columns,
             'jenis_constant' => $jenisConstant,
             'dun_constant' => $dunConstant,
+            'parlimen_constant' => $parlimenConstant,
         ];
     }
 
@@ -325,7 +335,7 @@ class CommitteeImportMapper
             }
         }
 
-        return ['header_row' => 0, 'columns' => $columns, 'jenis_constant' => null, 'dun_constant' => null];
+        return ['header_row' => 0, 'columns' => $columns, 'jenis_constant' => null, 'dun_constant' => null, 'parlimen_constant' => null];
     }
 
     /**
@@ -339,6 +349,7 @@ class CommitteeImportMapper
         $columns = $mapping['columns'];
         $jenisConstant = $mapping['jenis_constant'] ?: $this->normalizeJenis((string) $jenisDefault);
         $dunConstant = $mapping['dun_constant'] ?? null;
+        $parlimenConstant = $mapping['parlimen_constant'] ?? null;
 
         $start = is_int($headerRow) ? $headerRow + 1 : 0;
         $dataRows = array_slice($rows, $start);
@@ -374,7 +385,7 @@ class CommitteeImportMapper
                 'nama' => strtoupper((string) ($nama ?? '-')),
                 'jenis' => $jenis,
                 'jawatan' => $jawatan,
-                'cabang' => $cell($columns['cabang']),
+                'cabang' => $cell($columns['cabang']) ?: $parlimenConstant,
                 'dun' => $dun ? strtoupper($dun) : null,
                 'no_tel' => $cell($columns['no_tel']),
             ];

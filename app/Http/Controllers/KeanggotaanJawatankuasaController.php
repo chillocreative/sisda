@@ -24,6 +24,13 @@ class KeanggotaanJawatankuasaController extends Controller
         if (in_array($request->input('jenis'), KeanggotaanJawatankuasa::JENIS, true)) {
             $query->where('jenis', $request->input('jenis'));
         }
+        // Parlimen = committee cabang, or the roll-matched parlimen.
+        $parlimen = $request->input('parlimen');
+        if ($parlimen) {
+            $query->where(function ($q) use ($parlimen) {
+                $q->where('cabang', $parlimen)->orWhere('matched_parlimen', $parlimen);
+            });
+        }
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('nama', 'like', "%{$search}%")->orWhere('no_ic', 'like', "%{$search}%");
@@ -45,12 +52,19 @@ class KeanggotaanJawatankuasaController extends Controller
             return $m;
         });
 
+        $dash = $this->dashboard();
+        // Cascade the DUN dropdown to the selected Parlimen.
+        if ($parlimen) {
+            $dash['dunOptions'] = $dash['dunsByParlimen'][$parlimen] ?? [];
+        }
+        unset($dash['dunsByParlimen']);
+
         return Inertia::render('Pilihanraya/Jawatankuasa', array_merge([
             'members' => $members,
-            'filters' => $request->only(['jenis', 'search', 'dun']),
+            'filters' => $request->only(['jenis', 'search', 'dun', 'parlimen']),
             'jenisOptions' => KeanggotaanJawatankuasa::JENIS,
             'flash' => ['success' => session('success'), 'error' => session('error')],
-        ], $this->dashboard()));
+        ], $dash));
     }
 
     /**
@@ -61,7 +75,7 @@ class KeanggotaanJawatankuasaController extends Controller
      */
     private function dashboard(): array
     {
-        $rows = KeanggotaanJawatankuasa::get(['nama', 'no_ic', 'dun', 'matched_kadun', 'jenis', 'is_dicula', 'jawatan']);
+        $rows = KeanggotaanJawatankuasa::get(['nama', 'no_ic', 'dun', 'matched_kadun', 'jenis', 'is_dicula', 'jawatan', 'cabang', 'matched_parlimen']);
 
         $personKey = function ($r) {
             $ic = trim((string) $r->no_ic);
@@ -75,6 +89,8 @@ class KeanggotaanJawatankuasaController extends Controller
         $withIc = [];
         $dicula = [];
         $byDun = [];
+        $parlimenSet = [];      // distinct Parlimen (cabang)
+        $dunsByParlimen = [];   // Parlimen => set of DUNs (for the cascading filter)
 
         foreach ($rows as $r) {
             $pk = $personKey($r);
@@ -93,6 +109,16 @@ class KeanggotaanJawatankuasaController extends Controller
             // jawatan text; parliament-level positions land under "Peringkat
             // Cabang".
             $dun = ($r->dun !== null && $r->dun !== '') ? $r->dun : ($r->matched_kadun ?: KeanggotaanJawatankuasa::extractDunFromJawatan($r->jawatan));
+
+            // Parlimen = the committee's cabang, else the roll-matched parlimen.
+            $parlimen = ($r->cabang !== null && $r->cabang !== '') ? $r->cabang : ($r->matched_parlimen ?: null);
+            if ($parlimen !== null) {
+                $parlimenSet[$parlimen] = true;
+                if ($dun) {
+                    $dunsByParlimen[$parlimen][$dun] = true;
+                }
+            }
+
             $key = $dun ?: ($r->jenis === 'JPRC' ? 'Peringkat Cabang' : 'Tidak Diketahui');
             $byDun[$key] ??= ['dun' => $key, 'total' => [], 'dicula' => []]
                 + array_fill_keys(KeanggotaanJawatankuasa::JENIS, []);
@@ -120,6 +146,10 @@ class KeanggotaanJawatankuasaController extends Controller
             ->reject(fn ($d) => in_array($d, ['Peringkat Cabang', 'Tidak Diketahui'], true))
             ->sort()->values()->all();
 
+        $parlimenOptions = collect(array_keys($parlimenSet))->sort()->values()->all();
+        $dunsByParlimen = collect($dunsByParlimen)
+            ->map(fn ($duns) => collect(array_keys($duns))->sort()->values()->all())->all();
+
         return [
             'summary' => [
                 'total' => count($all),
@@ -131,6 +161,8 @@ class KeanggotaanJawatankuasaController extends Controller
             ],
             'byDun' => $byDun,
             'dunOptions' => $dunOptions,
+            'parlimenOptions' => $parlimenOptions,
+            'dunsByParlimen' => $dunsByParlimen,
         ];
     }
 

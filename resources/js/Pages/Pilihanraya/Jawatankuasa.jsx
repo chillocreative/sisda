@@ -227,7 +227,7 @@ function UploadForm({ jenisOptions }) {
     );
 }
 
-function Content({ members, filters, jenisOptions, summary, byDun, dunOptions = [] }) {
+function Content({ members, filters, jenisOptions, summary, byDun, dunOptions = [], parlimenOptions = [] }) {
     const { t } = usePilihanrayaTheme();
     const [modal, setModal] = useState(null);
     const [search, setSearch] = useState(filters.search || '');
@@ -235,7 +235,7 @@ function Content({ members, filters, jenisOptions, summary, byDun, dunOptions = 
     const [bulkDeleting, setBulkDeleting] = useState(false);
 
     const applyFilters = (extra = {}) => {
-        router.get(route('pilihanraya.jawatankuasa.index'), { search, jenis: filters.jenis, dun: filters.dun, ...extra }, { preserveState: true, replace: true });
+        router.get(route('pilihanraya.jawatankuasa.index'), { search, jenis: filters.jenis, parlimen: filters.parlimen, dun: filters.dun, ...extra }, { preserveState: true, replace: true });
     };
     const remove = (m) => { if (confirm('Padam ahli jawatankuasa ini?')) router.delete(route('pilihanraya.jawatankuasa.destroy', m.id), { preserveScroll: true }); };
 
@@ -350,6 +350,13 @@ function Content({ members, filters, jenisOptions, summary, byDun, dunOptions = 
                         <select value={filters.jenis || ''} onChange={(e) => applyFilters({ jenis: e.target.value })} className={t.input}>
                             <option value="">Semua</option>
                             {jenisOptions.map((j) => <option key={j} value={j}>{JENIS_LABEL[j]}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className={t.label}>Parlimen</label>
+                        <select value={filters.parlimen || ''} onChange={(e) => applyFilters({ parlimen: e.target.value, dun: '' })} className={t.input}>
+                            <option value="">Semua Parlimen</option>
+                            {parlimenOptions.map((p) => <option key={p} value={p}>{p}</option>)}
                         </select>
                     </div>
                     <div>
