@@ -1,7 +1,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, router } from '@inertiajs/react';
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { Users, MapPin, UserX, Crosshair, Mars, Venus } from 'lucide-react';
+import { Users, MapPin, UserX, Crosshair } from 'lucide-react';
 import KeanggotaanNav from './Nav';
 
 const COLORS = { putih: '#10b981', hitam: '#0f172a', kelabu: '#94a3b8', belum_dicula: '#cbd5e1' };
@@ -46,6 +46,22 @@ function WingKpi({ label, value, grace, note, color }) {
 }
 
 const JANTINA_COLORS = { Lelaki: '#3b82f6', Perempuan: '#ec4899', 'Tidak Diketahui': '#cbd5e1' };
+
+// Restroom-style male / female silhouettes (currentColor-filled, scale by height).
+function MaleIcon({ className, style }) {
+    return (
+        <svg viewBox="0 0 192 512" className={className} style={style} fill="currentColor" aria-label="Lelaki" role="img">
+            <path d="M96 0c35.346 0 64 28.654 64 64s-28.654 64-64 64-64-28.654-64-64S60.654 0 96 0m48 144h-11.36c-22.711 10.443-49.59 10.894-73.28 0H48c-26.51 0-48 21.49-48 48v136c0 13.255 10.745 24 24 24h16v152c0 13.255 10.745 24 24 24h64c13.255 0 24-10.745 24-24V352h16c13.255 0 24-10.745 24-24V192c0-26.51-21.49-48-48-48z" />
+        </svg>
+    );
+}
+function FemaleIcon({ className, style }) {
+    return (
+        <svg viewBox="0 0 256 512" className={className} style={style} fill="currentColor" aria-label="Perempuan" role="img">
+            <path d="M128 0c35.346 0 64 28.654 64 64s-28.654 64-64 64-64-28.654-64-64S92.654 0 128 0m119.283 354.179l-48-192A24 24 0 0 0 176 144h-11.36c-22.711 10.443-49.59 10.894-73.28 0H80a24 24 0 0 0-23.283 18.179l-48 192C4.935 369.305 16.383 384 32 384h56v104c0 13.255 10.745 24 24 24h32c13.255 0 24-10.745 24-24V384h56c15.591 0 27.071-14.671 23.283-29.821z" />
+        </svg>
+    );
+}
 
 // A wide, distinct palette so every bangsa gets its own colour (no repeats).
 const BANGSA_COLORS = [
@@ -115,15 +131,15 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
                                 <Legend wrapperStyle={{ fontSize: '12px' }} />
                             </PieChart>
                         </ResponsiveContainer>
-                        <div className="space-y-3">
+                        <div className="space-y-5">
                             {jantinaData.map((j) => {
-                                const Icon = j.name === 'Lelaki' ? Mars : j.name === 'Perempuan' ? Venus : Users;
+                                const Icon = j.name === 'Lelaki' ? MaleIcon : j.name === 'Perempuan' ? FemaleIcon : null;
                                 return (
-                                    <div key={j.name} className="flex items-center justify-between border-b border-slate-100 pb-2">
-                                        <span className="flex items-center gap-2 text-sm text-slate-600">
-                                            <Icon className="h-5 w-5" style={{ color: j.fill }} aria-label={j.name} />
-                                        </span>
-                                        <span className="text-lg font-bold text-slate-900">{j.value.toLocaleString()}</span>
+                                    <div key={j.name} className="flex items-center gap-4">
+                                        {Icon
+                                            ? <Icon className="h-12 w-auto shrink-0" style={{ color: j.fill }} />
+                                            : <span className="h-4 w-4 rounded-full shrink-0" style={{ backgroundColor: j.fill }} />}
+                                        <span className="text-2xl font-bold text-slate-900">{j.value.toLocaleString()}</span>
                                     </div>
                                 );
                             })}
