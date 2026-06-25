@@ -6,6 +6,7 @@ use App\Models\KeanggotaanJawatankuasa;
 use App\Services\Keanggotaan\CommitteeImportMapper;
 use App\Services\Keanggotaan\MemberMatchService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 /**
@@ -20,15 +21,25 @@ class KeanggotaanJawatankuasaController extends Controller
 
     public function index(Request $request)
     {
+        $dash = $this->dashboard();
+
         $query = KeanggotaanJawatankuasa::query();
         if (in_array($request->input('jenis'), KeanggotaanJawatankuasa::JENIS, true)) {
             $query->where('jenis', $request->input('jenis'));
         }
-        // Parlimen = committee cabang, or the roll-matched parlimen.
+        // Parlimen = committee cabang, or the roll-matched parlimen, or a DUN that
+        // belongs to that Parlimen (so committees that only carry a DUN, with no
+        // cabang tag, still match). Matched case-insensitively.
         $parlimen = $request->input('parlimen');
         if ($parlimen) {
-            $query->where(function ($q) use ($parlimen) {
-                $q->where('cabang', $parlimen)->orWhere('matched_parlimen', $parlimen);
+            $pUpper = mb_strtoupper($parlimen);
+            $duns = $dash['dunsByParlimen'][$pUpper] ?? [];
+            $query->where(function ($q) use ($pUpper, $duns) {
+                $q->whereRaw('UPPER(cabang) = ?', [$pUpper])
+                    ->orWhereRaw('UPPER(matched_parlimen) = ?', [$pUpper]);
+                foreach ($duns as $d) {
+                    $q->orWhereRaw('UPPER(dun) = ?', [mb_strtoupper($d)])->orWhere('jawatan', 'like', "%{$d}%");
+                }
             });
         }
         if ($search = $request->input('search')) {
@@ -52,10 +63,9 @@ class KeanggotaanJawatankuasaController extends Controller
             return $m;
         });
 
-        $dash = $this->dashboard();
         // Cascade the DUN dropdown to the selected Parlimen.
         if ($parlimen) {
-            $dash['dunOptions'] = $dash['dunsByParlimen'][$parlimen] ?? [];
+            $dash['dunOptions'] = $dash['dunsByParlimen'][mb_strtoupper($parlimen)] ?? [];
         }
         unset($dash['dunsByParlimen']);
 
@@ -76,6 +86,19 @@ class KeanggotaanJawatankuasaController extends Controller
     private function dashboard(): array
     {
         $rows = KeanggotaanJawatankuasa::get(['nama', 'no_ic', 'dun', 'matched_kadun', 'jenis', 'is_dicula', 'jawatan', 'cabang', 'matched_parlimen']);
+
+        // DUN -> Parlimen from the voter roll, so committee rows that only carry a
+        // DUN (no cabang tag) still resolve to their Parlimen. Keyed uppercase.
+        $dunToParlimen = DB::table('pangkalan_data_pengundi')
+            ->select('kadun', 'parlimen')
+            ->whereNotNull('kadun')->where('kadun', '!=', '')
+            ->whereNotNull('parlimen')->where('parlimen', '!=', '')
+            ->distinct()->get()
+            ->reduce(function ($map, $r) {
+                $map[mb_strtoupper(trim($r->kadun))] ??= mb_strtoupper(trim($r->parlimen));
+
+                return $map;
+            }, []);
 
         $personKey = function ($r) {
             $ic = trim((string) $r->no_ic);
@@ -110,8 +133,11 @@ class KeanggotaanJawatankuasaController extends Controller
             // Cabang".
             $dun = ($r->dun !== null && $r->dun !== '') ? $r->dun : ($r->matched_kadun ?: KeanggotaanJawatankuasa::extractDunFromJawatan($r->jawatan));
 
-            // Parlimen = the committee's cabang, else the roll-matched parlimen.
-            $parlimen = ($r->cabang !== null && $r->cabang !== '') ? $r->cabang : ($r->matched_parlimen ?: null);
+            // Parlimen = committee cabang, else roll-matched parlimen, else the
+            // DUN's parlimen from the voter roll. Normalised uppercase.
+            $rawParlimen = ($r->cabang !== null && $r->cabang !== '') ? $r->cabang
+                : ($r->matched_parlimen ?: ($dun ? ($dunToParlimen[mb_strtoupper($dun)] ?? null) : null));
+            $parlimen = ($rawParlimen !== null && trim($rawParlimen) !== '') ? mb_strtoupper(trim($rawParlimen)) : null;
             if ($parlimen !== null) {
                 $parlimenSet[$parlimen] = true;
                 if ($dun) {
