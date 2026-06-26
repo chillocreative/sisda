@@ -2,19 +2,20 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Inertia\Inertia;
+use App\Models\Bandar;
 use App\Models\DataPengundi;
 use App\Models\HasilCulaan;
-use App\Models\Negeri;
-use App\Models\Bandar;
 use App\Models\Kadun;
 use App\Models\Mpkk;
-use App\Models\User;
-use App\Models\UploadBatch;
+use App\Models\Negeri;
 use App\Models\PangkalanDataPengundi;
+use App\Models\UploadBatch;
+use App\Models\User;
 use App\Services\VoterDataMasker;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Inertia\Inertia;
 
 class DashboardController extends Controller
 {
@@ -47,7 +48,7 @@ class DashboardController extends Controller
         $culaanQuery = HasilCulaan::query();
 
         // Apply territory filtering for Admin and User (Super Admin sees all)
-        if (!$user->isSuperAdmin()) {
+        if (! $user->isSuperAdmin()) {
             if ($user->negeri_id) {
                 $pengundiQuery->where('negeri', $user->negeri->nama ?? '');
                 $culaanQuery->where('negeri', $user->negeri->nama ?? '');
@@ -84,8 +85,48 @@ class DashboardController extends Controller
             $culaanQuery->whereDate('created_at', '<=', $tarikhHingga);
         }
 
-        // Calculate metrics (exclude deceased)
-        $totalPengundi = (clone $pengundiQuery)->where('is_deceased', false)->count();
+        // Voter-roll base query: the authoritative registered-voter list (active
+        // DPPR batches + DPT rows, excluding deceased), scoped to the same
+        // territory filters (the roll uses `parlimen` for bandar, matched
+        // case-insensitively). Date filters are canvass-activity only, so they
+        // are deliberately NOT applied to the roll.
+        $rollBase = function () use ($user, $negeriNama, $bandarNama, $kadunNama) {
+            $activeIds = UploadBatch::activeIds();
+            $hasDpt = Schema::hasColumn('pangkalan_data_pengundi', 'dpt_upload_id');
+            $q = PangkalanDataPengundi::where('is_deceased', false)
+                ->where(function ($w) use ($activeIds, $hasDpt) {
+                    $w->whereIn('upload_batch_id', $activeIds ?: [-1]);
+                    if ($hasDpt) {
+                        $w->orWhereNotNull('dpt_upload_id');
+                    }
+                });
+
+            if (! $user->isSuperAdmin()) {
+                if ($user->negeri_id) {
+                    $q->whereRaw('UPPER(negeri) = ?', [strtoupper((string) ($user->negeri->nama ?? ''))]);
+                }
+                if ($user->bandar_id) {
+                    $q->whereRaw('UPPER(parlimen) = ?', [strtoupper((string) ($user->bandar->nama ?? ''))]);
+                }
+                if ($user->kadun_id) {
+                    $q->whereRaw('UPPER(kadun) = ?', [strtoupper((string) ($user->kadun->nama ?? ''))]);
+                }
+            }
+            if ($negeriNama) {
+                $q->whereRaw('UPPER(negeri) = ?', [strtoupper($negeriNama)]);
+            }
+            if ($bandarNama) {
+                $q->whereRaw('UPPER(parlimen) = ?', [strtoupper($bandarNama)]);
+            }
+            if ($kadunNama) {
+                $q->whereRaw('UPPER(kadun) = ?', [strtoupper($kadunNama)]);
+            }
+
+            return $q;
+        };
+
+        // Headline = real registered voters from the roll; culaan stays canvass.
+        $totalPengundi = $rollBase()->count();
         $totalCulaan = (clone $culaanQuery)->where('is_deceased', false)->count();
         $deceasedPengundi = (clone $pengundiQuery)->where('is_deceased', true)->count();
         $deceasedCulaan = (clone $culaanQuery)->where('is_deceased', true)->count();
@@ -95,17 +136,17 @@ class DashboardController extends Controller
         $totalWithTendency = $tendencyQuery->whereNotNull('kecenderungan_politik')
             ->where('kecenderungan_politik', '!=', '')
             ->count();
-        
+
         // Political tendency percentages (using filtered queries)
         $phQuery = clone $pengundiQuery;
         $phCount = $phQuery->where('kecenderungan_politik', 'like', '%PH%')->count();
-        
+
         $bnQuery = clone $pengundiQuery;
         $bnCount = $bnQuery->where('kecenderungan_politik', 'like', '%BN%')->count();
-        
+
         $pnQuery = clone $pengundiQuery;
         $pnCount = $pnQuery->where('kecenderungan_politik', 'like', '%PN%')->count();
-        
+
         $tidakPastiQuery = clone $pengundiQuery;
         $tidakPastiCount = $tidakPastiQuery->where('kecenderungan_politik', 'like', '%TIDAK PASTI%')->count();
 
@@ -116,30 +157,40 @@ class DashboardController extends Controller
             'tidakPasti' => $totalWithTendency > 0 ? round(($tidakPastiCount / $totalWithTendency) * 100) : 0,
         ];
 
-        // Bangsa distribution (using filtered query)
-        $bangsaQuery = clone $pengundiQuery;
-        $bangsaStats = $bangsaQuery->select('bangsa', DB::raw('count(*) as jumlah'))
-            ->whereNotNull('bangsa')
-            ->groupBy('bangsa')
-            ->get()
-            ->pluck('jumlah', 'bangsa')
-            ->toArray();
-
+        // Bangsa distribution from the voter roll (case-insensitive buckets;
+        // everything outside Melayu/Cina/India falls into "lain").
+        $bangsaStats = $rollBase()
+            ->whereNotNull('bangsa')->where('bangsa', '!=', '')
+            ->selectRaw('UPPER(bangsa) as b, count(*) as jumlah')
+            ->groupBy(DB::raw('UPPER(bangsa)'))
+            ->pluck('jumlah', 'b');
+        $melayu = (int) ($bangsaStats['MELAYU'] ?? 0);
+        $cina = (int) ($bangsaStats['CINA'] ?? 0);
+        $india = (int) ($bangsaStats['INDIA'] ?? 0);
         $bangsa = [
-            'melayu' => $bangsaStats['Melayu'] ?? 0,
-            'cina' => $bangsaStats['Cina'] ?? 0,
-            'india' => $bangsaStats['India'] ?? 0,
-            'lain' => $bangsaStats['Lain-lain'] ?? 0,
+            'melayu' => $melayu,
+            'cina' => $cina,
+            'india' => $india,
+            'lain' => max(0, (int) $bangsaStats->sum() - $melayu - $cina - $india),
         ];
 
-        // Age distribution (using filtered query)
+        // Age distribution from the voter roll's birth year (the roll has
+        // tahun_lahir, not umur). Only well-formed 4-digit years are counted.
+        $ageBand = function ($lo, $hi) use ($rollBase) {
+            $q = $rollBase()->whereRaw("tahun_lahir REGEXP '^[0-9]{4}$'");
+            $age = '(YEAR(CURDATE()) - CAST(tahun_lahir AS UNSIGNED))';
+
+            return $hi === null
+                ? $q->whereRaw("{$age} > ?", [$lo])->count()
+                : $q->whereRaw("{$age} BETWEEN ? AND ?", [$lo, $hi])->count();
+        };
         $umurDistribution = [
-            ['range' => '18-25', 'jumlah' => (clone $pengundiQuery)->whereBetween('umur', [18, 25])->count()],
-            ['range' => '26-35', 'jumlah' => (clone $pengundiQuery)->whereBetween('umur', [26, 35])->count()],
-            ['range' => '36-45', 'jumlah' => (clone $pengundiQuery)->whereBetween('umur', [36, 45])->count()],
-            ['range' => '46-55', 'jumlah' => (clone $pengundiQuery)->whereBetween('umur', [46, 55])->count()],
-            ['range' => '56-65', 'jumlah' => (clone $pengundiQuery)->whereBetween('umur', [56, 65])->count()],
-            ['range' => '65+', 'jumlah' => (clone $pengundiQuery)->where('umur', '>', 65)->count()],
+            ['range' => '18-25', 'jumlah' => $ageBand(18, 25)],
+            ['range' => '26-35', 'jumlah' => $ageBand(26, 35)],
+            ['range' => '36-45', 'jumlah' => $ageBand(36, 45)],
+            ['range' => '46-55', 'jumlah' => $ageBand(46, 55)],
+            ['range' => '56-65', 'jumlah' => $ageBand(56, 65)],
+            ['range' => '65+', 'jumlah' => $ageBand(65, null)],
         ];
 
         // Monthly trend (last 6 months) - using filtered query
@@ -151,137 +202,101 @@ class DashboardController extends Controller
                 'bulan' => $date->format('M'),
                 'jumlah' => $monthQuery->whereYear('created_at', $date->year)
                     ->whereMonth('created_at', $date->month)
-                    ->count()
+                    ->count(),
             ];
         }
 
-        // KADUN Statistics (using filtered queries)
-        $kadunStatsQuery = clone $pengundiQuery;
-        $mpkkStats = $kadunStatsQuery->select('kadun', DB::raw('count(*) as total'))
-            ->whereNotNull('kadun')
+        // KADUN statistics: the top KADUNs by registered voters (from the roll).
+        // pengundi = roll count; culaan + sentiment %% come from the canvass
+        // ($pengundiQuery / $culaanQuery already carry the territory/date filters).
+        $mpkkStats = $rollBase()
+            ->select('kadun', DB::raw('count(*) as total'))
+            ->whereNotNull('kadun')->where('kadun', '!=', '')
             ->groupBy('kadun')
-            ->orderBy('total', 'desc')
+            ->orderByDesc('total')
             ->take(5)
             ->get()
-            ->map(function($item) use ($negeriNama, $bandarNama, $kadunNama, $tarikhDari, $tarikhHingga, $user) {
+            ->map(function ($item) use ($pengundiQuery, $culaanQuery) {
                 $kadunName = $item->kadun;
-                $total = $item->total;
-                
-                // Build filtered query for this KADUN
-                $kadunPengundiQuery = DataPengundi::where('kadun', $kadunName);
-                $kadunCulaanQuery = HasilCulaan::where('kadun', $kadunName);
-                
-                // Apply same filters as main query
-                if (!$user->isSuperAdmin()) {
-                    if ($user->negeri_id) {
-                        $kadunPengundiQuery->where('negeri', $user->negeri->nama ?? '');
-                        $kadunCulaanQuery->where('negeri', $user->negeri->nama ?? '');
-                    }
-                    if ($user->bandar_id) {
-                        $kadunPengundiQuery->where('bandar', $user->bandar->nama ?? '');
-                        $kadunCulaanQuery->where('bandar', $user->bandar->nama ?? '');
-                    }
-                }
-                
-                if ($negeriNama) {
-                    $kadunPengundiQuery->where('negeri', $negeriNama);
-                    $kadunCulaanQuery->where('negeri', $negeriNama);
-                }
-                if ($bandarNama) {
-                    $kadunPengundiQuery->where('bandar', $bandarNama);
-                    $kadunCulaanQuery->where('bandar', $bandarNama);
-                }
-                if ($tarikhDari) {
-                    $kadunPengundiQuery->whereDate('created_at', '>=', $tarikhDari);
-                    $kadunCulaanQuery->whereDate('created_at', '>=', $tarikhDari);
-                }
-                if ($tarikhHingga) {
-                    $kadunPengundiQuery->whereDate('created_at', '<=', $tarikhHingga);
-                    $kadunCulaanQuery->whereDate('created_at', '<=', $tarikhHingga);
-                }
-                
-                $phCount = (clone $kadunPengundiQuery)
-                    ->where('kecenderungan_politik', 'like', '%PH%')
-                    ->count();
-                $bnCount = (clone $kadunPengundiQuery)
-                    ->where('kecenderungan_politik', 'like', '%BN%')
-                    ->count();
-                $tidakPastiCount = (clone $kadunPengundiQuery)
-                    ->where('kecenderungan_politik', 'like', '%TIDAK PASTI%')
-                    ->count();
+                $rollTotal = (int) $item->total;
 
-                $culaanCount = $kadunCulaanQuery->count();
+                $canvass = (clone $pengundiQuery)->whereRaw('UPPER(kadun) = ?', [strtoupper((string) $kadunName)]);
+                $canvassTotal = (clone $canvass)->where('is_deceased', false)->count();
+                $phCount = (clone $canvass)->where('kecenderungan_politik', 'like', '%PH%')->count();
+                $bnCount = (clone $canvass)->where('kecenderungan_politik', 'like', '%BN%')->count();
+                $tidakPastiCount = (clone $canvass)->where('kecenderungan_politik', 'like', '%TIDAK PASTI%')->count();
+                $culaanCount = (clone $culaanQuery)->whereRaw('UPPER(kadun) = ?', [strtoupper((string) $kadunName)])
+                    ->where('is_deceased', false)->count();
 
                 return [
                     'mpkk' => $kadunName,
-                    'pengundi' => $total,
+                    'pengundi' => $rollTotal,
                     'culaan' => $culaanCount,
-                    'ph' => $total > 0 ? round(($phCount / $total) * 100) : 0,
-                    'bn' => $total > 0 ? round(($bnCount / $total) * 100) : 0,
-                    'tidakPasti' => $total > 0 ? round(($tidakPastiCount / $total) * 100) : 0,
+                    'ph' => $canvassTotal > 0 ? round(($phCount / $canvassTotal) * 100) : 0,
+                    'bn' => $canvassTotal > 0 ? round(($bnCount / $canvassTotal) * 100) : 0,
+                    'tidakPasti' => $canvassTotal > 0 ? round(($tidakPastiCount / $canvassTotal) * 100) : 0,
                 ];
             })
             ->toArray();
-
 
         // Top Petugas (using filtered queries)
         // Build filter conditions for subqueries
         $pengundiFilterConditions = '';
         $culaanFilterConditions = '';
         $filterParams = [];
-        
-        if (!$user->isSuperAdmin()) {
+
+        if (! $user->isSuperAdmin()) {
             if ($user->negeri_id) {
-                $pengundiFilterConditions .= " AND negeri = ?";
-                $culaanFilterConditions .= " AND negeri = ?";
+                $pengundiFilterConditions .= ' AND negeri = ?';
+                $culaanFilterConditions .= ' AND negeri = ?';
                 $filterParams[] = $user->negeri->nama ?? '';
                 $filterParams[] = $user->negeri->nama ?? '';
             }
             if ($user->bandar_id) {
-                $pengundiFilterConditions .= " AND bandar = ?";
-                $culaanFilterConditions .= " AND bandar = ?";
+                $pengundiFilterConditions .= ' AND bandar = ?';
+                $culaanFilterConditions .= ' AND bandar = ?';
                 $filterParams[] = $user->bandar->nama ?? '';
                 $filterParams[] = $user->bandar->nama ?? '';
             }
             if ($user->kadun_id) {
-                $pengundiFilterConditions .= " AND kadun = ?";
-                $culaanFilterConditions .= " AND kadun = ?";
+                $pengundiFilterConditions .= ' AND kadun = ?';
+                $culaanFilterConditions .= ' AND kadun = ?';
                 $filterParams[] = $user->kadun->nama ?? '';
                 $filterParams[] = $user->kadun->nama ?? '';
             }
         }
-        
+
         if ($negeriNama) {
-            $pengundiFilterConditions .= " AND negeri = ?";
-            $culaanFilterConditions .= " AND negeri = ?";
+            $pengundiFilterConditions .= ' AND negeri = ?';
+            $culaanFilterConditions .= ' AND negeri = ?';
             $filterParams[] = $negeriNama;
             $filterParams[] = $negeriNama;
         }
         if ($bandarNama) {
-            $pengundiFilterConditions .= " AND bandar = ?";
-            $culaanFilterConditions .= " AND bandar = ?";
+            $pengundiFilterConditions .= ' AND bandar = ?';
+            $culaanFilterConditions .= ' AND bandar = ?';
             $filterParams[] = $bandarNama;
             $filterParams[] = $bandarNama;
         }
         if ($kadunNama) {
-            $pengundiFilterConditions .= " AND kadun = ?";
-            $culaanFilterConditions .= " AND kadun = ?";
+            $pengundiFilterConditions .= ' AND kadun = ?';
+            $culaanFilterConditions .= ' AND kadun = ?';
             $filterParams[] = $kadunNama;
             $filterParams[] = $kadunNama;
         }
         if ($tarikhDari) {
-            $pengundiFilterConditions .= " AND DATE(created_at) >= ?";
-            $culaanFilterConditions .= " AND DATE(created_at) >= ?";
+            $pengundiFilterConditions .= ' AND DATE(created_at) >= ?';
+            $culaanFilterConditions .= ' AND DATE(created_at) >= ?';
             $filterParams[] = $tarikhDari;
             $filterParams[] = $tarikhDari;
         }
         if ($tarikhHingga) {
-            $pengundiFilterConditions .= " AND DATE(created_at) <= ?";
-            $culaanFilterConditions .= " AND DATE(created_at) <= ?";
+            $pengundiFilterConditions .= ' AND DATE(created_at) <= ?';
+            $culaanFilterConditions .= ' AND DATE(created_at) <= ?';
             $filterParams[] = $tarikhHingga;
             $filterParams[] = $tarikhHingga;
         }
-        
+
         $petugasStats = User::select('users.*')
             ->selectRaw("(SELECT COUNT(*) FROM data_pengundi WHERE submitted_by = users.id {$pengundiFilterConditions}) as pengundi_count", $filterParams)
             ->selectRaw("(SELECT COUNT(*) FROM hasil_culaan WHERE submitted_by = users.id {$culaanFilterConditions}) as culaan_count")
@@ -289,11 +304,11 @@ class DashboardController extends Controller
             ->orderByRaw('(pengundi_count + culaan_count) DESC')
             ->take(5)
             ->get()
-            ->map(function($petugasUser) use ($negeriNama, $bandarNama, $kadunNama, $tarikhDari, $tarikhHingga, $user) {
+            ->map(function ($petugasUser) use ($negeriNama, $bandarNama, $kadunNama, $tarikhDari, $tarikhHingga, $user) {
                 // Get latest record with same filters
                 $latestRecordQuery = DataPengundi::where('submitted_by', $petugasUser->id);
-                
-                if (!$user->isSuperAdmin()) {
+
+                if (! $user->isSuperAdmin()) {
                     if ($user->negeri_id) {
                         $latestRecordQuery->where('negeri', $user->negeri->nama ?? '');
                     }
@@ -304,13 +319,23 @@ class DashboardController extends Controller
                         $latestRecordQuery->where('kadun', $user->kadun->nama ?? '');
                     }
                 }
-                
-                if ($negeriNama) $latestRecordQuery->where('negeri', $negeriNama);
-                if ($bandarNama) $latestRecordQuery->where('bandar', $bandarNama);
-                if ($kadunNama) $latestRecordQuery->where('kadun', $kadunNama);
-                if ($tarikhDari) $latestRecordQuery->whereDate('created_at', '>=', $tarikhDari);
-                if ($tarikhHingga) $latestRecordQuery->whereDate('created_at', '<=', $tarikhHingga);
-                
+
+                if ($negeriNama) {
+                    $latestRecordQuery->where('negeri', $negeriNama);
+                }
+                if ($bandarNama) {
+                    $latestRecordQuery->where('bandar', $bandarNama);
+                }
+                if ($kadunNama) {
+                    $latestRecordQuery->where('kadun', $kadunNama);
+                }
+                if ($tarikhDari) {
+                    $latestRecordQuery->whereDate('created_at', '>=', $tarikhDari);
+                }
+                if ($tarikhHingga) {
+                    $latestRecordQuery->whereDate('created_at', '<=', $tarikhHingga);
+                }
+
                 $latestRecord = $latestRecordQuery->latest()->first();
 
                 return [
@@ -321,7 +346,6 @@ class DashboardController extends Controller
                 ];
             })
             ->toArray();
-
 
         // Get filter options
         $negeriList = Negeri::orderBy('nama')->get();
@@ -364,7 +388,7 @@ class DashboardController extends Controller
         }
 
         $isNumeric = ctype_digit($term);
-        $like = '%' . $term . '%';
+        $like = '%'.$term.'%';
 
         // Non-super_admin viewers may only see records inside their own parlimen.
         // A user with no bandar assigned therefore sees nothing.
@@ -421,14 +445,14 @@ class DashboardController extends Controller
         // Search in ALL voter database records (upload batch + DPT)
         // Deduplicate by no_ic + nama to avoid showing the same person multiple times
         $voterQuery = PangkalanDataPengundi::where(function ($q) use ($term, $like, $isNumeric) {
-                $q->where('no_ic', 'like', $like);
-                if (! $isNumeric) {
-                    $q->orWhere('nama', 'like', $like);
-                }
-                if ($isNumeric && strlen($term) >= 6 && strlen($term) <= 8) {
-                    $q->orWhere('no_ic', $term . '0000');
-                }
-            });
+            $q->where('no_ic', 'like', $like);
+            if (! $isNumeric) {
+                $q->orWhere('nama', 'like', $like);
+            }
+            if ($isNumeric && strlen($term) >= 6 && strlen($term) <= 8) {
+                $q->orWhere('no_ic', $term.'0000');
+            }
+        });
 
         if ($parlimenScope !== null) {
             $voterQuery->whereRaw('UPPER(parlimen) = ?', [strtoupper($parlimenScope)]);
@@ -437,7 +461,7 @@ class DashboardController extends Controller
         $voterResults = $voterQuery
             ->limit(20)
             ->get()
-            ->unique(fn ($v) => $v->no_ic . '|' . $v->nama);
+            ->unique(fn ($v) => $v->no_ic.'|'.$v->nama);
 
         // Use the real (unmasked) IC from the Eloquent records for dedup;
         // $results may hold masked values ('****') for locked rows, which
@@ -448,22 +472,24 @@ class DashboardController extends Controller
 
         foreach ($voterResults as $voter) {
             // Skip if this IC+name already in results from Hasil Culaan or Data Pengundi
-            if (in_array($voter->no_ic, $existingIcs)) continue;
+            if (in_array($voter->no_ic, $existingIcs)) {
+                continue;
+            }
 
-            $isDpt = !empty($voter->dpt_upload_id);
+            $isDpt = ! empty($voter->dpt_upload_id);
             $results[] = [
-                'id'         => null,
-                'type'       => $isDpt ? 'dpt' : 'voter_db',
-                'no_ic'      => $voter->no_ic,
-                'nama'       => $voter->nama,
-                'no_tel'     => null,
-                'kadun'      => $voter->kadun ?? null,
-                'bandar'     => $voter->parlimen ?? null,
+                'id' => null,
+                'type' => $isDpt ? 'dpt' : 'voter_db',
+                'no_ic' => $voter->no_ic,
+                'nama' => $voter->nama,
+                'no_tel' => null,
+                'kadun' => $voter->kadun ?? null,
+                'bandar' => $voter->parlimen ?? null,
                 'daerah_mengundi' => $voter->daerah_mengundi ?? null,
-                'lokaliti'   => $voter->lokaliti ?? null,
-                'can_edit'   => true,
+                'lokaliti' => $voter->lokaliti ?? null,
+                'can_edit' => true,
                 'is_deceased' => (bool) ($voter->is_deceased ?? false),
-                'edit_url'   => null,
+                'edit_url' => null,
                 'create_url' => route('reports.hasil-culaan.create'),
             ];
         }
@@ -492,7 +518,7 @@ class DashboardController extends Controller
             $realIcByDpId = $dataPengundi->pluck('no_ic', 'id');
             foreach ($results as &$row) {
                 $ic = $row['no_ic'];
-                if ($ic === VoterDataMasker::MASK && !empty($row['id'])) {
+                if ($ic === VoterDataMasker::MASK && ! empty($row['id'])) {
                     $ic = $realIcByDpId[$row['id']] ?? null;
                 }
                 if ($ic && $deceasedIcs->has($ic)) {
