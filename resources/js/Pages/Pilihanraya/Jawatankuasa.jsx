@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { Head, useForm, router } from '@inertiajs/react';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { Plus, RefreshCw, Pencil, Trash2, X, Users, MapPin, Loader2, Sparkles, Building2, Landmark } from 'lucide-react';
+import { Plus, RefreshCw, Pencil, Trash2, X, Users, MapPin, Loader2, Sparkles, Building2, Landmark, Download } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PilihanrayaShell, { usePilihanrayaTheme } from './components/PilihanrayaShell';
 import { CHART_COLORS } from './theme';
@@ -237,6 +237,7 @@ function Content({ members, filters, jenisOptions, summary, byDun, dunOptions = 
     const applyFilters = (extra = {}) => {
         router.get(route('pilihanraya.jawatankuasa.index'), { search, jenis: filters.jenis, parlimen: filters.parlimen, dun: filters.dun, ...extra }, { preserveState: true, replace: true });
     };
+    const exportParams = Object.fromEntries(Object.entries({ jenis: filters.jenis, parlimen: filters.parlimen, dun: filters.dun, search: filters.search }).filter(([, v]) => v));
     const remove = (m) => { if (confirm('Padam ahli jawatankuasa ini?')) router.delete(route('pilihanraya.jawatankuasa.destroy', m.id), { preserveScroll: true }); };
 
     const pageIds = members.data.map((m) => m.id);
@@ -335,6 +336,7 @@ function Content({ members, filters, jenisOptions, summary, byDun, dunOptions = 
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                     <h3 className={t.cardTitle + ' !mb-0'}>Senarai Ahli Jawatankuasa</h3>
                     <div className="flex flex-wrap gap-2">
+                        <a href={route('pilihanraya.jawatankuasa.export', exportParams)} className={t.buttonSecondary}><Download className="h-4 w-4" /> Muat Turun PDF</a>
                         <button onClick={() => router.post(route('pilihanraya.jawatankuasa.resync'), {}, { preserveScroll: true })} className={t.buttonSecondary}><RefreshCw className="h-4 w-4" /> Sync Semula</button>
                         <button onClick={() => setModal({})} className={t.buttonPrimary}><Plus className="h-4 w-4" /> Tambah</button>
                     </div>

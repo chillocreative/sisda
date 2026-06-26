@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\KeanggotaanJawatankuasa;
 use App\Services\Keanggotaan\CommitteeImportMapper;
 use App\Services\Keanggotaan\MemberMatchService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -24,14 +25,39 @@ class KeanggotaanJawatankuasaController extends Controller
         $dash = $this->dashboard();
 
         $query = KeanggotaanJawatankuasa::query();
+        $this->applyCommitteeFilters($query, $request, $dash);
+
+        // File order = insertion order = ascending id.
+        $members = $query->orderBy('id')->paginate(25)->withQueryString();
+        $members->getCollection()->transform(function ($m) {
+            $m->dun = $m->dun ?: KeanggotaanJawatankuasa::extractDunFromJawatan($m->jawatan);
+
+            return $m;
+        });
+
+        // Cascade the DUN dropdown to the selected Parlimen.
+        if ($parlimen = $request->input('parlimen')) {
+            $dash['dunOptions'] = $dash['dunsByParlimen'][mb_strtoupper($parlimen)] ?? [];
+        }
+        unset($dash['dunsByParlimen']);
+
+        return Inertia::render('Pilihanraya/Jawatankuasa', array_merge([
+            'members' => $members,
+            'filters' => $request->only(['jenis', 'search', 'dun', 'parlimen']),
+            'jenisOptions' => KeanggotaanJawatankuasa::JENIS,
+            'flash' => ['success' => session('success'), 'error' => session('error')],
+        ], $dash));
+    }
+
+    /** Apply the Jenis / Parlimen / search / DUN filters (shared by index + export). */
+    private function applyCommitteeFilters($query, Request $request, array $dash): void
+    {
         if (in_array($request->input('jenis'), KeanggotaanJawatankuasa::JENIS, true)) {
             $query->where('jenis', $request->input('jenis'));
         }
-        // Parlimen = committee cabang, or the roll-matched parlimen, or a DUN that
-        // belongs to that Parlimen (so committees that only carry a DUN, with no
-        // cabang tag, still match). Matched case-insensitively.
-        $parlimen = $request->input('parlimen');
-        if ($parlimen) {
+        // Parlimen = committee cabang, roll-matched parlimen, or a DUN that belongs
+        // to that Parlimen (so committees that only carry a DUN still match).
+        if ($parlimen = $request->input('parlimen')) {
             $pUpper = mb_strtoupper($parlimen);
             $duns = $dash['dunsByParlimen'][$pUpper] ?? [];
             $query->where(function ($q) use ($pUpper, $duns) {
@@ -47,34 +73,64 @@ class KeanggotaanJawatankuasaController extends Controller
                 $q->where('nama', 'like', "%{$search}%")->orWhere('no_ic', 'like', "%{$search}%");
             });
         }
-        // Match the stored DUN or a DUN still only embedded in the jawatan text,
-        // so the filter works for rows imported before DUN extraction.
+        // Match the stored DUN or a DUN still only embedded in the jawatan text.
         if ($dun = $request->input('dun')) {
             $query->where(function ($q) use ($dun) {
                 $q->where('dun', $dun)->orWhere('jawatan', 'like', "%{$dun}%");
             });
         }
+    }
 
-        // File order = insertion order = ascending id.
-        $members = $query->orderBy('id')->paginate(25)->withQueryString();
-        $members->getCollection()->transform(function ($m) {
+    /** Download the filtered committee list as a professional PDF. */
+    public function export(Request $request)
+    {
+        $dash = $this->dashboard();
+        $query = KeanggotaanJawatankuasa::query();
+        $this->applyCommitteeFilters($query, $request, $dash);
+
+        $members = $query->orderBy('id')->get()->map(function ($m) {
             $m->dun = $m->dun ?: KeanggotaanJawatankuasa::extractDunFromJawatan($m->jawatan);
 
             return $m;
         });
 
-        // Cascade the DUN dropdown to the selected Parlimen.
-        if ($parlimen) {
-            $dash['dunOptions'] = $dash['dunsByParlimen'][mb_strtoupper($parlimen)] ?? [];
-        }
-        unset($dash['dunsByParlimen']);
+        $jenisLabel = ['JPRC' => 'JPRC', 'JPRD' => 'JPRD', 'AJK_CABANG' => 'Cabang', 'WANITA' => 'Wanita', 'AMK' => 'AMK', 'MPKK' => 'MPKK', 'JBPP' => 'JBPP', 'JPWK' => 'JPWK'];
+        $sentimen = ['putih' => ['Putih', '#10b981'], 'kelabu' => ['Kelabu', '#94a3b8'], 'hitam' => ['Hitam', '#0f172a']];
 
-        return Inertia::render('Pilihanraya/Jawatankuasa', array_merge([
-            'members' => $members,
-            'filters' => $request->only(['jenis', 'search', 'dun', 'parlimen']),
-            'jenisOptions' => KeanggotaanJawatankuasa::JENIS,
-            'flash' => ['success' => session('success'), 'error' => session('error')],
-        ], $dash));
+        $rows = $members->map(fn ($m) => [
+            $m->nama,
+            $m->no_ic ?: '-',
+            $jenisLabel[$m->jenis] ?? $m->jenis,
+            $m->jawatan ?: '-',
+            $m->cabang ?: '-',
+            $m->dun ?: '-',
+            isset($sentimen[$m->voter_color])
+                ? [['text' => $sentimen[$m->voter_color][0], 'color' => $sentimen[$m->voter_color][1]]]
+                : ($m->is_dicula ? [['text' => 'Dicula', 'color' => '#ef4444']] : []),
+        ])->all();
+
+        $filters = [];
+        if (($v = $request->input('jenis')) && isset($jenisLabel[$v])) {
+            $filters[] = ['label' => 'Jenis', 'value' => $jenisLabel[$v]];
+        }
+        if ($v = $request->input('parlimen')) {
+            $filters[] = ['label' => 'Parlimen', 'value' => $v];
+        }
+        if ($v = $request->input('dun')) {
+            $filters[] = ['label' => 'DUN', 'value' => $v];
+        }
+        if ($v = $request->input('search')) {
+            $filters[] = ['label' => 'Carian', 'value' => $v];
+        }
+
+        return Pdf::loadView('pdf.senarai', [
+            'title' => 'Senarai Ahli Jawatankuasa',
+            'filters' => $filters,
+            'columns' => ['Nama', 'No. IC', 'Jenis', 'Jawatan', 'Parlimen', 'DUN', 'Sentimen'],
+            'rows' => $rows,
+            'total' => count($rows),
+            'generatedAt' => now()->format('d/m/Y H:i'),
+        ])->setPaper('a4')->download('senarai-ahli-jawatankuasa-'.now()->format('Y-m-d').'.pdf');
     }
 
     /**

@@ -8,6 +8,7 @@ use App\Models\KeanggotaanBatch;
 use App\Models\KeanggotaanSetting;
 use App\Services\Keanggotaan\MemberMatchService;
 use App\Services\Keanggotaan\MemberWingService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -317,7 +318,25 @@ class KeanggotaanController extends Controller
     public function senarai(Request $request)
     {
         $query = $this->memberQuery();
+        $this->applyMemberFilters($query, $request);
 
+        $setting = KeanggotaanSetting::current();
+        $year = (int) date('Y');
+
+        $members = $query->orderByDesc('id')->paginate(25)->withQueryString();
+        $members->through(fn ($m) => $this->attachWings($m, $setting, $year));
+
+        return Inertia::render('Keanggotaan/Senarai', [
+            'members' => $members,
+            'filters' => $request->only(['search', 'status_kawasan', 'parlimen', 'sentimen', 'sayap']),
+            'parlimenList' => $this->parlimenList(),
+            'flash' => ['success' => session('success'), 'error' => session('error')],
+        ]);
+    }
+
+    /** Apply the Senarai search/Parlimen/kawasan/sentimen/sayap filters. */
+    private function applyMemberFilters($query, Request $request): void
+    {
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('nama', 'like', "%{$search}%")->orWhere('no_ic', 'like', "%{$search}%");
@@ -329,9 +348,6 @@ class KeanggotaanController extends Controller
         if ($parlimen = $request->input('parlimen')) {
             $query->where('cabang', $parlimen);
         }
-
-        $setting = KeanggotaanSetting::current();
-        $year = (int) date('Y');
 
         // Sentimen = latest voter colour (or "belum dicula" when none yet).
         $sentimen = $request->input('sentimen');
@@ -345,6 +361,8 @@ class KeanggotaanController extends Controller
         // rule to SQL so the filter works across paginated results.
         $sayap = $request->input('sayap');
         if (in_array($sayap, ['AMK', 'Srikandi', 'Wanita'], true)) {
+            $setting = KeanggotaanSetting::current();
+            $year = (int) date('Y');
             $within = MemberWingService::withinTerm($setting->tahun_mula, $setting->tahun_tamat, $year);
             $youthMax = $within ? MemberWingService::MAX_AGE + ($year - $setting->tahun_mula) : MemberWingService::MAX_AGE;
             if ($sayap === 'Wanita') {
@@ -354,23 +372,71 @@ class KeanggotaanController extends Controller
                     ->whereNotNull('umur')->where('umur', '<=', $youthMax);
             }
         }
+    }
 
-        $members = $query->orderByDesc('id')->paginate(25)->withQueryString();
-        $members->through(function ($m) use ($setting, $year) {
-            $wing = MemberWingService::classify($m->umur, $m->jantina, $setting->tahun_mula, $setting->tahun_tamat, $year);
-            $m->wings = $wing['wings'];
-            $m->grace_wings = $wing['graceWings'];
-            $m->wing_grace = $wing['grace'];
+    private function attachWings($m, $setting, int $year)
+    {
+        $wing = MemberWingService::classify($m->umur, $m->jantina, $setting->tahun_mula, $setting->tahun_tamat, $year);
+        $m->wings = $wing['wings'];
+        $m->grace_wings = $wing['graceWings'];
+        $m->wing_grace = $wing['grace'];
 
-            return $m;
-        });
+        return $m;
+    }
 
-        return Inertia::render('Keanggotaan/Senarai', [
-            'members' => $members,
-            'filters' => $request->only(['search', 'status_kawasan', 'parlimen', 'sentimen', 'sayap']),
-            'parlimenList' => $this->parlimenList(),
-            'flash' => ['success' => session('success'), 'error' => session('error')],
-        ]);
+    /** Download the filtered member list as a professional PDF. */
+    public function senaraiExport(Request $request)
+    {
+        $query = $this->memberQuery();
+        $this->applyMemberFilters($query, $request);
+
+        $setting = KeanggotaanSetting::current();
+        $year = (int) date('Y');
+        $members = $query->orderByDesc('id')->get()->map(fn ($m) => $this->attachWings($m, $setting, $year));
+
+        $wingColors = ['AMK' => '#2563eb', 'Srikandi' => '#db2777', 'Wanita' => '#9333ea'];
+        $sentimen = ['putih' => ['Putih', '#10b981'], 'kelabu' => ['Kelabu', '#94a3b8'], 'hitam' => ['Hitam', '#0f172a']];
+
+        $rows = $members->map(fn ($m) => [
+            $m->no_anggota ?: '-',
+            $m->nama,
+            $m->no_ic,
+            $m->umur ?? '-',
+            $m->jantina ?: '-',
+            $m->bangsa ?: '-',
+            $m->cabang ?: '-',
+            $m->matched_kadun ?: '-',
+            collect($m->wings)->map(fn ($w) => ['text' => $w, 'color' => $wingColors[$w] ?? '#64748b'])->all(),
+            $m->status_kawasan === 'dalam_kawasan' ? [['text' => 'Dalam Kawasan', 'color' => '#10b981']]
+                : ($m->status_kawasan === 'luar_kawasan' ? [['text' => 'Luar', 'color' => '#f59e0b']] : []),
+            isset($sentimen[$m->voter_color]) ? [['text' => $sentimen[$m->voter_color][0], 'color' => $sentimen[$m->voter_color][1]]] : [],
+        ])->all();
+
+        $filters = [];
+        if ($v = $request->input('search')) {
+            $filters[] = ['label' => 'Carian', 'value' => $v];
+        }
+        if ($v = $request->input('parlimen')) {
+            $filters[] = ['label' => 'Parlimen', 'value' => $v];
+        }
+        if ($v = $request->input('status_kawasan')) {
+            $filters[] = ['label' => 'Status Kawasan', 'value' => $v === 'dalam_kawasan' ? 'Pengundi Dalam Kawasan' : 'Pengundi Luar'];
+        }
+        if ($v = $request->input('sentimen')) {
+            $filters[] = ['label' => 'Sentimen', 'value' => ucfirst(str_replace('_', ' ', $v))];
+        }
+        if ($v = $request->input('sayap')) {
+            $filters[] = ['label' => 'Sayap', 'value' => $v];
+        }
+
+        return Pdf::loadView('pdf.senarai', [
+            'title' => 'Senarai Ahli Keanggotaan',
+            'filters' => $filters,
+            'columns' => ['No. Anggota', 'Nama', 'No. IC', 'Umur', 'Jantina', 'Bangsa', 'Cabang', 'DUN', 'Sayap', 'Status Pengundi', 'Sentimen'],
+            'rows' => $rows,
+            'total' => count($rows),
+            'generatedAt' => now()->format('d/m/Y H:i'),
+        ])->setPaper('a4', 'landscape')->download('senarai-ahli-keanggotaan-'.now()->format('Y-m-d').'.pdf');
     }
 
     public function memberStore(Request $request)

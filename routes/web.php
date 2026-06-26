@@ -404,6 +404,7 @@ Route::middleware(['auth', 'super_admin'])->prefix('pilihanraya')->name('pilihan
 
     // Jawatankuasa Pilihanraya (JPRC/JPRD/AJK Cabang/Wanita/AMK) tracking
     Route::get('/jawatankuasa', [\App\Http\Controllers\KeanggotaanJawatankuasaController::class, 'index'])->name('jawatankuasa.index');
+    Route::get('/jawatankuasa/export', [\App\Http\Controllers\KeanggotaanJawatankuasaController::class, 'export'])->name('jawatankuasa.export');
     Route::post('/jawatankuasa', [\App\Http\Controllers\KeanggotaanJawatankuasaController::class, 'store'])->name('jawatankuasa.store');
     Route::put('/jawatankuasa/{member}', [\App\Http\Controllers\KeanggotaanJawatankuasaController::class, 'update'])->name('jawatankuasa.update');
     Route::delete('/jawatankuasa/{member}', [\App\Http\Controllers\KeanggotaanJawatankuasaController::class, 'destroy'])->name('jawatankuasa.destroy');
@@ -422,6 +423,7 @@ Route::middleware(['auth', 'super_admin'])->prefix('keanggotaan')->name('keanggo
     Route::delete('/{batch}', [\App\Http\Controllers\KeanggotaanController::class, 'destroy'])->name('destroy');
 
     Route::get('/senarai', [\App\Http\Controllers\KeanggotaanController::class, 'senarai'])->name('senarai');
+    Route::get('/senarai/export', [\App\Http\Controllers\KeanggotaanController::class, 'senaraiExport'])->name('senarai.export');
     Route::post('/member', [\App\Http\Controllers\KeanggotaanController::class, 'memberStore'])->name('member.store');
     Route::put('/member/{member}', [\App\Http\Controllers\KeanggotaanController::class, 'memberUpdate'])->name('member.update');
     Route::delete('/member/{member}', [\App\Http\Controllers\KeanggotaanController::class, 'memberDestroy'])->name('member.destroy');

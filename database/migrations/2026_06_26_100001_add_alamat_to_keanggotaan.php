@@ -10,7 +10,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('keanggotaan', function (Blueprint $table) {
-            $table->string('alamat')->nullable()->after('negeri');
+            // TEXT, not string(255) — some uploaded addresses exceed 255 chars.
+            $table->text('alamat')->nullable()->after('negeri');
         });
     }
 

@@ -1,7 +1,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm, router } from '@inertiajs/react';
 import { useState } from 'react';
-import { Plus, Search, RefreshCw, Pencil, Trash2, X, Eye } from 'lucide-react';
+import { Plus, Search, RefreshCw, Pencil, Trash2, X, Eye, Download } from 'lucide-react';
 import useDragScroll from '@/Hooks/useDragScroll';
 import KeanggotaanNav from './Nav';
 
@@ -189,6 +189,7 @@ export default function Senarai({ members, filters, parlimenList = [], flash }) 
     const scrollRef = useDragScroll();
 
     const baseParams = { search, status_kawasan: filters.status_kawasan, parlimen: filters.parlimen, sentimen: filters.sentimen, sayap: filters.sayap };
+    const exportParams = Object.fromEntries(Object.entries(baseParams).filter(([, v]) => v));
 
     const applyFilters = (extra = {}) => {
         router.get(route('keanggotaan.senarai'), { ...baseParams, ...extra }, { preserveState: true, replace: true });
@@ -210,6 +211,9 @@ export default function Senarai({ members, filters, parlimenList = [], flash }) 
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <h1 className="text-2xl font-bold text-slate-900">Senarai Ahli</h1>
                     <div className="flex gap-2">
+                        <a href={route('keanggotaan.senarai.export', exportParams)} className="flex items-center gap-2 px-4 py-2 text-sm border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50">
+                            <Download className="h-4 w-4" /> Muat Turun PDF
+                        </a>
                         <button onClick={() => router.post(route('keanggotaan.resync'), {}, { preserveScroll: true })} className="flex items-center gap-2 px-4 py-2 text-sm border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50">
                             <RefreshCw className="h-4 w-4" /> Sync Semula
                         </button>
