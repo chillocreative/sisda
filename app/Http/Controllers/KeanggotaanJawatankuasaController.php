@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\KeanggotaanJawatankuasa;
 use App\Services\Keanggotaan\CommitteeImportMapper;
 use App\Services\Keanggotaan\MemberMatchService;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Support\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -123,14 +123,14 @@ class KeanggotaanJawatankuasaController extends Controller
             $filters[] = ['label' => 'Carian', 'value' => $v];
         }
 
-        return Pdf::loadView('pdf.senarai', [
+        return Pdf::download('pdf.senarai', [
             'title' => 'Senarai Ahli Jawatankuasa',
             'filters' => $filters,
             'columns' => ['Nama', 'No. IC', 'Jenis', 'Jawatan', 'Parlimen', 'DUN', 'Sentimen'],
             'rows' => $rows,
             'total' => count($rows),
             'generatedAt' => now()->format('d/m/Y H:i'),
-        ])->setPaper('a4')->download('senarai-ahli-jawatankuasa-'.now()->format('Y-m-d').'.pdf');
+        ], 'senarai-ahli-jawatankuasa-'.now()->format('Y-m-d').'.pdf', 'a4');
     }
 
     /**

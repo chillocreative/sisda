@@ -8,7 +8,7 @@ use App\Models\KeanggotaanBatch;
 use App\Models\KeanggotaanSetting;
 use App\Services\Keanggotaan\MemberMatchService;
 use App\Services\Keanggotaan\MemberWingService;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Support\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -429,14 +429,14 @@ class KeanggotaanController extends Controller
             $filters[] = ['label' => 'Sayap', 'value' => $v];
         }
 
-        return Pdf::loadView('pdf.senarai', [
+        return Pdf::download('pdf.senarai', [
             'title' => 'Senarai Ahli Keanggotaan',
             'filters' => $filters,
             'columns' => ['No. Anggota', 'Nama', 'No. IC', 'Umur', 'Jantina', 'Bangsa', 'Cabang', 'DUN', 'Sayap', 'Status Pengundi', 'Sentimen'],
             'rows' => $rows,
             'total' => count($rows),
             'generatedAt' => now()->format('d/m/Y H:i'),
-        ])->setPaper('a4', 'landscape')->download('senarai-ahli-keanggotaan-'.now()->format('Y-m-d').'.pdf');
+        ], 'senarai-ahli-keanggotaan-'.now()->format('Y-m-d').'.pdf', 'a4', 'landscape');
     }
 
     public function memberStore(Request $request)
