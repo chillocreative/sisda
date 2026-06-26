@@ -81,6 +81,7 @@ function ViewModal({ member, onClose }) {
         ['Nama', member.nama],
         ['No. IC', member.no_ic],
         ['No. Telefon', member.no_tel],
+        ['Alamat', member.alamat],
         ['Umur', member.umur],
         ['Jantina', member.jantina],
         ['Bangsa', member.bangsa],

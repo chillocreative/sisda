@@ -185,6 +185,7 @@ class KeanggotaanController extends Controller
                 'bangsa' => $m['bangsa'] ?? null,
                 'cabang' => $m['cabang'] ?? null,
                 'negeri' => $m['negeri'] ?? null,
+                'alamat' => $m['alamat'] ?? null,
                 'umur' => MemberMatchService::ageFromIc($m['no_ic']),
                 'status_kawasan' => null,
                 'created_at' => now(),

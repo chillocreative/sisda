@@ -8,7 +8,7 @@ namespace App\Imports;
  * Strategy: find the HEADER row (scanning past any title rows) and map each
  * field column by its header name, so values are read from their real column.
  * Captured per row: no_anggota, nama, no_ic, no_tel, jantina, bangsa, cabang,
- * negeri. ICs are normalised (dashes/spaces stripped, leading zeros restored,
+ * negeri, alamat. ICs are normalised (dashes/spaces stripped, leading zeros restored,
  * valid month/day checked). If a file has no recognisable header, it falls back
  * to content detection (IC by pattern, name by the most alphabetic cell).
  *
@@ -34,8 +34,10 @@ class KeanggotaanImport
 
     private const NEGERI_KEYS = ['negeri', 'state'];
 
+    private const ALAMAT_KEYS = ['alamat', 'address', 'alamatrumah', 'alamatpenuh', 'alamattetap', 'alamatsurat', 'addressline'];
+
     /** Empty per-field map. */
-    private const EMPTY_MAP = ['nama' => null, 'ic' => null, 'tel' => null, 'anggota' => null, 'jantina' => null, 'bangsa' => null, 'cabang' => null, 'negeri' => null];
+    private const EMPTY_MAP = ['nama' => null, 'ic' => null, 'tel' => null, 'anggota' => null, 'jantina' => null, 'bangsa' => null, 'cabang' => null, 'negeri' => null, 'alamat' => null];
 
     /**
      * @param  array  $rows  array of rows, each an array of cell values
@@ -94,6 +96,8 @@ class KeanggotaanImport
                 'bangsa' => self::upperOrNull(self::cell($cells, $map['bangsa'])),
                 'cabang' => self::upperOrNull(self::cell($cells, $map['cabang'])),
                 'negeri' => self::upperOrNull(self::cell($cells, $map['negeri'])),
+                // Address is kept in its original casing (just trimmed + collapsed).
+                'alamat' => self::cleanAlamat(self::cell($cells, $map['alamat'])),
             ];
             $tally['kept']++;
         }
@@ -112,6 +116,7 @@ class KeanggotaanImport
             'nama' => self::NAMA_KEYS, 'ic' => self::IC_KEYS, 'tel' => self::TEL_KEYS,
             'anggota' => self::ANGGOTA_KEYS, 'jantina' => self::JANTINA_KEYS,
             'bangsa' => self::BANGSA_KEYS, 'cabang' => self::CABANG_KEYS, 'negeri' => self::NEGERI_KEYS,
+            'alamat' => self::ALAMAT_KEYS,
         ];
 
         $limit = min(count($rows), 30);
@@ -188,6 +193,17 @@ class KeanggotaanImport
     private static function upperOrNull(?string $v): ?string
     {
         return $v === null ? null : strtoupper($v);
+    }
+
+    /** Trim + collapse whitespace, preserving the address's original casing. */
+    private static function cleanAlamat(?string $v): ?string
+    {
+        if ($v === null) {
+            return null;
+        }
+        $v = preg_replace('/\s+/', ' ', trim($v));
+
+        return $v === '' ? null : $v;
     }
 
     /** Normalise a gender cell to LELAKI / PEREMPUAN, else null. */

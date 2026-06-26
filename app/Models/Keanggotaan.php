@@ -17,6 +17,7 @@ class Keanggotaan extends Model
         'no_tel',
         'cabang',
         'negeri',
+        'alamat',
         'matched_kadun',
         'matched_parlimen',
         'matched_negeri',
