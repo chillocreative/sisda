@@ -28,50 +28,26 @@ import {
 } from 'recharts';
 
 export default function Dashboard({
-    totalPengundi = 15820,
-    totalCulaan = 5240,
+    // Defaults are empty/zero so the dashboard only ever shows real system data
+    // (never placeholder figures) if a prop is missing.
+    totalPengundi = 0,
+    kadunCount = 0,
+    totalCulaan = 0,
     sokongan = {
-        ph: 38,
-        bn: 28,
-        pn: 22,
-        tidakPasti: 12,
+        ph: 0,
+        bn: 0,
+        tidakPasti: 0,
     },
     bangsa = {
-        melayu: 10450,
-        cina: 3200,
-        india: 1500,
-        lain: 670
+        melayu: 0,
+        cina: 0,
+        india: 0,
+        lain: 0
     },
-    umurDistribution = [
-        { range: '18-25', jumlah: 2340 },
-        { range: '26-35', jumlah: 4120 },
-        { range: '36-45', jumlah: 3890 },
-        { range: '46-55', jumlah: 3210 },
-        { range: '56-65', jumlah: 1680 },
-        { range: '65+', jumlah: 580 },
-    ],
-    trendBulanan = [
-        { bulan: 'Jan', jumlah: 420 },
-        { bulan: 'Feb', jumlah: 680 },
-        { bulan: 'Mar', jumlah: 890 },
-        { bulan: 'Apr', jumlah: 1120 },
-        { bulan: 'Mei', jumlah: 950 },
-        { bulan: 'Jun', jumlah: 1180 },
-    ],
-    mpkkStats = [
-        { mpkk: 'Taman Sejahtera', pengundi: 1240, culaan: 450, ph: 42, bn: 30, tidakPasti: 28 },
-        { mpkk: 'Kampung Makmur', pengundi: 980, culaan: 380, ph: 38, bn: 35, tidakPasti: 27 },
-        { mpkk: 'Taman Harmoni', pengundi: 1150, culaan: 420, ph: 45, bn: 28, tidakPasti: 27 },
-        { mpkk: 'Desa Sentosa', pengundi: 890, culaan: 310, ph: 35, bn: 32, tidakPasti: 33 },
-        { mpkk: 'Bandar Permai', pengundi: 1320, culaan: 490, ph: 40, bn: 31, tidakPasti: 29 },
-    ],
-    petugasStats = [
-        { nama: 'Ahmad bin Abdullah', jumlah: 342, kawasan: 'Taman Sejahtera', tarikh: '2025-11-23' },
-        { nama: 'Siti Nurhaliza', jumlah: 298, kawasan: 'Kampung Makmur', tarikh: '2025-11-23' },
-        { nama: 'Lim Wei Chen', jumlah: 276, kawasan: 'Taman Harmoni', tarikh: '2025-11-22' },
-        { nama: 'Kumar Selvam', jumlah: 245, kawasan: 'Desa Sentosa', tarikh: '2025-11-22' },
-        { nama: 'Fatimah Zahra', jumlah: 231, kawasan: 'Bandar Permai', tarikh: '2025-11-21' },
-    ],
+    umurDistribution = [],
+    trendBulanan = [],
+    mpkkStats = [],
+    petugasStats = [],
     negeriList = [],
     bandarList = [],
     kadunList = [],
@@ -318,8 +294,8 @@ export default function Dashboard({
                     <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-slate-600">Pengundi Mengikut KADUN</p>
-                                <p className="text-3xl font-bold text-slate-900 mt-2">{mpkkStats.length}</p>
+                                <p className="text-sm font-medium text-slate-600">Bilangan KADUN</p>
+                                <p className="text-3xl font-bold text-slate-900 mt-2">{kadunCount.toLocaleString()}</p>
                             </div>
                             <div className="p-3 bg-purple-100 rounded-lg">
                                 <MapPin className="h-6 w-6 text-purple-600" />

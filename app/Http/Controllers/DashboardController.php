@@ -127,6 +127,7 @@ class DashboardController extends Controller
 
         // Headline = real registered voters from the roll; culaan stays canvass.
         $totalPengundi = $rollBase()->count();
+        $kadunCount = $rollBase()->whereNotNull('kadun')->where('kadun', '!=', '')->distinct()->count('kadun');
         $totalCulaan = (clone $culaanQuery)->where('is_deceased', false)->count();
         $deceasedPengundi = (clone $pengundiQuery)->where('is_deceased', true)->count();
         $deceasedCulaan = (clone $culaanQuery)->where('is_deceased', true)->count();
@@ -137,23 +138,22 @@ class DashboardController extends Controller
             ->where('kecenderungan_politik', '!=', '')
             ->count();
 
-        // Political tendency percentages (using filtered queries)
-        $phQuery = clone $pengundiQuery;
-        $phCount = $phQuery->where('kecenderungan_politik', 'like', '%PH%')->count();
-
-        $bnQuery = clone $pengundiQuery;
-        $bnCount = $bnQuery->where('kecenderungan_politik', 'like', '%BN%')->count();
-
-        $pnQuery = clone $pengundiQuery;
-        $pnCount = $pnQuery->where('kecenderungan_politik', 'like', '%PN%')->count();
-
-        $tidakPastiQuery = clone $pengundiQuery;
-        $tidakPastiCount = $tidakPastiQuery->where('kecenderungan_politik', 'like', '%TIDAK PASTI%')->count();
+        // Political tendency percentages. Match the FULL coalition pairing —
+        // the values are "PAKATAN HARAPAN (PH/BN)", "BARISAN NASIONAL (BN/PN)"
+        // and "TIDAK PASTI". A naive LIKE '%BN%' would also catch "(PH/BN)" and
+        // double-count PH supporters as BN/PN.
+        $phCount = (clone $pengundiQuery)->where('kecenderungan_politik', 'like', '%PH/BN%')->count();
+        $bnCount = (clone $pengundiQuery)->where('kecenderungan_politik', 'like', '%BN/PN%')->count();
+        $tidakPastiCount = (clone $pengundiQuery)
+            ->where(function ($q) {
+                $q->where('kecenderungan_politik', 'like', '%TIDAK PASTI%')
+                    ->orWhere('kecenderungan_politik', 'like', '%ATAS PAGAR%');
+            })
+            ->count();
 
         $sokongan = [
             'ph' => $totalWithTendency > 0 ? round(($phCount / $totalWithTendency) * 100) : 0,
             'bn' => $totalWithTendency > 0 ? round(($bnCount / $totalWithTendency) * 100) : 0,
-            'pn' => $totalWithTendency > 0 ? round(($pnCount / $totalWithTendency) * 100) : 0,
             'tidakPasti' => $totalWithTendency > 0 ? round(($tidakPastiCount / $totalWithTendency) * 100) : 0,
         ];
 
@@ -222,8 +222,8 @@ class DashboardController extends Controller
 
                 $canvass = (clone $pengundiQuery)->whereRaw('UPPER(kadun) = ?', [strtoupper((string) $kadunName)]);
                 $canvassTotal = (clone $canvass)->where('is_deceased', false)->count();
-                $phCount = (clone $canvass)->where('kecenderungan_politik', 'like', '%PH%')->count();
-                $bnCount = (clone $canvass)->where('kecenderungan_politik', 'like', '%BN%')->count();
+                $phCount = (clone $canvass)->where('kecenderungan_politik', 'like', '%PH/BN%')->count();
+                $bnCount = (clone $canvass)->where('kecenderungan_politik', 'like', '%BN/PN%')->count();
                 $tidakPastiCount = (clone $canvass)->where('kecenderungan_politik', 'like', '%TIDAK PASTI%')->count();
                 $culaanCount = (clone $culaanQuery)->whereRaw('UPPER(kadun) = ?', [strtoupper((string) $kadunName)])
                     ->where('is_deceased', false)->count();
@@ -355,6 +355,7 @@ class DashboardController extends Controller
 
         return Inertia::render('Dashboard/Index', [
             'totalPengundi' => $totalPengundi,
+            'kadunCount' => $kadunCount,
             'totalCulaan' => $totalCulaan,
             'sokongan' => $sokongan,
             'bangsa' => $bangsa,
