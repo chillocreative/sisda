@@ -9,7 +9,9 @@ import {
     TrendingDown,
     MapPin,
     ChevronDown,
-    Filter
+    Filter,
+    UserCheck,
+    Award
 } from 'lucide-react';
 import {
     PieChart,
@@ -48,6 +50,8 @@ export default function Dashboard({
     trendBulanan = [],
     mpkkStats = [],
     petugasStats = [],
+    keanggotaan = { total: 0, wings: [] },
+    jawatankuasa = { total: 0, jenis: [] },
     negeriList = [],
     bandarList = [],
     kadunList = [],
@@ -302,6 +306,32 @@ export default function Dashboard({
                             </div>
                         </div>
                     </div>
+
+                    {/* Ahli Keanggotaan */}
+                    <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-slate-600">Ahli Keanggotaan</p>
+                                <p className="text-3xl font-bold text-slate-900 mt-2">{(keanggotaan.total || 0).toLocaleString()}</p>
+                            </div>
+                            <div className="p-3 bg-rose-100 rounded-lg">
+                                <UserCheck className="h-6 w-6 text-rose-600" />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Ahli Jawatankuasa */}
+                    <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-slate-600">Ahli Jawatankuasa</p>
+                                <p className="text-3xl font-bold text-slate-900 mt-2">{(jawatankuasa.total || 0).toLocaleString()}</p>
+                            </div>
+                            <div className="p-3 bg-indigo-100 rounded-lg">
+                                <Award className="h-6 w-6 text-indigo-600" />
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Charts Section */}
@@ -376,6 +406,45 @@ export default function Dashboard({
                                 />
                             </LineChart>
                         </ResponsiveContainer>
+                    </div>
+                </div>
+
+                {/* Keanggotaan & Jawatankuasa breakdowns */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Keanggotaan Mengikut Sayap */}
+                    <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                        <h3 className="text-lg font-semibold text-slate-900 mb-4">Keanggotaan Mengikut Sayap</h3>
+                        {keanggotaan.wings.length === 0 ? (
+                            <p className="text-sm text-slate-500 py-24 text-center">Tiada data keanggotaan.</p>
+                        ) : (
+                            <ResponsiveContainer width="100%" height={300}>
+                                <BarChart data={keanggotaan.wings}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                    <XAxis dataKey="name" stroke="#64748b" />
+                                    <YAxis stroke="#64748b" />
+                                    <Tooltip formatter={(v) => v.toLocaleString()} />
+                                    <Bar dataKey="jumlah" fill="#e11d48" radius={[8, 8, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        )}
+                    </div>
+
+                    {/* Jawatankuasa Mengikut Jenis */}
+                    <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                        <h3 className="text-lg font-semibold text-slate-900 mb-4">Jawatankuasa Mengikut Jenis</h3>
+                        {jawatankuasa.jenis.length === 0 ? (
+                            <p className="text-sm text-slate-500 py-24 text-center">Tiada data jawatankuasa.</p>
+                        ) : (
+                            <ResponsiveContainer width="100%" height={300}>
+                                <BarChart data={jawatankuasa.jenis}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                    <XAxis dataKey="name" stroke="#64748b" />
+                                    <YAxis stroke="#64748b" />
+                                    <Tooltip formatter={(v) => v.toLocaleString()} />
+                                    <Bar dataKey="jumlah" fill="#4f46e5" radius={[8, 8, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        )}
                     </div>
                 </div>
 

@@ -6,11 +6,15 @@ use App\Models\Bandar;
 use App\Models\DataPengundi;
 use App\Models\HasilCulaan;
 use App\Models\Kadun;
+use App\Models\Keanggotaan;
+use App\Models\KeanggotaanJawatankuasa;
+use App\Models\KeanggotaanSetting;
 use App\Models\Mpkk;
 use App\Models\Negeri;
 use App\Models\PangkalanDataPengundi;
 use App\Models\UploadBatch;
 use App\Models\User;
+use App\Services\Keanggotaan\MemberWingService;
 use App\Services\VoterDataMasker;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -347,6 +351,73 @@ class DashboardController extends Controller
             })
             ->toArray();
 
+        // ---- Keanggotaan (party membership) summary + wings ----
+        // Scoped to the same territory where columns exist (negeri, cabang=bandar);
+        // date/kadun filters don't map to membership.
+        $keanggotaanBase = function () use ($user, $negeriNama, $bandarNama) {
+            $q = Keanggotaan::query();
+            if (! $user->isSuperAdmin()) {
+                if ($user->negeri_id) {
+                    $q->whereRaw('UPPER(negeri) = ?', [strtoupper((string) ($user->negeri->nama ?? ''))]);
+                }
+                if ($user->bandar_id) {
+                    $q->whereRaw('UPPER(cabang) = ?', [strtoupper((string) ($user->bandar->nama ?? ''))]);
+                }
+            }
+            if ($negeriNama) {
+                $q->whereRaw('UPPER(negeri) = ?', [strtoupper($negeriNama)]);
+            }
+            if ($bandarNama) {
+                $q->whereRaw('UPPER(cabang) = ?', [strtoupper($bandarNama)]);
+            }
+
+            return $q;
+        };
+
+        // Wings are derived live; translate to SQL (same rule as the Senarai
+        // sayap filter / MemberWingService). Srikandi & Wanita overlap by design.
+        $setting = KeanggotaanSetting::current();
+        $year = (int) date('Y');
+        $within = $setting && MemberWingService::withinTerm($setting->tahun_mula, $setting->tahun_tamat, $year);
+        $youthMax = $within ? MemberWingService::MAX_AGE + ($year - $setting->tahun_mula) : MemberWingService::MAX_AGE;
+
+        $keanggotaan = [
+            'total' => $keanggotaanBase()->count(),
+            'wings' => [
+                ['name' => 'AMK', 'jumlah' => $keanggotaanBase()->whereRaw('UPPER(jantina) = ?', ['LELAKI'])->whereNotNull('umur')->where('umur', '<=', $youthMax)->count()],
+                ['name' => 'Srikandi', 'jumlah' => $keanggotaanBase()->whereRaw('UPPER(jantina) = ?', ['PEREMPUAN'])->whereNotNull('umur')->where('umur', '<=', $youthMax)->count()],
+                ['name' => 'Wanita', 'jumlah' => $keanggotaanBase()->whereRaw('UPPER(jantina) = ?', ['PEREMPUAN'])->count()],
+            ],
+        ];
+
+        // ---- Jawatankuasa (committee) summary + per-jenis, counted by DISTINCT
+        // PERSON (one person may hold several positions / sit on JPRC + JPRD). ----
+        $jkRows = KeanggotaanJawatankuasa::query()
+            ->when($bandarNama, fn ($q) => $q->where(function ($w) use ($bandarNama) {
+                $u = strtoupper($bandarNama);
+                $w->whereRaw('UPPER(cabang) = ?', [$u])->orWhereRaw('UPPER(matched_parlimen) = ?', [$u]);
+            }))
+            ->get(['no_ic', 'nama', 'jenis']);
+
+        $jkAll = [];
+        $jkPerJenis = array_fill_keys(KeanggotaanJawatankuasa::JENIS, []);
+        foreach ($jkRows as $r) {
+            $ic = trim((string) $r->no_ic);
+            $key = $ic !== '' ? 'ic:'.$ic : 'nama:'.mb_strtoupper(preg_replace('/\s+/', ' ', trim((string) $r->nama)));
+            $jkAll[$key] = true;
+            if (in_array($r->jenis, KeanggotaanJawatankuasa::JENIS, true)) {
+                $jkPerJenis[$r->jenis][$key] = true;
+            }
+        }
+        $jenisLabel = ['JPRC' => 'JPRC', 'JPRD' => 'JPRD', 'AJK_CABANG' => 'Cabang', 'WANITA' => 'Wanita', 'AMK' => 'AMK', 'MPKK' => 'MPKK', 'JBPP' => 'JBPP', 'JPWK' => 'JPWK'];
+        $jawatankuasa = [
+            'total' => count($jkAll),
+            'jenis' => collect(KeanggotaanJawatankuasa::JENIS)
+                ->map(fn ($j) => ['name' => $jenisLabel[$j] ?? $j, 'jumlah' => count($jkPerJenis[$j])])
+                ->filter(fn ($row) => $row['jumlah'] > 0)
+                ->values()->all(),
+        ];
+
         // Get filter options
         $negeriList = Negeri::orderBy('nama')->get();
         $bandarList = Bandar::orderBy('nama')->get();
@@ -363,6 +434,8 @@ class DashboardController extends Controller
             'trendBulanan' => $trendBulanan,
             'mpkkStats' => $mpkkStats,
             'petugasStats' => $petugasStats,
+            'keanggotaan' => $keanggotaan,
+            'jawatankuasa' => $jawatankuasa,
             'negeriList' => $negeriList,
             'bandarList' => $bandarList,
             'kadunList' => $kadunList,
