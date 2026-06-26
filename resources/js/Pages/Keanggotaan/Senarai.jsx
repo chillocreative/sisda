@@ -211,7 +211,7 @@ export default function Senarai({ members, filters, parlimenList = [], flash }) 
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <h1 className="text-2xl font-bold text-slate-900">Senarai Ahli</h1>
                     <div className="flex gap-2">
-                        <a href={route('keanggotaan.senarai.export', exportParams)} className="flex items-center gap-2 px-4 py-2 text-sm border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50">
+                        <a href={route('keanggotaan.senarai.export', exportParams)} className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                             <Download className="h-4 w-4" /> Muat Turun PDF
                         </a>
                         <button onClick={() => router.post(route('keanggotaan.resync'), {}, { preserveScroll: true })} className="flex items-center gap-2 px-4 py-2 text-sm border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50">
