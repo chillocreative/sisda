@@ -8,8 +8,6 @@ import {
     TrendingUp,
     TrendingDown,
     MapPin,
-    ChevronDown,
-    Filter,
     UserCheck,
     Award
 } from 'lucide-react';
@@ -57,7 +55,6 @@ export default function Dashboard({
     kadunList = [],
     mpkkList = []
 }) {
-    const [showFilters, setShowFilters] = useState(false);
     const scrollRef1 = useDragScroll();
     const scrollRef2 = useDragScroll();
     const [filters, setFilters] = useState({
@@ -98,14 +95,17 @@ export default function Dashboard({
         danger: '#ef4444'
     };
 
-    const handleFilter = () => {
+    // Apply filters automatically whenever a control changes (no "Tapis" click).
+    const applyFilters = (next = {}) => {
+        const merged = { ...filters, ...next };
+        setFilters(merged);
         router.get(route('dashboard'), {
-            negeri_id: filters.negeri,
-            bandar_id: filters.bandar,
-            kadun_id: filters.kadun,
-            mpkk_id: filters.mpkk,
-            tarikh_dari: filters.tarikhDari,
-            tarikh_hingga: filters.tarikhHingga
+            negeri_id: merged.negeri,
+            bandar_id: merged.bandar,
+            kadun_id: merged.kadun,
+            mpkk_id: merged.mpkk,
+            tarikh_dari: merged.tarikhDari,
+            tarikh_hingga: merged.tarikhHingga
         }, {
             preserveState: true,
             preserveScroll: true
@@ -138,107 +138,91 @@ export default function Dashboard({
                         <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
                         <p className="text-sm text-slate-600 mt-1">Ringkasan data dan statistik SISDA</p>
                     </div>
-                    <button
-                        onClick={() => setShowFilters(!showFilters)}
-                        className="flex items-center space-x-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors"
-                    >
-                        <Filter className="h-4 w-4" />
-                        <span>{showFilters ? 'Sembunyikan' : 'Tunjukkan'} Penapis</span>
-                        <ChevronDown className={`h-4 w-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-                    </button>
                 </div>
 
-                {/* Filters Panel */}
-                {showFilters && (
-                    <div className="bg-white rounded-xl border border-slate-200 p-6">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-2">Negeri</label>
-                                <select
-                                    value={filters.negeri}
-                                    onChange={(e) => setFilters({ ...filters, negeri: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                >
-                                    <option value="">Semua Negeri</option>
-                                    {negeriList.map((negeri) => (
-                                        <option key={negeri.id} value={negeri.id}>{negeri.nama}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-2">Bandar (Parlimen)</label>
-                                <select
-                                    value={filters.bandar}
-                                    onChange={(e) => setFilters({ ...filters, bandar: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                >
-                                    <option value="">Semua Bandar</option>
-                                    {bandarList.map((bandar) => (
-                                        <option key={bandar.id} value={bandar.id}>{bandar.nama}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-2">KADUN</label>
-                                <select
-                                    value={filters.kadun}
-                                    onChange={(e) => setFilters({ ...filters, kadun: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                >
-                                    <option value="">Semua KADUN</option>
-                                    {kadunList.map((kadun) => (
-                                        <option key={kadun.id} value={kadun.id}>{kadun.nama}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-2">MPKK</label>
-                                <select
-                                    value={filters.mpkk}
-                                    onChange={(e) => setFilters({ ...filters, mpkk: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                >
-                                    <option value="">Semua MPKK</option>
-                                    {mpkkList.map((mpkk) => (
-                                        <option key={mpkk.id} value={mpkk.id}>{mpkk.nama}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-2">Tarikh Dari</label>
-                                <input
-                                    type="date"
-                                    value={filters.tarikhDari}
-                                    onChange={(e) => setFilters({ ...filters, tarikhDari: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-2">Tarikh Hingga</label>
-                                <input
-                                    type="date"
-                                    value={filters.tarikhHingga}
-                                    onChange={(e) => setFilters({ ...filters, tarikhHingga: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                />
-                            </div>
+                {/* Filters — apply automatically on change; default scope = seluruh Malaysia */}
+                <div className="bg-white rounded-xl border border-slate-200 p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">Negeri</label>
+                            <select
+                                value={filters.negeri}
+                                onChange={(e) => applyFilters({ negeri: e.target.value })}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                            >
+                                <option value="">Semua Negeri</option>
+                                {negeriList.map((negeri) => (
+                                    <option key={negeri.id} value={negeri.id}>{negeri.nama}</option>
+                                ))}
+                            </select>
                         </div>
-                        <div className="flex items-center justify-end space-x-3 mt-4">
-                            <button
-                                onClick={handleReset}
-                                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">Bandar (Parlimen)</label>
+                            <select
+                                value={filters.bandar}
+                                onChange={(e) => applyFilters({ bandar: e.target.value })}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                             >
-                                Set Semula
-                            </button>
-                            <button
-                                onClick={handleFilter}
-                                className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors"
+                                <option value="">Semua Bandar</option>
+                                {bandarList.map((bandar) => (
+                                    <option key={bandar.id} value={bandar.id}>{bandar.nama}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">KADUN</label>
+                            <select
+                                value={filters.kadun}
+                                onChange={(e) => applyFilters({ kadun: e.target.value })}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                             >
-                                Tapis
-                            </button>
+                                <option value="">Semua KADUN</option>
+                                {kadunList.map((kadun) => (
+                                    <option key={kadun.id} value={kadun.id}>{kadun.nama}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">MPKK</label>
+                            <select
+                                value={filters.mpkk}
+                                onChange={(e) => applyFilters({ mpkk: e.target.value })}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                            >
+                                <option value="">Semua MPKK</option>
+                                {mpkkList.map((mpkk) => (
+                                    <option key={mpkk.id} value={mpkk.id}>{mpkk.nama}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">Tarikh Dari</label>
+                            <input
+                                type="date"
+                                value={filters.tarikhDari}
+                                onChange={(e) => applyFilters({ tarikhDari: e.target.value })}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">Tarikh Hingga</label>
+                            <input
+                                type="date"
+                                value={filters.tarikhHingga}
+                                onChange={(e) => applyFilters({ tarikhHingga: e.target.value })}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                            />
                         </div>
                     </div>
-                )}
+                    <div className="flex items-center justify-end mt-4">
+                        <button
+                            onClick={handleReset}
+                            className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                        >
+                            Set Semula
+                        </button>
+                    </div>
+                </div>
 
                 {/* Metric Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
