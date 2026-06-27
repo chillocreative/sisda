@@ -422,7 +422,14 @@ export default function Dashboard({
                                     <XAxis dataKey="name" stroke="#64748b" />
                                     <YAxis stroke="#64748b" />
                                     <Tooltip formatter={(v) => v.toLocaleString()} />
-                                    <Bar dataKey="jumlah" fill="#e11d48" radius={[8, 8, 0, 0]} />
+                                    <Bar dataKey="jumlah" radius={[8, 8, 0, 0]}>
+                                        {keanggotaan.wings.map((entry) => (
+                                            <Cell
+                                                key={entry.name}
+                                                fill={{ AMK: '#2563eb', Srikandi: '#db2777', Wanita: '#9333ea' }[entry.name] || '#94a3b8'}
+                                            />
+                                        ))}
+                                    </Bar>
                                 </BarChart>
                             </ResponsiveContainer>
                         )}
