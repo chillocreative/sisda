@@ -315,8 +315,8 @@ class DashboardController extends Controller
         }
 
         $petugasStats = User::select('users.*')
-            ->selectRaw("(SELECT COUNT(*) FROM data_pengundi WHERE submitted_by = users.id {$pengundiFilterConditions}) as pengundi_count", $pengundiFilterParams)
-            ->selectRaw("(SELECT COUNT(*) FROM hasil_culaan WHERE submitted_by = users.id {$culaanFilterConditions}) as culaan_count", $culaanFilterParams)
+            ->selectRaw("(SELECT COUNT(*) FROM data_pengundi WHERE submitted_by = users.id AND is_deceased = 0 {$pengundiFilterConditions}) as pengundi_count", $pengundiFilterParams)
+            ->selectRaw("(SELECT COUNT(*) FROM hasil_culaan WHERE submitted_by = users.id AND is_deceased = 0 {$culaanFilterConditions}) as culaan_count", $culaanFilterParams)
             ->havingRaw('(pengundi_count + culaan_count) > 0')
             ->orderByRaw('(pengundi_count + culaan_count) DESC')
             ->take(5)
@@ -369,7 +369,7 @@ class DashboardController extends Controller
                 return [
                     'nama' => $petugasUser->name,
                     'jumlah' => $petugasUser->pengundi_count + $petugasUser->culaan_count,
-                    'kawasan' => $latestRecord ? $latestRecord->kadun : 'N/A',
+                    'kawasan' => $latestRecord ? strtoupper($latestRecord->kadun) : 'N/A',
                     'tarikh' => $latestRecord ? $latestRecord->created_at->format('Y-m-d') : 'N/A',
                 ];
             })
