@@ -209,14 +209,15 @@ class DashboardController extends Controller
             ['range' => '65+', 'jumlah' => $ageBand(65, null)],
         ];
 
-        // Monthly trend (last 6 months) - using filtered query
+        // Monthly trend (last 6 months) — exclude deceased voters.
         $trendBulanan = [];
         for ($i = 5; $i >= 0; $i--) {
             $date = now()->subMonths($i);
             $monthQuery = clone $pengundiQuery;
             $trendBulanan[] = [
                 'bulan' => $date->format('M'),
-                'jumlah' => $monthQuery->whereYear('created_at', $date->year)
+                'jumlah' => $monthQuery->where('is_deceased', false)
+                    ->whereYear('created_at', $date->year)
                     ->whereMonth('created_at', $date->month)
                     ->count(),
             ];

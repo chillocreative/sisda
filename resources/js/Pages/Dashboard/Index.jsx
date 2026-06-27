@@ -380,10 +380,10 @@ export default function Dashboard({
                     <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
                         <h3 className="text-lg font-semibold text-slate-900 mb-4">Taburan Bangsa</h3>
                         <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={bangsaData} margin={{ top: 24 }}>
+                            <BarChart data={bangsaData} margin={{ top: 24, left: 10 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                                 <XAxis dataKey="name" stroke="#64748b" />
-                                <YAxis stroke="#64748b" />
+                                <YAxis stroke="#64748b" width={70} tickFormatter={(v) => v.toLocaleString()} />
                                 <Tooltip />
                                 <Bar dataKey="jumlah" radius={[8, 8, 0, 0]}>
                                     <LabelList dataKey="jumlah" position="top" formatter={(v) => v.toLocaleString()} style={{ fontSize: 12, fontWeight: 600, fill: '#374151' }} />
@@ -399,16 +399,17 @@ export default function Dashboard({
                     <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
                         <h3 className="text-lg font-semibold text-slate-900 mb-4">Taburan Umur</h3>
                         <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={umurDistribution}>
+                            <BarChart data={umurDistribution} margin={{ top: 24, left: 10 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                                 <XAxis dataKey="range" stroke="#64748b" />
-                                <YAxis stroke="#64748b" />
+                                <YAxis stroke="#64748b" width={70} tickFormatter={(v) => v.toLocaleString()} />
                                 <Tooltip />
                                 <Bar dataKey="jumlah" radius={[8, 8, 0, 0]}>
-                                        {umurDistribution.map((_, i) => (
-                                            <Cell key={i} fill={UMUR_COLORS[i % UMUR_COLORS.length]} />
-                                        ))}
-                                    </Bar>
+                                    <LabelList dataKey="jumlah" position="top" formatter={(v) => v.toLocaleString()} style={{ fontSize: 12, fontWeight: 600, fill: '#374151' }} />
+                                    {umurDistribution.map((_, i) => (
+                                        <Cell key={i} fill={UMUR_COLORS[i % UMUR_COLORS.length]} />
+                                    ))}
+                                </Bar>
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
@@ -417,10 +418,10 @@ export default function Dashboard({
                     <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
                         <h3 className="text-lg font-semibold text-slate-900 mb-4">Trend Pengumpulan Data Bulanan</h3>
                         <ResponsiveContainer width="100%" height={300}>
-                            <LineChart data={trendBulanan}>
+                            <LineChart data={trendBulanan} margin={{ top: 24, left: 10 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                                 <XAxis dataKey="bulan" stroke="#64748b" />
-                                <YAxis stroke="#64748b" />
+                                <YAxis stroke="#64748b" width={70} tickFormatter={(v) => v.toLocaleString()} />
                                 <Tooltip />
                                 <Line
                                     type="monotone"
@@ -428,7 +429,9 @@ export default function Dashboard({
                                     stroke="#8b5cf6"
                                     strokeWidth={2}
                                     dot={{ fill: '#8b5cf6', r: 4 }}
-                                />
+                                >
+                                    <LabelList dataKey="jumlah" position="top" formatter={(v) => v.toLocaleString()} style={{ fontSize: 12, fontWeight: 600, fill: '#374151' }} />
+                                </Line>
                             </LineChart>
                         </ResponsiveContainer>
                     </div>
@@ -443,12 +446,13 @@ export default function Dashboard({
                             <p className="text-sm text-slate-500 py-24 text-center">Tiada data keanggotaan.</p>
                         ) : (
                             <ResponsiveContainer width="100%" height={300}>
-                                <BarChart data={keanggotaan.wings}>
+                                <BarChart data={keanggotaan.wings} margin={{ top: 24, left: 10 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                                     <XAxis dataKey="name" stroke="#64748b" />
-                                    <YAxis stroke="#64748b" />
+                                    <YAxis stroke="#64748b" width={70} tickFormatter={(v) => v.toLocaleString()} />
                                     <Tooltip formatter={(v) => v.toLocaleString()} />
                                     <Bar dataKey="jumlah" radius={[8, 8, 0, 0]}>
+                                        <LabelList dataKey="jumlah" position="top" formatter={(v) => v.toLocaleString()} style={{ fontSize: 12, fontWeight: 600, fill: '#374151' }} />
                                         {keanggotaan.wings.map((entry) => (
                                             <Cell
                                                 key={entry.name}
@@ -468,10 +472,10 @@ export default function Dashboard({
                             <p className="text-sm text-slate-500 py-24 text-center">Tiada data jawatankuasa.</p>
                         ) : (
                             <ResponsiveContainer width="100%" height={300}>
-                                <BarChart data={jawatankuasa.jenis} margin={{ top: 24 }}>
+                                <BarChart data={jawatankuasa.jenis} margin={{ top: 24, left: 10 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                                     <XAxis dataKey="name" stroke="#64748b" />
-                                    <YAxis stroke="#64748b" />
+                                    <YAxis stroke="#64748b" width={70} tickFormatter={(v) => v.toLocaleString()} />
                                     <Tooltip formatter={(v) => v.toLocaleString()} />
                                     <Bar dataKey="jumlah" radius={[8, 8, 0, 0]}>
                                         <LabelList dataKey="jumlah" position="top" formatter={(v) => v.toLocaleString()} style={{ fontSize: 12, fontWeight: 600, fill: '#374151' }} />
