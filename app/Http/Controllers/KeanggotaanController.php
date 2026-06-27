@@ -342,7 +342,7 @@ class KeanggotaanController extends Controller
                 $q->where('nama', 'like', "%{$search}%")->orWhere('no_ic', 'like', "%{$search}%");
             });
         }
-        if (in_array($request->input('status_kawasan'), ['dalam_kawasan', 'luar_kawasan'], true)) {
+        if (in_array($request->input('status_kawasan'), ['dalam_kawasan', 'luar_kawasan', 'tiada_dppr'], true)) {
             $query->where('status_kawasan', $request->input('status_kawasan'));
         }
         if ($parlimen = $request->input('parlimen')) {
@@ -408,7 +408,8 @@ class KeanggotaanController extends Controller
             $m->matched_kadun ?: '-',
             collect($m->wings)->map(fn ($w) => ['text' => $w, 'color' => $wingColors[$w] ?? '#64748b'])->all(),
             $m->status_kawasan === 'dalam_kawasan' ? [['text' => 'Dalam Kawasan', 'color' => '#10b981']]
-                : ($m->status_kawasan === 'luar_kawasan' ? [['text' => 'Luar', 'color' => '#f59e0b']] : []),
+                : ($m->status_kawasan === 'tiada_dppr' ? [['text' => 'Tiada DPPR/DPT', 'color' => '#ef4444']]
+                : ($m->status_kawasan === 'luar_kawasan' ? [['text' => 'Luar', 'color' => '#f59e0b']] : [])),
             isset($sentimen[$m->voter_color]) ? [['text' => $sentimen[$m->voter_color][0], 'color' => $sentimen[$m->voter_color][1]]] : [],
         ])->all();
 
@@ -420,7 +421,12 @@ class KeanggotaanController extends Controller
             $filters[] = ['label' => 'Parlimen', 'value' => $v];
         }
         if ($v = $request->input('status_kawasan')) {
-            $filters[] = ['label' => 'Status Kawasan', 'value' => $v === 'dalam_kawasan' ? 'Pengundi Dalam Kawasan' : 'Pengundi Luar'];
+            $filters[] = ['label' => 'Status Kawasan', 'value' => match($v) {
+                'dalam_kawasan' => 'Pengundi Dalam Kawasan',
+                'luar_kawasan'  => 'Pengundi Luar',
+                'tiada_dppr'    => 'Tiada dalam DPPR/DPT',
+                default         => $v,
+            }];
         }
         if ($v = $request->input('sentimen')) {
             $filters[] = ['label' => 'Sentimen', 'value' => ucfirst(str_replace('_', ' ', $v))];
@@ -442,15 +448,32 @@ class KeanggotaanController extends Controller
     public function memberStore(Request $request)
     {
         $validated = $request->validate([
-            'no_ic' => 'required|string|max:12',
-            'nama' => 'required|string|max:255',
-            'no_tel' => 'nullable|string|max:30',
-            'status_anggota' => 'nullable|in:aktif,tidak_aktif',
+            'no_ic'                    => 'required|string|max:12',
+            'nama'                     => 'required|string|max:255',
+            'no_tel'                   => 'nullable|string|max:30',
+            'status_anggota'           => 'nullable|in:aktif,tidak_aktif',
             'daftar_tanpa_pengetahuan' => 'boolean',
         ]);
 
+        $validated['no_tel'] = $this->normalizePhone($validated['no_tel'] ?? null);
+
         $member = new Keanggotaan($validated);
         $member->fill($this->matcher->match($validated['no_ic']));
+
+        if (in_array(auth()->user()->role, ['super_admin', 'admin'])) {
+            $admin = $request->validate([
+                'no_anggota'     => 'nullable|string|max:50',
+                'alamat'         => 'nullable|string|max:500',
+                'bangsa'         => 'nullable|string|max:50',
+                'jantina'        => 'nullable|in:LELAKI,PEREMPUAN',
+                'cabang'         => 'nullable|string|max:100',
+                'negeri'         => 'nullable|string|max:100',
+                'voter_color'    => 'nullable|in:putih,kelabu,hitam',
+                'status_kawasan' => 'nullable|in:dalam_kawasan,luar_kawasan,tiada_dppr',
+            ]);
+            $member->fill(array_filter($admin, fn ($v) => $v !== null));
+        }
+
         $member->save();
 
         return redirect()->back()->with('success', 'Ahli berjaya ditambah.');
@@ -459,18 +482,47 @@ class KeanggotaanController extends Controller
     public function memberUpdate(Request $request, Keanggotaan $member)
     {
         $validated = $request->validate([
-            'no_ic' => 'required|string|max:12',
-            'nama' => 'required|string|max:255',
-            'no_tel' => 'nullable|string|max:30',
-            'status_anggota' => 'nullable|in:aktif,tidak_aktif',
+            'no_ic'                    => 'required|string|max:12',
+            'nama'                     => 'required|string|max:255',
+            'no_tel'                   => 'nullable|string|max:30',
+            'status_anggota'           => 'nullable|in:aktif,tidak_aktif',
             'daftar_tanpa_pengetahuan' => 'boolean',
         ]);
 
+        $validated['no_tel'] = $this->normalizePhone($validated['no_tel'] ?? null);
+
         $member->fill($validated);
         $member->fill($this->matcher->match($validated['no_ic']));
+
+        if (in_array(auth()->user()->role, ['super_admin', 'admin'])) {
+            $admin = $request->validate([
+                'no_anggota'     => 'nullable|string|max:50',
+                'alamat'         => 'nullable|string|max:500',
+                'bangsa'         => 'nullable|string|max:50',
+                'jantina'        => 'nullable|in:LELAKI,PEREMPUAN',
+                'cabang'         => 'nullable|string|max:100',
+                'negeri'         => 'nullable|string|max:100',
+                'voter_color'    => 'nullable|in:putih,kelabu,hitam',
+                'status_kawasan' => 'nullable|in:dalam_kawasan,luar_kawasan,tiada_dppr',
+            ]);
+            $member->fill(array_filter($admin, fn ($v) => $v !== null));
+        }
+
         $member->save();
 
         return redirect()->back()->with('success', 'Ahli berjaya dikemaskini.');
+    }
+
+    private function normalizePhone(?string $phone): ?string
+    {
+        if ($phone === null || trim($phone) === '') {
+            return $phone;
+        }
+        if (! preg_match('/^[0+]/', $phone)) {
+            return '0'.$phone;
+        }
+
+        return $phone;
     }
 
     public function memberDestroy(Keanggotaan $member)

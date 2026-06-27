@@ -1,5 +1,5 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, useForm, router } from '@inertiajs/react';
+import { Head, useForm, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import { Plus, Search, RefreshCw, Pencil, Trash2, X, Eye, Download } from 'lucide-react';
 import useDragScroll from '@/Hooks/useDragScroll';
@@ -90,7 +90,7 @@ function ViewModal({ member, onClose }) {
         ['DUN (Padanan)', member.matched_kadun],
         ['Parlimen (Padanan)', member.matched_parlimen],
         ['Tahun Lahir', member.tahun_lahir],
-        ['Status Kawasan', member.status_kawasan === 'dalam_kawasan' ? 'Pengundi Dalam Kawasan' : member.status_kawasan === 'luar_kawasan' ? 'Pengundi Luar' : null],
+        ['Status Kawasan', member.status_kawasan === 'dalam_kawasan' ? 'Pengundi Dalam Kawasan' : member.status_kawasan === 'tiada_dppr' ? 'Tiada dalam DPPR/DPT' : member.status_kawasan === 'luar_kawasan' ? 'Pengundi Luar' : null],
         ['Sentimen', member.voter_color ? member.voter_color.charAt(0).toUpperCase() + member.voter_color.slice(1) : 'Belum Dicula'],
         ['Sayap', (member.wings && member.wings.length) ? member.wings.join(', ') : null],
         ['Status Anggota', STATUS_ANGGOTA[member.status_anggota]?.label || null],
@@ -120,7 +120,9 @@ function ViewModal({ member, onClose }) {
     );
 }
 
-function MemberModal({ member, onClose }) {
+function MemberModal({ member, onClose, parlimenList = [] }) {
+    const { auth } = usePage().props;
+    const isAdmin = ['super_admin', 'admin'].includes(auth.user.role);
     const isEdit = !!member;
     const { data, setData, post, put, processing, errors } = useForm({
         no_ic: member?.no_ic || '',
@@ -128,6 +130,15 @@ function MemberModal({ member, onClose }) {
         no_tel: member?.no_tel || '',
         status_anggota: member?.status_anggota || '',
         daftar_tanpa_pengetahuan: member?.daftar_tanpa_pengetahuan || false,
+        // Admin-only fields
+        no_anggota: member?.no_anggota || '',
+        alamat: member?.alamat || '',
+        bangsa: member?.bangsa || '',
+        jantina: member?.jantina || '',
+        cabang: member?.cabang || '',
+        negeri: member?.negeri || '',
+        voter_color: member?.voter_color || '',
+        status_kawasan: member?.status_kawasan || '',
     });
 
     const submit = (e) => {
@@ -139,7 +150,7 @@ function MemberModal({ member, onClose }) {
 
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-base font-semibold text-slate-900">{isEdit ? 'Kemaskini Ahli' : 'Tambah Ahli'}</h3>
                     <button onClick={onClose}><X className="h-5 w-5 text-slate-400" /></button>
@@ -171,7 +182,68 @@ function MemberModal({ member, onClose }) {
                         <input type="checkbox" checked={data.daftar_tanpa_pengetahuan} onChange={(e) => setData('daftar_tanpa_pengetahuan', e.target.checked)} className="rounded border-slate-400" />
                         Daftar Tanpa Pengetahuan
                     </label>
-                    <p className="text-xs text-slate-500">Umur, jantina, bangsa, kawasan & sentimen dikira automatik daripada No. IC.</p>
+
+                    {isAdmin && (
+                        <>
+                            <hr className="border-slate-200" />
+                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Maklumat Tambahan (Admin)</p>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">No. Anggota</label>
+                                <input value={data.no_anggota} onChange={(e) => setData('no_anggota', e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Bangsa</label>
+                                <input value={data.bangsa} onChange={(e) => setData('bangsa', e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" placeholder="Melayu / Cina / India / dll" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Jantina</label>
+                                <select value={data.jantina} onChange={(e) => setData('jantina', e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                                    <option value="">— Pilih —</option>
+                                    <option value="LELAKI">Lelaki</option>
+                                    <option value="PEREMPUAN">Perempuan</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Cabang (Parlimen)</label>
+                                {parlimenList.length > 0 ? (
+                                    <select value={data.cabang} onChange={(e) => setData('cabang', e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                                        <option value="">— Pilih —</option>
+                                        {parlimenList.map((p) => <option key={p} value={p}>{p}</option>)}
+                                    </select>
+                                ) : (
+                                    <input value={data.cabang} onChange={(e) => setData('cabang', e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                                )}
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Negeri</label>
+                                <input value={data.negeri} onChange={(e) => setData('negeri', e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Alamat</label>
+                                <textarea value={data.alamat} onChange={(e) => setData('alamat', e.target.value)} rows={2} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Sentimen (Warna Pengundi)</label>
+                                <select value={data.voter_color} onChange={(e) => setData('voter_color', e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                                    <option value="">— Belum Dicula —</option>
+                                    <option value="putih">Putih (Penyokong)</option>
+                                    <option value="kelabu">Kelabu (Atas Pagar)</option>
+                                    <option value="hitam">Hitam (Pembangkang)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Status Pengundi</label>
+                                <select value={data.status_kawasan} onChange={(e) => setData('status_kawasan', e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                                    <option value="">— Auto (daripada DPPR) —</option>
+                                    <option value="dalam_kawasan">Pengundi Dalam Kawasan</option>
+                                    <option value="luar_kawasan">Pengundi Luar</option>
+                                    <option value="tiada_dppr">Tiada dalam DPPR/DPT</option>
+                                </select>
+                            </div>
+                        </>
+                    )}
+
+                    {!isAdmin && <p className="text-xs text-slate-500">Umur, jantina, bangsa, kawasan & sentimen dikira automatik daripada No. IC.</p>}
                     <div className="flex justify-end gap-3 pt-2">
                         <button type="button" onClick={onClose} className="px-4 py-2 text-sm border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50">Batal</button>
                         <button type="submit" disabled={processing} className="px-4 py-2 text-sm bg-slate-900 text-white rounded-lg hover:bg-slate-800 disabled:opacity-50">Simpan</button>
@@ -248,6 +320,7 @@ export default function Senarai({ members, filters, parlimenList = [], flash }) 
                             <option value="">Semua</option>
                             <option value="dalam_kawasan">Pengundi Dalam Kawasan</option>
                             <option value="luar_kawasan">Pengundi Luar</option>
+                            <option value="tiada_dppr">Tiada dalam DPPR/DPT</option>
                         </select>
                     </div>
                     <div>
@@ -306,9 +379,11 @@ export default function Senarai({ members, filters, parlimenList = [], flash }) 
                                     <td className="py-3 px-3 whitespace-nowrap">
                                         {m.status_kawasan === 'dalam_kawasan'
                                             ? <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">Pengundi Dalam Kawasan</span>
-                                            : m.status_kawasan === 'luar_kawasan'
-                                                ? <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">Pengundi Luar</span>
-                                                : <span className="text-xs text-slate-400 italic">Belum Sync</span>}
+                                            : m.status_kawasan === 'tiada_dppr'
+                                                ? <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-700">Tiada DPPR/DPT</span>
+                                                : m.status_kawasan === 'luar_kawasan'
+                                                    ? <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">Pengundi Luar</span>
+                                                    : <span className="text-xs text-slate-400 italic">Belum Sync</span>}
                                     </td>
                                     <td className="py-3 px-3 whitespace-nowrap"><StatusAnggotaCell status={m.status_anggota} tanpaPengetahuan={m.daftar_tanpa_pengetahuan} /></td>
                                     <td className="py-3 px-3 text-slate-600 whitespace-nowrap">{m.matched_kadun || '-'}</td>
@@ -347,7 +422,7 @@ export default function Senarai({ members, filters, parlimenList = [], flash }) 
                 )}
             </div>
 
-            {modal && <MemberModal member={modal.id ? modal : null} onClose={() => setModal(null)} />}
+            {modal && <MemberModal member={modal.id ? modal : null} onClose={() => setModal(null)} parlimenList={parlimenList} />}
             {viewing && <ViewModal member={viewing} onClose={() => setViewing(null)} />}
         </AuthenticatedLayout>
     );

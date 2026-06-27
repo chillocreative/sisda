@@ -1,8 +1,8 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Modal from '@/Components/Modal';
 import SecondaryButton from '@/Components/SecondaryButton';
-import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { useState, useEffect } from 'react';
+import { Head, router, usePage } from '@inertiajs/react';
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import useDragScroll from '@/Hooks/useDragScroll';
 import {
@@ -13,8 +13,6 @@ import {
     Edit,
     Trash2,
     X,
-    Filter,
-    ChevronDown,
     Eye
 } from 'lucide-react';
 
@@ -22,7 +20,6 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
     const { auth } = usePage().props;
     const user = auth.user;
     const [selectedItems, setSelectedItems] = useState([]);
-    const [showFilters, setShowFilters] = useState(false);
     const [viewingItem, setViewingItem] = useState(null);
     const [viewHistory, setViewHistory] = useState([]);
     const [sumbanganHistory, setSumbanganHistory] = useState([]);
@@ -66,27 +63,34 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
 
     const ownItemsOnPage = dataPengundi.data.filter(canModifyRecord);
 
-    const { data, setData, get, processing } = useForm({
-        search: filters.search || '',
-        date_from: filters.date_from || '',
-        date_to: filters.date_to || '',
-    });
+    const [search, setSearch] = useState(filters.search || '');
+    const [dateFrom, setDateFrom] = useState(filters.date_from || '');
+    const [dateTo, setDateTo] = useState(filters.date_to || '');
+    const searchTimer = useRef(null);
 
-    const handleFilter = (e) => {
-        e.preventDefault();
-        get(route('reports.data-pengundi.index'), {
-            preserveState: true,
-            preserveScroll: true,
-        });
+    const handleSearchChange = (value) => {
+        setSearch(value);
+        clearTimeout(searchTimer.current);
+        searchTimer.current = setTimeout(() => {
+            router.get(route('reports.data-pengundi.index'), { search: value, date_from: dateFrom, date_to: dateTo }, { preserveState: true, preserveScroll: true });
+        }, 400);
+    };
+
+    const applyDateFilter = (from, to) => {
+        clearTimeout(searchTimer.current);
+        router.get(route('reports.data-pengundi.index'), { search, date_from: from, date_to: to }, { preserveState: true, preserveScroll: true });
+    };
+
+    const handleReset = () => {
+        clearTimeout(searchTimer.current);
+        setSearch('');
+        setDateFrom('');
+        setDateTo('');
+        router.visit(route('reports.data-pengundi.index'));
     };
 
     const handleExport = () => {
-        const params = new URLSearchParams({
-            search: data.search,
-            date_from: data.date_from,
-            date_to: data.date_to,
-        }).toString();
-
+        const params = new URLSearchParams({ search, date_from: dateFrom, date_to: dateTo }).toString();
         window.location.href = route('reports.data-pengundi.export') + '?' + params;
     };
 
@@ -157,89 +161,58 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
 
                 {/* Filters */}
                 <div className="bg-white rounded-xl border border-slate-200 p-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-semibold text-slate-900 flex items-center space-x-2">
-                            <Filter className="h-5 w-5" />
-                            <span>Penapis</span>
-                        </h3>
-                        <button
-                            onClick={() => setShowFilters(!showFilters)}
-                            className="text-sm text-slate-600 hover:text-slate-900 flex items-center space-x-1"
-                        >
-                            <span>{showFilters ? 'Sembunyikan' : 'Tunjukkan'}</span>
-                            <ChevronDown className={`h-4 w-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-                        </button>
+                    <h3 className="font-semibold text-slate-900 mb-4">Penapis</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Carian</label>
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                <input
+                                    type="text"
+                                    value={search}
+                                    onChange={(e) => handleSearchChange(e.target.value)}
+                                    placeholder="Nama, No. IC, No. Tel"
+                                    className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Tarikh Dari</label>
+                            <div className="relative">
+                                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                <input
+                                    type="date"
+                                    value={dateFrom}
+                                    onChange={(e) => { setDateFrom(e.target.value); applyDateFilter(e.target.value, dateTo); }}
+                                    className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Tarikh Hingga</label>
+                            <div className="relative">
+                                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                <input
+                                    type="date"
+                                    value={dateTo}
+                                    onChange={(e) => { setDateTo(e.target.value); applyDateFilter(dateFrom, e.target.value); }}
+                                    className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex items-end">
+                            <button
+                                type="button"
+                                onClick={handleReset}
+                                className="w-full px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                            >
+                                Reset
+                            </button>
+                        </div>
                     </div>
-
-                    {showFilters && (
-                        <form onSubmit={handleFilter} className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Carian
-                                </label>
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                    <input
-                                        type="text"
-                                        value={data.search}
-                                        onChange={(e) => setData('search', e.target.value)}
-                                        placeholder="Nama, No. IC, No. Tel"
-                                        className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Tarikh Dari
-                                </label>
-                                <div className="relative">
-                                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                    <input
-                                        type="date"
-                                        value={data.date_from}
-                                        onChange={(e) => setData('date_from', e.target.value)}
-                                        className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Tarikh Hingga
-                                </label>
-                                <div className="relative">
-                                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                    <input
-                                        type="date"
-                                        value={data.date_to}
-                                        onChange={(e) => setData('date_to', e.target.value)}
-                                        className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="flex items-end space-x-2">
-                                <button
-                                    type="submit"
-                                    disabled={processing}
-                                    className="flex-1 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50"
-                                >
-                                    Tapis
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setData({ search: '', date_from: '', date_to: '' });
-                                        router.visit(route('reports.data-pengundi.index'));
-                                    }}
-                                    className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
-                                >
-                                    Reset
-                                </button>
-                            </div>
-                        </form>
-                    )}
                 </div>
 
                 {/* Data Table */}

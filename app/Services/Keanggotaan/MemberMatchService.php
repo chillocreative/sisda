@@ -81,7 +81,7 @@ class MemberMatchService
             'voter_color' => null,
             'is_dicula' => false,
             'is_pendaftaran_baru' => false,
-            'status_kawasan' => 'luar_kawasan',
+            'status_kawasan' => 'tiada_dppr',
         ];
 
         if ($ic === '') {
@@ -157,7 +157,7 @@ class MemberMatchService
         $reset = [
             'matched_kadun = NULL', 'matched_parlimen = NULL', 'matched_negeri = NULL',
             'tahun_lahir = NULL', 'voter_color = NULL',
-            'is_dicula = 0', 'is_pendaftaran_baru = 0', "status_kawasan = 'luar_kawasan'",
+            'is_dicula = 0', 'is_pendaftaran_baru = 0', "status_kawasan = 'tiada_dppr'",
         ];
         if (! $keepFileFields) {
             $reset[] = 'bangsa = NULL';
