@@ -133,6 +133,14 @@ class DashboardController extends Controller
         $totalPengundi = $rollBase()->count();
         $kadunCount = $rollBase()->whereNotNull('kadun')->where('kadun', '!=', '')->distinct()->count('kadun');
         $totalCulaan = (clone $culaanQuery)->where('is_deceased', false)->count();
+
+        // MPKK count — filtered through the kadun → bandar hierarchy using real FKs.
+        $mpkkCount = Mpkk::query()
+            ->when($mpkkId, fn ($q) => $q->where('id', $mpkkId))
+            ->when(! $mpkkId && $kadunId, fn ($q) => $q->where('kadun_id', $kadunId))
+            ->when(! $mpkkId && ! $kadunId && $bandarId, fn ($q) => $q->whereHas('kadun', fn ($k) => $k->where('bandar_id', $bandarId)))
+            ->when(! $mpkkId && ! $kadunId && ! $bandarId && $negeriId, fn ($q) => $q->whereHas('kadun.bandar', fn ($b) => $b->where('negeri_id', $negeriId)))
+            ->count();
         $deceasedPengundi = (clone $pengundiQuery)->where('is_deceased', true)->count();
         $deceasedCulaan = (clone $culaanQuery)->where('is_deceased', true)->count();
 
@@ -443,6 +451,7 @@ class DashboardController extends Controller
         return Inertia::render('Dashboard/Index', [
             'totalPengundi' => $totalPengundi,
             'kadunCount' => $kadunCount,
+            'mpkkCount' => $mpkkCount,
             'totalCulaan' => $totalCulaan,
             'sokongan' => $sokongan,
             'bangsa' => $bangsa,

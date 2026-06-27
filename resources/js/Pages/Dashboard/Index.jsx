@@ -9,7 +9,8 @@ import {
     TrendingDown,
     MapPin,
     UserCheck,
-    Award
+    Award,
+    Building2
 } from 'lucide-react';
 import {
     PieChart,
@@ -32,6 +33,7 @@ export default function Dashboard({
     // (never placeholder figures) if a prop is missing.
     totalPengundi = 0,
     kadunCount = 0,
+    mpkkCount = 0,
     totalCulaan = 0,
     sokongan = {
         ph: 0,
@@ -313,6 +315,19 @@ export default function Dashboard({
                             </div>
                             <div className="p-3 bg-indigo-100 rounded-lg">
                                 <Award className="h-6 w-6 text-indigo-600" />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Bilangan MPKK */}
+                    <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-slate-600">Bilangan MPKK</p>
+                                <p className="text-3xl font-bold text-slate-900 mt-2">{mpkkCount.toLocaleString()}</p>
+                            </div>
+                            <div className="p-3 bg-teal-100 rounded-lg">
+                                <Building2 className="h-6 w-6 text-teal-600" />
                             </div>
                         </div>
                     </div>
