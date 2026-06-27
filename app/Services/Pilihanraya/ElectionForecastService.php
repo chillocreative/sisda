@@ -52,7 +52,7 @@ class ElectionForecastService
         $system = self::PERSONA
             .'Respond ONLY with a JSON object, no prose, matching exactly this schema: '
             .'{"ph_win_probability":0-100,"opposition_win_probability":0-100,"swing_probability":0-100,'
-            .'"risk_score":0-100,"expected_majority":int,"confidence":"rendah|sederhana|tinggi",'
+            .'"risk_score":0-100,"expected_majority":int (seat majority = PH_seats_won minus opposition_seats_won, e.g. +12 or -5; NOT vote counts),"confidence":"rendah|sederhana|tinggi",'
             .'"seat_projections":[{"kerusi":"string","jenis":"kadun","ph_probability":0-100,"kategori":"string","catatan":"string"}],'
             .'"narrative":"string"}. '
             .'ph_win_probability + opposition_win_probability must equal 100. '
@@ -323,7 +323,7 @@ class ElectionForecastService
             'opposition_win_probability' => round(100 - $ph, 1),
             'swing_probability' => round($clamp($json['swing_probability'] ?? 0), 1),
             'risk_score' => round($clamp($json['risk_score'] ?? 0), 1),
-            'expected_majority' => (int) ($json['expected_majority'] ?? 0),
+            'expected_majority' => max(-count($payload['kerusi']), min(count($payload['kerusi']), (int) ($json['expected_majority'] ?? 0))),
             'confidence' => $this->cleanConfidence($json['confidence'] ?? null),
             'seat_projections' => collect((array) ($json['seat_projections'] ?? []))
                 ->filter(fn ($s) => isset($s['kerusi']) && $validNames->has($s['kerusi']))
