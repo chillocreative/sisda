@@ -1,4 +1,4 @@
-import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, LabelList, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { CHART_COLORS } from '../theme';
 import { usePilihanrayaTheme } from './PilihanrayaShell';
 
@@ -21,8 +21,12 @@ export default function PopulationPyramid({ data, title = 'Piramid Penduduk (Umu
                     <YAxis type="category" dataKey="band" stroke={t.chartTick} style={{ fontSize: '11px' }} width={50} />
                     <Tooltip contentStyle={t.tooltip} formatter={(v, name) => [abs(v), name]} />
                     <Legend wrapperStyle={{ fontSize: '12px' }} />
-                    <Bar dataKey="lelaki" name="Lelaki" stackId="p" fill={CHART_COLORS.blue} radius={[4, 0, 0, 4]} />
-                    <Bar dataKey="perempuan" name="Perempuan" stackId="p" fill={CHART_COLORS.violet} radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="lelaki" name="Lelaki" stackId="p" fill={CHART_COLORS.blue} radius={[4, 0, 0, 4]}>
+                        <LabelList dataKey="lelaki" position="center" formatter={(v) => Math.abs(v).toLocaleString()} style={{ fill: '#ffffff', fontSize: '9px' }} />
+                    </Bar>
+                    <Bar dataKey="perempuan" name="Perempuan" stackId="p" fill={CHART_COLORS.violet} radius={[0, 4, 4, 0]}>
+                        <LabelList dataKey="perempuan" position="center" formatter={(v) => v.toLocaleString()} style={{ fill: '#ffffff', fontSize: '9px' }} />
+                    </Bar>
                 </BarChart>
             </ResponsiveContainer>
         </div>

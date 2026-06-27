@@ -3,9 +3,15 @@ import { CHART_COLORS } from '../theme';
 import { usePilihanrayaTheme } from './PilihanrayaShell';
 
 const COLOR_BY_KEY = {
-    putih: CHART_COLORS.putih,
-    hitam: CHART_COLORS.hitam,
+    putih: '#ffffff',
+    hitam: '#0f172a',
     kelabu: CHART_COLORS.kelabu,
+};
+
+const STROKE_BY_KEY = {
+    putih: '#1e293b',
+    hitam: '#f8fafc',
+    kelabu: 'none',
 };
 
 const RADIAN = Math.PI / 180;
@@ -42,7 +48,7 @@ export default function SentimentDonut({ data, title = 'Sentimen Politik', heigh
                         labelLine
                     >
                         {data.map((entry) => (
-                            <Cell key={entry.key} fill={COLOR_BY_KEY[entry.key] || CHART_COLORS.blue} />
+                            <Cell key={entry.key} fill={COLOR_BY_KEY[entry.key] ?? CHART_COLORS.blue} stroke={STROKE_BY_KEY[entry.key] ?? 'none'} strokeWidth={2} />
                         ))}
                     </Pie>
                     <Tooltip

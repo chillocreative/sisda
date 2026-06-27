@@ -228,9 +228,23 @@ function GambaranTab({ data }) {
 
 const RACE_COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#14b8a6', '#ef4444', '#6366f1'];
 const UMUR_COLORS = ['#f97316', '#eab308', '#22c55e', '#06b6d4', '#8b5cf6', '#ec4899', '#ef4444', '#0ea5e9'];
+const RADIAN = Math.PI / 180;
 
 function KomposisiTab({ data }) {
     const { t } = usePilihanrayaTheme();
+
+    const renderRaceLabel = ({ cx, cy, midAngle, outerRadius, percent }) => {
+        if (!percent || percent < 0.015) return null;
+        const sin = Math.sin(-RADIAN * midAngle);
+        const cos = Math.cos(-RADIAN * midAngle);
+        const x = cx + (outerRadius + 36) * cos;
+        const y = cy + (outerRadius + 36) * sin;
+        return (
+            <text x={x} y={y} textAnchor={cos >= 0 ? 'start' : 'end'} dominantBaseline="central" fontSize={11} fill={t.chartTick}>
+                {(percent * 100).toFixed(1)}%
+            </text>
+        );
+    };
 
     return (
         <div className="space-y-6">
@@ -256,9 +270,9 @@ function KomposisiTab({ data }) {
                 </div>
                 <div className={t.card}>
                     <h3 className={t.cardTitle}>Komposisi Bangsa (Daftar Pemilih)</h3>
-                    <ResponsiveContainer width="100%" height={300}>
+                    <ResponsiveContainer width="100%" height={320}>
                         <PieChart>
-                            <Pie data={data.race} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={2} dataKey="jumlah" nameKey="bangsa">
+                            <Pie data={data.race} cx="50%" cy="50%" outerRadius={100} dataKey="jumlah" nameKey="bangsa" label={renderRaceLabel} labelLine>
                                 {data.race.map((entry, i) => (
                                     <Cell key={entry.bangsa} fill={RACE_COLORS[i % RACE_COLORS.length]} />
                                 ))}
@@ -280,9 +294,15 @@ function KomposisiTab({ data }) {
                             <YAxis stroke={t.chartTick} style={{ fontSize: '11px' }} />
                             <Tooltip contentStyle={t.tooltip} />
                             <Legend wrapperStyle={{ fontSize: '12px' }} />
-                            <Bar dataKey="putih" name="Putih" stackId="a" fill={CHART_COLORS.putih} />
-                            <Bar dataKey="kelabu" name="Kelabu" stackId="a" fill={CHART_COLORS.kelabu} />
-                            <Bar dataKey="hitam" name="Hitam" stackId="a" fill={CHART_COLORS.hitam} radius={[8, 8, 0, 0]} />
+                            <Bar dataKey="putih" name="Putih" stackId="a" fill="#f8fafc" stroke="#cbd5e1" strokeWidth={1}>
+                                <LabelList dataKey="putih" position="center" formatter={(v) => v || ''} style={{ fill: '#475569', fontSize: '9px', fontWeight: '600' }} />
+                            </Bar>
+                            <Bar dataKey="kelabu" name="Kelabu" stackId="a" fill={CHART_COLORS.kelabu}>
+                                <LabelList dataKey="kelabu" position="center" formatter={(v) => v || ''} style={{ fill: '#1e293b', fontSize: '9px', fontWeight: '600' }} />
+                            </Bar>
+                            <Bar dataKey="hitam" name="Hitam" stackId="a" fill="#0f172a" radius={[8, 8, 0, 0]}>
+                                <LabelList dataKey="hitam" position="center" formatter={(v) => v || ''} style={{ fill: '#f8fafc', fontSize: '9px', fontWeight: '600' }} />
+                            </Bar>
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
