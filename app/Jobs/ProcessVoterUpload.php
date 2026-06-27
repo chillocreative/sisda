@@ -39,6 +39,16 @@ class ProcessVoterUpload implements ShouldQueue
         if ($zip->open($zipFilePath) !== true) {
             throw new \Exception('Tidak dapat membuka fail ZIP.');
         }
+
+        // Guard against ZIP slip (path traversal in entry names)
+        for ($i = 0; $i < $zip->count(); $i++) {
+            $name = $zip->getNameIndex($i);
+            if ($name === false) continue;
+            if (str_contains($name, '..') || str_starts_with($name, '/') || str_starts_with($name, '\\')) {
+                $zip->close();
+                throw new \Exception('ZIP fail mengandungi laluan tidak sah.');
+            }
+        }
         $zip->extractTo($tempDir);
         $zip->close();
 

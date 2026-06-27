@@ -157,7 +157,7 @@ class ReportsController extends Controller
             ->groupBy('no_ic')
             ->pluck('id');
 
-        $query = HasilCulaan::whereIn('id', $latestIds);
+        $query = HasilCulaan::whereIn('id', $latestIds)->limit(10000);
 
         return Excel::download(new HasilCulaanExport($query), 'hasil-culaan-' . date('Y-m-d') . '.xlsx');
     }
@@ -1034,7 +1034,7 @@ class ReportsController extends Controller
             });
         }
 
-        return Excel::download(new DataPengundiExport($query), 'data-pengundi-' . date('Y-m-d') . '.xlsx');
+        return Excel::download(new DataPengundiExport($query->limit(10000)), 'data-pengundi-' . date('Y-m-d') . '.xlsx');
     }
 
     /**

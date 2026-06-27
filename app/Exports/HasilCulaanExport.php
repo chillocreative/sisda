@@ -55,15 +55,23 @@ class HasilCulaanExport implements FromCollection, WithHeadings, WithMapping
         ];
     }
 
+    private static function safe(mixed $v): mixed
+    {
+        if (is_string($v) && $v !== '' && in_array($v[0], ['=', '+', '-', '@'], true)) {
+            return "\t" . $v;
+        }
+        return $v;
+    }
+
     public function map($hasilCulaan): array
     {
         return [
-            $hasilCulaan->nama,
+            self::safe($hasilCulaan->nama),
             $hasilCulaan->no_ic,
             $hasilCulaan->umur,
             $hasilCulaan->no_tel,
-            $hasilCulaan->bangsa,
-            $hasilCulaan->alamat,
+            self::safe($hasilCulaan->bangsa),
+            self::safe($hasilCulaan->alamat),
             $hasilCulaan->poskod,
             $hasilCulaan->negeri,
             $hasilCulaan->bandar,

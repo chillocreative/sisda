@@ -418,7 +418,7 @@ class KeanggotaanController extends Controller
 
         $setting = KeanggotaanSetting::current();
         $year = (int) date('Y');
-        $members = $query->orderByDesc('id')->get()->map(fn ($m) => $this->attachWings($m, $setting, $year));
+        $members = $query->orderByDesc('id')->limit(10000)->get()->map(fn ($m) => $this->attachWings($m, $setting, $year));
 
         $wingColors = ['AMK' => '#2563eb', 'Srikandi' => '#db2777', 'Wanita' => '#9333ea'];
         $sentimen = ['putih' => ['Putih', '#10b981'], 'kelabu' => ['Kelabu', '#94a3b8'], 'hitam' => ['Hitam', '#0f172a']];

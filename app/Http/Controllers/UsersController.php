@@ -99,6 +99,8 @@ class UsersController extends Controller
     {
         $currentUser = auth()->user();
 
+        abort_unless($currentUser->isSuperAdmin() || $currentUser->isAdmin(), 403);
+
         $request->validate([
             'name' => 'required|string|max:255',
             'telephone' => 'required|string|max:255|unique:'.User::class,
@@ -161,6 +163,8 @@ class UsersController extends Controller
     {
         $currentUser = auth()->user();
 
+        abort_unless($currentUser->isSuperAdmin() || $currentUser->isAdmin(), 403);
+
         // Admin Restriction: Cannot edit Super Admin or user outside their Parlimen
         if ($currentUser->isAdmin()) {
             if ($user->role === 'super_admin') {
@@ -210,6 +214,8 @@ class UsersController extends Controller
     {
         $currentUser = auth()->user();
 
+        abort_unless($currentUser->isSuperAdmin() || $currentUser->isAdmin(), 403);
+
         // Prevent deleting yourself
         if ($user->id === auth()->id()) {
             return redirect()->route('users.index')->with('error', 'Anda tidak boleh memadam akaun sendiri');
@@ -236,6 +242,8 @@ class UsersController extends Controller
     public function bulkDelete(Request $request)
     {
         $currentUser = auth()->user();
+
+        abort_unless($currentUser->isSuperAdmin() || $currentUser->isAdmin(), 403);
 
         $validated = $request->validate([
             'ids' => 'required|array',

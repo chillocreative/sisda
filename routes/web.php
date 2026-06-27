@@ -194,7 +194,7 @@ Route::middleware('auth')->group(function () {
 
     // Postcode Search
     Route::get('/api/postcodes/search', [\App\Http\Controllers\ReportsController::class, 'searchPostcode'])->name('api.postcodes.search');
-    Route::get('/api/postcodes/search-details', [\App\Http\Controllers\ReportsController::class, 'searchPostcodeWithDetails'])->name('api.postcodes.search-details');
+    Route::get('/api/postcodes/search-details', [\App\Http\Controllers\ReportsController::class, 'searchPostcodeWithDetails'])->name('api.postcodes.search-details')->middleware('throttle:60,1');
     Route::get('/api/kadun/by-bandar', [\App\Http\Controllers\ReportsController::class, 'getKadunByBandar'])->name('api.kadun.by-bandar');
     Route::get('/api/daerah-mengundi/by-bandar', [\App\Http\Controllers\ReportsController::class, 'getDaerahMengundiByBandar'])->name('api.daerah-mengundi.by-bandar');
     Route::get('/api/parlimen/by-negeri', [\App\Http\Controllers\ReportsController::class, 'getParlimenByNegeri'])->name('api.parlimen.by-negeri');
@@ -204,12 +204,12 @@ Route::middleware('auth')->group(function () {
 
     // Upload Database (Super Admin only)
     Route::get('/upload-database', [\App\Http\Controllers\UploadDatabaseController::class, 'index'])->name('upload-database.index');
-    Route::post('/upload-database', [\App\Http\Controllers\UploadDatabaseController::class, 'store'])->name('upload-database.store');
+    Route::post('/upload-database', [\App\Http\Controllers\UploadDatabaseController::class, 'store'])->name('upload-database.store')->middleware('throttle:3,60');
     Route::post('/upload-database/set-active', [\App\Http\Controllers\UploadDatabaseController::class, 'setActive'])->name('upload-database.set-active');
     Route::post('/upload-database/{batch}/cancel', [\App\Http\Controllers\UploadDatabaseController::class, 'cancel'])->name('upload-database.cancel');
     Route::delete('/upload-database/{batch}', [\App\Http\Controllers\UploadDatabaseController::class, 'destroy'])->name('upload-database.destroy');
-    Route::get('/api/voter/search-ic', [\App\Http\Controllers\UploadDatabaseController::class, 'searchByIc'])->name('api.voter.search-ic');
-    Route::get('/api/voter/suggest-ic', [\App\Http\Controllers\UploadDatabaseController::class, 'suggestIc'])->name('api.voter.suggest-ic');
+    Route::get('/api/voter/search-ic', [\App\Http\Controllers\UploadDatabaseController::class, 'searchByIc'])->name('api.voter.search-ic')->middleware('throttle:30,1');
+    Route::get('/api/voter/suggest-ic', [\App\Http\Controllers\UploadDatabaseController::class, 'suggestIc'])->name('api.voter.suggest-ic')->middleware('throttle:30,1');
 
     // Utility: run pending database migrations. Only reachable while
     // authenticated. Hit once after a deploy that ships a new migration
@@ -325,35 +325,37 @@ Route::middleware('auth')->group(function () {
     });
 });
 
-// Sendora Settings (super_admin only)
-Route::get('/settings/sendora', [\App\Http\Controllers\SendoraSettingController::class, 'index'])->name('settings.sendora');
-Route::post('/settings/sendora', [\App\Http\Controllers\SendoraSettingController::class, 'update'])->name('settings.sendora.update');
-Route::post('/settings/sendora/test-connection', [\App\Http\Controllers\SendoraSettingController::class, 'testConnection'])->name('settings.sendora.test');
-Route::post('/settings/sendora/test-send', [\App\Http\Controllers\SendoraSettingController::class, 'testSend'])->name('settings.sendora.test-send');
+// Settings, DPT Upload, Edit History — super_admin only (previously missing auth middleware)
+Route::middleware(['auth', 'super_admin'])->group(function () {
+    // Sendora Settings
+    Route::get('/settings/sendora', [\App\Http\Controllers\SendoraSettingController::class, 'index'])->name('settings.sendora');
+    Route::post('/settings/sendora', [\App\Http\Controllers\SendoraSettingController::class, 'update'])->name('settings.sendora.update');
+    Route::post('/settings/sendora/test-connection', [\App\Http\Controllers\SendoraSettingController::class, 'testConnection'])->name('settings.sendora.test');
+    Route::post('/settings/sendora/test-send', [\App\Http\Controllers\SendoraSettingController::class, 'testSend'])->name('settings.sendora.test-send');
 
-// Edit History
-Route::get('/api/edit-history', function (\Illuminate\Http\Request $request) {
-    return \App\Models\EditHistory::where('model_type', $request->model_type)
-        ->where('model_id', $request->model_id)
-        ->with('user:id,name')
-        ->orderBy('created_at', 'desc')
-        ->get();
-})->name('api.edit-history');
-Route::delete('/edit-history/{editHistory}', [\App\Http\Controllers\ReportsController::class, 'deleteHistory'])->name('edit-history.destroy');
+    // Edit History
+    Route::get('/api/edit-history', function (\Illuminate\Http\Request $request) {
+        return \App\Models\EditHistory::where('model_type', $request->model_type)
+            ->where('model_id', $request->model_id)
+            ->with('user:id,name')
+            ->orderBy('created_at', 'desc')
+            ->get();
+    })->name('api.edit-history');
+    Route::delete('/edit-history/{editHistory}', [\App\Http\Controllers\ReportsController::class, 'deleteHistory'])->name('edit-history.destroy');
 
-// DPT Upload (super_admin only)
-Route::get('/dpt-upload', [\App\Http\Controllers\DptUploadController::class, 'index'])->name('dpt-upload.index');
-Route::post('/dpt-upload', [\App\Http\Controllers\DptUploadController::class, 'upload'])->name('dpt-upload.upload');
-Route::get('/debug-dpt', [\App\Http\Controllers\DptUploadController::class, 'debug'])->name('dpt-upload.debug');
-Route::delete('/dpt-upload/{dptUpload}', [\App\Http\Controllers\DptUploadController::class, 'destroy'])->name('dpt-upload.destroy');
+    // DPT Upload
+    Route::get('/dpt-upload', [\App\Http\Controllers\DptUploadController::class, 'index'])->name('dpt-upload.index');
+    Route::post('/dpt-upload', [\App\Http\Controllers\DptUploadController::class, 'upload'])->name('dpt-upload.upload');
+    Route::delete('/dpt-upload/{dptUpload}', [\App\Http\Controllers\DptUploadController::class, 'destroy'])->name('dpt-upload.destroy');
 
-// Claude AI Settings (super_admin only)
-Route::get('/settings/claude', [\App\Http\Controllers\ClaudeSettingController::class, 'index'])->name('settings.claude');
-Route::post('/settings/claude', [\App\Http\Controllers\ClaudeSettingController::class, 'update'])->name('settings.claude.update');
-Route::post('/settings/claude/test-connection', [\App\Http\Controllers\ClaudeSettingController::class, 'testConnection'])->name('settings.claude.test');
+    // Claude AI Settings
+    Route::get('/settings/claude', [\App\Http\Controllers\ClaudeSettingController::class, 'index'])->name('settings.claude');
+    Route::post('/settings/claude', [\App\Http\Controllers\ClaudeSettingController::class, 'update'])->name('settings.claude.update');
+    Route::post('/settings/claude/test-connection', [\App\Http\Controllers\ClaudeSettingController::class, 'testConnection'])->name('settings.claude.test');
 
-// AI Activity Log — token usage & cost (super_admin only)
-Route::get('/settings/ai-usage', [\App\Http\Controllers\AiUsageLogController::class, 'index'])->name('settings.ai-usage');
+    // AI Activity Log — token usage & cost
+    Route::get('/settings/ai-usage', [\App\Http\Controllers\AiUsageLogController::class, 'index'])->name('settings.ai-usage');
+});
 
 // User Log (super_admin only — audit + Claude-powered anomaly alerts)
 Route::middleware(['auth', 'super_admin'])->group(function () {
@@ -390,10 +392,10 @@ Route::middleware(['auth', 'super_admin'])->prefix('pilihanraya')->name('pilihan
 
     // Simulation Center
     Route::get('/api/baseline', [\App\Http\Controllers\PilihanrayaController::class, 'baseline'])->name('api.baseline');
-    Route::post('/api/forecast', [\App\Http\Controllers\PilihanrayaController::class, 'runForecast'])->name('api.forecast');
-    Route::post('/api/war-game', [\App\Http\Controllers\PilihanrayaController::class, 'warGame'])->name('api.war-game');
-    Route::post('/api/resources', [\App\Http\Controllers\PilihanrayaController::class, 'resources'])->name('api.resources');
-    Route::post('/api/briefing', [\App\Http\Controllers\PilihanrayaController::class, 'briefing'])->name('api.briefing');
+    Route::post('/api/forecast', [\App\Http\Controllers\PilihanrayaController::class, 'runForecast'])->name('api.forecast')->middleware('throttle:5,1');
+    Route::post('/api/war-game', [\App\Http\Controllers\PilihanrayaController::class, 'warGame'])->name('api.war-game')->middleware('throttle:5,1');
+    Route::post('/api/resources', [\App\Http\Controllers\PilihanrayaController::class, 'resources'])->name('api.resources')->middleware('throttle:5,1');
+    Route::post('/api/briefing', [\App\Http\Controllers\PilihanrayaController::class, 'briefing'])->name('api.briefing')->middleware('throttle:5,1');
 
     // Briefing exports (POST — the rendered briefing JSON travels in the body)
     Route::post('/briefing/export/excel', [\App\Http\Controllers\PilihanrayaController::class, 'exportBriefingExcel'])->name('briefing.export.excel');

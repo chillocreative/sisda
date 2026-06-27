@@ -44,11 +44,19 @@ class DataPengundiExport implements FromQuery, WithHeadings, WithMapping
         ];
     }
 
+    private static function safe(mixed $v): mixed
+    {
+        if (is_string($v) && $v !== '' && in_array($v[0], ['=', '+', '-', '@'], true)) {
+            return "\t" . $v;
+        }
+        return $v;
+    }
+
     public function map($dataPengundi): array
     {
         return [
             $dataPengundi->id,
-            $dataPengundi->nama,
+            self::safe($dataPengundi->nama),
             $dataPengundi->no_ic,
             $dataPengundi->umur,
             $dataPengundi->no_tel,
