@@ -140,9 +140,10 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
 
                 <Card title={filters.dun ? `Jantina Ahli — DUN ${filters.dun}` : 'Jantina Ahli'}>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
-                        <ResponsiveContainer width="100%" height={240}>
+                        <ResponsiveContainer width="100%" height={260}>
                             <PieChart>
-                                <Pie data={jantinaData} cx="50%" cy="50%" outerRadius={95} dataKey="value" nameKey="name">
+                                <Pie data={jantinaData} cx="50%" cy="50%" outerRadius={95} dataKey="value" nameKey="name"
+                                    label={makePieLabel(jantinaData.reduce((s, d) => s + d.value, 0))} labelLine>
                                     {jantinaData.map((e) => <Cell key={e.name} fill={e.fill} />)}
                                 </Pie>
                                 <Tooltip formatter={(v) => v.toLocaleString()} />
