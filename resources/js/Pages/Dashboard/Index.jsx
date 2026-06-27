@@ -418,7 +418,7 @@ export default function Dashboard({
                     <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
                         <h3 className="text-lg font-semibold text-slate-900 mb-4">Trend Pengumpulan Data Bulanan</h3>
                         <ResponsiveContainer width="100%" height={300}>
-                            <LineChart data={trendBulanan} margin={{ top: 24, left: 10 }}>
+                            <LineChart data={trendBulanan} margin={{ top: 24, left: 10, right: 30 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                                 <XAxis dataKey="bulan" stroke="#64748b" />
                                 <YAxis stroke="#64748b" width={70} tickFormatter={(v) => v.toLocaleString()} />
