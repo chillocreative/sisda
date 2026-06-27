@@ -71,7 +71,7 @@ export default function Dashboard({
     // Prepare chart data
     const kecenderunganData = [
         { name: 'PH/BN', value: sokongan.ph, color: '#dc2626' },
-        { name: 'BN/PN', value: sokongan.bn, color: '#f59e0b' },
+        { name: 'BN/PN', value: sokongan.bn, color: '#003153' },
         { name: 'Tidak Pasti', value: sokongan.tidakPasti, color: '#94a3b8' },
     ];
 
@@ -272,10 +272,10 @@ export default function Dashboard({
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm font-medium text-slate-600">Sokongan BN/PN</p>
-                                <p className="text-3xl font-bold text-amber-600 mt-2">{sokongan.bn}%</p>
+                                <p className="text-3xl font-bold mt-2" style={{ color: '#003153' }}>{sokongan.bn}%</p>
                             </div>
-                            <div className="p-3 bg-amber-100 rounded-lg">
-                                <TrendingDown className="h-6 w-6 text-amber-600" />
+                            <div className="p-3 rounded-lg" style={{ backgroundColor: '#00315320' }}>
+                                <TrendingDown className="h-6 w-6" style={{ color: '#003153' }} />
                             </div>
                         </div>
                     </div>
@@ -465,7 +465,7 @@ export default function Dashboard({
                             <Tooltip />
                             <Legend />
                             <Bar dataKey="PH/BN" stackId="a" fill="#dc2626" radius={[0, 0, 0, 0]} />
-                            <Bar dataKey="BN/PN" stackId="a" fill="#f59e0b" radius={[0, 0, 0, 0]} />
+                            <Bar dataKey="BN/PN" stackId="a" fill="#003153" radius={[0, 0, 0, 0]} />
                             <Bar dataKey="Tidak Pasti" stackId="a" fill="#94a3b8" radius={[8, 8, 0, 0]} />
                         </BarChart>
                     </ResponsiveContainer>
@@ -497,7 +497,7 @@ export default function Dashboard({
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.pengundi.toLocaleString()}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.culaan.toLocaleString()}</td>
                                             <td className="py-3 px-4 text-sm text-red-600 font-medium">{item.ph}%</td>
-                                            <td className="py-3 px-4 text-sm text-amber-600 font-medium">{item.bn}%</td>
+                                            <td className="py-3 px-4 text-sm font-medium" style={{ color: '#003153' }}>{item.bn}%</td>
                                             <td className="py-3 px-4 text-sm text-slate-600 font-medium">{item.tidakPasti}%</td>
                                         </tr>
                                     ))}
