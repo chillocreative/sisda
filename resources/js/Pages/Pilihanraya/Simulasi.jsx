@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Head } from '@inertiajs/react';
 import axios from 'axios';
 import {
-    BrainCircuit, Crosshair, FileText, Loader2, Megaphone, Scale, Sparkles, SlidersHorizontal, Swords,
+    BrainCircuit, Crosshair, Download, FileText, Loader2, Megaphone, Scale, Sparkles, SlidersHorizontal, Swords,
 } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { EMPTY_FILTERS, cleanParams } from './filters';
@@ -100,7 +100,18 @@ function RamalanTab({ filters, latestForecast }) {
 
                     {result.narrative && (
                         <div className={t.card}>
-                            <h3 className={t.cardTitle}>Analisis Strategik</h3>
+                            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                                <h3 className={`text-lg font-semibold ${t.text}`}>Analisis Strategik</h3>
+                                <a
+                                    href={route('pilihanraya.forecast.pdf')}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={t.buttonSecondary}
+                                >
+                                    <Download className="h-4 w-4" />
+                                    Muat Turun PDF
+                                </a>
+                            </div>
                             <p className={`${t.subtext} text-sm whitespace-pre-line`}>{result.narrative}</p>
                         </div>
                     )}

@@ -402,6 +402,9 @@ Route::middleware(['auth', 'super_admin'])->prefix('pilihanraya')->name('pilihan
     // User manual PDF (GET)
     Route::get('/manual/simulasi', [\App\Http\Controllers\PilihanrayaController::class, 'manualSimulasi'])->name('manual.simulasi');
 
+    // Forecast analysis PDF report
+    Route::get('/simulasi/forecast-pdf', [\App\Http\Controllers\PilihanrayaController::class, 'forecastPdf'])->name('pilihanraya.forecast.pdf');
+
     // Jawatankuasa Pilihanraya (JPRC/JPRD/AJK Cabang/Wanita/AMK) tracking
     Route::get('/jawatankuasa', [\App\Http\Controllers\KeanggotaanJawatankuasaController::class, 'index'])->name('jawatankuasa.index');
     Route::get('/jawatankuasa/export', [\App\Http\Controllers\KeanggotaanJawatankuasaController::class, 'export'])->name('jawatankuasa.export');

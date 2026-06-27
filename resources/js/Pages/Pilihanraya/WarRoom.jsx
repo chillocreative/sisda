@@ -2,7 +2,7 @@ import { useEffect, useReducer, useRef, useState } from 'react';
 import { Head } from '@inertiajs/react';
 import axios from 'axios';
 import {
-    Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart,
+    Bar, BarChart, CartesianGrid, Cell, LabelList, Legend, Pie, PieChart,
     ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
 import {
@@ -226,7 +226,8 @@ function GambaranTab({ data }) {
     );
 }
 
-const RACE_COLORS = [CHART_COLORS.putih, CHART_COLORS.blue, CHART_COLORS.amber, CHART_COLORS.kelabu];
+const RACE_COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#14b8a6', '#ef4444', '#6366f1'];
+const UMUR_COLORS = ['#f97316', '#eab308', '#22c55e', '#06b6d4', '#8b5cf6', '#ec4899', '#ef4444', '#0ea5e9'];
 
 function KomposisiTab({ data }) {
     const { t } = usePilihanrayaTheme();
@@ -240,12 +241,15 @@ function KomposisiTab({ data }) {
                         <p className={`${t.subtext} text-sm py-12 text-center`}>Tiada pangkalan data pengundi aktif.</p>
                     ) : (
                         <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={data.ageBands}>
+                            <BarChart data={data.ageBands} margin={{ top: 24, left: 10 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke={t.chartGrid} vertical={false} />
                                 <XAxis dataKey="band" stroke={t.chartTick} style={{ fontSize: '11px' }} />
-                                <YAxis stroke={t.chartTick} style={{ fontSize: '11px' }} />
+                                <YAxis stroke={t.chartTick} style={{ fontSize: '11px' }} width={65} tickFormatter={(v) => v.toLocaleString()} />
                                 <Tooltip contentStyle={t.tooltip} formatter={(v) => v.toLocaleString()} />
-                                <Bar dataKey="jumlah" name="Pengundi" fill={CHART_COLORS.blue} radius={[8, 8, 0, 0]} />
+                                <Bar dataKey="jumlah" name="Pengundi" radius={[8, 8, 0, 0]}>
+                                    {data.ageBands.map((_, i) => <Cell key={i} fill={UMUR_COLORS[i % UMUR_COLORS.length]} />)}
+                                    <LabelList dataKey="jumlah" position="top" style={{ fontSize: '10px', fill: t.chartTick }} formatter={(v) => v.toLocaleString()} />
+                                </Bar>
                             </BarChart>
                         </ResponsiveContainer>
                     )}

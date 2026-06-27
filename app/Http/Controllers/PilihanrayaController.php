@@ -226,4 +226,22 @@ class PilihanrayaController extends Controller
 
         return $pdf->download('manual-pusat-simulasi-pilihanraya.pdf');
     }
+
+    public function forecastPdf()
+    {
+        $latest = $this->forecast->latestForecast();
+
+        abort_if(! $latest, 404, 'Tiada ramalan dijana lagi. Jana ramalan dahulu di Pusat Simulasi.');
+
+        $pdf = Pdf::loadView('pdf.forecast', [
+            'result'       => $latest->result ?? [],
+            'generated_at' => $latest->created_at->format('d/m/Y H:i'),
+            'status'       => $latest->status ?? 'ai',
+            'scope'        => $latest->scope_name ?? 'Keseluruhan',
+        ])
+            ->setPaper('a4', 'portrait')
+            ->setOptions(['isHtml5ParserEnabled' => true, 'isRemoteEnabled' => false, 'defaultFont' => 'DejaVu Sans']);
+
+        return $pdf->download('analisis-strategik-' . now()->format('Y-m-d') . '.pdf');
+    }
 }

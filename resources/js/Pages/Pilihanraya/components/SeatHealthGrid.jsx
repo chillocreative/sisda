@@ -23,21 +23,26 @@ export default function SeatHealthGrid({ parlimenRows, kadunRows }) {
         return acc;
     }, {});
 
-    const chip = (seat) => (
-        <div
-            key={seat.name}
-            className="rounded-lg px-3 py-2 text-xs font-medium"
-            style={{
-                backgroundColor: `${seat.category_color}1f`,
-                border: `1px solid ${seat.category_color}66`,
-                color: seat.category_color,
-            }}
-            title={`Skor ${seat.score} — ${seat.category}${seat.low_data ? ' (data nipis)' : ''} | Liputan ${seat.coverage_pct}%`}
-        >
-            <div className="font-semibold">{seat.name}</div>
-            <div className="opacity-80">Skor {seat.score} · {seat.coverage_pct}% liputan{seat.low_data ? ' *' : ''}</div>
-        </div>
-    );
+    const chip = (seat) => {
+        const color = seat.low_data ? '#94a3b8' : seat.category_color;
+        return (
+            <div
+                key={seat.name}
+                className="rounded-lg px-3 py-2 text-xs font-medium"
+                style={{
+                    backgroundColor: `${color}22`,
+                    border: `1px solid ${color}55`,
+                    color,
+                }}
+                title={`Skor ${seat.score} — ${seat.category}${seat.low_data ? ' (data nipis)' : ''} | Liputan ${seat.coverage_pct}%`}
+            >
+                <div className="font-semibold">{seat.name}</div>
+                <div className="opacity-80">
+                    {seat.low_data ? 'Data nipis' : `Skor ${seat.score}`} · {seat.coverage_pct}% liputan
+                </div>
+            </div>
+        );
+    };
 
     return (
         <div className="space-y-6">
@@ -62,7 +67,11 @@ export default function SeatHealthGrid({ parlimenRows, kadunRows }) {
                         <h3 className={`text-base font-semibold ${t.text}`}>Parlimen {parlimen.name}</h3>
                         <span
                             className={t.badge}
-                            style={{ backgroundColor: `${parlimen.category_color}26`, color: parlimen.category_color, border: `1px solid ${parlimen.category_color}66` }}
+                            style={{
+                                backgroundColor: `${parlimen.low_data ? '#94a3b8' : parlimen.category_color}26`,
+                                color: parlimen.low_data ? '#94a3b8' : parlimen.category_color,
+                                border: `1px solid ${parlimen.low_data ? '#94a3b8' : parlimen.category_color}66`,
+                            }}
                         >
                             Skor {parlimen.score} — {parlimen.category}
                         </span>

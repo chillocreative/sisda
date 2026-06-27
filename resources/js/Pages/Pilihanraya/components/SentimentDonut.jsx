@@ -8,9 +8,24 @@ const COLOR_BY_KEY = {
     kelabu: CHART_COLORS.kelabu,
 };
 
-export default function SentimentDonut({ data, title = 'Sentimen Politik', height = 300 }) {
+const RADIAN = Math.PI / 180;
+
+export default function SentimentDonut({ data, title = 'Sentimen Politik', height = 320 }) {
     const { t } = usePilihanrayaTheme();
     const total = data.reduce((sum, d) => sum + d.value, 0);
+
+    const renderLabel = ({ cx, cy, midAngle, outerRadius, value }) => {
+        if (!value || total === 0) return null;
+        const sin = Math.sin(-RADIAN * midAngle);
+        const cos = Math.cos(-RADIAN * midAngle);
+        const x = cx + (outerRadius + 32) * cos;
+        const y = cy + (outerRadius + 32) * sin;
+        return (
+            <text x={x} y={y} textAnchor={cos >= 0 ? 'start' : 'end'} dominantBaseline="central" fontSize={11} fill={t.chartTick}>
+                {((value / total) * 100).toFixed(1)}%
+            </text>
+        );
+    };
 
     return (
         <div className={t.card}>
@@ -21,10 +36,10 @@ export default function SentimentDonut({ data, title = 'Sentimen Politik', heigh
                         data={data}
                         cx="50%"
                         cy="50%"
-                        innerRadius={60}
-                        outerRadius={100}
-                        paddingAngle={2}
+                        outerRadius={95}
                         dataKey="value"
+                        label={renderLabel}
+                        labelLine
                     >
                         {data.map((entry) => (
                             <Cell key={entry.key} fill={COLOR_BY_KEY[entry.key] || CHART_COLORS.blue} />

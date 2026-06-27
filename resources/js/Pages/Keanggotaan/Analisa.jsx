@@ -5,6 +5,22 @@ import { Users, MapPin, UserX, Crosshair } from 'lucide-react';
 import KeanggotaanNav from './Nav';
 
 const COLORS = { putih: '#10b981', hitam: '#0f172a', kelabu: '#94a3b8', belum_dicula: '#cbd5e1' };
+const UMUR_COLORS = ['#f97316', '#eab308', '#22c55e', '#06b6d4', '#8b5cf6', '#ec4899', '#ef4444', '#0ea5e9'];
+const RADIAN = Math.PI / 180;
+function makePieLabel(total) {
+    return ({ cx, cy, midAngle, outerRadius, value }) => {
+        if (!value || total === 0) return null;
+        const sin = Math.sin(-RADIAN * midAngle);
+        const cos = Math.cos(-RADIAN * midAngle);
+        const x = cx + (outerRadius + 36) * cos;
+        const y = cy + (outerRadius + 36) * sin;
+        return (
+            <text x={x} y={y} textAnchor={cos >= 0 ? 'start' : 'end'} dominantBaseline="central" fontSize={11} fill="#475569">
+                {((value / total) * 100).toFixed(1)}%
+            </text>
+        );
+    };
+}
 
 function Kpi({ label, value, sub, icon: Icon, color = 'text-slate-900' }) {
     return (
@@ -219,12 +235,15 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <Card title="Taburan Umur Ahli">
                         <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={ageBands}>
+                            <BarChart data={ageBands} margin={{ top: 24, left: 10 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                 <XAxis dataKey="band" style={{ fontSize: '11px' }} />
-                                <YAxis style={{ fontSize: '11px' }} />
+                                <YAxis style={{ fontSize: '11px' }} width={60} tickFormatter={(v) => v.toLocaleString()} />
                                 <Tooltip formatter={(v) => v.toLocaleString()} />
-                                <Bar dataKey="jumlah" name="Ahli" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+                                <Bar dataKey="jumlah" name="Ahli" radius={[8, 8, 0, 0]}>
+                                    {ageBands.map((_, i) => <Cell key={i} fill={UMUR_COLORS[i % UMUR_COLORS.length]} />)}
+                                    <LabelList dataKey="jumlah" position="top" style={{ fontSize: '11px', fill: '#475569' }} formatter={(v) => v.toLocaleString()} />
+                                </Bar>
                             </BarChart>
                         </ResponsiveContainer>
                     </Card>
@@ -232,9 +251,10 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
                         {(summary.dalam_kawasan + summary.luar_kawasan) === 0 ? (
                             <p className="text-sm text-slate-500 py-24 text-center">Belum disync dengan DPT / DPPR.<br />Tekan "Sync Semula" di Senarai Ahli untuk padankan.</p>
                         ) : (
-                            <ResponsiveContainer width="100%" height={300}>
+                            <ResponsiveContainer width="100%" height={320}>
                                 <PieChart>
-                                    <Pie data={kawasanPie} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={2} dataKey="value" nameKey="name">
+                                    <Pie data={kawasanPie} cx="50%" cy="50%" outerRadius={95} dataKey="value" nameKey="name"
+                                        label={makePieLabel(summary.dalam_kawasan + summary.luar_kawasan)} labelLine>
                                         {kawasanPie.map((e) => <Cell key={e.name} fill={e.fill} />)}
                                     </Pie>
                                     <Tooltip formatter={(v) => v.toLocaleString()} />
@@ -260,9 +280,10 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
                         )}
                     </Card>
                     <Card title="Sentimen Ahli (Culaan)">
-                        <ResponsiveContainer width="100%" height={300}>
+                        <ResponsiveContainer width="100%" height={320}>
                             <PieChart>
-                                <Pie data={colorPie} cx="50%" cy="50%" outerRadius={100} dataKey="value" nameKey="name">
+                                <Pie data={colorPie} cx="50%" cy="50%" outerRadius={95} dataKey="value" nameKey="name"
+                                    label={makePieLabel(colorPie.reduce((s, d) => s + d.value, 0))} labelLine>
                                     {colorPie.map((e) => <Cell key={e.name} fill={e.fill} />)}
                                 </Pie>
                                 <Tooltip formatter={(v) => v.toLocaleString()} />
@@ -293,13 +314,16 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
 
                 <Card title="Ahli Mengikut DUN">
                     {byDun.length === 0 ? <p className="text-sm text-slate-500 py-12 text-center">Tiada data padanan DUN.</p> : (
-                        <ResponsiveContainer width="100%" height={Math.max(260, byDun.length * 28)}>
-                            <BarChart data={byDun} layout="vertical" margin={{ left: 60 }}>
+                        <ResponsiveContainer width="100%" height={Math.max(260, byDun.length * 32)}>
+                            <BarChart data={byDun} layout="vertical" margin={{ left: 60, right: 60 }}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                                <XAxis type="number" style={{ fontSize: '11px' }} />
+                                <XAxis type="number" style={{ fontSize: '11px' }} tickFormatter={(v) => v.toLocaleString()} />
                                 <YAxis type="category" dataKey="nama" width={160} style={{ fontSize: '10px' }} />
                                 <Tooltip formatter={(v) => v.toLocaleString()} />
-                                <Bar dataKey="jumlah" name="Ahli" fill="#10b981" radius={[0, 6, 6, 0]} />
+                                <Bar dataKey="jumlah" name="Ahli" radius={[0, 6, 6, 0]}>
+                                    {byDun.map((_, i) => <Cell key={i} fill={UMUR_COLORS[i % UMUR_COLORS.length]} />)}
+                                    <LabelList dataKey="jumlah" position="right" style={{ fontSize: '11px', fill: '#475569' }} formatter={(v) => v.toLocaleString()} />
+                                </Bar>
                             </BarChart>
                         </ResponsiveContainer>
                     )}
