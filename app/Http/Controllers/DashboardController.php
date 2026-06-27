@@ -421,10 +421,12 @@ class DashboardController extends Controller
         // ---- Jawatankuasa (committee) summary + per-jenis, counted by DISTINCT
         // PERSON (one person may hold several positions / sit on JPRC + JPRD). ----
         $jkRows = KeanggotaanJawatankuasa::query()
+            ->when($negeriNama, fn ($q) => $q->whereRaw('UPPER(matched_negeri) = ?', [strtoupper($negeriNama)]))
             ->when($bandarNama, fn ($q) => $q->where(function ($w) use ($bandarNama) {
                 $u = strtoupper($bandarNama);
                 $w->whereRaw('UPPER(cabang) = ?', [$u])->orWhereRaw('UPPER(matched_parlimen) = ?', [$u]);
             }))
+            ->when($kadunNama, fn ($q) => $q->whereRaw('UPPER(matched_kadun) = ?', [strtoupper($kadunNama)]))
             ->get(['no_ic', 'nama', 'jenis']);
 
         $jkAll = [];

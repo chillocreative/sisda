@@ -25,7 +25,8 @@ import {
     Tooltip,
     Legend,
     ResponsiveContainer,
-    Cell
+    Cell,
+    LabelList,
 } from 'recharts';
 
 export default function Dashboard({
@@ -379,12 +380,17 @@ export default function Dashboard({
                     <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
                         <h3 className="text-lg font-semibold text-slate-900 mb-4">Taburan Bangsa</h3>
                         <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={bangsaData}>
+                            <BarChart data={bangsaData} margin={{ top: 24 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                                 <XAxis dataKey="name" stroke="#64748b" />
                                 <YAxis stroke="#64748b" />
                                 <Tooltip />
-                                <Bar dataKey="jumlah" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+                                <Bar dataKey="jumlah" radius={[8, 8, 0, 0]}>
+                                    <LabelList dataKey="jumlah" position="top" formatter={(v) => v.toLocaleString()} style={{ fontSize: 12, fontWeight: 600, fill: '#374151' }} />
+                                    {bangsaData.map((_, i) => (
+                                        <Cell key={i} fill={UMUR_COLORS[i % UMUR_COLORS.length]} />
+                                    ))}
+                                </Bar>
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
@@ -462,12 +468,17 @@ export default function Dashboard({
                             <p className="text-sm text-slate-500 py-24 text-center">Tiada data jawatankuasa.</p>
                         ) : (
                             <ResponsiveContainer width="100%" height={300}>
-                                <BarChart data={jawatankuasa.jenis}>
+                                <BarChart data={jawatankuasa.jenis} margin={{ top: 24 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                                     <XAxis dataKey="name" stroke="#64748b" />
                                     <YAxis stroke="#64748b" />
                                     <Tooltip formatter={(v) => v.toLocaleString()} />
-                                    <Bar dataKey="jumlah" fill="#4f46e5" radius={[8, 8, 0, 0]} />
+                                    <Bar dataKey="jumlah" radius={[8, 8, 0, 0]}>
+                                        <LabelList dataKey="jumlah" position="top" formatter={(v) => v.toLocaleString()} style={{ fontSize: 12, fontWeight: 600, fill: '#374151' }} />
+                                        {jawatankuasa.jenis.map((_, i) => (
+                                            <Cell key={i} fill={UMUR_COLORS[i % UMUR_COLORS.length]} />
+                                        ))}
+                                    </Bar>
                                 </BarChart>
                             </ResponsiveContainer>
                         )}
