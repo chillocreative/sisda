@@ -496,16 +496,18 @@ class ElectionAnalyticsService
             $overview = $this->overview($f);
 
             // Weekly trend over raw canvass records (not deduped — history
-            // should reflect what was recorded each week). Geo filters
-            // only; the 12-week window is fixed.
-            [$unionSql, $unionBindings] = $this->canvassUnionSql($f, false);
+            // should reflect what was recorded each week). Respects user
+            // date filters; defaults to last 12 weeks when none are set.
+            [$unionSql, $unionBindings] = $this->canvassUnionSql($f, true);
+            $hasDateFilter = ! empty($f['tarikh_dari']) || ! empty($f['tarikh_hingga']);
+            $outerWhere    = $hasDateFilter ? '' : 'WHERE c.created_at >= DATE_SUB(NOW(), INTERVAL 12 WEEK)';
             $trendRows = DB::select("
                 SELECT YEARWEEK(c.created_at, 3) AS minggu,
                        MIN(DATE(c.created_at)) AS tarikh,
                        COUNT(*) AS jumlah,
                        {$this->colorSumsSql()}
                   FROM ({$unionSql}) c
-                 WHERE c.created_at >= DATE_SUB(NOW(), INTERVAL 12 WEEK)
+                 {$outerWhere}
                  GROUP BY minggu
                  ORDER BY minggu
             ", $unionBindings);
