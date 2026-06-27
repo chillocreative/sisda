@@ -58,6 +58,18 @@ class KeanggotaanController extends Controller
             ->distinct()->orderBy('cabang')->pluck('cabang')->all();
     }
 
+    private function dunList(): array
+    {
+        return Keanggotaan::whereNotNull('matched_kadun')->where('matched_kadun', '!=', '')
+            ->distinct()->orderBy('matched_kadun')->pluck('matched_kadun')->all();
+    }
+
+    private function bangsaList(): array
+    {
+        return Keanggotaan::whereNotNull('bangsa')->where('bangsa', '!=', '')
+            ->distinct()->orderBy('bangsa')->pluck('bangsa')->all();
+    }
+
     public function index()
     {
         return Inertia::render('Keanggotaan/Index', [
@@ -328,8 +340,10 @@ class KeanggotaanController extends Controller
 
         return Inertia::render('Keanggotaan/Senarai', [
             'members' => $members,
-            'filters' => $request->only(['search', 'status_kawasan', 'parlimen', 'sentimen', 'sayap']),
+            'filters' => $request->only(['search', 'status_kawasan', 'parlimen', 'dun', 'bangsa', 'jantina', 'status_anggota', 'sentimen', 'sayap']),
             'parlimenList' => $this->parlimenList(),
+            'dunList' => $this->dunList(),
+            'bangsaList' => $this->bangsaList(),
             'flash' => ['success' => session('success'), 'error' => session('error')],
         ]);
     }
@@ -347,6 +361,18 @@ class KeanggotaanController extends Controller
         }
         if ($parlimen = $request->input('parlimen')) {
             $query->where('cabang', $parlimen);
+        }
+        if ($dun = $request->input('dun')) {
+            $query->where('matched_kadun', $dun);
+        }
+        if ($bangsa = $request->input('bangsa')) {
+            $query->where('bangsa', $bangsa);
+        }
+        if (in_array($request->input('jantina'), ['LELAKI', 'PEREMPUAN'], true)) {
+            $query->whereRaw('UPPER(jantina) = ?', [$request->input('jantina')]);
+        }
+        if (in_array($request->input('status_anggota'), ['aktif', 'tidak_aktif'], true)) {
+            $query->where('status_anggota', $request->input('status_anggota'));
         }
 
         // Sentimen = latest voter colour (or "belum dicula" when none yet).
@@ -427,6 +453,18 @@ class KeanggotaanController extends Controller
                 'tiada_dppr'    => 'Tiada dalam DPPR/DPT',
                 default         => $v,
             }];
+        }
+        if ($v = $request->input('dun')) {
+            $filters[] = ['label' => 'DUN', 'value' => $v];
+        }
+        if ($v = $request->input('bangsa')) {
+            $filters[] = ['label' => 'Bangsa', 'value' => $v];
+        }
+        if ($v = $request->input('jantina')) {
+            $filters[] = ['label' => 'Jantina', 'value' => ucfirst(strtolower($v))];
+        }
+        if ($v = $request->input('status_anggota')) {
+            $filters[] = ['label' => 'Status Anggota', 'value' => $v === 'aktif' ? 'Aktif' : 'Tidak Aktif'];
         }
         if ($v = $request->input('sentimen')) {
             $filters[] = ['label' => 'Sentimen', 'value' => ucfirst(str_replace('_', ' ', $v))];

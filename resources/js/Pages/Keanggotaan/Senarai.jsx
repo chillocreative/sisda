@@ -254,13 +254,13 @@ function MemberModal({ member, onClose, parlimenList = [] }) {
     );
 }
 
-export default function Senarai({ members, filters, parlimenList = [], flash }) {
+export default function Senarai({ members, filters, parlimenList = [], dunList = [], bangsaList = [], flash }) {
     const [search, setSearch] = useState(filters.search || '');
     const [modal, setModal] = useState(null);
     const [viewing, setViewing] = useState(null);
     const scrollRef = useDragScroll();
 
-    const baseParams = { search, status_kawasan: filters.status_kawasan, parlimen: filters.parlimen, sentimen: filters.sentimen, sayap: filters.sayap };
+    const baseParams = { search, status_kawasan: filters.status_kawasan, parlimen: filters.parlimen, dun: filters.dun, bangsa: filters.bangsa, jantina: filters.jantina, status_anggota: filters.status_anggota, sentimen: filters.sentimen, sayap: filters.sayap };
     const exportParams = Object.fromEntries(Object.entries(baseParams).filter(([, v]) => v));
 
     const applyFilters = (extra = {}) => {
@@ -315,6 +315,13 @@ export default function Senarai({ members, filters, parlimenList = [], flash }) 
                         </select>
                     </div>
                     <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">DUN</label>
+                        <select value={filters.dun || ''} onChange={(e) => applyFilters({ dun: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                            <option value="">Semua DUN</option>
+                            {dunList.map((d) => <option key={d} value={d}>{d}</option>)}
+                        </select>
+                    </div>
+                    <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Status Kawasan</label>
                         <select value={filters.status_kawasan || ''} onChange={(e) => applyFilters({ status_kawasan: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
                             <option value="">Semua</option>
@@ -340,6 +347,29 @@ export default function Senarai({ members, filters, parlimenList = [], flash }) 
                             <option value="AMK">AMK</option>
                             <option value="Srikandi">Srikandi</option>
                             <option value="Wanita">Wanita</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Bangsa</label>
+                        <select value={filters.bangsa || ''} onChange={(e) => applyFilters({ bangsa: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                            <option value="">Semua Bangsa</option>
+                            {bangsaList.map((b) => <option key={b} value={b}>{b}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Jantina</label>
+                        <select value={filters.jantina || ''} onChange={(e) => applyFilters({ jantina: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                            <option value="">Semua</option>
+                            <option value="LELAKI">Lelaki</option>
+                            <option value="PEREMPUAN">Perempuan</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Status Anggota</label>
+                        <select value={filters.status_anggota || ''} onChange={(e) => applyFilters({ status_anggota: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                            <option value="">Semua</option>
+                            <option value="aktif">Aktif</option>
+                            <option value="tidak_aktif">Tidak Aktif</option>
                         </select>
                     </div>
                 </div>
