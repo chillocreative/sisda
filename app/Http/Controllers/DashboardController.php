@@ -229,8 +229,11 @@ class DashboardController extends Controller
                 $phCount = (clone $canvass)->where('kecenderungan_politik', 'like', '%PH/BN%')->count();
                 $bnCount = (clone $canvass)->where('kecenderungan_politik', 'like', '%BN/PN%')->count();
                 $tidakPastiCount = (clone $canvass)->where('kecenderungan_politik', 'like', '%TIDAK PASTI%')->count();
-                $culaanCount = (clone $culaanQuery)->whereRaw('UPPER(kadun) = ?', [strtoupper((string) $kadunName)])
+                $hasilCulaanCount = (clone $culaanQuery)->whereRaw('UPPER(kadun) = ?', [strtoupper((string) $kadunName)])
                     ->where('is_deceased', false)->count();
+                // Total rekod = data_pengundi + hasil_culaan, matching the same
+                // metric used in Petugas Teraktif "Jumlah Rekod".
+                $culaanCount = $canvassTotal + $hasilCulaanCount;
 
                 return [
                     'mpkk' => $kadunName,

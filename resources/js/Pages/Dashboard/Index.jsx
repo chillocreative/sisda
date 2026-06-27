@@ -462,7 +462,7 @@ export default function Dashboard({
                                     <tr>
                                         <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">MPKK</th>
                                         <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Pengundi</th>
-                                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Culaan</th>
+                                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Rekod</th>
                                         <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">PH/BN</th>
                                         <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">BN/PN</th>
                                         <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Tidak Pasti</th>
