@@ -244,103 +244,116 @@ class DashboardController extends Controller
             ->toArray();
 
         // Top Petugas (using filtered queries)
-        // Build filter conditions for subqueries
+        // Separate param arrays so each subquery's ?-bindings are sequential,
+        // not interleaved — interleaving breaks binding order with 2+ filters.
         $pengundiFilterConditions = '';
         $culaanFilterConditions = '';
-        $filterParams = [];
+        $pengundiFilterParams = [];
+        $culaanFilterParams = [];
 
         if (! $user->isSuperAdmin()) {
             if ($user->negeri_id) {
                 $pengundiFilterConditions .= ' AND negeri = ?';
                 $culaanFilterConditions .= ' AND negeri = ?';
-                $filterParams[] = $user->negeri->nama ?? '';
-                $filterParams[] = $user->negeri->nama ?? '';
+                $pengundiFilterParams[] = $user->negeri->nama ?? '';
+                $culaanFilterParams[] = $user->negeri->nama ?? '';
             }
             if ($user->bandar_id) {
                 $pengundiFilterConditions .= ' AND bandar = ?';
                 $culaanFilterConditions .= ' AND bandar = ?';
-                $filterParams[] = $user->bandar->nama ?? '';
-                $filterParams[] = $user->bandar->nama ?? '';
+                $pengundiFilterParams[] = $user->bandar->nama ?? '';
+                $culaanFilterParams[] = $user->bandar->nama ?? '';
             }
             if ($user->kadun_id) {
                 $pengundiFilterConditions .= ' AND kadun = ?';
                 $culaanFilterConditions .= ' AND kadun = ?';
-                $filterParams[] = $user->kadun->nama ?? '';
-                $filterParams[] = $user->kadun->nama ?? '';
+                $pengundiFilterParams[] = $user->kadun->nama ?? '';
+                $culaanFilterParams[] = $user->kadun->nama ?? '';
             }
         }
 
         if ($negeriNama) {
             $pengundiFilterConditions .= ' AND negeri = ?';
             $culaanFilterConditions .= ' AND negeri = ?';
-            $filterParams[] = $negeriNama;
-            $filterParams[] = $negeriNama;
+            $pengundiFilterParams[] = $negeriNama;
+            $culaanFilterParams[] = $negeriNama;
         }
         if ($bandarNama) {
             $pengundiFilterConditions .= ' AND bandar = ?';
             $culaanFilterConditions .= ' AND bandar = ?';
-            $filterParams[] = $bandarNama;
-            $filterParams[] = $bandarNama;
+            $pengundiFilterParams[] = $bandarNama;
+            $culaanFilterParams[] = $bandarNama;
         }
         if ($kadunNama) {
             $pengundiFilterConditions .= ' AND kadun = ?';
             $culaanFilterConditions .= ' AND kadun = ?';
-            $filterParams[] = $kadunNama;
-            $filterParams[] = $kadunNama;
+            $pengundiFilterParams[] = $kadunNama;
+            $culaanFilterParams[] = $kadunNama;
         }
         if ($tarikhDari) {
             $pengundiFilterConditions .= ' AND DATE(created_at) >= ?';
             $culaanFilterConditions .= ' AND DATE(created_at) >= ?';
-            $filterParams[] = $tarikhDari;
-            $filterParams[] = $tarikhDari;
+            $pengundiFilterParams[] = $tarikhDari;
+            $culaanFilterParams[] = $tarikhDari;
         }
         if ($tarikhHingga) {
             $pengundiFilterConditions .= ' AND DATE(created_at) <= ?';
             $culaanFilterConditions .= ' AND DATE(created_at) <= ?';
-            $filterParams[] = $tarikhHingga;
-            $filterParams[] = $tarikhHingga;
+            $pengundiFilterParams[] = $tarikhHingga;
+            $culaanFilterParams[] = $tarikhHingga;
         }
 
         $petugasStats = User::select('users.*')
-            ->selectRaw("(SELECT COUNT(*) FROM data_pengundi WHERE submitted_by = users.id {$pengundiFilterConditions}) as pengundi_count", $filterParams)
-            ->selectRaw("(SELECT COUNT(*) FROM hasil_culaan WHERE submitted_by = users.id {$culaanFilterConditions}) as culaan_count")
+            ->selectRaw("(SELECT COUNT(*) FROM data_pengundi WHERE submitted_by = users.id {$pengundiFilterConditions}) as pengundi_count", $pengundiFilterParams)
+            ->selectRaw("(SELECT COUNT(*) FROM hasil_culaan WHERE submitted_by = users.id {$culaanFilterConditions}) as culaan_count", $culaanFilterParams)
             ->havingRaw('(pengundi_count + culaan_count) > 0')
             ->orderByRaw('(pengundi_count + culaan_count) DESC')
             ->take(5)
             ->get()
             ->map(function ($petugasUser) use ($negeriNama, $bandarNama, $kadunNama, $tarikhDari, $tarikhHingga, $user) {
-                // Get latest record with same filters
-                $latestRecordQuery = DataPengundi::where('submitted_by', $petugasUser->id);
-
-                if (! $user->isSuperAdmin()) {
-                    if ($user->negeri_id) {
-                        $latestRecordQuery->where('negeri', $user->negeri->nama ?? '');
+                // Shared filter closure for both tables
+                $applyFilters = function ($q) use ($negeriNama, $bandarNama, $kadunNama, $tarikhDari, $tarikhHingga, $user) {
+                    if (! $user->isSuperAdmin()) {
+                        if ($user->negeri_id) {
+                            $q->where('negeri', $user->negeri->nama ?? '');
+                        }
+                        if ($user->bandar_id) {
+                            $q->where('bandar', $user->bandar->nama ?? '');
+                        }
+                        if ($user->kadun_id) {
+                            $q->where('kadun', $user->kadun->nama ?? '');
+                        }
                     }
-                    if ($user->bandar_id) {
-                        $latestRecordQuery->where('bandar', $user->bandar->nama ?? '');
+                    if ($negeriNama) {
+                        $q->where('negeri', $negeriNama);
                     }
-                    if ($user->kadun_id) {
-                        $latestRecordQuery->where('kadun', $user->kadun->nama ?? '');
+                    if ($bandarNama) {
+                        $q->where('bandar', $bandarNama);
                     }
-                }
+                    if ($kadunNama) {
+                        $q->where('kadun', $kadunNama);
+                    }
+                    if ($tarikhDari) {
+                        $q->whereDate('created_at', '>=', $tarikhDari);
+                    }
+                    if ($tarikhHingga) {
+                        $q->whereDate('created_at', '<=', $tarikhHingga);
+                    }
 
-                if ($negeriNama) {
-                    $latestRecordQuery->where('negeri', $negeriNama);
-                }
-                if ($bandarNama) {
-                    $latestRecordQuery->where('bandar', $bandarNama);
-                }
-                if ($kadunNama) {
-                    $latestRecordQuery->where('kadun', $kadunNama);
-                }
-                if ($tarikhDari) {
-                    $latestRecordQuery->whereDate('created_at', '>=', $tarikhDari);
-                }
-                if ($tarikhHingga) {
-                    $latestRecordQuery->whereDate('created_at', '<=', $tarikhHingga);
-                }
+                    return $q;
+                };
 
-                $latestRecord = $latestRecordQuery->latest()->first();
+                // Latest record from either data_pengundi or hasil_culaan —
+                // previously only data_pengundi was checked, so petugas who
+                // only enter culaan would always show kawasan = N/A.
+                $latestDP = $applyFilters(DataPengundi::where('submitted_by', $petugasUser->id))->latest()->first();
+                $latestHC = $applyFilters(HasilCulaan::where('submitted_by', $petugasUser->id))->latest()->first();
+
+                if ($latestDP && $latestHC) {
+                    $latestRecord = $latestDP->created_at >= $latestHC->created_at ? $latestDP : $latestHC;
+                } else {
+                    $latestRecord = $latestDP ?? $latestHC;
+                }
 
                 return [
                     'nama' => $petugasUser->name,

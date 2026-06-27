@@ -1,0 +1,86 @@
+name: Deploy to cPanel
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install npm dependencies and build frontend
+        run: npm ci && npm run build
+
+      - name: Deploy PHP code via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            cd /home/chilloc1/sistemdatapengundi.com/
+
+            # 0. Clear old build assets before pulling new code
+            echo "Clearing old build assets..."
+            rm -rf public/build/assets/*.js
+            rm -rf public/build/assets/*.css
+            rm -rf public/build/.vite
+
+            # 1. Pull latest code
+            echo "Pulling latest code..."
+            git fetch origin
+            git reset --hard origin/main
+
+            # 2. Install PHP dependencies
+            echo "Installing PHP dependencies..."
+            if command -v composer &> /dev/null; then
+                composer install --no-dev --optimize-autoloader --no-interaction
+            fi
+
+            # 3. Fix permissions
+            chmod -R 775 storage bootstrap/cache
+
+            # 4. Clear all Laravel caches
+            if [ -f "artisan" ]; then
+                php artisan optimize:clear
+                php artisan cache:clear
+                php artisan config:clear
+                php artisan route:clear
+                php artisan view:clear
+
+                # 5. Run migrations
+                php artisan migrate --force --no-interaction
+
+                # 6. Re-cache for production
+                php artisan config:cache
+                php artisan route:cache
+                php artisan view:cache
+            fi
+
+            echo "PHP deployment done — uploading frontend assets next..."
+
+      - name: Upload built frontend assets via SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          source: "public/build/"
+          target: "/home/chilloc1/sistemdatapengundi.com/"
+          overwrite: true
+
+      - name: Deployment complete
+        run: echo "SISDA deployed successfully!"
