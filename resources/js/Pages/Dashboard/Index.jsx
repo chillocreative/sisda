@@ -70,7 +70,7 @@ export default function Dashboard({
 
     // Prepare chart data
     const kecenderunganData = [
-        { name: 'PH/BN', value: sokongan.ph, color: '#10b981' },
+        { name: 'PH/BN', value: sokongan.ph, color: '#dc2626' },
         { name: 'BN/PN', value: sokongan.bn, color: '#f59e0b' },
         { name: 'Tidak Pasti', value: sokongan.tidakPasti, color: '#94a3b8' },
     ];
@@ -259,10 +259,10 @@ export default function Dashboard({
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm font-medium text-slate-600">Sokongan PH/BN</p>
-                                <p className="text-3xl font-bold text-emerald-600 mt-2">{sokongan.ph}%</p>
+                                <p className="text-3xl font-bold text-red-600 mt-2">{sokongan.ph}%</p>
                             </div>
-                            <div className="p-3 bg-emerald-100 rounded-lg">
-                                <TrendingUp className="h-6 w-6 text-emerald-600" />
+                            <div className="p-3 bg-red-100 rounded-lg">
+                                <TrendingUp className="h-6 w-6 text-red-600" />
                             </div>
                         </div>
                     </div>
@@ -456,7 +456,7 @@ export default function Dashboard({
 
                 {/* Sokongan Politik Mengikut MPKK - Stacked Bar */}
                 <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-                    <h3 className="text-lg font-semibold text-slate-900 mb-4">Sokongan Politik Mengikut MPKK</h3>
+                    <h3 className="text-lg font-semibold text-slate-900 mb-4">Sokongan Politik Mengikut DUN</h3>
                     <ResponsiveContainer width="100%" height={350}>
                         <BarChart data={sokonganMpkkData}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -464,7 +464,7 @@ export default function Dashboard({
                             <YAxis stroke="#64748b" />
                             <Tooltip />
                             <Legend />
-                            <Bar dataKey="PH/BN" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} />
+                            <Bar dataKey="PH/BN" stackId="a" fill="#dc2626" radius={[0, 0, 0, 0]} />
                             <Bar dataKey="BN/PN" stackId="a" fill="#f59e0b" radius={[0, 0, 0, 0]} />
                             <Bar dataKey="Tidak Pasti" stackId="a" fill="#94a3b8" radius={[8, 8, 0, 0]} />
                         </BarChart>
@@ -496,7 +496,7 @@ export default function Dashboard({
                                             <td className="py-3 px-4 text-sm font-medium text-slate-900">{item.mpkk}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.pengundi.toLocaleString()}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.culaan.toLocaleString()}</td>
-                                            <td className="py-3 px-4 text-sm text-emerald-600 font-medium">{item.ph}%</td>
+                                            <td className="py-3 px-4 text-sm text-red-600 font-medium">{item.ph}%</td>
                                             <td className="py-3 px-4 text-sm text-amber-600 font-medium">{item.bn}%</td>
                                             <td className="py-3 px-4 text-sm text-slate-600 font-medium">{item.tidakPasti}%</td>
                                         </tr>
