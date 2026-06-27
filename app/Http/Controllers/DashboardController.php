@@ -144,19 +144,19 @@ class DashboardController extends Controller
         $deceasedPengundi = (clone $pengundiQuery)->where('is_deceased', true)->count();
         $deceasedCulaan = (clone $culaanQuery)->where('is_deceased', true)->count();
 
-        // Create filtered query for political tendency
-        $tendencyQuery = clone $pengundiQuery;
-        $totalWithTendency = $tendencyQuery->whereNotNull('kecenderungan_politik')
+        // Political tendency — exclude deceased voters from all counts.
+        // Match the FULL coalition pairing: "PAKATAN HARAPAN (PH/BN)",
+        // "BARISAN NASIONAL (BN/PN)", "TIDAK PASTI". A naive LIKE '%BN%'
+        // would also catch "(PH/BN)" and double-count PH supporters as BN/PN.
+        $totalWithTendency = (clone $pengundiQuery)->where('is_deceased', false)
+            ->whereNotNull('kecenderungan_politik')
             ->where('kecenderungan_politik', '!=', '')
             ->count();
-
-        // Political tendency percentages. Match the FULL coalition pairing —
-        // the values are "PAKATAN HARAPAN (PH/BN)", "BARISAN NASIONAL (BN/PN)"
-        // and "TIDAK PASTI". A naive LIKE '%BN%' would also catch "(PH/BN)" and
-        // double-count PH supporters as BN/PN.
-        $phCount = (clone $pengundiQuery)->where('kecenderungan_politik', 'like', '%PH/BN%')->count();
-        $bnCount = (clone $pengundiQuery)->where('kecenderungan_politik', 'like', '%BN/PN%')->count();
-        $tidakPastiCount = (clone $pengundiQuery)
+        $phCount = (clone $pengundiQuery)->where('is_deceased', false)
+            ->where('kecenderungan_politik', 'like', '%PH/BN%')->count();
+        $bnCount = (clone $pengundiQuery)->where('is_deceased', false)
+            ->where('kecenderungan_politik', 'like', '%BN/PN%')->count();
+        $tidakPastiCount = (clone $pengundiQuery)->where('is_deceased', false)
             ->where(function ($q) {
                 $q->where('kecenderungan_politik', 'like', '%TIDAK PASTI%')
                     ->orWhere('kecenderungan_politik', 'like', '%ATAS PAGAR%');
@@ -167,6 +167,10 @@ class DashboardController extends Controller
             'ph' => $totalWithTendency > 0 ? round(($phCount / $totalWithTendency) * 100) : 0,
             'bn' => $totalWithTendency > 0 ? round(($bnCount / $totalWithTendency) * 100) : 0,
             'tidakPasti' => $totalWithTendency > 0 ? round(($tidakPastiCount / $totalWithTendency) * 100) : 0,
+            'phCount' => $phCount,
+            'bnCount' => $bnCount,
+            'tidakPastiCount' => $tidakPastiCount,
+            'total' => $totalWithTendency,
         ];
 
         // Bangsa distribution from the voter roll (case-insensitive buckets;

@@ -68,12 +68,26 @@ export default function Dashboard({
         tarikhHingga: ''
     });
 
-    // Prepare chart data
+    // Prepare chart data — use raw counts so pie slices are exact, not rounded %.
     const kecenderunganData = [
-        { name: 'PH/BN', value: sokongan.ph, color: '#dc2626' },
-        { name: 'BN/PN', value: sokongan.bn, color: '#003153' },
-        { name: 'Tidak Pasti', value: sokongan.tidakPasti, color: '#94a3b8' },
+        { name: 'PH/BN', value: sokongan.phCount ?? 0, color: '#dc2626' },
+        { name: 'BN/PN', value: sokongan.bnCount ?? 0, color: '#003153' },
+        { name: 'Tidak Pasti', value: sokongan.tidakPastiCount ?? 0, color: '#94a3b8' },
     ];
+    const kecenderunganTotal = sokongan.total || 1;
+    const renderPieLabel = ({ cx, cy, midAngle, outerRadius, value }) => {
+        if (!value) return null;
+        const RADIAN = Math.PI / 180;
+        const radius = outerRadius + 36;
+        const x = cx + radius * Math.cos(-midAngle * RADIAN);
+        const y = cy + radius * Math.sin(-midAngle * RADIAN);
+        const pct = ((value / kecenderunganTotal) * 100).toFixed(1);
+        return (
+            <text x={x} y={y} fill="#374151" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize={12} fontWeight={600}>
+                {pct}%
+            </text>
+        );
+    };
 
     const bangsaData = [
         { name: 'Melayu', jumlah: bangsa.melayu },
@@ -88,6 +102,8 @@ export default function Dashboard({
         'BN/PN': item.bn,
         'Tidak Pasti': item.tidakPasti
     }));
+
+    const UMUR_COLORS = ['#f97316', '#eab308', '#22c55e', '#06b6d4', '#8b5cf6', '#ec4899', '#ef4444', '#0ea5e9'];
 
     const COLORS = {
         primary: '#10b981',
@@ -335,7 +351,7 @@ export default function Dashboard({
 
                 {/* Charts Section */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Kecenderungan Politik - Donut Chart */}
+                    {/* Kecenderungan Politik - Pie Chart */}
                     <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
                         <h3 className="text-lg font-semibold text-slate-900 mb-4">Kecenderungan Politik</h3>
                         <ResponsiveContainer width="100%" height={300}>
@@ -344,16 +360,16 @@ export default function Dashboard({
                                     data={kecenderunganData}
                                     cx="50%"
                                     cy="50%"
-                                    innerRadius={60}
-                                    outerRadius={100}
-                                    paddingAngle={2}
+                                    outerRadius={95}
                                     dataKey="value"
+                                    label={renderPieLabel}
+                                    labelLine={true}
                                 >
                                     {kecenderunganData.map((entry, index) => (
                                         <Cell key={`cell-${index}`} fill={entry.color} />
                                     ))}
                                 </Pie>
-                                <Tooltip />
+                                <Tooltip formatter={(value, name) => [`${((value / kecenderunganTotal) * 100).toFixed(1)}% (${value.toLocaleString()})`, name]} />
                                 <Legend />
                             </PieChart>
                         </ResponsiveContainer>
@@ -382,7 +398,11 @@ export default function Dashboard({
                                 <XAxis dataKey="range" stroke="#64748b" />
                                 <YAxis stroke="#64748b" />
                                 <Tooltip />
-                                <Bar dataKey="jumlah" fill="#10b981" radius={[8, 8, 0, 0]} />
+                                <Bar dataKey="jumlah" radius={[8, 8, 0, 0]}>
+                                        {umurDistribution.map((_, i) => (
+                                            <Cell key={i} fill={UMUR_COLORS[i % UMUR_COLORS.length]} />
+                                        ))}
+                                    </Bar>
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
