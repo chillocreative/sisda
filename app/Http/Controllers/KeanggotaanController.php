@@ -620,6 +620,7 @@ class KeanggotaanController extends Controller
         $kawasanTotal = (clone $parlimenBase())->count();
         $dalam = (clone $parlimenBase())->where('status_kawasan', 'dalam_kawasan')->count();
         $luar = (clone $parlimenBase())->where('status_kawasan', 'luar_kawasan')->count();
+        $tiadaDppr = (clone $parlimenBase())->where('status_kawasan', 'tiada_dppr')->count();
         $dicula = (clone $base())->where('is_dicula', true)->count();
         $baru = (clone $base())->where('is_pendaftaran_baru', true)->count();
 
@@ -701,7 +702,8 @@ class KeanggotaanController extends Controller
                 'kawasan_total' => $kawasanTotal,
                 'dalam_kawasan' => $dalam,
                 'luar_kawasan' => $luar,
-                'belum_sync' => $kawasanTotal - $dalam - $luar,
+                'tiada_dppr' => $tiadaDppr,
+                'belum_sync' => $kawasanTotal - $dalam - $luar - $tiadaDppr,
                 'dicula' => $dicula,
                 'pendaftaran_baru' => $baru,
                 'luar_parlimen' => $luarParlimen,

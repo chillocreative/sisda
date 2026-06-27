@@ -4,7 +4,7 @@ import { Bar, BarChart, CartesianGrid, Cell, LabelList, Legend, Pie, PieChart, R
 import { Users, MapPin, UserX, Crosshair } from 'lucide-react';
 import KeanggotaanNav from './Nav';
 
-const COLORS = { putih: '#10b981', hitam: '#0f172a', kelabu: '#94a3b8', belum_dicula: '#cbd5e1' };
+const COLORS = { putih: '#dc2626', hitam: '#0f172a', kelabu: '#94a3b8', belum_dicula: '#cbd5e1' };
 const UMUR_COLORS = ['#f97316', '#eab308', '#22c55e', '#06b6d4', '#8b5cf6', '#ec4899', '#ef4444', '#0ea5e9'];
 const RADIAN = Math.PI / 180;
 function makePieLabel(total) {
@@ -12,8 +12,8 @@ function makePieLabel(total) {
         if (!value || total === 0) return null;
         const sin = Math.sin(-RADIAN * midAngle);
         const cos = Math.cos(-RADIAN * midAngle);
-        const x = cx + (outerRadius + 36) * cos;
-        const y = cy + (outerRadius + 36) * sin;
+        const x = cx + (outerRadius + 48) * cos;
+        const y = cy + (outerRadius + 48) * sin;
         return (
             <text x={x} y={y} textAnchor={cos >= 0 ? 'start' : 'end'} dominantBaseline="central" fontSize={11} fill="#475569">
                 {((value / total) * 100).toFixed(1)}%
@@ -92,8 +92,10 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
     const pctK = (n) => (summary.kawasan_total > 0 ? Math.round((n / summary.kawasan_total) * 100) : 0);
     const kawasanPie = [
         { name: 'Dalam Kawasan', value: summary.dalam_kawasan, fill: '#10b981' },
+        { name: 'Tiada DPPR/DPT', value: summary.tiada_dppr || 0, fill: '#ef4444' },
         { name: 'Luar Kawasan', value: summary.luar_kawasan, fill: '#f59e0b' },
     ];
+    const kawasanTotal = kawasanPie.reduce((s, d) => s + d.value, 0);
     const colorPie = byColor.map((c) => ({ name: c.voter_color, value: c.jumlah, fill: COLORS[c.voter_color] || '#cbd5e1' }));
     const jantinaData = [
         { name: 'Lelaki', value: byJantina?.lelaki || 0 },
@@ -132,7 +134,7 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <Kpi label="Jumlah Ahli" value={summary.total.toLocaleString()} icon={Users} />
                     <Kpi label="Dalam Kawasan" value={summary.dalam_kawasan.toLocaleString()} sub={`${pctK(summary.dalam_kawasan)}% daripada cabang`} icon={MapPin} color="text-emerald-600" />
-                    <Kpi label="Luar Kawasan" value={summary.luar_kawasan.toLocaleString()} sub={`${pctK(summary.luar_kawasan)}% — tiada dalam DPT/DPPR`} icon={UserX} color="text-amber-600" />
+                    <Kpi label="Tiada DPPR/DPT" value={(summary.tiada_dppr || 0).toLocaleString()} sub={`${pctK(summary.tiada_dppr || 0)}% — tidak ditemui dalam senarai pengundi`} icon={UserX} color="text-red-600" />
                     <Kpi label="Dicula (Hitam)" value={summary.dicula.toLocaleString()} sub={`${pct(summary.dicula)}% disokong pembangkang`} icon={Crosshair} color="text-red-600" />
                 </div>
 
@@ -140,7 +142,7 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
                         <ResponsiveContainer width="100%" height={240}>
                             <PieChart>
-                                <Pie data={jantinaData} cx="50%" cy="50%" innerRadius={55} outerRadius={95} paddingAngle={2} dataKey="value" nameKey="name">
+                                <Pie data={jantinaData} cx="50%" cy="50%" outerRadius={95} dataKey="value" nameKey="name">
                                     {jantinaData.map((e) => <Cell key={e.name} fill={e.fill} />)}
                                 </Pie>
                                 <Tooltip formatter={(v) => v.toLocaleString()} />
@@ -200,15 +202,21 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
                         <Card title="Sayap Mengikut Cabang">
                             {wings.byCabang.length === 0 ? <p className="text-sm text-slate-500 py-12 text-center">Tiada ahli sayap.</p> : (
                                 <ResponsiveContainer width="100%" height={Math.max(260, wings.byCabang.length * 46)}>
-                                    <BarChart data={wings.byCabang} layout="vertical" margin={{ left: 40 }}>
+                                    <BarChart data={wings.byCabang} layout="vertical" margin={{ left: 40, right: 56 }}>
                                         <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                                         <XAxis type="number" style={{ fontSize: '11px' }} />
                                         <YAxis type="category" dataKey="nama" width={140} style={{ fontSize: '11px' }} />
                                         <Tooltip formatter={(v) => v.toLocaleString()} />
                                         <Legend wrapperStyle={{ fontSize: '12px' }} />
-                                        <Bar dataKey="AMK" name="AMK" fill={WING_COLORS.AMK} radius={[0, 4, 4, 0]} />
-                                        <Bar dataKey="Srikandi" name="Srikandi" fill={WING_COLORS.Srikandi} radius={[0, 4, 4, 0]} />
-                                        <Bar dataKey="Wanita" name="Wanita" fill={WING_COLORS.Wanita} radius={[0, 4, 4, 0]} />
+                                        <Bar dataKey="AMK" name="AMK" fill={WING_COLORS.AMK} radius={[0, 4, 4, 0]}>
+                                            <LabelList dataKey="AMK" position="right" style={{ fontSize: '11px', fill: '#475569' }} formatter={(v) => v.toLocaleString()} />
+                                        </Bar>
+                                        <Bar dataKey="Srikandi" name="Srikandi" fill={WING_COLORS.Srikandi} radius={[0, 4, 4, 0]}>
+                                            <LabelList dataKey="Srikandi" position="right" style={{ fontSize: '11px', fill: '#475569' }} formatter={(v) => v.toLocaleString()} />
+                                        </Bar>
+                                        <Bar dataKey="Wanita" name="Wanita" fill={WING_COLORS.Wanita} radius={[0, 4, 4, 0]}>
+                                            <LabelList dataKey="Wanita" position="right" style={{ fontSize: '11px', fill: '#475569' }} formatter={(v) => v.toLocaleString()} />
+                                        </Bar>
                                     </BarChart>
                                 </ResponsiveContainer>
                             )}
@@ -219,14 +227,18 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
                 <Card title="Ahli Mengikut Cabang">
                     {byParlimen.length === 0 ? <p className="text-sm text-slate-500 py-12 text-center">Tiada data cabang.</p> : (
                         <ResponsiveContainer width="100%" height={Math.max(240, byParlimen.length * 38)}>
-                            <BarChart data={byParlimen} layout="vertical" margin={{ left: 40 }}>
+                            <BarChart data={byParlimen} layout="vertical" margin={{ left: 40, right: 56 }}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                                 <XAxis type="number" style={{ fontSize: '11px' }} />
                                 <YAxis type="category" dataKey="nama" width={140} style={{ fontSize: '11px' }} />
                                 <Tooltip formatter={(v) => v.toLocaleString()} />
                                 <Legend wrapperStyle={{ fontSize: '12px' }} />
-                                <Bar dataKey="jumlah" name="Jumlah Ahli" fill="#3b82f6" radius={[0, 6, 6, 0]} />
-                                <Bar dataKey="dicula" name="Dicula" fill="#ef4444" radius={[0, 6, 6, 0]} />
+                                <Bar dataKey="jumlah" name="Jumlah Ahli" fill="#3b82f6" radius={[0, 6, 6, 0]}>
+                                    <LabelList dataKey="jumlah" position="right" style={{ fontSize: '11px', fill: '#475569' }} formatter={(v) => v.toLocaleString()} />
+                                </Bar>
+                                <Bar dataKey="dicula" name="Dicula" fill="#ef4444" radius={[0, 6, 6, 0]}>
+                                    <LabelList dataKey="dicula" position="right" style={{ fontSize: '11px', fill: '#475569' }} formatter={(v) => v.toLocaleString()} />
+                                </Bar>
                             </BarChart>
                         </ResponsiveContainer>
                     )}
@@ -248,13 +260,13 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
                         </ResponsiveContainer>
                     </Card>
                     <Card title="Status Kawasan">
-                        {(summary.dalam_kawasan + summary.luar_kawasan) === 0 ? (
+                        {kawasanTotal === 0 ? (
                             <p className="text-sm text-slate-500 py-24 text-center">Belum disync dengan DPT / DPPR.<br />Tekan "Sync Semula" di Senarai Ahli untuk padankan.</p>
                         ) : (
                             <ResponsiveContainer width="100%" height={320}>
                                 <PieChart>
                                     <Pie data={kawasanPie} cx="50%" cy="50%" outerRadius={95} dataKey="value" nameKey="name"
-                                        label={makePieLabel(summary.dalam_kawasan + summary.luar_kawasan)} labelLine>
+                                        label={makePieLabel(kawasanTotal)} labelLine>
                                         {kawasanPie.map((e) => <Cell key={e.name} fill={e.fill} />)}
                                     </Pie>
                                     <Tooltip formatter={(v) => v.toLocaleString()} />
@@ -280,7 +292,7 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
                         )}
                     </Card>
                     <Card title="Sentimen Ahli (Culaan)">
-                        <ResponsiveContainer width="100%" height={320}>
+                        <ResponsiveContainer width="100%" height={360}>
                             <PieChart>
                                 <Pie data={colorPie} cx="50%" cy="50%" outerRadius={95} dataKey="value" nameKey="name"
                                     label={makePieLabel(colorPie.reduce((s, d) => s + d.value, 0))} labelLine>
