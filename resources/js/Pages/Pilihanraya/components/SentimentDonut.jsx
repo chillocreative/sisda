@@ -3,13 +3,13 @@ import { CHART_COLORS } from '../theme';
 import { usePilihanrayaTheme } from './PilihanrayaShell';
 
 const COLOR_BY_KEY = {
-    putih: '#ffffff',
+    putih: '#dc2626',
     hitam: '#0f172a',
     kelabu: CHART_COLORS.kelabu,
 };
 
 const STROKE_BY_KEY = {
-    putih: '#1e293b',
+    putih: 'none',
     hitam: '#f8fafc',
     kelabu: 'none',
 };

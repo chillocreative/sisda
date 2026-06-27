@@ -7,7 +7,7 @@ import {
 } from 'recharts';
 import {
     Activity, AlertTriangle, Crosshair, Landmark, LayoutDashboard,
-    Loader2, Map, PieChart as PieChartIcon, RefreshCw, Scale, Users, UserRound, Vote,
+    Loader2, Map, PieChart as PieChartIcon, RefreshCw, Scale, Users, Vote,
 } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { EMPTY_FILTERS, cleanParams } from './filters';
@@ -181,20 +181,26 @@ function GambaranTab({ data }) {
                     <h3 className={t.cardTitle}>Pecahan Sentimen Semasa</h3>
                     <div className="grid grid-cols-3 gap-3 py-2">
                         {[
-                            { label: 'Pengundi Putih', pct: data.putih_pct, count: data.putih },
-                            { label: 'Pengundi Kelabu', pct: data.kelabu_pct, count: data.kelabu },
-                            { label: 'Pengundi Hitam', pct: data.hitam_pct, count: data.hitam },
-                        ].map((s) => (
-                            <div key={s.label} className="flex flex-col items-center text-center">
-                                {/* Light-red card; circle outlined in white with a white icon. */}
-                                <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-full flex items-center justify-center bg-red-200 border-2 border-white shadow-sm">
-                                    <UserRound className="h-9 w-9 sm:h-10 sm:w-10 text-white" strokeWidth={2} />
+                            { label: 'Pengundi Putih', pct: data.putih_pct, count: data.putih, type: 'putih' },
+                            { label: 'Pengundi Kelabu', pct: data.kelabu_pct, count: data.kelabu, type: 'kelabu' },
+                            { label: 'Pengundi Hitam', pct: data.hitam_pct, count: data.hitam, type: 'hitam' },
+                        ].map((s) => {
+                            const circleStyles = {
+                                putih:  { background: '#ffffff', border: '2px solid #0f172a', color: '#0f172a' },
+                                kelabu: { background: '#94a3b8', border: 'none',              color: '#0f172a' },
+                                hitam:  { background: '#0f172a', border: '2px solid #f8fafc', color: '#f8fafc' },
+                            };
+                            const cs = circleStyles[s.type];
+                            return (
+                                <div key={s.label} className="flex flex-col items-center text-center">
+                                    <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-full flex items-center justify-center shadow-sm" style={cs}>
+                                        <span className="text-sm font-bold leading-tight">{s.pct}%</span>
+                                    </div>
+                                    <div className="mt-2 text-xs font-medium text-slate-700">{s.label}</div>
+                                    <div className="text-xs text-slate-500">{(s.count ?? 0).toLocaleString()} pengundi</div>
                                 </div>
-                                <div className={`mt-3 text-xl font-bold ${t.text}`}>{s.pct}%</div>
-                                <div className={`text-xs font-medium ${t.text}`}>{s.label}</div>
-                                <div className={`text-xs ${t.subtext}`}>{(s.count ?? 0).toLocaleString()} pengundi</div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
                 <div className={`${t.card} lg:col-span-2`}>
@@ -233,8 +239,24 @@ const RADIAN = Math.PI / 180;
 function KomposisiTab({ data }) {
     const { t } = usePilihanrayaTheme();
 
+    const renderSentimenLegend = ({ payload }) => (
+        <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', fontSize: '12px', marginTop: '6px' }}>
+            {(payload || []).map((entry) => (
+                <span key={entry.value} style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#0f172a' }}>
+                    <span style={{
+                        display: 'inline-block', width: '10px', height: '10px',
+                        backgroundColor: entry.color,
+                        border: entry.value === 'Putih' ? '1.5px solid #64748b' : 'none',
+                        borderRadius: '2px',
+                    }} />
+                    {entry.value}
+                </span>
+            ))}
+        </div>
+    );
+
     const renderRaceLabel = ({ cx, cy, midAngle, outerRadius, percent }) => {
-        if (!percent || percent < 0.015) return null;
+        if (!percent || percent < 0.005) return null;
         const sin = Math.sin(-RADIAN * midAngle);
         const cos = Math.cos(-RADIAN * midAngle);
         const x = cx + (outerRadius + 36) * cos;
@@ -293,7 +315,6 @@ function KomposisiTab({ data }) {
                             <XAxis dataKey="band" stroke={t.chartTick} style={{ fontSize: '11px' }} />
                             <YAxis stroke={t.chartTick} style={{ fontSize: '11px' }} />
                             <Tooltip contentStyle={t.tooltip} />
-                            <Legend wrapperStyle={{ fontSize: '12px' }} />
                             <Bar dataKey="putih" name="Putih" stackId="a" fill="#f8fafc" stroke="#cbd5e1" strokeWidth={1}>
                                 <LabelList dataKey="putih" position="center" formatter={(v) => v || ''} style={{ fill: '#475569', fontSize: '9px', fontWeight: '600' }} />
                             </Bar>
@@ -303,6 +324,7 @@ function KomposisiTab({ data }) {
                             <Bar dataKey="hitam" name="Hitam" stackId="a" fill="#0f172a" radius={[8, 8, 0, 0]}>
                                 <LabelList dataKey="hitam" position="center" formatter={(v) => v || ''} style={{ fill: '#f8fafc', fontSize: '9px', fontWeight: '600' }} />
                             </Bar>
+                            <Legend content={renderSentimenLegend} />
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
