@@ -306,7 +306,7 @@ function Content({ members, filters, jenisOptions, summary, byDun, dunOptions = 
                                             {isCabang ? <Landmark className="h-4 w-4 text-slate-400" /> : <MapPin className="h-4 w-4 text-emerald-500" />}
                                             <span className={`text-xs font-semibold ${t.text} truncate`}>{d.dun}</span>
                                         </div>
-                                        <div className={`text-2xl font-bold ${t.text}`}>{d.total}</div>
+                                        <div className={`text-2xl font-bold ${t.text}`}>{d.JPRD || 0}</div>
                                         <div className="flex gap-3 mt-1 text-xs">
                                             <span style={{ color: JENIS_COLORS.JPRC }}>JPRC {d.JPRC || 0}</span>
                                             <span style={{ color: JENIS_COLORS.JPRD }}>JPRD {d.JPRD || 0}</span>
