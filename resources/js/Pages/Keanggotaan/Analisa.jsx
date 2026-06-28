@@ -9,7 +9,7 @@ const UMUR_COLORS = ['#f97316', '#eab308', '#22c55e', '#06b6d4', '#8b5cf6', '#ec
 const RADIAN = Math.PI / 180;
 function makePieLabel(total) {
     return ({ cx, cy, midAngle, outerRadius, value }) => {
-        if (!value || total === 0) return null;
+        if (total === 0) return null;
         const sin = Math.sin(-RADIAN * midAngle);
         const cos = Math.cos(-RADIAN * midAngle);
         const x = cx + (outerRadius + 48) * cos;
