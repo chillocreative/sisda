@@ -3,6 +3,8 @@
 namespace App\Exports;
 
 use App\Models\DataPengundi;
+use App\Models\User;
+use App\Services\VoterDataMasker;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
@@ -10,10 +12,12 @@ use Maatwebsite\Excel\Concerns\WithMapping;
 class DataPengundiExport implements FromQuery, WithHeadings, WithMapping
 {
     protected $query;
+    protected ?User $viewer;
 
-    public function __construct($query)
+    public function __construct($query, ?User $viewer = null)
     {
         $this->query = $query;
+        $this->viewer = $viewer;
     }
 
     public function query()
@@ -54,18 +58,19 @@ class DataPengundiExport implements FromQuery, WithHeadings, WithMapping
 
     public function map($dataPengundi): array
     {
+        $d = VoterDataMasker::mask($dataPengundi, $this->viewer);
         return [
             $dataPengundi->id,
-            self::safe($dataPengundi->nama),
-            $dataPengundi->no_ic,
-            $dataPengundi->umur,
-            $dataPengundi->no_tel,
-            $dataPengundi->bangsa,
+            self::safe($d['nama'] ?? null),
+            $d['no_ic'] ?? null,
+            $d['umur'] ?? null,
+            $d['no_tel'] ?? null,
+            self::safe($d['bangsa'] ?? null),
             $dataPengundi->hubungan,
-            $dataPengundi->alamat,
-            $dataPengundi->poskod,
-            $dataPengundi->negeri,
-            $dataPengundi->bandar,
+            self::safe($d['alamat'] ?? null),
+            $d['poskod'] ?? null,
+            $d['negeri'] ?? null,
+            $d['bandar'] ?? null,
             $dataPengundi->parlimen,
             $dataPengundi->kadun,
             $dataPengundi->keahlian_parti,

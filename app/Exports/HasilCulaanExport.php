@@ -3,6 +3,8 @@
 namespace App\Exports;
 
 use App\Models\HasilCulaan;
+use App\Models\User;
+use App\Services\VoterDataMasker;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
@@ -10,10 +12,12 @@ use Maatwebsite\Excel\Concerns\WithMapping;
 class HasilCulaanExport implements FromCollection, WithHeadings, WithMapping
 {
     protected $query;
+    protected ?User $viewer;
 
-    public function __construct($query = null)
+    public function __construct($query = null, ?User $viewer = null)
     {
         $this->query = $query;
+        $this->viewer = $viewer;
     }
 
     public function collection()
@@ -65,19 +69,20 @@ class HasilCulaanExport implements FromCollection, WithHeadings, WithMapping
 
     public function map($hasilCulaan): array
     {
+        $d = VoterDataMasker::mask($hasilCulaan, $this->viewer);
         return [
-            self::safe($hasilCulaan->nama),
-            $hasilCulaan->no_ic,
-            $hasilCulaan->umur,
-            $hasilCulaan->no_tel,
-            self::safe($hasilCulaan->bangsa),
-            self::safe($hasilCulaan->alamat),
-            $hasilCulaan->poskod,
-            $hasilCulaan->negeri,
-            $hasilCulaan->bandar,
+            self::safe($d['nama'] ?? null),
+            $d['no_ic'] ?? null,
+            $d['umur'] ?? null,
+            $d['no_tel'] ?? null,
+            self::safe($d['bangsa'] ?? null),
+            self::safe($d['alamat'] ?? null),
+            $d['poskod'] ?? null,
+            $d['negeri'] ?? null,
+            $d['bandar'] ?? null,
             $hasilCulaan->kadun,
             $hasilCulaan->bil_isi_rumah,
-            $hasilCulaan->pendapatan_isi_rumah,
+            $d['pendapatan_isi_rumah'] ?? null,
             $hasilCulaan->pekerjaan,
             $hasilCulaan->pemilik_rumah,
             $hasilCulaan->jenis_sumbangan,

@@ -167,9 +167,8 @@ class MobileAuthController extends Controller
         }
 
         return response()->json([
-            'success' => true,
-            'message' => 'Kata laluan baharu: '.$newPassword.'. Sila simpan dan tukar selepas log masuk.',
-            'password' => $newPassword,
+            'success' => false,
+            'message' => 'Penghantaran kata laluan melalui WhatsApp gagal. Sila hubungi pentadbir sistem.',
         ]);
     }
 

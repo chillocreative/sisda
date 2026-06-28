@@ -159,7 +159,7 @@ class ReportsController extends Controller
 
         $query = HasilCulaan::whereIn('id', $latestIds)->limit(10000);
 
-        return Excel::download(new HasilCulaanExport($query), 'hasil-culaan-' . date('Y-m-d') . '.xlsx');
+        return Excel::download(new HasilCulaanExport($query, $user), 'hasil-culaan-' . date('Y-m-d') . '.xlsx');
     }
 
     /**
@@ -1034,7 +1034,7 @@ class ReportsController extends Controller
             });
         }
 
-        return Excel::download(new DataPengundiExport($query->limit(10000)), 'data-pengundi-' . date('Y-m-d') . '.xlsx');
+        return Excel::download(new DataPengundiExport($query->limit(10000), $user), 'data-pengundi-' . date('Y-m-d') . '.xlsx');
     }
 
     /**

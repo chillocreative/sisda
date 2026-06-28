@@ -71,6 +71,6 @@ class ForgotPasswordController extends Controller
             return back()->with('status', 'Kata laluan baharu telah dihantar ke WhatsApp anda. Sila semak telefon anda.');
         }
 
-        return back()->with('status', 'Kata laluan baharu telah ditetapkan. Kata laluan: ' . $newPassword . '. Sila simpan dan tukar selepas log masuk.');
+        return back()->with('status', 'Kata laluan baharu telah ditetapkan tetapi penghantaran WhatsApp gagal. Sila hubungi pentadbir sistem untuk mendapatkan kata laluan baharu anda.');
     }
 }

@@ -215,6 +215,7 @@ Route::middleware('auth')->group(function () {
     // authenticated. Hit once after a deploy that ships a new migration
     // (e.g. data_pengundi_documents), then you can ignore the route.
     Route::get('/run-migrations', function () {
+        abort_unless(auth()->user()->isSuperAdmin(), 403);
         set_time_limit(0);
         try {
             \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
@@ -227,6 +228,7 @@ Route::middleware('auth')->group(function () {
 
     // Utility: fix stuck batches and sync master data
     Route::get('/fix-batches', function () {
+        abort_unless(auth()->user()->isSuperAdmin(), 403);
         set_time_limit(0);
 
         $messages = [];
@@ -445,7 +447,7 @@ Route::prefix('api/mobile')->withoutMiddleware([\Illuminate\Foundation\Http\Midd
     // Public routes (no auth)
     Route::post('/login', [\App\Http\Controllers\Api\MobileAuthController::class, 'login']);
     Route::post('/register', [\App\Http\Controllers\Api\MobileAuthController::class, 'register']);
-    Route::post('/forgot-password', [\App\Http\Controllers\Api\MobileAuthController::class, 'forgotPassword']);
+    Route::post('/forgot-password', [\App\Http\Controllers\Api\MobileAuthController::class, 'forgotPassword'])->middleware('throttle:3,5');
     Route::get('/negeri-list', function () {
         return \App\Models\Negeri::orderBy('nama')->get(['id', 'nama']);
     });
