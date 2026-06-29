@@ -132,7 +132,10 @@ class DashboardController extends Controller
         // Headline = real registered voters from the roll; culaan stays canvass.
         $totalPengundi = $rollBase()->count();
         $kadunCount = $rollBase()->whereNotNull('kadun')->where('kadun', '!=', '')->distinct()->count('kadun');
-        $totalCulaan = (clone $culaanQuery)->where('is_deceased', false)->count();
+        // Total canvassing records = hasil_culaan + data_pengundi (both non-deceased).
+        // This matches the "Rekod" column in the KADUN and Petugas tables.
+        $totalCulaan = (clone $culaanQuery)->where('is_deceased', false)->count()
+            + (clone $pengundiQuery)->where('is_deceased', false)->count();
 
         // MPKK count — filtered through the kadun → bandar hierarchy using real FKs.
         $mpkkCount = Mpkk::query()
@@ -141,8 +144,6 @@ class DashboardController extends Controller
             ->when(! $mpkkId && ! $kadunId && $bandarId, fn ($q) => $q->whereHas('kadun', fn ($k) => $k->where('bandar_id', $bandarId)))
             ->when(! $mpkkId && ! $kadunId && ! $bandarId && $negeriId, fn ($q) => $q->whereHas('kadun.bandar', fn ($b) => $b->where('negeri_id', $negeriId)))
             ->count();
-        $deceasedPengundi = (clone $pengundiQuery)->where('is_deceased', true)->count();
-        $deceasedCulaan = (clone $culaanQuery)->where('is_deceased', true)->count();
 
         // Political tendency — exclude deceased voters from all counts.
         // Match the FULL coalition pairing: "PAKATAN HARAPAN (PH/BN)",
@@ -209,17 +210,22 @@ class DashboardController extends Controller
             ['range' => '65+', 'jumlah' => $ageBand(65, null)],
         ];
 
-        // Monthly trend (last 6 months) — exclude deceased voters.
+        // Monthly trend (last 6 months) — both data_pengundi and hasil_culaan,
+        // excluding deceased. Matches the combined "Rekod" metric used elsewhere.
         $trendBulanan = [];
         for ($i = 5; $i >= 0; $i--) {
             $date = now()->subMonths($i);
-            $monthQuery = clone $pengundiQuery;
+            $dpCount = (clone $pengundiQuery)->where('is_deceased', false)
+                ->whereYear('created_at', $date->year)
+                ->whereMonth('created_at', $date->month)
+                ->count();
+            $hcCount = (clone $culaanQuery)->where('is_deceased', false)
+                ->whereYear('created_at', $date->year)
+                ->whereMonth('created_at', $date->month)
+                ->count();
             $trendBulanan[] = [
                 'bulan' => $date->format('M'),
-                'jumlah' => $monthQuery->where('is_deceased', false)
-                    ->whereYear('created_at', $date->year)
-                    ->whereMonth('created_at', $date->month)
-                    ->count(),
+                'jumlah' => $dpCount + $hcCount,
             ];
         }
 

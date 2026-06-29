@@ -262,7 +262,7 @@ export default function Dashboard({
                     <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-slate-600">Jumlah Hasil Culaan</p>
+                                <p className="text-sm font-medium text-slate-600">Jumlah Rekod Dimasukkan</p>
                                 <p className="text-3xl font-bold text-slate-900 mt-2">{totalCulaan.toLocaleString()}</p>
                             </div>
                             <div className="p-3 bg-sky-100 rounded-lg">
@@ -517,7 +517,7 @@ export default function Dashboard({
                             <table className="w-full">
                                 <thead className="bg-slate-50">
                                     <tr>
-                                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">MPKK</th>
+                                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">KADUN</th>
                                         <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Pengundi</th>
                                         <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Rekod</th>
                                         <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">PH/BN</th>
