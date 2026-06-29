@@ -229,40 +229,66 @@ class DashboardController extends Controller
             ];
         }
 
-        // KADUN statistics: the top KADUNs by registered voters (from the roll).
-        // pengundi = roll count; culaan + sentiment %% come from the canvass
-        // ($pengundiQuery / $culaanQuery already carry the territory/date filters).
-        $mpkkStats = $rollBase()
-            ->select('kadun', DB::raw('count(*) as total'))
+        // Kawasan Paling Aktif — standalone, sorted by total rekod count.
+        // Not affected by dashboard filters. Top 5 = KADUNs with the most
+        // canvassing records (data_pengundi + hasil_culaan), not biggest roll.
+        $dpKadunCounts = DataPengundi::where('is_deceased', false)
             ->whereNotNull('kadun')->where('kadun', '!=', '')
-            ->groupBy('kadun')
-            ->orderByDesc('total')
-            ->take(5)
-            ->get()
-            ->map(function ($item) use ($pengundiQuery, $culaanQuery) {
-                $kadunName = $item->kadun;
-                $rollTotal = (int) $item->total;
+            ->selectRaw('UPPER(kadun) as k, COUNT(*) as n')
+            ->groupBy(DB::raw('UPPER(kadun)'))
+            ->pluck('n', 'k')
+            ->toArray();
+        $hcKadunCounts = HasilCulaan::where('is_deceased', false)
+            ->whereNotNull('kadun')->where('kadun', '!=', '')
+            ->selectRaw('UPPER(kadun) as k, COUNT(*) as n')
+            ->groupBy(DB::raw('UPPER(kadun)'))
+            ->pluck('n', 'k')
+            ->toArray();
+        $kadunRekodMap = [];
+        foreach ($dpKadunCounts as $k => $n) {
+            $kadunRekodMap[$k] = ($kadunRekodMap[$k] ?? 0) + $n;
+        }
+        foreach ($hcKadunCounts as $k => $n) {
+            $kadunRekodMap[$k] = ($kadunRekodMap[$k] ?? 0) + $n;
+        }
+        arsort($kadunRekodMap);
+        $top5Kadun = array_slice($kadunRekodMap, 0, 5, true);
 
-                $canvass = (clone $pengundiQuery)->whereRaw('UPPER(kadun) = ?', [strtoupper((string) $kadunName)]);
-                $canvassTotal = (clone $canvass)->where('is_deceased', false)->count();
+        $batchActiveIds = UploadBatch::activeIds();
+        $hasDptCol = Schema::hasColumn('pangkalan_data_pengundi', 'dpt_upload_id');
+
+        $mpkkStats = collect($top5Kadun)
+            ->map(function ($rekodCount, $kadunUpper) use ($batchActiveIds, $hasDptCol) {
+                $kadunName = DataPengundi::whereRaw('UPPER(kadun) = ?', [$kadunUpper])->value('kadun')
+                    ?? HasilCulaan::whereRaw('UPPER(kadun) = ?', [$kadunUpper])->value('kadun')
+                    ?? $kadunUpper;
+
+                $rollTotal = PangkalanDataPengundi::where('is_deceased', false)
+                    ->where(function ($w) use ($batchActiveIds, $hasDptCol) {
+                        $w->whereIn('upload_batch_id', $batchActiveIds ?: [-1]);
+                        if ($hasDptCol) {
+                            $w->orWhereNotNull('dpt_upload_id');
+                        }
+                    })
+                    ->whereRaw('UPPER(kadun) = ?', [$kadunUpper])
+                    ->count();
+
+                $canvass = DataPengundi::where('is_deceased', false)->whereRaw('UPPER(kadun) = ?', [$kadunUpper]);
+                $canvassTotal = (clone $canvass)->count();
                 $phCount = (clone $canvass)->where('kecenderungan_politik', 'like', '%PH/BN%')->count();
                 $bnCount = (clone $canvass)->where('kecenderungan_politik', 'like', '%BN/PN%')->count();
                 $tidakPastiCount = (clone $canvass)->where('kecenderungan_politik', 'like', '%TIDAK PASTI%')->count();
-                $hasilCulaanCount = (clone $culaanQuery)->whereRaw('UPPER(kadun) = ?', [strtoupper((string) $kadunName)])
-                    ->where('is_deceased', false)->count();
-                // Total rekod = data_pengundi + hasil_culaan, matching the same
-                // metric used in Petugas Teraktif "Jumlah Rekod".
-                $culaanCount = $canvassTotal + $hasilCulaanCount;
 
                 return [
                     'mpkk' => $kadunName,
                     'pengundi' => $rollTotal,
-                    'culaan' => $culaanCount,
+                    'culaan' => $rekodCount,
                     'ph' => $canvassTotal > 0 ? round(($phCount / $canvassTotal) * 100) : 0,
                     'bn' => $canvassTotal > 0 ? round(($bnCount / $canvassTotal) * 100) : 0,
                     'tidakPasti' => $canvassTotal > 0 ? round(($tidakPastiCount / $canvassTotal) * 100) : 0,
                 ];
             })
+            ->values()
             ->toArray();
 
         // Top Petugas — standalone, never filtered by territory or date.
