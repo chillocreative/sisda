@@ -265,111 +265,19 @@ class DashboardController extends Controller
             })
             ->toArray();
 
-        // Top Petugas (using filtered queries)
-        // Separate param arrays so each subquery's ?-bindings are sequential,
-        // not interleaved — interleaving breaks binding order with 2+ filters.
-        $pengundiFilterConditions = '';
-        $culaanFilterConditions = '';
-        $pengundiFilterParams = [];
-        $culaanFilterParams = [];
-
-        if (! $user->isSuperAdmin()) {
-            if ($user->negeri_id) {
-                $pengundiFilterConditions .= ' AND negeri = ?';
-                $culaanFilterConditions .= ' AND negeri = ?';
-                $pengundiFilterParams[] = $user->negeri->nama ?? '';
-                $culaanFilterParams[] = $user->negeri->nama ?? '';
-            }
-            if ($user->bandar_id) {
-                $pengundiFilterConditions .= ' AND bandar = ?';
-                $culaanFilterConditions .= ' AND bandar = ?';
-                $pengundiFilterParams[] = $user->bandar->nama ?? '';
-                $culaanFilterParams[] = $user->bandar->nama ?? '';
-            }
-            if ($user->kadun_id) {
-                $pengundiFilterConditions .= ' AND kadun = ?';
-                $culaanFilterConditions .= ' AND kadun = ?';
-                $pengundiFilterParams[] = $user->kadun->nama ?? '';
-                $culaanFilterParams[] = $user->kadun->nama ?? '';
-            }
-        }
-
-        if ($negeriNama) {
-            $pengundiFilterConditions .= ' AND negeri = ?';
-            $culaanFilterConditions .= ' AND negeri = ?';
-            $pengundiFilterParams[] = $negeriNama;
-            $culaanFilterParams[] = $negeriNama;
-        }
-        if ($bandarNama) {
-            $pengundiFilterConditions .= ' AND bandar = ?';
-            $culaanFilterConditions .= ' AND bandar = ?';
-            $pengundiFilterParams[] = $bandarNama;
-            $culaanFilterParams[] = $bandarNama;
-        }
-        if ($kadunNama) {
-            $pengundiFilterConditions .= ' AND kadun = ?';
-            $culaanFilterConditions .= ' AND kadun = ?';
-            $pengundiFilterParams[] = $kadunNama;
-            $culaanFilterParams[] = $kadunNama;
-        }
-        if ($tarikhDari) {
-            $pengundiFilterConditions .= ' AND DATE(created_at) >= ?';
-            $culaanFilterConditions .= ' AND DATE(created_at) >= ?';
-            $pengundiFilterParams[] = $tarikhDari;
-            $culaanFilterParams[] = $tarikhDari;
-        }
-        if ($tarikhHingga) {
-            $pengundiFilterConditions .= ' AND DATE(created_at) <= ?';
-            $culaanFilterConditions .= ' AND DATE(created_at) <= ?';
-            $pengundiFilterParams[] = $tarikhHingga;
-            $culaanFilterParams[] = $tarikhHingga;
-        }
-
+        // Top Petugas — standalone, never filtered by territory or date.
+        // Shows each user's true global total so it always reflects who has
+        // entered the most records regardless of what filter is active.
         $petugasStats = User::select('users.*')
-            ->selectRaw("(SELECT COUNT(*) FROM data_pengundi WHERE submitted_by = users.id AND is_deceased = 0 {$pengundiFilterConditions}) as pengundi_count", $pengundiFilterParams)
-            ->selectRaw("(SELECT COUNT(*) FROM hasil_culaan WHERE submitted_by = users.id AND is_deceased = 0 {$culaanFilterConditions}) as culaan_count", $culaanFilterParams)
+            ->selectRaw('(SELECT COUNT(*) FROM data_pengundi WHERE submitted_by = users.id AND is_deceased = 0) as pengundi_count')
+            ->selectRaw('(SELECT COUNT(*) FROM hasil_culaan WHERE submitted_by = users.id AND is_deceased = 0) as culaan_count')
             ->havingRaw('(pengundi_count + culaan_count) > 0')
             ->orderByRaw('(pengundi_count + culaan_count) DESC')
             ->take(5)
             ->get()
-            ->map(function ($petugasUser) use ($negeriNama, $bandarNama, $kadunNama, $tarikhDari, $tarikhHingga, $user) {
-                // Shared filter closure for both tables
-                $applyFilters = function ($q) use ($negeriNama, $bandarNama, $kadunNama, $tarikhDari, $tarikhHingga, $user) {
-                    if (! $user->isSuperAdmin()) {
-                        if ($user->negeri_id) {
-                            $q->where('negeri', $user->negeri->nama ?? '');
-                        }
-                        if ($user->bandar_id) {
-                            $q->where('bandar', $user->bandar->nama ?? '');
-                        }
-                        if ($user->kadun_id) {
-                            $q->where('kadun', $user->kadun->nama ?? '');
-                        }
-                    }
-                    if ($negeriNama) {
-                        $q->where('negeri', $negeriNama);
-                    }
-                    if ($bandarNama) {
-                        $q->where('bandar', $bandarNama);
-                    }
-                    if ($kadunNama) {
-                        $q->where('kadun', $kadunNama);
-                    }
-                    if ($tarikhDari) {
-                        $q->whereDate('created_at', '>=', $tarikhDari);
-                    }
-                    if ($tarikhHingga) {
-                        $q->whereDate('created_at', '<=', $tarikhHingga);
-                    }
-
-                    return $q;
-                };
-
-                // Latest record from either data_pengundi or hasil_culaan —
-                // previously only data_pengundi was checked, so petugas who
-                // only enter culaan would always show kawasan = N/A.
-                $latestDP = $applyFilters(DataPengundi::where('submitted_by', $petugasUser->id))->latest()->first();
-                $latestHC = $applyFilters(HasilCulaan::where('submitted_by', $petugasUser->id))->latest()->first();
+            ->map(function ($petugasUser) {
+                $latestDP = DataPengundi::where('submitted_by', $petugasUser->id)->latest()->first();
+                $latestHC = HasilCulaan::where('submitted_by', $petugasUser->id)->latest()->first();
 
                 if ($latestDP && $latestHC) {
                     $latestRecord = $latestDP->created_at >= $latestHC->created_at ? $latestDP : $latestHC;
