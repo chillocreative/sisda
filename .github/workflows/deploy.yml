@@ -63,6 +63,9 @@ jobs:
                 # 5. Run migrations
                 php artisan migrate --force --no-interaction
 
+                # 5b. Seed Johor electoral hierarchy (idempotent — updateOrCreate)
+                php artisan db:seed --class=JohorSeeder --force --no-interaction
+
                 # 6. Re-cache for production
                 php artisan config:cache
                 php artisan route:cache
