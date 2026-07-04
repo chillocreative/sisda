@@ -35,6 +35,7 @@ class UploadDatabaseController extends Controller
     {
         $request->validate([
             'fail' => 'required|file|mimes:zip|max:102400',
+            'is_oku' => 'boolean',
         ]);
 
         $file = $request->file('fail');
@@ -48,6 +49,7 @@ class UploadDatabaseController extends Controller
             'jumlah_rekod' => 0,
             'status' => 'processing',
             'is_active' => false,
+            'is_oku' => $request->boolean('is_oku'),
             'uploaded_by' => auth()->id(),
         ]);
 

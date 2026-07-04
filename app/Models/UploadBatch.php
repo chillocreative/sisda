@@ -14,11 +14,13 @@ class UploadBatch extends Model
         'jumlah_rekod',
         'status',
         'is_active',
+        'is_oku',
         'uploaded_by',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'is_oku' => 'boolean',
     ];
 
     public function pangkalanDataPengundi(): HasMany

@@ -13,7 +13,8 @@ import {
     Edit,
     Trash2,
     X,
-    Eye
+    Eye,
+    CheckCircle2
 } from 'lucide-react';
 
 export default function Index({ dataPengundi, filters, currentUserId }) {
@@ -235,6 +236,7 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Nama</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">No. IC</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Umur</th>
+                                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-600 uppercase">OKU</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">No. Tel</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Bangsa</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Negeri</th>
@@ -251,7 +253,7 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
                             <tbody className="divide-y divide-slate-100">
                                 {dataPengundi.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan="15" className="py-8 text-center text-slate-500">
+                                        <td colSpan="16" className="py-8 text-center text-slate-500">
                                             Tiada rekod dijumpai
                                         </td>
                                     </tr>
@@ -278,6 +280,11 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
                                             </td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.no_ic}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.umur}</td>
+                                            <td className="py-3 px-4 text-center">
+                                                {item.is_oku
+                                                    ? <CheckCircle2 className="h-5 w-5 text-emerald-600 inline-block" aria-label="OKU" />
+                                                    : <span className="text-xs text-slate-300">–</span>}
+                                            </td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.no_tel}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.bangsa}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.negeri}</td>

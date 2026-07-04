@@ -14,6 +14,7 @@ export default function Index({ batches, flash }) {
 
     const { data, setData, post, processing, errors, reset } = useForm({
         fail: null,
+        is_oku: false,
     });
 
     const fileInputRef = useRef(null);
@@ -152,6 +153,16 @@ export default function Index({ batches, flash }) {
                             <p className="text-xs text-slate-500 mt-1">Hanya fail .zip sahaja. Saiz maksimum: 100MB.</p>
                         </div>
 
+                        <label className="flex items-start gap-2 text-sm text-slate-700">
+                            <input
+                                type="checkbox"
+                                checked={data.is_oku}
+                                onChange={(e) => setData('is_oku', e.target.checked)}
+                                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                            />
+                            <span>Senarai pengundi <strong>OKU</strong> — tandakan jika fail ini mengandungi pengundi berstatus OKU. Pengundi dalam senarai ini akan ditanda OKU di Data Pengundi.</span>
+                        </label>
+
                         <div className="flex items-center gap-3">
                             <button
                                 type="submit"
@@ -247,8 +258,11 @@ export default function Index({ batches, flash }) {
                                                 <td className="py-3 px-3 text-slate-600">
                                                     {(batches.current_page - 1) * batches.per_page + index + 1}
                                                 </td>
-                                                <td className="py-3 px-3 text-slate-900 font-medium max-w-xs truncate">
-                                                    {batch.nama_fail}
+                                                <td className="py-3 px-3 text-slate-900 font-medium">
+                                                    <span className="max-w-xs truncate inline-block align-middle">{batch.nama_fail}</span>
+                                                    {batch.is_oku && (
+                                                        <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-sky-100 text-sky-700 align-middle">OKU</span>
+                                                    )}
                                                 </td>
                                                 <td className="py-3 px-3 text-slate-600">
                                                     {new Date(batch.created_at).toLocaleString('ms-MY', {

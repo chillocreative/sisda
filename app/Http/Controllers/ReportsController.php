@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\HasilCulaan;
 use App\Models\DataPengundi;
+use App\Models\PangkalanDataPengundi;
+use App\Models\UploadBatch;
 use App\Models\DaerahMengundi;
 use App\Models\EditHistory;
 use App\Models\Lokaliti;
@@ -984,13 +986,24 @@ class ReportsController extends Controller
 
         $dataPengundi = $query->orderBy('id', 'desc')->paginate(10);
 
+        // OKU flag: a voter is OKU when their IC appears in a voter-database batch
+        // uploaded as an OKU list. Resolve it once for the whole page.
+        $pageIcs = $dataPengundi->getCollection()->pluck('no_ic')->filter()->unique()->all();
+        $okuBatchIds = UploadBatch::where('is_oku', true)->pluck('id');
+        $okuIcs = ($okuBatchIds->isEmpty() || empty($pageIcs))
+            ? collect()
+            : PangkalanDataPengundi::whereIn('no_ic', $pageIcs)
+                ->whereIn('upload_batch_id', $okuBatchIds)
+                ->pluck('no_ic')->unique()->flip();
+
         // Mask sensitive fields on locked rows for non-privileged viewers
-        $dataPengundi->getCollection()->transform(function ($row) use ($user) {
+        $dataPengundi->getCollection()->transform(function ($row) use ($user, $okuIcs) {
             $masked = VoterDataMasker::mask($row, $user);
             $masked['submitted_by'] = $row->submittedBy
                 ? ['id' => $row->submittedBy->id, 'name' => $row->submittedBy->name]
                 : null;
             $masked['is_locked'] = VoterDataMasker::isLocked($row);
+            $masked['is_oku'] = isset($okuIcs[$row->no_ic]);
             return $masked;
         });
 
