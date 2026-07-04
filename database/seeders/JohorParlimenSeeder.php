@@ -13,12 +13,10 @@ class JohorParlimenSeeder extends Seeder
      */
     public function run(): void
     {
-        $johor = Negeri::where('nama', 'Johor')->first();
-
-        if (!$johor) {
-            $this->command->error('Negeri Johor not found!');
-            return;
-        }
+        // Self-sufficient: create Negeri Johor if it's missing so the whole
+        // Johor seed chain (Parlimen -> DUN -> DM -> Lokaliti) can never
+        // silently no-op on a fresh/partial production DB. Idempotent.
+        $johor = Negeri::firstOrCreate(['nama' => 'Johor']);
 
         $parlimens = [
             ['code' => 'P140', 'name' => 'Segamat'],
