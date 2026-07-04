@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Imports\KeanggotaanImport;
+use App\Models\Bandar;
+use App\Models\Kadun;
 use App\Models\Keanggotaan;
 use App\Models\KeanggotaanBatch;
 use App\Models\KeanggotaanSetting;
@@ -73,6 +75,30 @@ class KeanggotaanController extends Controller
     {
         return Keanggotaan::whereNotNull('bangsa')->where('bangsa', '!=', '')
             ->distinct()->orderBy('bangsa')->pluck('bangsa')->all();
+    }
+
+    /** Data Induk (master data) map: UPPER(Parlimen/Bandar name) => Negeri name. */
+    private function negeriByParlimenMap(): array
+    {
+        return Bandar::join('negeri', 'negeri.id', '=', 'bandar.negeri_id')
+            ->get(['bandar.nama as parlimen', 'negeri.nama as negeri'])
+            ->reduce(function ($map, $r) {
+                $map[mb_strtoupper($r->parlimen)] = $r->negeri;
+
+                return $map;
+            }, []);
+    }
+
+    /** Data Induk (master data) map: UPPER(DUN/Kadun name) => Parlimen (Bandar) name. */
+    private function parlimenByDunMap(): array
+    {
+        return Kadun::join('bandar', 'bandar.id', '=', 'kadun.bandar_id')
+            ->get(['kadun.nama as dun', 'bandar.nama as parlimen'])
+            ->reduce(function ($map, $r) {
+                $map[mb_strtoupper($r->dun)] = $r->parlimen;
+
+                return $map;
+            }, []);
     }
 
     /** Daerah Mengundi (from the DPPR match), cascaded to the selected Parlimen/DUN. */
@@ -697,9 +723,14 @@ class KeanggotaanController extends Controller
             ];
         }
 
-        // File-based breakdowns (cabang / negeri / bangsa) aggregated in PHP —
-        // straight from the uploaded file, no DPT/DPPR cross-check.
-        $rows = (clone $base())->get(['cabang', 'negeri', 'bangsa', 'is_dicula']);
+        // Data Induk (master data) lookups: derive Negeri from a member's
+        // Parlimen (Bandar → Negeri), and the Parlimen a DUN belongs to.
+        $negeriByParlimen = $this->negeriByParlimenMap();
+        $parlimenByDun = $this->parlimenByDunMap();
+
+        // File-based breakdowns (cabang / bangsa) plus a Negeri breakdown that
+        // derives the state from Data Induk (Parlimen → Negeri), not the file.
+        $rows = (clone $base())->get(['cabang', 'matched_parlimen', 'negeri', 'bangsa', 'is_dicula']);
         $cAgg = [];
         $nAgg = [];
         $bAgg = [];
@@ -711,7 +742,11 @@ class KeanggotaanController extends Controller
                 $cAgg[$c]['dicula']++;
             }
 
-            $n = ($r->negeri !== null && $r->negeri !== '') ? $r->negeri : 'Tiada Negeri';
+            // Negeri from Data Induk via the member's Parlimen (branch Cabang first,
+            // else the roll-matched Parlimen); fall back to the file's negeri.
+            $n = $negeriByParlimen[mb_strtoupper((string) $r->cabang)]
+                ?? $negeriByParlimen[mb_strtoupper((string) $r->matched_parlimen)]
+                ?? (($r->negeri !== null && $r->negeri !== '') ? $r->negeri : 'Tiada Negeri');
             $nAgg[$n] ??= ['nama' => $n, 'jumlah' => 0];
             $nAgg[$n]['jumlah']++;
 
@@ -731,12 +766,31 @@ class KeanggotaanController extends Controller
             ->selectRaw('matched_kadun AS nama, COUNT(*) AS jumlah')
             ->groupBy('matched_kadun')->orderByDesc('jumlah')->get();
 
+        // Members per Daerah Mengundi within the selected Parlimen/DUN (excludes
+        // the DM/Lokaliti drill so the whole list shows, honours non-geo filters).
+        $byDm = (clone $parlimenBase())
+            ->when($dun, fn ($q) => $q->where(fn ($x) => $x->where('matched_kadun', $dun)->orWhere('dun', $dun)))
+            ->whereNotNull('matched_daerah_mengundi')->where('matched_daerah_mengundi', '!=', '')
+            ->selectRaw('matched_daerah_mengundi AS nama, COUNT(*) AS jumlah')
+            ->groupBy('matched_daerah_mengundi')->orderByDesc('jumlah')->get();
+
         // Members in the roll but registered to vote in a different Parlimen than
-        // their party Cabang (Cabang scope — independent of the focused DUN).
+        // their party Cabang (Cabang scope — independent of the focused DUN). The
+        // registered Parlimen comes from the roll; when the roll left it blank it
+        // is derived from the roll DUN via Data Induk (Kadun → Bandar).
         $luarParlimen = (clone $parlimenBase())
-            ->whereNotNull('matched_parlimen')->where('matched_parlimen', '!=', '')
-            ->whereRaw('UPPER(matched_parlimen) <> UPPER(cabang)')
-            ->count();
+            ->get(['cabang', 'matched_parlimen', 'matched_kadun'])
+            ->filter(function ($r) use ($parlimenByDun) {
+                $cabang = mb_strtoupper((string) $r->cabang);
+                if ($cabang === '') {
+                    return false;
+                }
+                $reg = ($r->matched_parlimen !== null && $r->matched_parlimen !== '')
+                    ? $r->matched_parlimen
+                    : ($parlimenByDun[mb_strtoupper((string) $r->matched_kadun)] ?? null);
+
+                return $reg !== null && $reg !== '' && mb_strtoupper($reg) !== $cabang;
+            })->count();
 
         // When a DUN is focused: members of this Cabang registered to vote in a
         // DUN other than the selected one (parallel to the "luar parlimen" card).
@@ -779,6 +833,7 @@ class KeanggotaanController extends Controller
             'byNegeri' => $byNegeri,
             'byBangsa' => $byBangsa,
             'byDun' => $byDun,
+            'byDm' => $byDm,
             'byColor' => $byColor,
             'byJantina' => $byJantina,
             'wings' => $wings,

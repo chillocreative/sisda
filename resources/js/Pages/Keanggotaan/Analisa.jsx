@@ -7,13 +7,16 @@ import KeanggotaanNav from './Nav';
 const COLORS = { putih: '#dc2626', hitam: '#0f172a', kelabu: '#94a3b8', belum_dicula: '#cbd5e1' };
 const UMUR_COLORS = ['#f97316', '#eab308', '#22c55e', '#06b6d4', '#8b5cf6', '#ec4899', '#ef4444', '#0ea5e9'];
 const RADIAN = Math.PI / 180;
-function makePieLabel(total) {
+// Percentage labels sit just outside the slice. Keep the offset small so the
+// labels don't overflow the card (they were being clipped at 48px on the
+// shorter pies).
+function makePieLabel(total, offset = 22) {
     return ({ cx, cy, midAngle, outerRadius, value }) => {
         if (total === 0) return null;
         const sin = Math.sin(-RADIAN * midAngle);
         const cos = Math.cos(-RADIAN * midAngle);
-        const x = cx + (outerRadius + 48) * cos;
-        const y = cy + (outerRadius + 48) * sin;
+        const x = cx + (outerRadius + offset) * cos;
+        const y = cy + (outerRadius + offset) * sin;
         return (
             <text x={x} y={y} textAnchor={cos >= 0 ? 'start' : 'end'} dominantBaseline="central" fontSize={11} fill="#475569">
                 {((value / total) * 100).toFixed(1)}%
@@ -85,7 +88,7 @@ const BANGSA_COLORS = [
     '#84cc16', '#f97316', '#06b6d4', '#a855f7', '#eab308', '#22c55e', '#64748b', '#d946ef',
 ];
 
-export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBangsa = [], byDun, byColor, byJantina, wings, parlimenList = [], dunList = [], dmList = [], lokalitiList = [], bangsaList = [], filters = {} }) {
+export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBangsa = [], byDun, byDm = [], byColor, byJantina, wings, parlimenList = [], dunList = [], dmList = [], lokalitiList = [], bangsaList = [], filters = {} }) {
     const pct = (n) => (summary.total > 0 ? Math.round((n / summary.total) * 100) : 0);
     // Kawasan cards are scoped to the whole Parlimen/Cabang, so their % is
     // relative to the Cabang member total, not the (DUN-filtered) Jumlah Ahli.
@@ -215,11 +218,40 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
                     <Kpi label="Dicula (Hitam)" value={summary.dicula.toLocaleString()} sub={`${pct(summary.dicula)}% disokong pembangkang`} icon={Crosshair} color="text-red-600" />
                 </div>
 
+                <Card title="Keanggotaan Mengikut DM">
+                    {byDm.length === 0 ? <p className="text-sm text-slate-500 py-12 text-center">Tiada data Daerah Mengundi.</p> : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="border-b border-slate-200 text-left text-slate-600 bg-slate-50">
+                                        <th className="py-2.5 px-3 font-medium">Daerah Mengundi</th>
+                                        <th className="py-2.5 px-3 font-medium text-right">Jumlah Ahli</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {byDm.map((d) => (
+                                        <tr key={d.nama} className="hover:bg-slate-50">
+                                            <td className="py-2.5 px-3 text-slate-900">{d.nama}</td>
+                                            <td className="py-2.5 px-3 text-slate-700 text-right font-medium">{Number(d.jumlah).toLocaleString()}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                                <tfoot>
+                                    <tr className="border-t-2 border-slate-200 font-semibold text-slate-900">
+                                        <td className="py-2.5 px-3">Jumlah</td>
+                                        <td className="py-2.5 px-3 text-right">{byDm.reduce((s, d) => s + Number(d.jumlah), 0).toLocaleString()}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    )}
+                </Card>
+
                 <Card title={filters.dun ? `Jantina Ahli — DUN ${filters.dun}` : 'Jantina Ahli'}>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
-                        <ResponsiveContainer width="100%" height={260}>
-                            <PieChart>
-                                <Pie data={jantinaData} cx="50%" cy="50%" outerRadius={95} dataKey="value" nameKey="name"
+                        <ResponsiveContainer width="100%" height={300}>
+                            <PieChart margin={{ top: 16, right: 16, bottom: 16, left: 16 }}>
+                                <Pie data={jantinaData} cx="50%" cy="50%" outerRadius={78} dataKey="value" nameKey="name"
                                     label={makePieLabel(jantinaData.reduce((s, d) => s + d.value, 0))} labelLine>
                                     {jantinaData.map((e) => <Cell key={e.name} fill={e.fill} />)}
                                 </Pie>
