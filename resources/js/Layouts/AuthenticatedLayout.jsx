@@ -115,6 +115,7 @@ export default function AuthenticatedLayout({ children }) {
         ...(user.role === 'super_admin' ? [
             { name: 'Upload Database', href: route('upload-database.index'), icon: Upload, current: route().current('upload-database.*') },
             { name: 'Upload DPT', href: route('dpt-upload.index'), icon: Upload, current: route().current('dpt-upload.*') },
+            { name: 'Upload Culaan', href: route('upload-culaan.index'), icon: Upload, current: route().current('upload-culaan.*') },
         ] : []),
         // Keanggotaan (party membership) menu (Super Admin only)
         ...(user.role === 'super_admin' ? [

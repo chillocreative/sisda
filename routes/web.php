@@ -367,6 +367,11 @@ Route::middleware(['auth', 'super_admin'])->group(function () {
     Route::post('/dpt-upload', [\App\Http\Controllers\DptUploadController::class, 'upload'])->name('dpt-upload.upload');
     Route::delete('/dpt-upload/{dptUpload}', [\App\Http\Controllers\DptUploadController::class, 'destroy'])->name('dpt-upload.destroy');
 
+    // Upload Culaan (field-canvassing sentiment enrichment)
+    Route::get('/upload-culaan', [\App\Http\Controllers\UploadCulaanController::class, 'index'])->name('upload-culaan.index');
+    Route::post('/upload-culaan', [\App\Http\Controllers\UploadCulaanController::class, 'store'])->name('upload-culaan.store')->middleware('throttle:6,60');
+    Route::delete('/upload-culaan/{culaanUpload}', [\App\Http\Controllers\UploadCulaanController::class, 'destroy'])->name('upload-culaan.destroy');
+
     // Claude AI Settings
     Route::get('/settings/claude', [\App\Http\Controllers\ClaudeSettingController::class, 'index'])->name('settings.claude');
     Route::post('/settings/claude', [\App\Http\Controllers\ClaudeSettingController::class, 'update'])->name('settings.claude.update');
