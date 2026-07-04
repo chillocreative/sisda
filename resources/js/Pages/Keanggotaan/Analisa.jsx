@@ -49,7 +49,7 @@ function Card({ title, children }) {
 
 const WING_COLORS = { AMK: '#2563eb', Srikandi: '#db2777', Wanita: '#9333ea' };
 
-function WingKpi({ label, value, grace, note, color }) {
+function WingKpi({ label, value, grace, note, color, aktifEkyc }) {
     return (
         <div className="bg-white rounded-xl border border-slate-200 p-5">
             <div className="flex items-center justify-between">
@@ -60,6 +60,7 @@ function WingKpi({ label, value, grace, note, color }) {
             {grace > 0
                 ? <p className="text-xs text-red-600 mt-1">{grace.toLocaleString()} melepasi 35 — sah sehingga tamat penggal</p>
                 : <p className="text-xs text-slate-400 mt-1">{note}</p>}
+            <p className="text-xs font-medium text-emerald-600 mt-1">Aktif/ EKYC - {(aktifEkyc ?? 0).toLocaleString()}</p>
         </div>
     );
 }
@@ -212,7 +213,7 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Kpi label="Jumlah Ahli" value={summary.total.toLocaleString()} icon={Users} />
+                    <Kpi label="Jumlah Ahli" value={summary.total.toLocaleString()} sub={`Aktif/ EKYC - ${(summary.aktif_ekyc ?? 0).toLocaleString()}`} icon={Users} />
                     <Kpi label="Dalam Kawasan" value={summary.dalam_kawasan.toLocaleString()} sub={`${pctK(summary.dalam_kawasan)}% daripada cabang`} icon={MapPin} color="text-emerald-600" />
                     <Kpi label="Tiada DPPR/DPT" value={(summary.tiada_dppr || 0).toLocaleString()} sub={`${pctK(summary.tiada_dppr || 0)}% — tidak ditemui dalam senarai pengundi`} icon={UserX} color="text-red-600" />
                     <Kpi label="Dicula (Hitam)" value={summary.dicula.toLocaleString()} sub={`${pct(summary.dicula)}% disokong pembangkang`} icon={Crosshair} color="text-red-600" />
@@ -306,9 +307,9 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
                             </span>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <WingKpi label="AMK" value={wings.totals.AMK} grace={wings.grace.AMK} note="Lelaki ≤ 35 tahun" color={WING_COLORS.AMK} />
-                            <WingKpi label="Srikandi" value={wings.totals.Srikandi} grace={wings.grace.Srikandi} note="Perempuan ≤ 35 tahun" color={WING_COLORS.Srikandi} />
-                            <WingKpi label="Wanita" value={wings.totals.Wanita} grace={wings.grace.Wanita} note="Semua perempuan" color={WING_COLORS.Wanita} />
+                            <WingKpi label="AMK" value={wings.totals.AMK} grace={wings.grace.AMK} aktifEkyc={wings.aktifEkyc?.AMK} note="Lelaki ≤ 35 tahun" color={WING_COLORS.AMK} />
+                            <WingKpi label="Srikandi" value={wings.totals.Srikandi} grace={wings.grace.Srikandi} aktifEkyc={wings.aktifEkyc?.Srikandi} note="Perempuan ≤ 35 tahun" color={WING_COLORS.Srikandi} />
+                            <WingKpi label="Wanita" value={wings.totals.Wanita} grace={wings.grace.Wanita} aktifEkyc={wings.aktifEkyc?.Wanita} note="Semua perempuan" color={WING_COLORS.Wanita} />
                         </div>
                         <Card title="Sayap Mengikut Cabang">
                             {wings.byCabang.length === 0 ? <p className="text-sm text-slate-500 py-12 text-center">Tiada ahli sayap.</p> : (

@@ -10,7 +10,9 @@ import {
     MapPin,
     UserCheck,
     Award,
-    Building2
+    Building2,
+    BadgeCheck,
+    Accessibility
 } from 'lucide-react';
 import {
     PieChart,
@@ -33,6 +35,7 @@ export default function Dashboard({
     // Defaults are empty/zero so the dashboard only ever shows real system data
     // (never placeholder figures) if a prop is missing.
     totalPengundi = 0,
+    okuPengundi = 0,
     kadunCount = 0,
     mpkkCount = 0,
     totalCulaan = 0,
@@ -51,7 +54,7 @@ export default function Dashboard({
     trendBulanan = [],
     mpkkStats = [],
     petugasStats = [],
-    keanggotaan = { total: 0, wings: [] },
+    keanggotaan = { total: 0, aktif_ekyc: 0, wings: [] },
     jawatankuasa = { total: 0, jenis: [] },
     negeriList = [],
     bandarList = [],
@@ -146,6 +149,11 @@ export default function Dashboard({
         });
     };
 
+    // Cascade: selecting a parent narrows its children (Negeri → Bandar → KADUN → MPKK).
+    const filteredBandar = filters.negeri ? bandarList.filter((b) => String(b.negeri_id) === String(filters.negeri)) : bandarList;
+    const filteredKadun = filters.bandar ? kadunList.filter((k) => String(k.bandar_id) === String(filters.bandar)) : kadunList;
+    const filteredMpkk = filters.kadun ? mpkkList.filter((m) => String(m.kadun_id) === String(filters.kadun)) : mpkkList;
+
     return (
         <AuthenticatedLayout>
             <Head title="Dashboard" />
@@ -166,7 +174,7 @@ export default function Dashboard({
                             <label className="block text-sm font-medium text-slate-700 mb-2">Negeri</label>
                             <select
                                 value={filters.negeri}
-                                onChange={(e) => applyFilters({ negeri: e.target.value })}
+                                onChange={(e) => applyFilters({ negeri: e.target.value, bandar: '', kadun: '', mpkk: '' })}
                                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                             >
                                 <option value="">Semua Negeri</option>
@@ -179,11 +187,11 @@ export default function Dashboard({
                             <label className="block text-sm font-medium text-slate-700 mb-2">Bandar (Parlimen)</label>
                             <select
                                 value={filters.bandar}
-                                onChange={(e) => applyFilters({ bandar: e.target.value })}
+                                onChange={(e) => applyFilters({ bandar: e.target.value, kadun: '', mpkk: '' })}
                                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                             >
                                 <option value="">Semua Bandar</option>
-                                {bandarList.map((bandar) => (
+                                {filteredBandar.map((bandar) => (
                                     <option key={bandar.id} value={bandar.id}>{bandar.nama}</option>
                                 ))}
                             </select>
@@ -192,11 +200,11 @@ export default function Dashboard({
                             <label className="block text-sm font-medium text-slate-700 mb-2">KADUN</label>
                             <select
                                 value={filters.kadun}
-                                onChange={(e) => applyFilters({ kadun: e.target.value })}
+                                onChange={(e) => applyFilters({ kadun: e.target.value, mpkk: '' })}
                                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                             >
                                 <option value="">Semua KADUN</option>
-                                {kadunList.map((kadun) => (
+                                {filteredKadun.map((kadun) => (
                                     <option key={kadun.id} value={kadun.id}>{kadun.nama}</option>
                                 ))}
                             </select>
@@ -209,7 +217,7 @@ export default function Dashboard({
                                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                             >
                                 <option value="">Semua MPKK</option>
-                                {mpkkList.map((mpkk) => (
+                                {filteredMpkk.map((mpkk) => (
                                     <option key={mpkk.id} value={mpkk.id}>{mpkk.nama}</option>
                                 ))}
                             </select>
@@ -254,6 +262,19 @@ export default function Dashboard({
                             </div>
                             <div className="p-3 bg-emerald-100 rounded-lg">
                                 <Users className="h-6 w-6 text-emerald-600" />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Pengundi Status OKU */}
+                    <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-slate-600">Pengundi Status OKU</p>
+                                <p className="text-3xl font-bold text-slate-900 mt-2">{okuPengundi.toLocaleString()}</p>
+                            </div>
+                            <div className="p-3 bg-cyan-100 rounded-lg">
+                                <Accessibility className="h-6 w-6 text-cyan-600" />
                             </div>
                         </div>
                     </div>
@@ -319,6 +340,19 @@ export default function Dashboard({
                             </div>
                             <div className="p-3 bg-rose-100 rounded-lg">
                                 <UserCheck className="h-6 w-6 text-rose-600" />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Keanggotaan Aktif / EKYC */}
+                    <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-slate-600">Keanggotaan Aktif / EKYC</p>
+                                <p className="text-3xl font-bold text-emerald-600 mt-2">{(keanggotaan.aktif_ekyc || 0).toLocaleString()}</p>
+                            </div>
+                            <div className="p-3 bg-emerald-100 rounded-lg">
+                                <BadgeCheck className="h-6 w-6 text-emerald-600" />
                             </div>
                         </div>
                     </div>

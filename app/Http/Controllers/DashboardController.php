@@ -7,6 +7,7 @@ use App\Models\DataPengundi;
 use App\Models\HasilCulaan;
 use App\Models\Kadun;
 use App\Models\Keanggotaan;
+use App\Models\KeanggotaanBatch;
 use App\Models\KeanggotaanJawatankuasa;
 use App\Models\KeanggotaanSetting;
 use App\Models\Mpkk;
@@ -350,14 +351,51 @@ class DashboardController extends Controller
         $within = $setting && MemberWingService::withinTerm($setting->tahun_mula, $setting->tahun_tamat, $year);
         $youthMax = $within ? MemberWingService::MAX_AGE + ($year - $setting->tahun_mula) : MemberWingService::MAX_AGE;
 
+        // Aktif / EKYC members (EKYC batches auto-set Aktif) — within the same scope.
+        $ekycBatchIds = KeanggotaanBatch::where('is_ekyc', true)->pluck('id')->all();
+        $keanggotaanAktifEkyc = $keanggotaanBase()->where(function ($q) use ($ekycBatchIds) {
+            $q->where('status_anggota', 'aktif')
+                ->when($ekycBatchIds, fn ($qq) => $qq->orWhereIn('batch_id', $ekycBatchIds));
+        })->count();
+
         $keanggotaan = [
             'total' => $keanggotaanBase()->count(),
+            'aktif_ekyc' => $keanggotaanAktifEkyc,
             'wings' => [
                 ['name' => 'AMK', 'jumlah' => $keanggotaanBase()->whereRaw('UPPER(jantina) = ?', ['LELAKI'])->whereNotNull('umur')->where('umur', '<=', $youthMax)->count()],
                 ['name' => 'Srikandi', 'jumlah' => $keanggotaanBase()->whereRaw('UPPER(jantina) = ?', ['PEREMPUAN'])->whereNotNull('umur')->where('umur', '<=', $youthMax)->count()],
                 ['name' => 'Wanita', 'jumlah' => $keanggotaanBase()->whereRaw('UPPER(jantina) = ?', ['PEREMPUAN'])->count()],
             ],
         ];
+
+        // Pengundi berstatus OKU = distinct voters in OKU-flagged upload batches,
+        // within the same geographic/territory scope as the roll.
+        $okuBatchIds = UploadBatch::where('is_oku', true)->pluck('id')->all();
+        $okuPengundi = 0;
+        if ($okuBatchIds) {
+            $q = PangkalanDataPengundi::whereIn('upload_batch_id', $okuBatchIds)->where('is_deceased', false);
+            if (! $user->isSuperAdmin()) {
+                if ($user->negeri_id) {
+                    $q->whereRaw('UPPER(negeri) = ?', [strtoupper((string) ($user->negeri->nama ?? ''))]);
+                }
+                if ($user->bandar_id) {
+                    $q->whereRaw('UPPER(parlimen) = ?', [strtoupper((string) ($user->bandar->nama ?? ''))]);
+                }
+                if ($user->kadun_id) {
+                    $q->whereRaw('UPPER(kadun) = ?', [strtoupper((string) ($user->kadun->nama ?? ''))]);
+                }
+            }
+            if ($negeriNama) {
+                $q->whereRaw('UPPER(negeri) = ?', [strtoupper($negeriNama)]);
+            }
+            if ($bandarNama) {
+                $q->whereRaw('UPPER(parlimen) = ?', [strtoupper($bandarNama)]);
+            }
+            if ($kadunNama) {
+                $q->whereRaw('UPPER(kadun) = ?', [strtoupper($kadunNama)]);
+            }
+            $okuPengundi = $q->distinct()->count('no_ic');
+        }
 
         // ---- Jawatankuasa (committee) summary + per-jenis, counted by DISTINCT
         // PERSON (one person may hold several positions / sit on JPRC + JPRD). ----
@@ -397,6 +435,7 @@ class DashboardController extends Controller
 
         return Inertia::render('Dashboard/Index', [
             'totalPengundi' => $totalPengundi,
+            'okuPengundi' => $okuPengundi,
             'kadunCount' => $kadunCount,
             'mpkkCount' => $mpkkCount,
             'totalCulaan' => $totalCulaan,

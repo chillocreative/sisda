@@ -744,6 +744,14 @@ class KeanggotaanController extends Controller
         $dicula = (clone $base())->where('is_dicula', true)->count();
         $baru = (clone $base())->where('is_pendaftaran_baru', true)->count();
 
+        // Aktif / EKYC = members set Aktif (EKYC batches auto-set this) or that
+        // belong to an EKYC-flagged batch. Follows the full filter scope.
+        $ekycBatchIds = KeanggotaanBatch::where('is_ekyc', true)->pluck('id')->all();
+        $aktifEkyc = (clone $base())->where(function ($q) use ($ekycBatchIds) {
+            $q->where('status_anggota', 'aktif')
+                ->when($ekycBatchIds, fn ($qq) => $qq->orWhereIn('batch_id', $ekycBatchIds));
+        })->count();
+
         $ageBands = [];
         foreach (self::AGE_BANDS as $band) {
             $ageBands[] = [
@@ -842,7 +850,7 @@ class KeanggotaanController extends Controller
             'tidak_diketahui' => (int) ($jantinaRaw['TIDAK DIKETAHUI'] ?? 0),
         ];
 
-        $wings = $this->wingBreakdown($base());
+        $wings = $this->wingBreakdown($base(), $ekycBatchIds);
 
         return Inertia::render('Keanggotaan/Analisa', [
             'summary' => [
@@ -856,6 +864,7 @@ class KeanggotaanController extends Controller
                 'pendaftaran_baru' => $baru,
                 'luar_parlimen' => $luarParlimen,
                 'luar_dun' => $luarDun,
+                'aktif_ekyc' => $aktifEkyc,
             ],
             'ageBands' => $ageBands,
             'byParlimen' => $byParlimen,
@@ -880,8 +889,9 @@ class KeanggotaanController extends Controller
      * per-Cabang breakdown, classified live via MemberWingService.
      *
      * @param  \Illuminate\Database\Eloquent\Builder  $base
+     * @param  array<int>  $ekycBatchIds  batch ids flagged EKYC (for the Aktif/EKYC sub-count)
      */
-    private function wingBreakdown($base): array
+    private function wingBreakdown($base, array $ekycBatchIds = []): array
     {
         $setting = KeanggotaanSetting::current();
         $year = (int) date('Y');
@@ -889,20 +899,26 @@ class KeanggotaanController extends Controller
         $labels = ['AMK', 'Srikandi', 'Wanita'];
         $totals = array_fill_keys($labels, 0);
         $grace = array_fill_keys($labels, 0);
+        $aktifEkyc = array_fill_keys($labels, 0);
         $byCabang = [];
 
-        $rows = $base->select('umur', 'jantina', 'cabang')->get();
+        $ekyc = array_flip($ekycBatchIds);
+        $rows = $base->select('umur', 'jantina', 'cabang', 'status_anggota', 'batch_id')->get();
         foreach ($rows as $r) {
             $wing = MemberWingService::classify($r->umur, $r->jantina, $setting->tahun_mula, $setting->tahun_tamat, $year);
             if ($wing['wings'] === []) {
                 continue;
             }
             $cabang = $r->cabang ?: 'Tiada Cabang';
+            $isAktifEkyc = $r->status_anggota === 'aktif' || isset($ekyc[$r->batch_id]);
             $graceWings = array_flip($wing['graceWings']);
             foreach ($wing['wings'] as $w) {
                 $totals[$w]++;
                 if (isset($graceWings[$w])) {
                     $grace[$w]++;
+                }
+                if ($isAktifEkyc) {
+                    $aktifEkyc[$w]++;
                 }
                 $byCabang[$cabang] ??= array_fill_keys($labels, 0) + ['nama' => $cabang];
                 $byCabang[$cabang][$w]++;
@@ -916,6 +932,7 @@ class KeanggotaanController extends Controller
         return [
             'totals' => $totals,
             'grace' => $grace,
+            'aktifEkyc' => $aktifEkyc,
             'term' => ['tahun_mula' => $setting->tahun_mula, 'tahun_tamat' => $setting->tahun_tamat],
             'within_term' => MemberWingService::withinTerm($setting->tahun_mula, $setting->tahun_tamat, $year),
             'byCabang' => array_slice($byCabang, 0, 20),
