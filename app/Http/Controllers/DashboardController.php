@@ -368,34 +368,46 @@ class DashboardController extends Controller
             ],
         ];
 
-        // Pengundi berstatus OKU = distinct voters in OKU-flagged upload batches,
-        // within the same geographic/territory scope as the roll.
-        $okuBatchIds = UploadBatch::where('is_oku', true)->pluck('id')->all();
-        $okuPengundi = 0;
-        if ($okuBatchIds) {
-            $q = PangkalanDataPengundi::whereIn('upload_batch_id', $okuBatchIds)->where('is_deceased', false);
-            if (! $user->isSuperAdmin()) {
-                if ($user->negeri_id) {
-                    $q->whereRaw('UPPER(negeri) = ?', [strtoupper((string) ($user->negeri->nama ?? ''))]);
-                }
-                if ($user->bandar_id) {
-                    $q->whereRaw('UPPER(parlimen) = ?', [strtoupper((string) ($user->bandar->nama ?? ''))]);
-                }
-                if ($user->kadun_id) {
-                    $q->whereRaw('UPPER(kadun) = ?', [strtoupper((string) ($user->kadun->nama ?? ''))]);
-                }
+        // Pengundi berstatus OKU = Data Pengundi records marked OKU — the SAME
+        // rule as the Data Pengundi table's OKU column (the manual is_oku flag OR
+        // the voter's IC in an OKU-flagged upload batch), within the dashboard's
+        // territory/geographic/date filters, so the card matches that table.
+        $okuBatchIds = UploadBatch::where('is_oku', true)->pluck('id');
+        $okuQuery = DataPengundi::query();
+        if (! $user->isSuperAdmin()) {
+            if ($user->negeri_id) {
+                $okuQuery->where('negeri', $user->negeri->nama ?? '');
             }
-            if ($negeriNama) {
-                $q->whereRaw('UPPER(negeri) = ?', [strtoupper($negeriNama)]);
+            if ($user->bandar_id) {
+                $okuQuery->where('bandar', $user->bandar->nama ?? '');
             }
-            if ($bandarNama) {
-                $q->whereRaw('UPPER(parlimen) = ?', [strtoupper($bandarNama)]);
+            if ($user->kadun_id) {
+                $okuQuery->where('kadun', $user->kadun->nama ?? '');
             }
-            if ($kadunNama) {
-                $q->whereRaw('UPPER(kadun) = ?', [strtoupper($kadunNama)]);
-            }
-            $okuPengundi = $q->distinct()->count('no_ic');
         }
+        if ($negeriNama) {
+            $okuQuery->where('negeri', $negeriNama);
+        }
+        if ($bandarNama) {
+            $okuQuery->where('bandar', $bandarNama);
+        }
+        if ($kadunNama) {
+            $okuQuery->where('kadun', $kadunNama);
+        }
+        if ($tarikhDari) {
+            $okuQuery->whereDate('created_at', '>=', $tarikhDari);
+        }
+        if ($tarikhHingga) {
+            $okuQuery->whereDate('created_at', '<=', $tarikhHingga);
+        }
+        $okuPengundi = $okuQuery->where(function ($q) use ($okuBatchIds) {
+            $q->where('is_oku', true);
+            if ($okuBatchIds->isNotEmpty()) {
+                $q->orWhereIn('no_ic', function ($sub) use ($okuBatchIds) {
+                    $sub->select('no_ic')->from('pangkalan_data_pengundi')->whereIn('upload_batch_id', $okuBatchIds);
+                });
+            }
+        })->count();
 
         // ---- Jawatankuasa (committee) summary + per-jenis, counted by DISTINCT
         // PERSON (one person may hold several positions / sit on JPRC + JPRD). ----
