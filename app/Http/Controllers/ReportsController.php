@@ -1093,6 +1093,13 @@ class ReportsController extends Controller
         $canUnmaskSensitive = VoterDataMasker::canUnmask($user);
         $maskedRecord = VoterDataMasker::mask($dataPengundi, $user);
 
+        // OKU tickbox reflects the manual flag OR membership of an OKU upload batch.
+        $okuBatchIds = UploadBatch::where('is_oku', true)->pluck('id');
+        $maskedRecord['is_oku'] = (bool) $dataPengundi->is_oku
+            || ($okuBatchIds->isNotEmpty()
+                && PangkalanDataPengundi::where('no_ic', $dataPengundi->no_ic)
+                    ->whereIn('upload_batch_id', $okuBatchIds)->exists());
+
         $documents = $dataPengundi->documents()
             ->with('submittedBy:id,name')
             ->get()
