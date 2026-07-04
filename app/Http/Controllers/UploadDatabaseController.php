@@ -277,7 +277,7 @@ class UploadDatabaseController extends Controller
             $dpprVoter = $dpprQuery->first();
 
             return response()->json($dpprVoter?->only([
-                'no_ic', 'nama', 'parlimen', 'kadun', 'negeri', 'bangsa', 'jantina', 'tahun_lahir',
+                'no_ic', 'nama', 'parlimen', 'kadun', 'daerah_mengundi', 'lokaliti', 'negeri', 'bangsa', 'jantina', 'tahun_lahir',
             ]));
         }
 
