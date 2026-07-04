@@ -57,8 +57,14 @@ class ProcessVoterUpload implements ShouldQueue
         ]);
         \Illuminate\Support\Facades\Cache::forget('pilihanraya:active_batches');
 
-        // Sync master data tables from voter database
-        self::syncMasterData($this->batchId);
+        // Sync master data tables from the voter database. This is best-effort
+        // enrichment — the voter rows are already imported and active, so a sync
+        // hiccup must not mark the whole upload as failed.
+        try {
+            self::syncMasterData($this->batchId);
+        } catch (Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Sync master data gagal untuk batch {$this->batchId}: ".$e->getMessage());
+        }
     }
 
     /**
@@ -160,6 +166,15 @@ class ProcessVoterUpload implements ShouldQueue
                 }
                 $existing->update($updates);
                 return $existing;
+            }
+            // Creating a new master row: bail if a required parent FK is
+            // unresolved (null) — the *_id columns are NOT NULL foreign keys, so
+            // inserting null throws. Skipping avoids the crash and orphan rows;
+            // the row can sync later once its parent exists.
+            foreach ($extraAttrs as $k => $v) {
+                if (str_ends_with($k, '_id') && $v === null) {
+                    return null;
+                }
             }
             $attrs = array_merge(['nama' => $voterName], $extraAttrs);
             if ($kodField) {
