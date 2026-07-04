@@ -141,6 +141,12 @@ class DashboardController extends Controller
         $totalCulaan = (clone $culaanQuery)->where('is_deceased', false)->count()
             + (clone $pengundiQuery)->where('is_deceased', false)->count();
 
+        // Jumlah Penerima Sumbangan — distinct recipients (by IC) who have an aid
+        // record, within the active geo scope (Negeri / Parlimen / DUN filters).
+        $penerimaSumbangan = (clone $culaanQuery)->where('is_deceased', false)
+            ->sumbangan()->whereNotNull('no_ic')->where('no_ic', '!=', '')
+            ->distinct()->count('no_ic');
+
         // MPKK count — filtered through the kadun → bandar hierarchy using real FKs.
         $mpkkCount = Mpkk::query()
             ->when($mpkkId, fn ($q) => $q->where('id', $mpkkId))
@@ -462,6 +468,7 @@ class DashboardController extends Controller
         return Inertia::render('Dashboard/Index', [
             'totalPengundi' => $totalPengundi,
             'okuPengundi' => $okuPengundi,
+            'penerimaSumbangan' => $penerimaSumbangan,
             'kadunCount' => $kadunCount,
             'mpkkCount' => $mpkkCount,
             'totalCulaan' => $totalCulaan,

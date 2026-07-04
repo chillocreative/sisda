@@ -12,7 +12,8 @@ import {
     Award,
     Building2,
     BadgeCheck,
-    Accessibility
+    Accessibility,
+    Gift
 } from 'lucide-react';
 import {
     PieChart,
@@ -36,6 +37,7 @@ export default function Dashboard({
     // (never placeholder figures) if a prop is missing.
     totalPengundi = 0,
     okuPengundi = 0,
+    penerimaSumbangan = 0,
     kadunCount = 0,
     mpkkCount = 0,
     totalCulaan = 0,
@@ -286,6 +288,19 @@ export default function Dashboard({
                             </div>
                             <div className="p-3 bg-cyan-100 rounded-lg">
                                 <Accessibility className="h-6 w-6 text-cyan-600" />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Jumlah Penerima Sumbangan — distinct recipients within the active geo scope */}
+                    <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-slate-600">Jumlah Penerima Sumbangan</p>
+                                <p className="text-3xl font-bold text-slate-900 mt-2">{penerimaSumbangan.toLocaleString()}</p>
+                            </div>
+                            <div className="p-3 bg-amber-100 rounded-lg">
+                                <Gift className="h-6 w-6 text-amber-600" />
                             </div>
                         </div>
                     </div>

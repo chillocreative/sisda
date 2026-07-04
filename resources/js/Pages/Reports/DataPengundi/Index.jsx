@@ -14,7 +14,8 @@ import {
     Trash2,
     X,
     Eye,
-    CheckCircle2
+    CheckCircle2,
+    Gift
 } from 'lucide-react';
 
 export default function Index({ dataPengundi, filters, currentUserId }) {
@@ -127,6 +128,13 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
         });
     };
 
+    const statusBadgeClass = (status) => ({
+        'Baru': 'bg-sky-100 text-sky-700',
+        'Lulus': 'bg-emerald-100 text-emerald-700',
+        'Dibayar': 'bg-violet-100 text-violet-700',
+        'Ditolak': 'bg-rose-100 text-rose-700',
+    }[status] || 'bg-slate-200 text-slate-600');
+
     return (
         <AuthenticatedLayout>
             <Head title="Data Pengundi" />
@@ -237,6 +245,7 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">No. IC</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Umur</th>
                                     <th className="text-center py-3 px-4 text-xs font-semibold text-slate-600 uppercase">OKU</th>
+                                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Sumbangan</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">No. Tel</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Bangsa</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Negeri</th>
@@ -253,7 +262,7 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
                             <tbody className="divide-y divide-slate-100">
                                 {dataPengundi.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan="16" className="py-8 text-center text-slate-500">
+                                        <td colSpan="17" className="py-8 text-center text-slate-500">
                                             Tiada rekod dijumpai
                                         </td>
                                     </tr>
@@ -283,6 +292,13 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
                                             <td className="py-3 px-4 text-center">
                                                 {item.is_oku
                                                     ? <CheckCircle2 className="h-5 w-5 text-emerald-600 inline-block" aria-label="OKU" />
+                                                    : <span className="text-xs text-slate-300">–</span>}
+                                            </td>
+                                            <td className="py-3 px-4 text-center">
+                                                {item.sumbangan_count > 0
+                                                    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold" title={`${item.sumbangan_count} rekod sumbangan`}>
+                                                        <Gift className="h-3.5 w-3.5" />{item.sumbangan_count}
+                                                      </span>
                                                     : <span className="text-xs text-slate-300">–</span>}
                                             </td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.no_tel}</td>
@@ -524,28 +540,49 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
                                         Sejarah Sumbangan ({sumbanganHistory.length} rekod)
                                     </h3>
                                     <div className="space-y-2 max-h-64 overflow-y-auto">
-                                        {sumbanganHistory.map((record) => (
+                                        {sumbanganHistory.map((record) => {
+                                            const amounts = [
+                                                ['Dipohon', record.jumlah_dipohon],
+                                                ['Dilulus', record.jumlah_dilulus],
+                                                ['Dibayar', record.jumlah_dibayar],
+                                            ].filter(([, v]) => v != null && v !== '' && Number(v) > 0);
+                                            const tarikh = record.tarikh_sumbangan || record.created_at;
+                                            return (
                                             <div key={record.id} className="bg-slate-50 rounded-lg p-3 border border-slate-200">
-                                                <div className="flex justify-between items-start">
-                                                    <div>
-                                                        <p className="text-xs font-medium text-slate-700">
-                                                            {new Date(record.created_at).toLocaleDateString('ms-MY', { year: 'numeric', month: 'long', day: 'numeric' })}
-                                                            <span className="ml-2 text-slate-400">
-                                                                {new Date(record.created_at).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}
-                                                            </span>
+                                                <div className="flex justify-between items-start gap-2">
+                                                    <div className="min-w-0">
+                                                        <p className="text-xs font-medium text-slate-700 flex items-center gap-2 flex-wrap">
+                                                            <span>{new Date(tarikh).toLocaleDateString('ms-MY', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                                                            {record.status_sumbangan && (
+                                                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${statusBadgeClass(record.status_sumbangan)}`}>
+                                                                    {record.status_sumbangan}
+                                                                </span>
+                                                            )}
                                                         </p>
-                                                        <p className="text-xs text-slate-500 mt-1">Sumbangan: {record.jenis_sumbangan || '-'}</p>
+                                                        <p className="text-xs text-slate-500 mt-1">Jenis: {record.jenis_sumbangan || '-'}</p>
                                                         <p className="text-xs text-slate-500">Tujuan: {record.tujuan_sumbangan || '-'}</p>
+                                                        {record.no_rujukan && (
+                                                            <p className="text-xs text-slate-400">Ruj: {record.no_rujukan}</p>
+                                                        )}
                                                         {record.submitted_by && (
                                                             <p className="text-xs text-slate-400 mt-1">Dihantar Oleh: {record.submitted_by.name}</p>
                                                         )}
                                                     </div>
-                                                    {Number.isFinite(Number(record.jumlah_wang_tunai)) && (
-                                                        <span className="text-xs font-medium text-blue-700">RM {Number(record.jumlah_wang_tunai).toLocaleString('en-MY', { minimumFractionDigits: 2 })}</span>
-                                                    )}
+                                                    <div className="text-right shrink-0">
+                                                        {amounts.length > 0
+                                                            ? amounts.map(([label, v]) => (
+                                                                <p key={label} className="text-xs text-slate-600">
+                                                                    {label}: <span className="font-medium text-blue-700">RM {Number(v).toLocaleString('en-MY', { minimumFractionDigits: 2 })}</span>
+                                                                </p>
+                                                              ))
+                                                            : Number(record.jumlah_wang_tunai) > 0 && (
+                                                                <span className="text-xs font-medium text-blue-700">RM {Number(record.jumlah_wang_tunai).toLocaleString('en-MY', { minimumFractionDigits: 2 })}</span>
+                                                              )}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             )}

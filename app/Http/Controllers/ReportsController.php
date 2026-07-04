@@ -202,7 +202,7 @@ class ReportsController extends Controller
         $records = HasilCulaan::with('submittedBy:id,name,role')
             ->where('no_ic', $ic)
             ->orderBy('created_at', 'desc')
-            ->get(['id', 'nama', 'no_ic', 'umur', 'no_tel', 'bangsa', 'alamat', 'poskod', 'negeri', 'bandar', 'parlimen', 'kadun', 'mpkk', 'daerah_mengundi', 'lokaliti', 'bil_isi_rumah', 'pendapatan_isi_rumah', 'pekerjaan', 'jenis_pekerjaan', 'pemilik_rumah', 'jenis_sumbangan', 'tujuan_sumbangan', 'bantuan_lain', 'jumlah_wang_tunai', 'keahlian_parti', 'kecenderungan_politik', 'kad_pengenalan', 'nota', 'submitted_by', 'created_at'])
+            ->get(['id', 'nama', 'no_ic', 'umur', 'no_tel', 'bangsa', 'alamat', 'poskod', 'negeri', 'bandar', 'parlimen', 'kadun', 'mpkk', 'daerah_mengundi', 'lokaliti', 'bil_isi_rumah', 'pendapatan_isi_rumah', 'pekerjaan', 'jenis_pekerjaan', 'pemilik_rumah', 'jenis_sumbangan', 'tujuan_sumbangan', 'status_sumbangan', 'no_rujukan', 'tarikh_sumbangan', 'jumlah_dipohon', 'jumlah_dilulus', 'jumlah_dibayar', 'bantuan_lain', 'jumlah_wang_tunai', 'keahlian_parti', 'kecenderungan_politik', 'kad_pengenalan', 'nota', 'submitted_by', 'created_at'])
             ->map(function ($record) use ($viewer) {
                 $locked = VoterDataMasker::isLocked($record) && ! VoterDataMasker::canUnmask($viewer);
                 $masked = VoterDataMasker::mask($record, $viewer);
@@ -364,6 +364,11 @@ class ReportsController extends Controller
             'bkb_program' => 'nullable|string|max:255',
             'jumlah_bantuan_tunai' => 'nullable|numeric|min:0',
             'jumlah_wang_tunai' => 'nullable|numeric|min:0',
+            'status_sumbangan' => 'nullable|string|max:255',
+            'tarikh_sumbangan' => 'nullable|date',
+            'jumlah_dipohon' => 'nullable|numeric|min:0',
+            'jumlah_dilulus' => 'nullable|numeric|min:0',
+            'jumlah_dibayar' => 'nullable|numeric|min:0',
             'jkm_program' => 'nullable|string|max:255',
             'keahlian_parti' => ($hasSumbangan ? 'required|string|max:255' : 'nullable|string|max:255'),
             'kecenderungan_politik' => ($hasSumbangan ? 'required|string|max:255' : 'nullable|string|max:255'),
@@ -398,6 +403,11 @@ class ReportsController extends Controller
             $validated['isejahtera_program'] = null;
             $validated['jkm_program'] = null;
             $validated['jumlah_wang_tunai'] = null;
+            $validated['status_sumbangan'] = null;
+            $validated['tarikh_sumbangan'] = null;
+            $validated['jumlah_dipohon'] = null;
+            $validated['jumlah_dilulus'] = null;
+            $validated['jumlah_dibayar'] = null;
         }
 
         if (! $updateStatusPengundi) {
@@ -661,6 +671,11 @@ class ReportsController extends Controller
             'bkb_program' => 'nullable|string|max:255',
             'jumlah_bantuan_tunai' => 'nullable|numeric|min:0',
             'jumlah_wang_tunai' => 'nullable|numeric|min:0',
+            'status_sumbangan' => 'nullable|string|max:255',
+            'tarikh_sumbangan' => 'nullable|date',
+            'jumlah_dipohon' => 'nullable|numeric|min:0',
+            'jumlah_dilulus' => 'nullable|numeric|min:0',
+            'jumlah_dibayar' => 'nullable|numeric|min:0',
             'jkm_program' => 'nullable|string|max:255',
             'keahlian_parti' => 'required|string|max:255',
             'kecenderungan_politik' => 'required|string|max:255',
@@ -996,8 +1011,16 @@ class ReportsController extends Controller
                 ->whereIn('upload_batch_id', $okuBatchIds)
                 ->pluck('no_ic')->unique()->flip();
 
+        // Sumbangan count: how many aid records (hasil_culaan) exist for each
+        // voter's IC. Resolved once for the whole page.
+        $sumbanganCounts = empty($pageIcs)
+            ? collect()
+            : HasilCulaan::sumbangan()->whereIn('no_ic', $pageIcs)
+                ->selectRaw('no_ic, COUNT(*) as total')
+                ->groupBy('no_ic')->pluck('total', 'no_ic');
+
         // Mask sensitive fields on locked rows for non-privileged viewers
-        $dataPengundi->getCollection()->transform(function ($row) use ($user, $okuIcs) {
+        $dataPengundi->getCollection()->transform(function ($row) use ($user, $okuIcs, $sumbanganCounts) {
             $masked = VoterDataMasker::mask($row, $user);
             $masked['submitted_by'] = $row->submittedBy
                 ? ['id' => $row->submittedBy->id, 'name' => $row->submittedBy->name]
@@ -1005,6 +1028,7 @@ class ReportsController extends Controller
             $masked['is_locked'] = VoterDataMasker::isLocked($row);
             // OKU if manually flagged on the voter OR their IC is in an OKU batch.
             $masked['is_oku'] = (bool) $row->is_oku || isset($okuIcs[$row->no_ic]);
+            $masked['sumbangan_count'] = (int) ($sumbanganCounts[$row->no_ic] ?? 0);
             return $masked;
         });
 
