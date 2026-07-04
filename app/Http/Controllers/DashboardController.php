@@ -131,7 +131,10 @@ class DashboardController extends Controller
         };
 
         // Headline = real registered voters from the roll; culaan stays canvass.
-        $totalPengundi = $rollBase()->count();
+        // Count DISTINCT voters — the same person can appear in several active
+        // batches (e.g. an overlapping OKU list uploaded on top of the DPPR
+        // roll), so counting rows double-counts registered voters.
+        $totalPengundi = $rollBase()->distinct()->count('no_ic');
         $kadunCount = $rollBase()->whereNotNull('kadun')->where('kadun', '!=', '')->distinct()->count('kadun');
         // Total canvassing records = hasil_culaan + data_pengundi (both non-deceased).
         // This matches the "Rekod" column in the KADUN and Petugas tables.
@@ -179,7 +182,7 @@ class DashboardController extends Controller
         // everything outside Melayu/Cina/India falls into "lain").
         $bangsaStats = $rollBase()
             ->whereNotNull('bangsa')->where('bangsa', '!=', '')
-            ->selectRaw('UPPER(bangsa) as b, count(*) as jumlah')
+            ->selectRaw('UPPER(bangsa) as b, COUNT(DISTINCT no_ic) as jumlah')
             ->groupBy(DB::raw('UPPER(bangsa)'))
             ->pluck('jumlah', 'b');
         $melayu = (int) ($bangsaStats['MELAYU'] ?? 0);
@@ -199,8 +202,8 @@ class DashboardController extends Controller
             $age = '(YEAR(CURDATE()) - CAST(tahun_lahir AS UNSIGNED))';
 
             return $hi === null
-                ? $q->whereRaw("{$age} > ?", [$lo])->count()
-                : $q->whereRaw("{$age} BETWEEN ? AND ?", [$lo, $hi])->count();
+                ? $q->whereRaw("{$age} > ?", [$lo])->distinct()->count('no_ic')
+                : $q->whereRaw("{$age} BETWEEN ? AND ?", [$lo, $hi])->distinct()->count('no_ic');
         };
         $umurDistribution = [
             ['range' => '18-25', 'jumlah' => $ageBand(18, 25)],
@@ -272,7 +275,7 @@ class DashboardController extends Controller
                         }
                     })
                     ->whereRaw('UPPER(kadun) = ?', [$kadunUpper])
-                    ->count();
+                    ->distinct()->count('no_ic');
 
                 $canvass = DataPengundi::where('is_deceased', false)->whereRaw('UPPER(kadun) = ?', [$kadunUpper]);
                 $canvassTotal = (clone $canvass)->count();
