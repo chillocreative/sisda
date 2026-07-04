@@ -60,12 +60,20 @@ class KeanggotaanController extends Controller
             ->distinct()->orderBy('cabang')->pluck('cabang')->all();
     }
 
-    /** DUNs from the voter-roll match (matched_kadun) plus the file-derived branch DUN. */
-    private function dunList(): array
+    /**
+     * DUNs from the voter-roll match (matched_kadun) plus the file-derived branch
+     * DUN. When a Parlimen (Cabang) is selected, only DUNs under that Parlimen
+     * are listed (matched DUNs registered in it + that Cabang's branch DUN).
+     */
+    private function dunList(Request $request): array
     {
+        $parlimen = $request->input('parlimen');
+
         $matched = Keanggotaan::whereNotNull('matched_kadun')->where('matched_kadun', '!=', '')
+            ->when($parlimen, fn ($q, $p) => $q->where('cabang', $p)->whereRaw('UPPER(matched_parlimen) = ?', [strtoupper($p)]))
             ->distinct()->pluck('matched_kadun');
         $branch = Keanggotaan::whereNotNull('dun')->where('dun', '!=', '')
+            ->when($parlimen, fn ($q, $p) => $q->where('cabang', $p))
             ->distinct()->pluck('dun');
 
         return $matched->merge($branch)->unique()->sort()->values()->all();
@@ -397,7 +405,7 @@ class KeanggotaanController extends Controller
             'members' => $members,
             'filters' => $request->only(['search', 'status_kawasan', 'parlimen', 'dun', 'daerah_mengundi', 'lokaliti', 'bangsa', 'jantina', 'status_anggota', 'sentimen', 'sayap']),
             'parlimenList' => $this->parlimenList(),
-            'dunList' => $this->dunList(),
+            'dunList' => $this->dunList($request),
             'dmList' => $this->dmList($request),
             'lokalitiList' => $this->lokalitiList($request),
             'bangsaList' => $this->bangsaList(),

@@ -312,7 +312,7 @@ export default function Senarai({ members, filters, parlimenList = [], dunList =
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Parlimen / Cabang</label>
-                        <select value={filters.parlimen || ''} onChange={(e) => applyFilters({ parlimen: e.target.value, daerah_mengundi: '', lokaliti: '' })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                        <select value={filters.parlimen || ''} onChange={(e) => applyFilters({ parlimen: e.target.value, dun: '', daerah_mengundi: '', lokaliti: '' })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
                             <option value="">Semua Parlimen</option>
                             {parlimenList.map((p) => <option key={p} value={p}>{p}</option>)}
                         </select>
