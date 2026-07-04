@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
+use Smalot\PdfParser\Parser;
 use Throwable;
 
 class ProcessVoterUpload implements ShouldQueue
@@ -32,8 +33,41 @@ class ProcessVoterUpload implements ShouldQueue
     public function handle(): void
     {
         $batch = UploadBatch::findOrFail($this->batchId);
+        $absPath = Storage::disk('private')->path($this->zipPath);
+        $ext = strtolower(pathinfo($this->zipPath, PATHINFO_EXTENSION));
+
+        // The upload may be a ZIP of files, or a single spreadsheet/PDF. Read
+        // whichever it is — the importer is column-agnostic.
+        if ($ext === 'zip') {
+            $this->importZip($absPath);
+        } elseif ($ext === 'pdf') {
+            $this->importPdf($absPath);
+        } else {
+            Excel::import(new VoterDatabaseImport($this->batchId), $absPath);
+        }
+
+        $totalRecords = PangkalanDataPengundi::where('upload_batch_id', $this->batchId)->count();
+        // Additive activation: multiple batches can be active at once
+        // (e.g. one roll per parliament), so completing an upload no
+        // longer deactivates the others.
+        $batch->update([
+            'jumlah_rekod' => $totalRecords,
+            'status'       => 'completed',
+            'is_active'    => true,
+        ]);
+        \Illuminate\Support\Facades\Cache::forget('pilihanraya:active_batches');
+
+        // Sync master data tables from voter database
+        self::syncMasterData($this->batchId);
+    }
+
+    /**
+     * Extract a ZIP (any folder structure) and import every spreadsheet/PDF
+     * inside it. The column-agnostic importer handles varied layouts.
+     */
+    private function importZip(string $zipFilePath): void
+    {
         $tempDir = Storage::disk('private')->path("voter-uploads/temp_{$this->batchId}");
-        $zipFilePath = Storage::disk('private')->path($this->zipPath);
 
         $zip = new \ZipArchive();
         if ($zip->open($zipFilePath) !== true) {
@@ -52,37 +86,57 @@ class ProcessVoterUpload implements ShouldQueue
         $zip->extractTo($tempDir);
         $zip->close();
 
-        $xlsxFiles = [];
         $iterator = new RecursiveIteratorIterator(
             new RecursiveDirectoryIterator($tempDir, RecursiveDirectoryIterator::SKIP_DOTS)
         );
         foreach ($iterator as $file) {
-            if (!$file->isFile()) continue;
-            if (strtolower($file->getExtension()) !== 'xlsx') continue;
+            if (! $file->isFile()) continue;
             // Skip macOS metadata duplicates that some zip tools include.
             if (str_starts_with($file->getFilename(), '._')) continue;
-            $xlsxFiles[] = $file->getPathname();
+            $e = strtolower($file->getExtension());
+            if (in_array($e, ['xlsx', 'xls', 'csv'], true)) {
+                Excel::import(new VoterDatabaseImport($this->batchId), $file->getPathname());
+            } elseif ($e === 'pdf') {
+                $this->importPdf($file->getPathname());
+            }
         }
-
-        foreach ($xlsxFiles as $xlsxPath) {
-            Excel::import(new VoterDatabaseImport($this->batchId), $xlsxPath);
-        }
-
-        $totalRecords = PangkalanDataPengundi::where('upload_batch_id', $this->batchId)->count();
-        // Additive activation: multiple batches can be active at once
-        // (e.g. one roll per parliament), so completing an upload no
-        // longer deactivates the others.
-        $batch->update([
-            'jumlah_rekod' => $totalRecords,
-            'status'       => 'completed',
-            'is_active'    => true,
-        ]);
-        \Illuminate\Support\Facades\Cache::forget('pilihanraya:active_batches');
 
         $this->deleteDirectory($tempDir);
+    }
 
-        // Sync master data tables from voter database
-        self::syncMasterData($this->batchId);
+    /**
+     * Best-effort PDF extraction: pull every MyKad-shaped IC and the trailing
+     * text as the name. PDFs have no reliable column structure, so only IC +
+     * name are captured; spreadsheets remain the complete format.
+     */
+    private function importPdf(string $pdfPath): void
+    {
+        $text = (new Parser)->parseFile($pdfPath)->getText();
+        $records = [];
+        foreach (preg_split('/\r\n|\r|\n/', $text) as $line) {
+            if (! preg_match('/(\d{6}[\s-]?\d{2}[\s-]?\d{4})(.*)/', trim($line), $m)) {
+                continue;
+            }
+            $ic = VoterDatabaseImport::normaliseIc($m[1], true);
+            if ($ic === null) {
+                continue;
+            }
+            $nama = strtoupper(trim(preg_replace('/[^\p{L}\s]+/u', ' ', $m[2])));
+            $records[] = [
+                'upload_batch_id' => $this->batchId,
+                'no_ic' => $ic,
+                'nama' => preg_replace('/\s+/', ' ', $nama),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+            if (count($records) >= 500) {
+                PangkalanDataPengundi::insert($records);
+                $records = [];
+            }
+        }
+        if (! empty($records)) {
+            PangkalanDataPengundi::insert($records);
+        }
     }
 
     /**

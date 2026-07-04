@@ -34,7 +34,7 @@ class UploadDatabaseController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'fail' => 'required|file|mimes:zip|max:102400',
+            'fail' => 'required|file|mimes:zip,xlsx,xls,csv,pdf|max:102400',
             'is_oku' => 'boolean',
         ]);
 

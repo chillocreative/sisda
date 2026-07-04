@@ -101,7 +101,7 @@ export default function Index({ batches, flash }) {
                 {/* Header */}
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">Upload Database Pengundi</h1>
-                    <p className="text-sm text-slate-600 mt-1">Muat naik fail ZIP yang mengandungi data pengundi. Sebarang struktur folder diterima — semua fail .xlsx dalam ZIP akan dibaca. Beberapa batch boleh diaktifkan serentak — pangkalan data pengundi ialah gabungan semua batch yang aktif.</p>
+                    <p className="text-sm text-slate-600 mt-1">Muat naik fail data pengundi (ZIP / Excel / CSV / PDF). Sistem membaca fail secara pintar — walaupun susunan kolum tidak menentu, ia mengesan No. IC dan medan lain secara automatik. Beberapa batch boleh diaktifkan serentak — pangkalan data pengundi ialah gabungan semua batch yang aktif.</p>
                 </div>
 
                 {/* Flash messages */}
@@ -133,24 +133,24 @@ export default function Index({ batches, flash }) {
                 <div className="bg-white rounded-xl border border-slate-200 p-6">
                     <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
                         <Upload className="h-5 w-5" />
-                        Muat Naik Fail ZIP
+                        Muat Naik Fail
                     </h2>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1">
-                                Fail ZIP <span className="text-rose-500">*</span>
+                                Fail <span className="text-rose-500">*</span>
                             </label>
                             <input
                                 ref={fileInputRef}
                                 type="file"
-                                accept=".zip"
+                                accept=".zip,.xlsx,.xls,.csv,.pdf"
                                 onChange={handleFileChange}
                                 className="block w-full text-sm text-slate-700 border border-slate-300 rounded-lg cursor-pointer bg-slate-50 focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-l-lg file:border-0 file:text-sm file:font-medium file:bg-slate-900 file:text-white hover:file:bg-slate-800"
                                 required
                             />
                             {errors.fail && <p className="text-sm text-rose-600 mt-1">{errors.fail}</p>}
-                            <p className="text-xs text-slate-500 mt-1">Hanya fail .zip sahaja. Saiz maksimum: 100MB.</p>
+                            <p className="text-xs text-slate-500 mt-1">Format: .zip, .xlsx, .xls, .csv atau .pdf. Sistem mengesan kolum secara automatik. Saiz maksimum: 100MB.</p>
                         </div>
 
                         <label className="flex items-start gap-2 text-sm text-slate-700">
