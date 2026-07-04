@@ -65,6 +65,10 @@ class ReportsController extends Controller
             });
         }
 
+        // Distinct dropdown options, scoped to what this viewer can see
+        // (role restriction applied, but NOT the column filters).
+        $optionsBase = clone $filterQuery;
+
         // Column + date filters (shared with the export).
         $this->applyHasilCulaanFilters($filterQuery, $request);
 
@@ -101,6 +105,10 @@ class ReportsController extends Controller
             'filters' => $request->only([
                 'nama', 'no_ic', 'umur', 'no_tel', 'bangsa', 'negeri', 'bandar', 'lokaliti',
                 'pendapatan', 'nota', 'dikemukakan', 'kad_pengenalan', 'date_from', 'date_to', 'search',
+            ]),
+            'filterOptions' => collect(['bangsa', 'negeri', 'bandar', 'lokaliti'])->mapWithKeys(fn ($col) => [
+                $col => (clone $optionsBase)->whereNotNull($col)->where($col, '!=', '')
+                    ->distinct()->orderBy($col)->pluck($col)->values(),
             ]),
             'currentUserId' => $user->id,
             'canUnmaskSensitive' => VoterDataMasker::canUnmask($user),
