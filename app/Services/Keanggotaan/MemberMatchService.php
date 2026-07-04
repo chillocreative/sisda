@@ -74,6 +74,8 @@ class MemberMatchService
             'matched_kadun' => null,
             'matched_parlimen' => null,
             'matched_negeri' => null,
+            'matched_daerah_mengundi' => null,
+            'matched_lokaliti' => null,
             'tahun_lahir' => null,
             'umur' => self::ageFromIc($ic),
             'bangsa' => null,
@@ -114,6 +116,8 @@ class MemberMatchService
             'matched_kadun' => $roll->kadun,
             'matched_parlimen' => $roll->parlimen,
             'matched_negeri' => $roll->negeri,
+            'matched_daerah_mengundi' => $roll->daerah_mengundi,
+            'matched_lokaliti' => $roll->lokaliti,
             'tahun_lahir' => $roll->tahun_lahir,
             'bangsa' => $roll->bangsa,
             // Prefer the roll's recorded gender, fall back to the IC.
@@ -156,6 +160,7 @@ class MemberMatchService
         // uploaded file (the roll cross-check must not clobber file data).
         $reset = [
             'matched_kadun = NULL', 'matched_parlimen = NULL', 'matched_negeri = NULL',
+            'matched_daerah_mengundi = NULL', 'matched_lokaliti = NULL',
             'tahun_lahir = NULL', 'voter_color = NULL',
             'is_dicula = 0', 'is_pendaftaran_baru = 0', "status_kawasan = 'tiada_dppr'",
         ];
@@ -213,6 +218,8 @@ class MemberMatchService
                 'k.matched_kadun = p.kadun',
                 'k.matched_parlimen = p.parlimen',
                 'k.matched_negeri = p.negeri',
+                'k.matched_daerah_mengundi = p.daerah_mengundi',
+                'k.matched_lokaliti = p.lokaliti',
                 'k.tahun_lahir = p.tahun_lahir',
                 'k.is_pendaftaran_baru = p.pendaftaran_baru',
                 "k.status_kawasan = 'dalam_kawasan'",
@@ -226,6 +233,7 @@ class MemberMatchService
                 JOIN (
                     SELECT no_ic,
                            MAX(kadun) AS kadun, MAX(parlimen) AS parlimen, MAX(negeri) AS negeri,
+                           MAX(daerah_mengundi) AS daerah_mengundi, MAX(lokaliti) AS lokaliti,
                            MAX(bangsa) AS bangsa, MAX(jantina) AS jantina,
                            MAX(tahun_lahir) AS tahun_lahir, MAX(pendaftaran_baru) AS pendaftaran_baru
                       FROM pangkalan_data_pengundi

@@ -85,7 +85,7 @@ const BANGSA_COLORS = [
     '#84cc16', '#f97316', '#06b6d4', '#a855f7', '#eab308', '#22c55e', '#64748b', '#d946ef',
 ];
 
-export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBangsa = [], byDun, byColor, byJantina, wings, parlimenList = [], dunList = [], filters = {} }) {
+export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBangsa = [], byDun, byColor, byJantina, wings, parlimenList = [], dunList = [], dmList = [], lokalitiList = [], bangsaList = [], filters = {} }) {
     const pct = (n) => (summary.total > 0 ? Math.round((n / summary.total) * 100) : 0);
     // Kawasan cards are scoped to the whole Parlimen/Cabang, so their % is
     // relative to the Cabang member total, not the (DUN-filtered) Jumlah Ahli.
@@ -105,7 +105,17 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
 
     const bangsaData = byBangsa.map((b, i) => ({ name: b.nama, value: b.jumlah, fill: BANGSA_COLORS[i % BANGSA_COLORS.length] }));
 
-    const apply = (params) => router.get(route('keanggotaan.analisa'), params, { preserveState: true, replace: true });
+    // Merge the changed filter(s) into the current selection so every filter persists.
+    const applyFilters = (extra = {}) => {
+        const base = {
+            parlimen: filters.parlimen, dun: filters.dun,
+            daerah_mengundi: filters.daerah_mengundi, lokaliti: filters.lokaliti,
+            status_kawasan: filters.status_kawasan, sentimen: filters.sentimen,
+            bangsa: filters.bangsa, jantina: filters.jantina,
+            sayap: filters.sayap, status_anggota: filters.status_anggota,
+        };
+        router.get(route('keanggotaan.analisa'), { ...base, ...extra }, { preserveState: true, replace: true });
+    };
 
     return (
         <AuthenticatedLayout>
@@ -113,23 +123,90 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
             <div className="max-w-7xl mx-auto space-y-6">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <h1 className="text-2xl font-bold text-slate-900">Analisa Keanggotaan</h1>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <select value={filters.parlimen || ''} onChange={(e) => apply({ parlimen: e.target.value })} className="px-3 py-2 border border-slate-300 rounded-lg text-sm">
-                            <option value="">Semua Parlimen / Cabang</option>
+                </div>
+                <KeanggotaanNav />
+
+                <div className="bg-white rounded-xl border border-slate-200 p-4 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3 items-end">
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Parlimen / Cabang</label>
+                        <select value={filters.parlimen || ''} onChange={(e) => applyFilters({ parlimen: e.target.value, dun: '', daerah_mengundi: '', lokaliti: '' })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                            <option value="">Semua Parlimen</option>
                             {parlimenList.map((p) => <option key={p} value={p}>{p}</option>)}
                         </select>
-                        <select
-                            value={filters.dun || ''}
-                            onChange={(e) => apply({ parlimen: filters.parlimen, dun: e.target.value })}
-                            disabled={!filters.parlimen}
-                            className="px-3 py-2 border border-slate-300 rounded-lg text-sm disabled:bg-slate-100 disabled:text-slate-400"
-                        >
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">DUN</label>
+                        <select value={filters.dun || ''} onChange={(e) => applyFilters({ dun: e.target.value, daerah_mengundi: '', lokaliti: '' })} disabled={!filters.parlimen} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm disabled:bg-slate-100 disabled:text-slate-400">
                             <option value="">{filters.parlimen ? 'Semua DUN' : 'Pilih Parlimen dahulu'}</option>
                             {dunList.map((d) => <option key={d} value={d}>{d}</option>)}
                         </select>
                     </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Daerah Mengundi</label>
+                        <select value={filters.daerah_mengundi || ''} onChange={(e) => applyFilters({ daerah_mengundi: e.target.value, lokaliti: '' })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                            <option value="">Semua DM</option>
+                            {dmList.map((d) => <option key={d} value={d}>{d}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Lokaliti</label>
+                        <select value={filters.lokaliti || ''} onChange={(e) => applyFilters({ lokaliti: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                            <option value="">Semua Lokaliti</option>
+                            {lokalitiList.map((l) => <option key={l} value={l}>{l}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Status Kawasan</label>
+                        <select value={filters.status_kawasan || ''} onChange={(e) => applyFilters({ status_kawasan: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                            <option value="">Semua</option>
+                            <option value="dalam_kawasan">Pengundi Dalam Kawasan</option>
+                            <option value="luar_kawasan">Pengundi Luar</option>
+                            <option value="tiada_dppr">Tiada dalam DPPR/DPT</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Sentimen</label>
+                        <select value={filters.sentimen || ''} onChange={(e) => applyFilters({ sentimen: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                            <option value="">Semua</option>
+                            <option value="putih">Putih</option>
+                            <option value="kelabu">Kelabu</option>
+                            <option value="hitam">Hitam</option>
+                            <option value="belum_dicula">Belum Dicula</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Bangsa</label>
+                        <select value={filters.bangsa || ''} onChange={(e) => applyFilters({ bangsa: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                            <option value="">Semua Bangsa</option>
+                            {bangsaList.map((b) => <option key={b} value={b}>{b}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Jantina</label>
+                        <select value={filters.jantina || ''} onChange={(e) => applyFilters({ jantina: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                            <option value="">Semua</option>
+                            <option value="LELAKI">Lelaki</option>
+                            <option value="PEREMPUAN">Perempuan</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Sayap</label>
+                        <select value={filters.sayap || ''} onChange={(e) => applyFilters({ sayap: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                            <option value="">Semua</option>
+                            <option value="AMK">AMK</option>
+                            <option value="Srikandi">Srikandi</option>
+                            <option value="Wanita">Wanita</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Status Anggota</label>
+                        <select value={filters.status_anggota || ''} onChange={(e) => applyFilters({ status_anggota: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                            <option value="">Semua</option>
+                            <option value="aktif">Aktif</option>
+                            <option value="tidak_aktif">Tidak Aktif</option>
+                        </select>
+                    </div>
                 </div>
-                <KeanggotaanNav />
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <Kpi label="Jumlah Ahli" value={summary.total.toLocaleString()} icon={Users} />

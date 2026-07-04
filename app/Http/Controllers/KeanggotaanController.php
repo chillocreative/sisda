@@ -75,6 +75,25 @@ class KeanggotaanController extends Controller
             ->distinct()->orderBy('bangsa')->pluck('bangsa')->all();
     }
 
+    /** Daerah Mengundi (from the DPPR match), cascaded to the selected Parlimen/DUN. */
+    private function dmList(Request $request): array
+    {
+        return Keanggotaan::whereNotNull('matched_daerah_mengundi')->where('matched_daerah_mengundi', '!=', '')
+            ->when($request->input('parlimen'), fn ($q, $p) => $q->where('cabang', $p))
+            ->when($request->input('dun'), fn ($q, $d) => $q->where(fn ($x) => $x->where('matched_kadun', $d)->orWhere('dun', $d)))
+            ->distinct()->orderBy('matched_daerah_mengundi')->pluck('matched_daerah_mengundi')->all();
+    }
+
+    /** Lokaliti (from the DPPR match), cascaded to the selected Parlimen/DUN/Daerah Mengundi. */
+    private function lokalitiList(Request $request): array
+    {
+        return Keanggotaan::whereNotNull('matched_lokaliti')->where('matched_lokaliti', '!=', '')
+            ->when($request->input('parlimen'), fn ($q, $p) => $q->where('cabang', $p))
+            ->when($request->input('dun'), fn ($q, $d) => $q->where(fn ($x) => $x->where('matched_kadun', $d)->orWhere('dun', $d)))
+            ->when($request->input('daerah_mengundi'), fn ($q, $dm) => $q->where('matched_daerah_mengundi', $dm))
+            ->distinct()->orderBy('matched_lokaliti')->pluck('matched_lokaliti')->all();
+    }
+
     public function index()
     {
         return Inertia::render('Keanggotaan/Index', [
@@ -350,15 +369,17 @@ class KeanggotaanController extends Controller
 
         return Inertia::render('Keanggotaan/Senarai', [
             'members' => $members,
-            'filters' => $request->only(['search', 'status_kawasan', 'parlimen', 'dun', 'bangsa', 'jantina', 'status_anggota', 'sentimen', 'sayap']),
+            'filters' => $request->only(['search', 'status_kawasan', 'parlimen', 'dun', 'daerah_mengundi', 'lokaliti', 'bangsa', 'jantina', 'status_anggota', 'sentimen', 'sayap']),
             'parlimenList' => $this->parlimenList(),
             'dunList' => $this->dunList(),
+            'dmList' => $this->dmList($request),
+            'lokalitiList' => $this->lokalitiList($request),
             'bangsaList' => $this->bangsaList(),
             'flash' => ['success' => session('success'), 'error' => session('error')],
         ]);
     }
 
-    /** Apply the Senarai search/Parlimen/kawasan/sentimen/sayap filters. */
+    /** Apply the full search + geographic + demographic filter set. */
     private function applyMemberFilters($query, Request $request): void
     {
         if ($search = $request->input('search')) {
@@ -366,14 +387,32 @@ class KeanggotaanController extends Controller
                 $q->where('nama', 'like', "%{$search}%")->orWhere('no_ic', 'like', "%{$search}%");
             });
         }
-        if (in_array($request->input('status_kawasan'), ['dalam_kawasan', 'luar_kawasan', 'tiada_dppr'], true)) {
-            $query->where('status_kawasan', $request->input('status_kawasan'));
-        }
+        // Geographic drill: Parlimen (Cabang) > DUN > Daerah Mengundi > Lokaliti.
         if ($parlimen = $request->input('parlimen')) {
             $query->where('cabang', $parlimen);
         }
         if ($dun = $request->input('dun')) {
             $query->where(fn ($q) => $q->where('matched_kadun', $dun)->orWhere('dun', $dun));
+        }
+        if ($dm = $request->input('daerah_mengundi')) {
+            $query->where('matched_daerah_mengundi', $dm);
+        }
+        if ($lokaliti = $request->input('lokaliti')) {
+            $query->where('matched_lokaliti', $lokaliti);
+        }
+
+        $this->applyNonGeoFilters($query, $request);
+    }
+
+    /**
+     * Non-geographic filters (kawasan status, bangsa, jantina, status anggota,
+     * sentimen, sayap). Split out so the Analisa page can apply them to its
+     * Cabang-level scope without the DUN/DM/Lokaliti drill.
+     */
+    private function applyNonGeoFilters($query, Request $request): void
+    {
+        if (in_array($request->input('status_kawasan'), ['dalam_kawasan', 'luar_kawasan', 'tiada_dppr'], true)) {
+            $query->where('status_kawasan', $request->input('status_kawasan'));
         }
         if ($bangsa = $request->input('bangsa')) {
             $query->where('bangsa', $bangsa);
@@ -442,6 +481,8 @@ class KeanggotaanController extends Controller
             $m->bangsa ?: '-',
             $m->cabang ?: '-',
             $m->matched_kadun ?: ($m->dun ?: '-'),
+            $m->matched_daerah_mengundi ?: '-',
+            $m->matched_lokaliti ?: '-',
             collect($m->wings)->map(fn ($w) => ['text' => $w, 'color' => $wingColors[$w] ?? '#64748b'])->all(),
             $m->status_kawasan === 'dalam_kawasan' ? [['text' => 'Dalam Kawasan', 'color' => '#10b981']]
                 : ($m->status_kawasan === 'tiada_dppr' ? [['text' => 'Tiada DPPR/DPT', 'color' => '#ef4444']]
@@ -467,6 +508,12 @@ class KeanggotaanController extends Controller
         if ($v = $request->input('dun')) {
             $filters[] = ['label' => 'DUN', 'value' => $v];
         }
+        if ($v = $request->input('daerah_mengundi')) {
+            $filters[] = ['label' => 'Daerah Mengundi', 'value' => $v];
+        }
+        if ($v = $request->input('lokaliti')) {
+            $filters[] = ['label' => 'Lokaliti', 'value' => $v];
+        }
         if ($v = $request->input('bangsa')) {
             $filters[] = ['label' => 'Bangsa', 'value' => $v];
         }
@@ -486,7 +533,7 @@ class KeanggotaanController extends Controller
         return Pdf::download('pdf.senarai', [
             'title' => 'Senarai Ahli Keanggotaan',
             'filters' => $filters,
-            'columns' => ['No. Anggota', 'Nama', 'No. IC', 'Umur', 'Jantina', 'Bangsa', 'Cabang', 'DUN', 'Sayap', 'Status Pengundi', 'Sentimen'],
+            'columns' => ['No. Anggota', 'Nama', 'No. IC', 'Umur', 'Jantina', 'Bangsa', 'Cabang', 'DUN', 'Daerah Mengundi', 'Lokaliti', 'Sayap', 'Status Pengundi', 'Sentimen'],
             'rows' => $rows,
             'total' => count($rows),
             'generatedAt' => now()->format('d/m/Y H:i'),
@@ -601,16 +648,20 @@ class KeanggotaanController extends Controller
 
         $parlimen = $request->input('parlimen') ?: null;
         $dun = $request->input('dun') ?: null;
-        // Main scope follows Parlimen (Cabang, from the file) then DUN
-        // (matched_kadun, from the roll) — the KPI/age/jantina/wings/etc. cards
-        // drill down with both filters.
-        $base = fn () => $this->memberQuery()
-            ->when($parlimen, fn ($q) => $q->where('cabang', $parlimen))
-            ->when($dun, fn ($q) => $q->where('matched_kadun', $dun));
+        // Main scope = the full filter set (geographic drill Parlimen > DUN >
+        // Daerah Mengundi > Lokaliti, plus the demographic/kawasan/sentimen/
+        // sayap filters). The KPI/age/jantina/wings/etc. cards drill with all.
+        $base = fn () => tap($this->memberQuery(), fn ($q) => $this->applyMemberFilters($q, $request));
         // Parlimen-only scope for the DUN chart and the "luar" cards — they must
         // see the whole Cabang to list all DUNs / count members registered
-        // outside the focused DUN.
-        $parlimenBase = fn () => $this->memberQuery()->when($parlimen, fn ($q) => $q->where('cabang', $parlimen));
+        // outside the focused DUN, so they skip the DUN/DM/Lokaliti drill but
+        // still honour the non-geographic filters.
+        $parlimenBase = fn () => tap($this->memberQuery(), function ($q) use ($parlimen, $request) {
+            if ($parlimen) {
+                $q->where('cabang', $parlimen);
+            }
+            $this->applyNonGeoFilters($q, $request);
+        });
 
         // DUNs available for the DUN dropdown: those within the selected Parlimen
         // (only populated once a Parlimen/Cabang is chosen).
@@ -620,6 +671,10 @@ class KeanggotaanController extends Controller
                 ->whereRaw('UPPER(matched_parlimen) = ?', [strtoupper($parlimen)])
                 ->distinct()->orderBy('matched_kadun')->pluck('matched_kadun')->all()
             : [];
+
+        // Daerah Mengundi + Lokaliti dropdowns, cascaded to the current selection.
+        $dmList = $this->dmList($request);
+        $lokalitiList = $this->lokalitiList($request);
 
         $total = $base()->count();
         // Kawasan (DPT/DPPR roll membership) is a Cabang-level property: a
@@ -729,7 +784,10 @@ class KeanggotaanController extends Controller
             'wings' => $wings,
             'parlimenList' => $this->parlimenList(),
             'dunList' => $dunList,
-            'filters' => ['parlimen' => $parlimen, 'dun' => $dun],
+            'dmList' => $dmList,
+            'lokalitiList' => $lokalitiList,
+            'bangsaList' => $this->bangsaList(),
+            'filters' => $request->only(['parlimen', 'dun', 'daerah_mengundi', 'lokaliti', 'status_kawasan', 'bangsa', 'jantina', 'status_anggota', 'sentimen', 'sayap']),
         ]);
     }
 

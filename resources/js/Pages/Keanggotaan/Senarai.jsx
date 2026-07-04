@@ -89,6 +89,8 @@ function ViewModal({ member, onClose }) {
         ['DUN (Cabang)', member.dun],
         ['Negeri', member.negeri],
         ['DUN (Padanan)', member.matched_kadun],
+        ['Daerah Mengundi', member.matched_daerah_mengundi],
+        ['Lokaliti', member.matched_lokaliti],
         ['Parlimen (Padanan)', member.matched_parlimen],
         ['Tahun Lahir', member.tahun_lahir],
         ['Status Kawasan', member.status_kawasan === 'dalam_kawasan' ? 'Pengundi Dalam Kawasan' : member.status_kawasan === 'tiada_dppr' ? 'Tiada dalam DPPR/DPT' : member.status_kawasan === 'luar_kawasan' ? 'Pengundi Luar' : null],
@@ -255,13 +257,13 @@ function MemberModal({ member, onClose, parlimenList = [] }) {
     );
 }
 
-export default function Senarai({ members, filters, parlimenList = [], dunList = [], bangsaList = [], flash }) {
+export default function Senarai({ members, filters, parlimenList = [], dunList = [], dmList = [], lokalitiList = [], bangsaList = [], flash }) {
     const [search, setSearch] = useState(filters.search || '');
     const [modal, setModal] = useState(null);
     const [viewing, setViewing] = useState(null);
     const scrollRef = useDragScroll();
 
-    const baseParams = { search, status_kawasan: filters.status_kawasan, parlimen: filters.parlimen, dun: filters.dun, bangsa: filters.bangsa, jantina: filters.jantina, status_anggota: filters.status_anggota, sentimen: filters.sentimen, sayap: filters.sayap };
+    const baseParams = { search, status_kawasan: filters.status_kawasan, parlimen: filters.parlimen, dun: filters.dun, daerah_mengundi: filters.daerah_mengundi, lokaliti: filters.lokaliti, bangsa: filters.bangsa, jantina: filters.jantina, status_anggota: filters.status_anggota, sentimen: filters.sentimen, sayap: filters.sayap };
     const exportParams = Object.fromEntries(Object.entries(baseParams).filter(([, v]) => v));
 
     const applyFilters = (extra = {}) => {
@@ -310,16 +312,30 @@ export default function Senarai({ members, filters, parlimenList = [], dunList =
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Parlimen / Cabang</label>
-                        <select value={filters.parlimen || ''} onChange={(e) => applyFilters({ parlimen: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                        <select value={filters.parlimen || ''} onChange={(e) => applyFilters({ parlimen: e.target.value, daerah_mengundi: '', lokaliti: '' })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
                             <option value="">Semua Parlimen</option>
                             {parlimenList.map((p) => <option key={p} value={p}>{p}</option>)}
                         </select>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">DUN</label>
-                        <select value={filters.dun || ''} onChange={(e) => applyFilters({ dun: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                        <select value={filters.dun || ''} onChange={(e) => applyFilters({ dun: e.target.value, daerah_mengundi: '', lokaliti: '' })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
                             <option value="">Semua DUN</option>
                             {dunList.map((d) => <option key={d} value={d}>{d}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Daerah Mengundi</label>
+                        <select value={filters.daerah_mengundi || ''} onChange={(e) => applyFilters({ daerah_mengundi: e.target.value, lokaliti: '' })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                            <option value="">Semua DM</option>
+                            {dmList.map((d) => <option key={d} value={d}>{d}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Lokaliti</label>
+                        <select value={filters.lokaliti || ''} onChange={(e) => applyFilters({ lokaliti: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                            <option value="">Semua Lokaliti</option>
+                            {lokalitiList.map((l) => <option key={l} value={l}>{l}</option>)}
                         </select>
                     </div>
                     <div>
@@ -389,6 +405,8 @@ export default function Senarai({ members, filters, parlimenList = [], dunList =
                                 <th className="py-3 px-3 font-medium whitespace-nowrap">Status Pengundi</th>
                                 <th className="py-3 px-3 font-medium whitespace-nowrap">Status Anggota</th>
                                 <th className="py-3 px-3 font-medium whitespace-nowrap">DUN</th>
+                                <th className="py-3 px-3 font-medium whitespace-nowrap">Daerah Mengundi</th>
+                                <th className="py-3 px-3 font-medium whitespace-nowrap">Lokaliti</th>
                                 <th className="py-3 px-3 font-medium whitespace-nowrap">Cabang</th>
                                 <th className="py-3 px-3 font-medium whitespace-nowrap">Sentimen</th>
                                 <th className="py-3 px-3 font-medium whitespace-nowrap text-center">Tindakan</th>
@@ -396,7 +414,7 @@ export default function Senarai({ members, filters, parlimenList = [], dunList =
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {members.data.length === 0 && (
-                                <tr><td colSpan={13} className="py-8 text-center text-slate-500">Tiada ahli.</td></tr>
+                                <tr><td colSpan={15} className="py-8 text-center text-slate-500">Tiada ahli.</td></tr>
                             )}
                             {members.data.map((m) => (
                                 <tr key={m.id} className={m.wing_grace ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-slate-50'}>
@@ -418,6 +436,8 @@ export default function Senarai({ members, filters, parlimenList = [], dunList =
                                     </td>
                                     <td className="py-3 px-3 whitespace-nowrap"><StatusAnggotaCell status={m.status_anggota} tanpaPengetahuan={m.daftar_tanpa_pengetahuan} /></td>
                                     <td className="py-3 px-3 text-slate-600 whitespace-nowrap">{m.matched_kadun || m.dun || '-'}</td>
+                                    <td className="py-3 px-3 text-slate-600 whitespace-nowrap">{m.matched_daerah_mengundi || '-'}</td>
+                                    <td className="py-3 px-3 text-slate-600 whitespace-nowrap">{m.matched_lokaliti || '-'}</td>
                                     <td className="py-3 px-3 text-slate-600 whitespace-nowrap">{m.cabang || '-'}</td>
                                     <td className="py-3 px-3 whitespace-nowrap"><SentimenCell color={m.voter_color} /></td>
                                     <td className="py-3 px-3 whitespace-nowrap">
