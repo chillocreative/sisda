@@ -6,6 +6,7 @@ use App\Models\DataPengundi;
 use App\Models\PangkalanDataPengundi;
 use App\Models\UploadBatch;
 use App\Models\User;
+use App\Services\VoterColorService;
 use Illuminate\Console\Command;
 
 class ImportCulaanSegamat extends Command
@@ -94,8 +95,12 @@ class ImportCulaanSegamat extends Command
                     ->first();
 
                 if ($existing) {
-                    if ($existing->kecenderungan_politik !== $kp) {
+                    // Keep voter_color (War Room reads this) in sync with the
+                    // tendency, preserving any existing party affiliation.
+                    $color = VoterColorService::determine($existing->keahlian_parti, $kp);
+                    if ($existing->kecenderungan_politik !== $kp || $existing->voter_color !== $color) {
                         $existing->kecenderungan_politik = $kp;
+                        $existing->voter_color = $color;
                         $existing->save();
                     }
                     $updated++;
@@ -142,6 +147,8 @@ class ImportCulaanSegamat extends Command
             'daerah_mengundi' => $voter->daerah_mengundi,
             'lokaliti' => $voter->lokaliti,
             'kecenderungan_politik' => $kp,
+            // War Room aggregates by voter_color; derive it like the forms do.
+            'voter_color' => VoterColorService::determine(null, $kp),
             'submitted_by' => $userId,
         ];
     }
