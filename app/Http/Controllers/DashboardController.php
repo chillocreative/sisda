@@ -327,21 +327,32 @@ class DashboardController extends Controller
         // ---- Keanggotaan (party membership) summary + wings ----
         // Scoped to the same territory where columns exist (negeri, cabang=bandar);
         // date/kadun filters don't map to membership.
-        $keanggotaanBase = function () use ($user, $negeriNama, $bandarNama) {
+        // Parlimen (Bandar) names belonging to a Negeri, from Data Induk. Used to
+        // scope membership by Parlimen (cabang) because keanggotaan.negeri (the
+        // uploaded file field) is frequently blank and can't be filtered on.
+        $parlimenUpperInNegeri = function (?string $negeriNama) {
+            if (! $negeriNama) {
+                return [];
+            }
+
+            return Bandar::join('negeri', 'negeri.id', '=', 'bandar.negeri_id')
+                ->whereRaw('UPPER(negeri.nama) = ?', [strtoupper($negeriNama)])
+                ->pluck('bandar.nama')->map(fn ($n) => mb_strtoupper((string) $n))->all();
+        };
+
+        $keanggotaanBase = function () use ($user, $negeriNama, $bandarNama, $parlimenUpperInNegeri) {
             $q = Keanggotaan::query();
-            if (! $user->isSuperAdmin()) {
-                if ($user->negeri_id) {
-                    $q->whereRaw('UPPER(negeri) = ?', [strtoupper((string) ($user->negeri->nama ?? ''))]);
-                }
-                if ($user->bandar_id) {
-                    $q->whereRaw('UPPER(cabang) = ?', [strtoupper((string) ($user->bandar->nama ?? ''))]);
-                }
-            }
-            if ($negeriNama) {
-                $q->whereRaw('UPPER(negeri) = ?', [strtoupper($negeriNama)]);
-            }
-            if ($bandarNama) {
-                $q->whereRaw('UPPER(cabang) = ?', [strtoupper($bandarNama)]);
+
+            // Scope by Parlimen (cabang) — reliable, unlike the file negeri. A
+            // Bandar filter maps straight to its cabang; a Negeri-only filter
+            // maps to the set of that Negeri's Parlimen (via Data Induk).
+            $scopeBandar = $user->isSuperAdmin() ? $bandarNama : ($user->bandar->nama ?? null);
+            $scopeNegeri = $user->isSuperAdmin() ? $negeriNama : ($user->negeri->nama ?? null);
+
+            if ($scopeBandar) {
+                $q->whereRaw('UPPER(cabang) = ?', [strtoupper($scopeBandar)]);
+            } elseif ($scopeNegeri) {
+                $q->whereIn(DB::raw('UPPER(cabang)'), $parlimenUpperInNegeri($scopeNegeri) ?: ['__none__']);
             }
 
             return $q;
