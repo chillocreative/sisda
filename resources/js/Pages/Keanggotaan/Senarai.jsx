@@ -1,7 +1,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
-import { Plus, Search, RefreshCw, Pencil, Trash2, X, Eye, Download } from 'lucide-react';
+import { Plus, Search, RefreshCw, Pencil, Trash2, X, Eye, Download, CheckCircle2 } from 'lucide-react';
 import useDragScroll from '@/Hooks/useDragScroll';
 import KeanggotaanNav from './Nav';
 
@@ -97,6 +97,7 @@ function ViewModal({ member, onClose }) {
         ['Sentimen', member.voter_color ? member.voter_color.charAt(0).toUpperCase() + member.voter_color.slice(1) : 'Belum Dicula'],
         ['Sayap', (member.wings && member.wings.length) ? member.wings.join(', ') : null],
         ['Status Anggota', STATUS_ANGGOTA[member.status_anggota]?.label || null],
+        ['EKYC', member.batch?.is_ekyc ? 'Ya' : null],
         ['Daftar Tanpa Pengetahuan', member.daftar_tanpa_pengetahuan ? 'Ya' : 'Tidak'],
     ];
 
@@ -404,6 +405,7 @@ export default function Senarai({ members, filters, parlimenList = [], dunList =
                                 <th className="py-3 px-3 font-medium whitespace-nowrap">Sayap</th>
                                 <th className="py-3 px-3 font-medium whitespace-nowrap">Status Pengundi</th>
                                 <th className="py-3 px-3 font-medium whitespace-nowrap">Status Anggota</th>
+                                <th className="py-3 px-3 font-medium whitespace-nowrap text-center">EKYC</th>
                                 <th className="py-3 px-3 font-medium whitespace-nowrap">DUN</th>
                                 <th className="py-3 px-3 font-medium whitespace-nowrap">Daerah Mengundi</th>
                                 <th className="py-3 px-3 font-medium whitespace-nowrap">Lokaliti</th>
@@ -414,7 +416,7 @@ export default function Senarai({ members, filters, parlimenList = [], dunList =
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {members.data.length === 0 && (
-                                <tr><td colSpan={15} className="py-8 text-center text-slate-500">Tiada ahli.</td></tr>
+                                <tr><td colSpan={16} className="py-8 text-center text-slate-500">Tiada ahli.</td></tr>
                             )}
                             {members.data.map((m) => (
                                 <tr key={m.id} className={m.wing_grace ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-slate-50'}>
@@ -435,6 +437,11 @@ export default function Senarai({ members, filters, parlimenList = [], dunList =
                                                     : <span className="text-xs text-slate-400 italic">Belum Sync</span>}
                                     </td>
                                     <td className="py-3 px-3 whitespace-nowrap"><StatusAnggotaCell status={m.status_anggota} tanpaPengetahuan={m.daftar_tanpa_pengetahuan} /></td>
+                                    <td className="py-3 px-3 text-center whitespace-nowrap">
+                                        {m.batch?.is_ekyc
+                                            ? <CheckCircle2 className="h-5 w-5 text-emerald-600 inline-block" aria-label="EKYC" />
+                                            : <span className="text-xs text-slate-300">–</span>}
+                                    </td>
                                     <td className="py-3 px-3 text-slate-600 whitespace-nowrap">{m.matched_kadun || m.dun || '-'}</td>
                                     <td className="py-3 px-3 text-slate-600 whitespace-nowrap">{m.matched_daerah_mengundi || '-'}</td>
                                     <td className="py-3 px-3 text-slate-600 whitespace-nowrap">{m.matched_lokaliti || '-'}</td>

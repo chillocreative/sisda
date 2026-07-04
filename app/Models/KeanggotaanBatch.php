@@ -14,11 +14,13 @@ class KeanggotaanBatch extends Model
         'jumlah_rekod',
         'status',
         'is_active',
+        'is_ekyc',
         'uploaded_by',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'is_ekyc' => 'boolean',
     ];
 
     public function keanggotaan(): HasMany

@@ -45,6 +45,10 @@ export default function Index({ batches, flash }) {
         });
     };
 
+    const handleSetEkyc = (batchId, checked) => {
+        router.post(route('keanggotaan.ekyc', batchId), { is_ekyc: checked }, { preserveScroll: true });
+    };
+
     const confirmDeleteAction = () => {
         if (!confirmDelete) return;
         router.delete(route('keanggotaan.destroy', confirmDelete.id), { onFinish: () => setConfirmDelete(null) });
@@ -155,6 +159,7 @@ export default function Index({ batches, flash }) {
                                         <th className="text-right py-3 px-3 font-medium text-slate-600">Jumlah Ahli</th>
                                         <th className="text-center py-3 px-3 font-medium text-slate-600">Status</th>
                                         <th className="text-center py-3 px-3 font-medium text-slate-600">Aktif</th>
+                                        <th className="text-center py-3 px-3 font-medium text-slate-600">EKYC</th>
                                         <th className="text-center py-3 px-3 font-medium text-slate-600">Tindakan</th>
                                     </tr>
                                 </thead>
@@ -174,6 +179,17 @@ export default function Index({ batches, flash }) {
                                                 {batch.is_active
                                                     ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Aktif</span>
                                                     : <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">Tidak Aktif</span>}
+                                            </td>
+                                            <td className="py-3 px-3 text-center">
+                                                {batch.status === 'completed' && (
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={!!batch.is_ekyc}
+                                                        onChange={(e) => handleSetEkyc(batch.id, e.target.checked)}
+                                                        className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                                        title="Tandakan sebagai EKYC — semua ahli batch ini ditetapkan sebagai Aktif"
+                                                    />
+                                                )}
                                             </td>
                                             <td className="py-3 px-3">
                                                 <div className="flex items-center justify-center gap-2">

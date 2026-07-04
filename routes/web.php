@@ -443,6 +443,7 @@ Route::middleware(['auth', 'super_admin'])->prefix('keanggotaan')->name('keanggo
     Route::get('/', [\App\Http\Controllers\KeanggotaanController::class, 'index'])->name('index');
     Route::post('/', [\App\Http\Controllers\KeanggotaanController::class, 'store'])->name('store');
     Route::post('/set-active', [\App\Http\Controllers\KeanggotaanController::class, 'setActive'])->name('set-active');
+    Route::post('/{batch}/ekyc', [\App\Http\Controllers\KeanggotaanController::class, 'setEkyc'])->name('ekyc');
     Route::post('/{batch}/cancel', [\App\Http\Controllers\KeanggotaanController::class, 'cancel'])->name('cancel');
     Route::delete('/{batch}', [\App\Http\Controllers\KeanggotaanController::class, 'destroy'])->name('destroy');
 

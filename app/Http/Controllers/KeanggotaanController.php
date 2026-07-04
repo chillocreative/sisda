@@ -369,6 +369,26 @@ class KeanggotaanController extends Controller
             ->with('success', "{$count} batch keanggotaan telah ".($isActive ? 'diaktifkan' : 'dinyahaktifkan').'.');
     }
 
+    /**
+     * Flag a batch as EKYC-verified. Ticking EKYC automatically marks every
+     * member in the batch as an active anggota; unticking only clears the flag
+     * (member statuses are left as-is).
+     */
+    public function setEkyc(Request $request, KeanggotaanBatch $batch)
+    {
+        $validated = $request->validate(['is_ekyc' => 'required|boolean']);
+
+        $batch->update(['is_ekyc' => $validated['is_ekyc']]);
+
+        if ($validated['is_ekyc']) {
+            Keanggotaan::where('batch_id', $batch->id)->update(['status_anggota' => 'aktif']);
+        }
+
+        return redirect()->back()->with('success', $validated['is_ekyc']
+            ? "Batch ditanda EKYC — semua ahli ditetapkan sebagai Aktif."
+            : 'Tanda EKYC dibuang daripada batch.');
+    }
+
     public function cancel(KeanggotaanBatch $batch)
     {
         if ($batch->status === 'processing') {
@@ -398,7 +418,8 @@ class KeanggotaanController extends Controller
         $setting = KeanggotaanSetting::current();
         $year = (int) date('Y');
 
-        $members = $query->orderByDesc('id')->paginate(25)->withQueryString();
+        // EKYC status is a property of the member's upload batch.
+        $members = $query->with('batch:id,is_ekyc')->orderByDesc('id')->paginate(25)->withQueryString();
         $members->through(fn ($m) => $this->attachWings($m, $setting, $year));
 
         return Inertia::render('Keanggotaan/Senarai', [
