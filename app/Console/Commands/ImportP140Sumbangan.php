@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\DataPengundi;
 use App\Models\HasilCulaan;
+use App\Models\PangkalanDataPengundi;
 use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
@@ -29,6 +30,7 @@ class ImportP140Sumbangan extends Command
     protected $signature = 'sumbangan:import-p140
         {file=storage/app/p140_extract.txt : Path to the pdftotext -layout output}
         {--user= : users.id to record as submitted_by (default: first super_admin)}
+        {--from-roll : For recipients not yet in data_pengundi, create the voter from the pangkalan roll (by IC) before attaching sumbangan}
         {--dry-run : Parse, map and match only; create nothing}';
 
     protected $description = 'Import P140 Segamat aid applications into hasil_culaan (matched to voters by IC)';
@@ -91,7 +93,9 @@ class ImportP140Sumbangan extends Command
             $this->table(['PDF Jenis + Tujuan Permohonan', 'tujuan_sumbangan', 'jenis_sumbangan'], $rows);
         }
 
-        $stats = ['created' => 0, 'dup' => 0, 'unmatched' => 0, 'no_ic' => 0, 'malformed' => 0];
+        $fromRoll = $this->option('from-roll');
+        $dry = $this->option('dry-run');
+        $stats = ['created' => 0, 'voter_created' => 0, 'voter_existing' => 0, 'dup' => 0, 'unmatched' => 0, 'not_in_roll' => 0, 'no_ic' => 0, 'malformed' => 0];
         $unmatched = [];
 
         foreach ($records as $r) {
@@ -106,7 +110,21 @@ class ImportP140Sumbangan extends Command
             }
 
             $voter = DataPengundi::where('no_ic', $ic)->first();
-            if (! $voter) {
+            if ($voter) {
+                $stats['voter_existing']++;
+            } elseif ($fromRoll) {
+                // Create the voter from the authoritative roll (by IC).
+                $roll = PangkalanDataPengundi::where('no_ic', $ic)->first();
+                if (! $roll) {
+                    $stats['not_in_roll']++;
+                    $unmatched[] = "{$ic}  {$r['nama']}";
+                    continue;
+                }
+                $stats['voter_created']++;
+                if (! $dry) {
+                    $voter = $this->createVoterFromRoll($roll, $userId);
+                }
+            } else {
                 $stats['unmatched']++;
                 $unmatched[] = "{$ic}  {$r['nama']}";
                 continue;
@@ -156,9 +174,12 @@ class ImportP140Sumbangan extends Command
 
         $this->newLine();
         $this->table(['Result', 'Count'], [
-            [$this->option('dry-run') ? 'Would create (matched voter)' : 'Created', $stats['created']],
+            [$dry ? 'Sumbangan — would create' : 'Sumbangan — created', $stats['created']],
+            [$dry ? 'Voter — would create from roll' : 'Voter — created from roll', $stats['voter_created']],
+            ['Voter — already existed', $stats['voter_existing']],
             ['Skipped (duplicate ref)', $stats['dup']],
-            ['Unmatched IC (valid, but not a voter)', $stats['unmatched']],
+            ['Unmatched IC (valid, not a voter; use --from-roll)', $stats['unmatched']],
+            ['Not in roll either (cannot enrich)', $stats['not_in_roll']],
             ['No IC in source (blank No KP)', $stats['no_ic']],
             ['Malformed IC (not 12 digits)', $stats['malformed']],
         ]);
@@ -172,6 +193,32 @@ class ImportP140Sumbangan extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /** Create a data_pengundi voter enriched from the authoritative roll row. */
+    private function createVoterFromRoll(PangkalanDataPengundi $roll, int $userId): DataPengundi
+    {
+        $umur = ($roll->tahun_lahir && ctype_digit((string) $roll->tahun_lahir))
+            ? max(0, now()->year - (int) $roll->tahun_lahir)
+            : 0;
+
+        return DataPengundi::create([
+            'nama'            => $roll->nama ?: 'TIADA NAMA',
+            'no_ic'           => $roll->no_ic,
+            'umur'            => $umur,
+            'no_tel'          => '-',
+            'bangsa'          => $roll->bangsa ?: '-',
+            'alamat'          => '-',
+            'poskod'          => '-',
+            'negeri'          => $roll->negeri ?: '-',
+            'bandar'          => $roll->parlimen ?: '-',
+            'parlimen'        => $roll->parlimen,
+            'kadun'           => $roll->kadun,
+            'mpkk'            => null,
+            'daerah_mengundi' => $roll->daerah_mengundi,
+            'lokaliti'        => $roll->lokaliti,
+            'submitted_by'    => $userId,
+        ]);
     }
 
     /** First canonical value whose keyword appears in $text (uppercased); else $default. */
