@@ -143,6 +143,32 @@ class KeanggotaanImport
         return [null, self::EMPTY_MAP];
     }
 
+    /**
+     * Derive the party branch (Cabang/Parlimen) and DUN from an upload's file
+     * name. Membership files are named by branch (e.g. "Senarai ekyc cabang
+     * Segamat DUN BULOH KASAP.xlsx") and carry no cabang/DUN column, so the
+     * branch identity only lives in the filename.
+     *
+     * @return array{cabang:?string, dun:?string} uppercased, or null when absent
+     */
+    public static function labelsFromFilename(string $filename): array
+    {
+        $base = preg_replace('/\s+/', ' ', trim(pathinfo($filename, PATHINFO_FILENAME)));
+
+        $cabang = null;
+        $dun = null;
+        // "... cabang <Parlimen> [DUN <DUN>]" — stop the branch capture at DUN.
+        if (preg_match('/\bcabang\s+(.+?)(?:\s+A?DUN\b.*)?$/i', $base, $m)) {
+            $cabang = strtoupper(trim($m[1])) ?: null;
+        }
+        // "... DUN <DUN>" at the tail (A?DUN also matches ADUN).
+        if (preg_match('/\bA?DUN\s+(.+?)\s*$/i', $base, $m)) {
+            $dun = strtoupper(trim($m[1])) ?: null;
+        }
+
+        return ['cabang' => $cabang, 'dun' => $dun];
+    }
+
     /** A 12-digit Malaysian IC (after stripping non-digits) with a plausible birth date, else null. */
     public static function normaliseIc(string $value): ?string
     {

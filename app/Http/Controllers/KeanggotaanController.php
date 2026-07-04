@@ -58,10 +58,15 @@ class KeanggotaanController extends Controller
             ->distinct()->orderBy('cabang')->pluck('cabang')->all();
     }
 
+    /** DUNs from the voter-roll match (matched_kadun) plus the file-derived branch DUN. */
     private function dunList(): array
     {
-        return Keanggotaan::whereNotNull('matched_kadun')->where('matched_kadun', '!=', '')
-            ->distinct()->orderBy('matched_kadun')->pluck('matched_kadun')->all();
+        $matched = Keanggotaan::whereNotNull('matched_kadun')->where('matched_kadun', '!=', '')
+            ->distinct()->pluck('matched_kadun');
+        $branch = Keanggotaan::whereNotNull('dun')->where('dun', '!=', '')
+            ->distinct()->pluck('dun');
+
+        return $matched->merge($branch)->unique()->sort()->values()->all();
     }
 
     private function bangsaList(): array
@@ -106,7 +111,11 @@ class KeanggotaanController extends Controller
             // Read everything straight from the file. The DPT/DPPR cross-check is
             // NOT run here — it's a separate step via "Sync Semula".
             $this->processFile($batch->id, Storage::disk('private')->path($path), $ext);
-            $this->flushMembers($batch->id);
+            // Branch Cabang/DUN live only in the file name (files carry no such
+            // column), so derive them and apply as defaults for members that
+            // lack their own.
+            $labels = KeanggotaanImport::labelsFromFilename($originalName);
+            $this->flushMembers($batch->id, $labels['cabang'], $labels['dun']);
 
             $count = Keanggotaan::where('batch_id', $batch->id)->count();
             $batch->update(['jumlah_rekod' => $count, 'status' => 'completed', 'is_active' => true]);
@@ -184,7 +193,7 @@ class KeanggotaanController extends Controller
      * file; umur is derived from the IC; status_kawasan stays blank until a
      * DPT/DPPR sync is run.
      */
-    private function flushMembers(int $batchId): void
+    private function flushMembers(int $batchId, ?string $defaultCabang = null, ?string $defaultDun = null): void
     {
         $records = [];
         foreach ($this->merged as $m) {
@@ -196,7 +205,8 @@ class KeanggotaanController extends Controller
                 'no_tel' => $m['no_tel'] ?? null,
                 'jantina' => $m['jantina'] ?? MemberMatchService::jantinaFromIc($m['no_ic']),
                 'bangsa' => $m['bangsa'] ?? null,
-                'cabang' => $m['cabang'] ?? null,
+                'cabang' => $m['cabang'] ?? $defaultCabang,
+                'dun' => $defaultDun,
                 'negeri' => $m['negeri'] ?? null,
                 'alamat' => $m['alamat'] ?? null,
                 'umur' => MemberMatchService::ageFromIc($m['no_ic']),
@@ -363,7 +373,7 @@ class KeanggotaanController extends Controller
             $query->where('cabang', $parlimen);
         }
         if ($dun = $request->input('dun')) {
-            $query->where('matched_kadun', $dun);
+            $query->where(fn ($q) => $q->where('matched_kadun', $dun)->orWhere('dun', $dun));
         }
         if ($bangsa = $request->input('bangsa')) {
             $query->where('bangsa', $bangsa);
@@ -431,7 +441,7 @@ class KeanggotaanController extends Controller
             $m->jantina ?: '-',
             $m->bangsa ?: '-',
             $m->cabang ?: '-',
-            $m->matched_kadun ?: '-',
+            $m->matched_kadun ?: ($m->dun ?: '-'),
             collect($m->wings)->map(fn ($w) => ['text' => $w, 'color' => $wingColors[$w] ?? '#64748b'])->all(),
             $m->status_kawasan === 'dalam_kawasan' ? [['text' => 'Dalam Kawasan', 'color' => '#10b981']]
                 : ($m->status_kawasan === 'tiada_dppr' ? [['text' => 'Tiada DPPR/DPT', 'color' => '#ef4444']]

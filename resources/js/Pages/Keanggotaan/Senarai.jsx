@@ -86,6 +86,7 @@ function ViewModal({ member, onClose }) {
         ['Jantina', member.jantina],
         ['Bangsa', member.bangsa],
         ['Cabang', member.cabang],
+        ['DUN (Cabang)', member.dun],
         ['Negeri', member.negeri],
         ['DUN (Padanan)', member.matched_kadun],
         ['Parlimen (Padanan)', member.matched_parlimen],
@@ -416,7 +417,7 @@ export default function Senarai({ members, filters, parlimenList = [], dunList =
                                                     : <span className="text-xs text-slate-400 italic">Belum Sync</span>}
                                     </td>
                                     <td className="py-3 px-3 whitespace-nowrap"><StatusAnggotaCell status={m.status_anggota} tanpaPengetahuan={m.daftar_tanpa_pengetahuan} /></td>
-                                    <td className="py-3 px-3 text-slate-600 whitespace-nowrap">{m.matched_kadun || '-'}</td>
+                                    <td className="py-3 px-3 text-slate-600 whitespace-nowrap">{m.matched_kadun || m.dun || '-'}</td>
                                     <td className="py-3 px-3 text-slate-600 whitespace-nowrap">{m.cabang || '-'}</td>
                                     <td className="py-3 px-3 whitespace-nowrap"><SentimenCell color={m.voter_color} /></td>
                                     <td className="py-3 px-3 whitespace-nowrap">
