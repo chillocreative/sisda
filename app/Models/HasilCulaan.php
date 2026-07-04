@@ -56,6 +56,7 @@ class HasilCulaan extends Model
         'nota',
         'is_deceased',
         'submitted_by',
+        'sumber',
     ];
 
     protected $casts = [

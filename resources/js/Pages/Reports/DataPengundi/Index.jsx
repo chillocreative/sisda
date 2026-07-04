@@ -286,6 +286,9 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
                                                 >
                                                     {item.nama}
                                                 </button>
+                                                {item.sumber === 'import' && (
+                                                    <span className="ml-2 px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 text-[10px] font-semibold uppercase align-middle" title="Direkodkan melalui import (bukan manual)">Import</span>
+                                                )}
                                             </td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.no_ic}</td>
                                             <td className="py-3 px-4 text-sm text-slate-600">{item.umur}</td>
@@ -496,6 +499,10 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
                                 <div>
                                     <label className="block text-sm font-medium text-slate-500">Dikemukakan Oleh</label>
                                     <div className="mt-1 text-slate-900">{viewingItem.submitted_by?.name || '-'}</div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-500">Sumber Rekod</label>
+                                    <div className="mt-1 text-slate-900">{viewingItem.sumber === 'import' ? 'Import' : 'Manual'}</div>
                                 </div>
                             </div>
 

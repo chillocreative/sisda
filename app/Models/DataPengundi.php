@@ -35,6 +35,7 @@ class DataPengundi extends Model
         'is_oku',
         'nota',
         'submitted_by',
+        'sumber',
     ];
 
     protected $casts = [

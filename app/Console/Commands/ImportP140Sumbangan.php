@@ -168,6 +168,7 @@ class ImportP140Sumbangan extends Command
                 'jumlah_dibayar'   => $r['jumlah_dibayar'],
                 'nota'             => "P140 Permohonan: {$r['permohonan']}".($r['no_rujukan'] ? " (Ruj: {$r['no_rujukan']})" : ''),
                 'submitted_by'     => $userId,
+                'sumber'           => 'import',
             ]);
             $stats['created']++;
         }
@@ -218,6 +219,7 @@ class ImportP140Sumbangan extends Command
             'daerah_mengundi' => $roll->daerah_mengundi,
             'lokaliti'        => $roll->lokaliti,
             'submitted_by'    => $userId,
+            'sumber'          => 'import',
         ]);
     }
 
