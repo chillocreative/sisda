@@ -219,35 +219,39 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
                     <Kpi label="Dicula (Hitam)" value={summary.dicula.toLocaleString()} sub={`${pct(summary.dicula)}% disokong pembangkang`} icon={Crosshair} color="text-red-600" />
                 </div>
 
-                <Card title="Keanggotaan Mengikut DM">
-                    {byDm.length === 0 ? <p className="text-sm text-slate-500 py-12 text-center">Tiada data Daerah Mengundi.</p> : (
-                        <div className="overflow-x-auto">
-                            {/* w-auto so the two columns hug their content and stay close together. */}
-                            <table className="w-auto text-sm">
-                                <thead>
-                                    <tr className="border-b border-slate-200 text-left text-slate-600 bg-slate-50">
-                                        <th className="py-2.5 px-3 font-medium">Daerah Mengundi</th>
-                                        <th className="py-2.5 px-3 pl-10 font-medium text-right">Jumlah Ahli</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {byDm.map((d) => (
-                                        <tr key={d.nama} className="transition-colors hover:bg-gradient-to-r hover:from-indigo-50 hover:to-fuchsia-50">
-                                            <td className="py-2.5 px-3 text-slate-900">{d.nama}</td>
-                                            <td className="py-2.5 px-3 pl-10 text-slate-700 text-right font-medium tabular-nums">{Number(d.jumlah).toLocaleString()}</td>
+                <div className="lg:w-1/2">
+                    <Card title="Keanggotaan Mengikut DM">
+                        {byDm.length === 0 ? <p className="text-sm text-slate-500 py-12 text-center">Tiada data Daerah Mengundi.</p> : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="border-b border-slate-200 text-left text-slate-600 bg-slate-50">
+                                            <th className="py-2.5 px-3 font-medium">Daerah Mengundi</th>
+                                            <th className="py-2.5 px-3 font-medium text-right">Jumlah Ahli</th>
+                                            <th className="py-2.5 px-3 font-medium text-right">Aktif/ EKYC</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                                <tfoot>
-                                    <tr className="border-t-2 border-slate-200 font-semibold text-slate-900">
-                                        <td className="py-2.5 px-3">Jumlah</td>
-                                        <td className="py-2.5 px-3 pl-10 text-right tabular-nums">{byDm.reduce((s, d) => s + Number(d.jumlah), 0).toLocaleString()}</td>
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-                    )}
-                </Card>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {byDm.map((d) => (
+                                            <tr key={d.nama} className="transition-colors hover:bg-gradient-to-r hover:from-indigo-50 hover:to-fuchsia-50">
+                                                <td className="py-2.5 px-3 text-slate-900">{d.nama}</td>
+                                                <td className="py-2.5 px-3 text-slate-700 text-right font-medium tabular-nums">{Number(d.jumlah).toLocaleString()}</td>
+                                                <td className="py-2.5 px-3 text-emerald-600 text-right font-medium tabular-nums">{Number(d.ekyc || 0).toLocaleString()}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr className="border-t-2 border-slate-200 font-semibold text-slate-900">
+                                            <td className="py-2.5 px-3">Jumlah</td>
+                                            <td className="py-2.5 px-3 text-right tabular-nums">{byDm.reduce((s, d) => s + Number(d.jumlah), 0).toLocaleString()}</td>
+                                            <td className="py-2.5 px-3 text-right tabular-nums">{byDm.reduce((s, d) => s + Number(d.ekyc || 0), 0).toLocaleString()}</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        )}
+                    </Card>
+                </div>
 
                 <Card title={filters.dun ? `Jantina Ahli — DUN ${filters.dun}` : 'Jantina Ahli'}>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">

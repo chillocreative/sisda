@@ -805,10 +805,18 @@ class KeanggotaanController extends Controller
 
         // Members per Daerah Mengundi within the selected Parlimen/DUN (excludes
         // the DM/Lokaliti drill so the whole list shows, honours non-geo filters).
+        // Also counts Aktif/EKYC members (status Aktif or in an EKYC batch) per DM.
+        $ekycExpr = 'status_anggota = ?';
+        $ekycBind = ['aktif'];
+        if ($ekycBatchIds !== []) {
+            $ph = implode(',', array_fill(0, count($ekycBatchIds), '?'));
+            $ekycExpr .= " OR batch_id IN ({$ph})";
+            $ekycBind = array_merge($ekycBind, $ekycBatchIds);
+        }
         $byDm = (clone $parlimenBase())
             ->when($dun, fn ($q) => $q->where(fn ($x) => $x->where('matched_kadun', $dun)->orWhere('dun', $dun)))
             ->whereNotNull('matched_daerah_mengundi')->where('matched_daerah_mengundi', '!=', '')
-            ->selectRaw('matched_daerah_mengundi AS nama, COUNT(*) AS jumlah')
+            ->selectRaw("matched_daerah_mengundi AS nama, COUNT(*) AS jumlah, SUM(CASE WHEN {$ekycExpr} THEN 1 ELSE 0 END) AS ekyc", $ekycBind)
             ->groupBy('matched_daerah_mengundi')->orderByDesc('jumlah')->get();
 
         // Members in the roll but registered to vote in a different Parlimen than
