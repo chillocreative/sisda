@@ -1003,7 +1003,8 @@ class ReportsController extends Controller
                 ? ['id' => $row->submittedBy->id, 'name' => $row->submittedBy->name]
                 : null;
             $masked['is_locked'] = VoterDataMasker::isLocked($row);
-            $masked['is_oku'] = isset($okuIcs[$row->no_ic]);
+            // OKU if manually flagged on the voter OR their IC is in an OKU batch.
+            $masked['is_oku'] = (bool) $row->is_oku || isset($okuIcs[$row->no_ic]);
             return $masked;
         });
 
@@ -1183,6 +1184,7 @@ class ReportsController extends Controller
             'keahlian_parti' => 'required|string|max:255',
             'kecenderungan_politik' => 'required|string|max:255',
             'status_pengundi' => 'nullable|string|max:255',
+            'is_oku' => 'boolean',
             'nota' => 'nullable|string',
             'new_document' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
             'new_document_nota' => 'nullable|string',
@@ -1197,6 +1199,8 @@ class ReportsController extends Controller
         $newDocumentFile = $request->file('new_document');
         $newDocumentNota = $validated['new_document_nota'] ?? null;
         unset($validated['new_document'], $validated['new_document_nota']);
+
+        $validated['is_oku'] = $request->boolean('is_oku');
 
         $validated['voter_color'] = VoterColorService::determine($validated['keahlian_parti'] ?? null, $validated['kecenderungan_politik'] ?? null);
 

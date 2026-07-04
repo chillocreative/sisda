@@ -74,6 +74,7 @@ export default function Edit({
         keahlian_parti: dataPengundi.keahlian_parti || '',
         kecenderungan_politik: dataPengundi.kecenderungan_politik || '',
         status_pengundi: dataPengundi.status_pengundi || '',
+        is_oku: dataPengundi.is_oku || false,
         nota: dataPengundi.nota || '',
         new_document: null,
         new_document_nota: '',
@@ -559,6 +560,19 @@ export default function Edit({
                                 {errors.bangsa && <p className="text-sm text-rose-600 mt-1">{errors.bangsa}</p>}
                             </div>
 
+                            <div className="md:col-span-2">
+                                <label className="flex items-center gap-2 text-sm text-slate-700">
+                                    <input
+                                        type="checkbox"
+                                        checked={data.is_oku}
+                                        onChange={(e) => setData('is_oku', e.target.checked)}
+                                        disabled={sensitiveLocked}
+                                        className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 disabled:cursor-not-allowed"
+                                    />
+                                    <span>Tandakan pengundi ini sebagai <strong>OKU</strong> (Orang Kurang Upaya)</span>
+                                </label>
+                                {errors.is_oku && <p className="text-sm text-rose-600 mt-1">{errors.is_oku}</p>}
+                            </div>
 
                         </div>
                     </div>

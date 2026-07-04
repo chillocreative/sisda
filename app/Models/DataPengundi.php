@@ -32,12 +32,14 @@ class DataPengundi extends Model
         'status_pengundi',
         'voter_color',
         'is_deceased',
+        'is_oku',
         'nota',
         'submitted_by',
     ];
 
     protected $casts = [
         'is_deceased' => 'boolean',
+        'is_oku' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
