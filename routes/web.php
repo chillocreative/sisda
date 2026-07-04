@@ -226,6 +226,23 @@ Route::middleware('auth')->group(function () {
         }
     });
 
+    // Utility: import DATA CULAAN sentiment (Segamat/Buloh Kasap) — match DPPR
+    // voters by name and set kecenderungan_politik on Data Pengundi records.
+    // Hit ?dry=1 first to preview match counts, then without it to apply.
+    // Idempotent: existing records only get kecenderungan_politik updated.
+    Route::get('/import-culaan-segamat', function () {
+        abort_unless(auth()->user()->isSuperAdmin(), 403);
+        set_time_limit(0);
+        $options = request()->boolean('dry') ? ['--dry-run' => true] : [];
+        try {
+            \Illuminate\Support\Facades\Artisan::call('culaan:import-segamat', $options);
+
+            return '<pre>'.e(\Illuminate\Support\Facades\Artisan::output()).'</pre>';
+        } catch (\Throwable $e) {
+            return '<pre>Error: '.e($e->getMessage()).'</pre>';
+        }
+    });
+
     // Utility: fix stuck batches and sync master data
     Route::get('/fix-batches', function () {
         abort_unless(auth()->user()->isSuperAdmin(), 403);
