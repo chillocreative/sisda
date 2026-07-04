@@ -149,10 +149,21 @@ export default function Dashboard({
         });
     };
 
-    // Cascade: selecting a parent narrows its children (Negeri → Bandar → KADUN → MPKK).
+    // Cascade: selecting a parent narrows every descendant (Negeri → Bandar → KADUN → MPKK),
+    // so picking just a Negeri already narrows KADUN (via its Bandar) and MPKK (via its KADUN).
     const filteredBandar = filters.negeri ? bandarList.filter((b) => String(b.negeri_id) === String(filters.negeri)) : bandarList;
-    const filteredKadun = filters.bandar ? kadunList.filter((k) => String(k.bandar_id) === String(filters.bandar)) : kadunList;
-    const filteredMpkk = filters.kadun ? mpkkList.filter((m) => String(m.kadun_id) === String(filters.kadun)) : mpkkList;
+    const bandarIds = new Set(filteredBandar.map((b) => String(b.id)));
+    const filteredKadun = filters.bandar
+        ? kadunList.filter((k) => String(k.bandar_id) === String(filters.bandar))
+        : filters.negeri
+            ? kadunList.filter((k) => bandarIds.has(String(k.bandar_id)))
+            : kadunList;
+    const kadunIds = new Set(filteredKadun.map((k) => String(k.id)));
+    const filteredMpkk = filters.kadun
+        ? mpkkList.filter((m) => String(m.kadun_id) === String(filters.kadun))
+        : (filters.negeri || filters.bandar)
+            ? mpkkList.filter((m) => kadunIds.has(String(m.kadun_id)))
+            : mpkkList;
 
     return (
         <AuthenticatedLayout>

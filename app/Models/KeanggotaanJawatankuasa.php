@@ -23,6 +23,8 @@ class KeanggotaanJawatankuasa extends Model
         'matched_kadun',
         'matched_parlimen',
         'matched_negeri',
+        'matched_daerah_mengundi',
+        'matched_lokaliti',
         'tahun_lahir',
         'umur',
         'bangsa',
