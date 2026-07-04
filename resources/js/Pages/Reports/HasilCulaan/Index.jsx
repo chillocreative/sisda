@@ -6,15 +6,12 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import useDragScroll from '@/Hooks/useDragScroll';
 import {
-    Search,
-    Calendar,
     Download,
     Plus,
     Edit,
     Trash2,
     X,
     Filter,
-    ChevronDown,
     Eye,
     FileDown
 } from 'lucide-react';
@@ -23,7 +20,6 @@ export default function Index({ hasilCulaan, icCounts = {}, filters, currentUser
     const { auth } = usePage().props;
     const user = auth.user;
     const [selectedItems, setSelectedItems] = useState([]);
-    const [showFilters, setShowFilters] = useState(false);
     const [viewingItem, setViewingItem] = useState(null);
     const [viewingImage, setViewingImage] = useState(null);
     const [viewHistory, setViewHistory] = useState([]);
@@ -73,11 +69,15 @@ export default function Index({ hasilCulaan, icCounts = {}, filters, currentUser
 
     const ownItemsOnPage = hasilCulaan.data.filter(canModifyRecord);
 
-    const { data, setData, get, processing } = useForm({
-        search: filters.search || '',
-        date_from: filters.date_from || '',
-        date_to: filters.date_to || '',
-    });
+    const emptyFilters = {
+        nama: '', no_ic: '', umur: '', no_tel: '', bangsa: '', negeri: '', bandar: '',
+        lokaliti: '', pendapatan: '', nota: '', dikemukakan: '', kad_pengenalan: '',
+        date_from: '', date_to: '',
+    };
+
+    const { data, setData, get, processing } = useForm(
+        Object.fromEntries(Object.keys(emptyFilters).map((k) => [k, filters[k] || '']))
+    );
 
     const handleFilter = (e) => {
         e.preventDefault();
@@ -87,14 +87,16 @@ export default function Index({ hasilCulaan, icCounts = {}, filters, currentUser
         });
     };
 
-    const handleExport = () => {
-        const params = new URLSearchParams({
-            search: data.search,
-            date_from: data.date_from,
-            date_to: data.date_to,
-        }).toString();
+    const handleReset = () => {
+        setData(emptyFilters);
+        router.visit(route('reports.hasil-culaan.index'));
+    };
 
-        window.location.href = route('reports.hasil-culaan.export') + '?' + params;
+    const handleExport = () => {
+        const params = new URLSearchParams(
+            Object.fromEntries(Object.entries(data).filter(([, v]) => v !== '' && v != null))
+        ).toString();
+        window.location.href = route('reports.hasil-culaan.export') + (params ? '?' + params : '');
     };
 
     const handleSelectAll = (e) => {
@@ -171,91 +173,103 @@ export default function Index({ hasilCulaan, icCounts = {}, filters, currentUser
                     </div>
                 </div>
 
-                {/* Filters */}
+                {/* Filters — always open, one input per table column */}
                 <div className="bg-white rounded-xl border border-slate-200 p-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-semibold text-slate-900 flex items-center space-x-2">
-                            <Filter className="h-5 w-5" />
-                            <span>Penapis</span>
-                        </h3>
-                        <button
-                            onClick={() => setShowFilters(!showFilters)}
-                            className="text-sm text-slate-600 hover:text-slate-900 flex items-center space-x-1"
-                        >
-                            <span>{showFilters ? 'Sembunyikan' : 'Tunjukkan'}</span>
-                            <ChevronDown className={`h-4 w-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-                        </button>
-                    </div>
+                    <h3 className="font-semibold text-slate-900 flex items-center space-x-2 mb-4">
+                        <Filter className="h-5 w-5" />
+                        <span>Penapis</span>
+                    </h3>
 
-                    {showFilters && (
-                        <form onSubmit={handleFilter} className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Carian
-                                </label>
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <form onSubmit={handleFilter} className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                            {[
+                                ['nama', 'Nama'],
+                                ['no_ic', 'No. IC'],
+                                ['umur', 'Umur'],
+                                ['no_tel', 'No. Tel'],
+                                ['bangsa', 'Bangsa'],
+                                ['negeri', 'Negeri'],
+                                ['bandar', 'Bandar'],
+                                ['lokaliti', 'Lokaliti'],
+                                ['pendapatan', 'Pendapatan'],
+                                ['dikemukakan', 'Dikemukakan'],
+                            ].map(([key, label]) => (
+                                <div key={key}>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
                                     <input
                                         type="text"
-                                        value={data.search}
-                                        onChange={(e) => setData('search', e.target.value)}
-                                        placeholder="Nama, No. IC, No. Tel"
-                                        className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                        value={data[key]}
+                                        onChange={(e) => setData(key, e.target.value)}
+                                        placeholder={`Cari ${label}`}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                                     />
                                 </div>
+                            ))}
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Nota</label>
+                                <select
+                                    value={data.nota}
+                                    onChange={(e) => setData('nota', e.target.value)}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                >
+                                    <option value="">Semua</option>
+                                    <option value="ada">Ada</option>
+                                    <option value="tiada">Tiada</option>
+                                </select>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Tarikh Dari
-                                </label>
-                                <div className="relative">
-                                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                    <input
-                                        type="date"
-                                        value={data.date_from}
-                                        onChange={(e) => setData('date_from', e.target.value)}
-                                        className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                    />
-                                </div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Kad Pengenalan</label>
+                                <select
+                                    value={data.kad_pengenalan}
+                                    onChange={(e) => setData('kad_pengenalan', e.target.value)}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                >
+                                    <option value="">Semua</option>
+                                    <option value="ada">Ada</option>
+                                    <option value="tiada">Tiada</option>
+                                </select>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Tarikh Hingga
-                                </label>
-                                <div className="relative">
-                                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                    <input
-                                        type="date"
-                                        value={data.date_to}
-                                        onChange={(e) => setData('date_to', e.target.value)}
-                                        className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
-                                    />
-                                </div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Tarikh Dari</label>
+                                <input
+                                    type="date"
+                                    value={data.date_from}
+                                    onChange={(e) => setData('date_from', e.target.value)}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                />
                             </div>
 
-                            <div className="flex items-end space-x-2">
-                                <button
-                                    type="submit"
-                                    disabled={processing}
-                                    className="flex-1 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50"
-                                >
-                                    Tapis
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setData({ search: '', date_from: '', date_to: '' });
-                                        router.visit(route('reports.hasil-culaan.index'));
-                                    }}
-                                    className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
-                                >
-                                    Reset
-                                </button>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Tarikh Hingga</label>
+                                <input
+                                    type="date"
+                                    value={data.date_to}
+                                    onChange={(e) => setData('date_to', e.target.value)}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                                />
                             </div>
-                        </form>
-                    )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="submit"
+                                disabled={processing}
+                                className="px-5 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50"
+                            >
+                                Tapis
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleReset}
+                                className="px-5 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                            >
+                                Reset
+                            </button>
+                        </div>
+                    </form>
                 </div>
 
                 {/* Data Table */}

@@ -65,23 +65,8 @@ class ReportsController extends Controller
             });
         }
 
-        // Date range filter
-        if ($request->has('date_from') && $request->date_from) {
-            $filterQuery->whereDate('created_at', '>=', $request->date_from);
-        }
-        if ($request->has('date_to') && $request->date_to) {
-            $filterQuery->whereDate('created_at', '<=', $request->date_to);
-        }
-
-        // Search filter
-        if ($request->has('search') && $request->search) {
-            $search = $request->search;
-            $filterQuery->where(function($q) use ($search) {
-                $q->where('nama', 'like', "%{$search}%")
-                  ->orWhere('no_ic', 'like', "%{$search}%")
-                  ->orWhere('no_tel', 'like', "%{$search}%");
-            });
-        }
+        // Column + date filters (shared with the export).
+        $this->applyHasilCulaanFilters($filterQuery, $request);
 
         $latestIds = (clone $filterQuery)
             ->selectRaw('MAX(id) as id')
@@ -113,7 +98,10 @@ class ReportsController extends Controller
         return Inertia::render('Reports/HasilCulaan/Index', [
             'hasilCulaan' => $hasilCulaan,
             'icCounts' => $icCounts,
-            'filters' => $request->only(['date_from', 'date_to', 'search']),
+            'filters' => $request->only([
+                'nama', 'no_ic', 'umur', 'no_tel', 'bangsa', 'negeri', 'bandar', 'lokaliti',
+                'pendapatan', 'nota', 'dikemukakan', 'kad_pengenalan', 'date_from', 'date_to', 'search',
+            ]),
             'currentUserId' => $user->id,
             'canUnmaskSensitive' => VoterDataMasker::canUnmask($user),
         ]);
@@ -138,21 +126,8 @@ class ReportsController extends Controller
             $filterQuery->where('bandar', $user->bandar->nama ?? '');
         }
 
-        // Apply same filters as index
-        if ($request->has('date_from') && $request->date_from) {
-            $filterQuery->whereDate('created_at', '>=', $request->date_from);
-        }
-        if ($request->has('date_to') && $request->date_to) {
-            $filterQuery->whereDate('created_at', '<=', $request->date_to);
-        }
-        if ($request->has('search') && $request->search) {
-            $search = $request->search;
-            $filterQuery->where(function($q) use ($search) {
-                $q->where('nama', 'like', "%{$search}%")
-                  ->orWhere('no_ic', 'like', "%{$search}%")
-                  ->orWhere('no_tel', 'like', "%{$search}%");
-            });
-        }
+        // Apply the same filters as the index screen.
+        $this->applyHasilCulaanFilters($filterQuery, $request);
 
         $latestIds = (clone $filterQuery)
             ->selectRaw('MAX(id) as id')
@@ -162,6 +137,55 @@ class ReportsController extends Controller
         $query = HasilCulaan::whereIn('id', $latestIds)->limit(10000);
 
         return Excel::download(new HasilCulaanExport($query, $user), 'hasil-culaan-' . date('Y-m-d') . '.xlsx');
+    }
+
+    /**
+     * Apply the Data Sumbangan column + date filters to a HasilCulaan query.
+     * Shared by the index screen and the Excel export so both stay in sync.
+     */
+    private function applyHasilCulaanFilters($query, Request $request): void
+    {
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->input('date_from'));
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->input('date_to'));
+        }
+
+        // Legacy combined search (Nama / No. IC / No. Tel) — kept for old links.
+        if ($request->filled('search')) {
+            $s = $request->input('search');
+            $query->where(function ($q) use ($s) {
+                $q->where('nama', 'like', "%{$s}%")
+                  ->orWhere('no_ic', 'like', "%{$s}%")
+                  ->orWhere('no_tel', 'like', "%{$s}%");
+            });
+        }
+
+        // Per-column text filters (match the table columns).
+        foreach (['nama', 'no_ic', 'umur', 'no_tel', 'bangsa', 'negeri', 'bandar', 'lokaliti'] as $col) {
+            if ($request->filled($col)) {
+                $query->where($col, 'like', '%'.$request->input($col).'%');
+            }
+        }
+        if ($request->filled('pendapatan')) {
+            $query->where('pendapatan_isi_rumah', 'like', '%'.$request->input('pendapatan').'%');
+        }
+
+        // Presence filters (Ada / Tiada).
+        foreach (['nota', 'kad_pengenalan'] as $col) {
+            $val = $request->input($col);
+            if ($val === 'ada') {
+                $query->whereNotNull($col)->where($col, '!=', '');
+            } elseif ($val === 'tiada') {
+                $query->where(fn ($q) => $q->whereNull($col)->orWhere($col, ''));
+            }
+        }
+
+        // Submitter (Dikemukakan) by name.
+        if ($request->filled('dikemukakan')) {
+            $query->whereHas('submittedBy', fn ($q) => $q->where('name', 'like', '%'.$request->input('dikemukakan').'%'));
+        }
     }
 
     /**
