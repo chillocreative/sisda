@@ -311,7 +311,10 @@ class ElectionAnalyticsService
         return $this->remember('overview', $f, function () use ($f) {
             $hasBatch = $this->activeBatchIds() !== [];
 
-            $rollTotal = $hasBatch ? (clone $this->rollQuery($f))->count() : 0;
+            // Distinct voters — a voter can appear in several active batches
+            // (re-uploads of the same roll); COUNT(*) would double-count them.
+            // Matches the main dashboard's distinct-IC roll count.
+            $rollTotal = $hasBatch ? (clone $this->rollQuery($f))->distinct()->count('no_ic') : 0;
 
             [$dedupSql, $dedupBindings] = $this->canvassDedupedSql($f);
             $colors = DB::selectOne("
