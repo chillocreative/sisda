@@ -22,10 +22,15 @@ use App\Models\User;
  */
 class CulaanMatchService
 {
-    /** CSV sentiment (lowercased) -> SISDA kecenderungan_politik canonical value. */
+    /**
+     * CSV sentiment (lowercased) -> SISDA kecenderungan_politik canonical value.
+     * "government" = supporter of the (PH-led) unity government = Putih (PH/BN);
+     * "opposition" = Hitam (BN/PN); anything else (incl. "undecided"/blank)
+     * falls through to TIDAK PASTI = Kelabu.
+     */
     private const SENTIMENT_MAP = [
-        'government' => 'BARISAN NASIONAL (BN/PN)',
-        'opposition' => 'PAKATAN HARAPAN (PH/BN)',
+        'government' => 'PAKATAN HARAPAN (PH/BN)',
+        'opposition' => 'BARISAN NASIONAL (BN/PN)',
     ];
 
     private const TIDAK_PASTI = 'TIDAK PASTI';
