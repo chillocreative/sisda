@@ -297,7 +297,7 @@ function ReportPanel({ report, u, num }) {
                 <span className="text-sky-700">Kemaskini {num(report.dikemaskini)}</span>
                 <span className="text-slate-500">Tak berubah {num(report.tak_berubah)}</span>
                 <span className="text-amber-700">Tak dijumpai {num(report.tidak_dijumpai)}</span>
-                <span className="text-rose-700">Taksah {num(report.taksah)}</span>
+                <span className="text-rose-700">Bertindih {num(report.taksah)} (1 dipilih)</span>
                 <span>Tiada sentimen→TIDAK PASTI {num(report.tiada_sentimen)}</span>
                 {report.unresolved_constituency > 0 && (
                     <span className="text-rose-700">Kawasan tak dikenali {num(report.unresolved_constituency)}</span>
@@ -350,7 +350,7 @@ function ReportPanel({ report, u, num }) {
                 )}
                 {(report.sample_taksah || []).length > 0 && (
                     <div>
-                        <p className="text-xs font-semibold text-rose-700 mb-1">Nama taksah / bertindih (contoh)</p>
+                        <p className="text-xs font-semibold text-rose-700 mb-1">Nama bertindih — 1 dipilih automatik (contoh)</p>
                         <div className="text-xs text-slate-600 bg-white border border-slate-200 rounded p-2 max-h-40 overflow-y-auto space-y-0.5">
                             {report.sample_taksah.map((s, i) => <div key={i}>{s}</div>)}
                         </div>

@@ -121,17 +121,29 @@ class CulaanMatchService
 
                 continue;
             }
-            if (count($candidates) > 1) {
+
+            // Collapse the same voter appearing across several active roll
+            // batches (re-uploads) — the same IC is one person, not ambiguity.
+            $uniqueByIc = [];
+            foreach ($candidates as $c) {
+                $uniqueByIc[(string) $c->no_ic] = $c;
+            }
+            $uniqueByIc = array_values($uniqueByIc);
+
+            // Genuine ambiguity: the same name belongs to >1 different person in
+            // scope. Without an IC in the CSV we can't tell which was canvassed,
+            // so pick the lowest-IC one deterministically — the aggregate stays
+            // accurate (one contact -> one voter) — and report it.
+            if (count($uniqueByIc) > 1) {
+                usort($uniqueByIc, fn ($a, $b) => strcmp((string) $a->no_ic, (string) $b->no_ic));
                 $stats['taksah']++;
                 $perKons[$p]['taksah']++;
                 if (count($samplesTaksah) < 50) {
-                    $samplesTaksah[] = "{$n} | {$p} | ".count($candidates).' padanan';
+                    $samplesTaksah[] = "{$n} | {$p} | ".count($uniqueByIc).' calon (1 dipilih)';
                 }
-
-                continue;
             }
 
-            $voter = $candidates[0];
+            $voter = $uniqueByIc[0];
             $stats['matched']++;
             $perKons[$p]['matched']++;
             if ($row['blank']) {

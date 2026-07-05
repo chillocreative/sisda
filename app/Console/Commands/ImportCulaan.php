@@ -48,7 +48,7 @@ class ImportCulaan extends Command
             [$dry ? 'Would update' : 'Updated', $report['dikemaskini']],
             ['Unchanged', $report['tak_berubah'] ?? 0],
             ['Not found in roll', $report['tidak_dijumpai']],
-            ['Ambiguous (>1 in scope, skipped)', $report['taksah']],
+            ['Ambiguous same-name (1 auto-picked, incl. in Matched)', $report['taksah']],
             ['Blank sentiment -> TIDAK PASTI', $report['tiada_sentimen']],
             ['Unresolved constituency', $report['unresolved_constituency']],
         ]);
