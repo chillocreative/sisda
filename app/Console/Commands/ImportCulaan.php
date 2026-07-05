@@ -51,7 +51,14 @@ class ImportCulaan extends Command
             ['Ambiguous same-name (1 auto-picked, incl. in Matched)', $report['taksah']],
             ['Blank sentiment -> TIDAK PASTI', $report['tiada_sentimen']],
             ['Unresolved constituency', $report['unresolved_constituency']],
+            ['Rows without DUN (operation_name)', $report['baris_tanpa_dun'] ?? 0],
         ]);
+
+        $noDun = $report['baris_tanpa_dun'] ?? 0;
+        if ($noDun > 0 && $noDun >= ($report['jumlah_baris'] ?? 0) * 0.5) {
+            $this->newLine();
+            $this->warn('Fail tiada DUN (operation_name) — padanan ikut Parlimen sahaja (banyak bertindih). Guna fail culaan harian (culaan_culaan-today_*.csv) untuk ketepatan DUN.');
+        }
 
         if (! empty($report['sample_tidak_dijumpai'])) {
             $this->newLine();

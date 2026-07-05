@@ -47,6 +47,7 @@ class CulaanMatchService
         $norm = fn ($s) => strtoupper(trim(preg_replace('/\s+/', ' ', (string) $s)));
 
         $unresolved = 0;
+        $noDun = 0;
         $resolved = [];
         $parlimenNames = [];
 
@@ -55,6 +56,11 @@ class CulaanMatchService
             $name = $norm($r['voter_name'] ?? '');
             if ($name === '') {
                 continue;
+            }
+            // A file without operation_name (e.g. the "operation" exports) has
+            // no DUN, so matching can only be Parlimen-wide — flag it.
+            if (trim((string) ($r['operation_name'] ?? '')) === '') {
+                $noDun++;
             }
             $parlimen = $this->resolveParlimen($r);
             if ($parlimen === null) {
@@ -163,6 +169,7 @@ class CulaanMatchService
         }
 
         return array_merge($stats, [
+            'baris_tanpa_dun' => $noDun,
             'sample_tidak_dijumpai' => $samplesTidak,
             'sample_taksah' => $samplesTaksah,
             'per_konstituensi' => $perKons,

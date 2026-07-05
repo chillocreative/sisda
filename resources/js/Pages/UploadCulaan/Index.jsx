@@ -304,6 +304,12 @@ function ReportPanel({ report, u, num }) {
                 )}
             </div>
 
+            {report.baris_tanpa_dun > 0 && report.baris_tanpa_dun >= (report.jumlah_baris || 0) * 0.5 && (
+                <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+                    ⚠ Fail ini tiada lajur DUN (<code>operation_name</code>) — padanan dibuat ikut <strong>Parlimen sahaja</strong>, jadi banyak nama "bertindih". Untuk ketepatan peringkat-DUN, guna fail culaan harian (<code>culaan_culaan-today_*.csv</code>).
+                </p>
+            )}
+
             {report.matched === 0 && (
                 <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
                     0 padanan — pastikan daftar pemilih (roll) Johor telah dimuat naik &amp; <strong>aktif</strong> di Upload Database.
