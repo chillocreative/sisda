@@ -252,20 +252,24 @@ class CulaanMatchService
         return 0;
     }
 
-    /** Parlimen NAME (uppercased) from constituency_code, else P.xxx code -> Bandar name. */
+    /**
+     * Parlimen NAME (uppercased). Prefer the P.xxx code inside operation_name —
+     * it is reliable. constituency_code is noisy (frequently names a different
+     * Parlimen, even another state), so it is only a fallback for exports that
+     * carry no operation_name (the "operation" CSVs).
+     */
     private function resolveParlimen(array $r): ?string
     {
-        $cc = strtoupper(trim((string) ($r['constituency_code'] ?? '')));
-        if ($cc !== '') {
-            return $cc;
-        }
         if (preg_match('/\bP\.?\s*(\d{2,3})\b/i', (string) ($r['operation_name'] ?? ''), $m)) {
-            $code = 'P'.$m[1];
-
-            return $this->bandarByCode[$code] ?? null;
+            $name = $this->bandarByCode['P'.$m[1]] ?? null;
+            if ($name !== null) {
+                return $name;
+            }
         }
 
-        return null;
+        $cc = strtoupper(trim((string) ($r['constituency_code'] ?? '')));
+
+        return $cc !== '' ? $cc : null;
     }
 
     /** DUN NAME (uppercased) from operation_name "...| N.xx <NAME>", else N.xx code -> Kadun name. */
