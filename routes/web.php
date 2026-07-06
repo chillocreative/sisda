@@ -220,6 +220,7 @@ Route::middleware('auth')->group(function () {
         try {
             \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
             $output = \Illuminate\Support\Facades\Artisan::output();
+
             return '<pre>'.e($output).'</pre>';
         } catch (\Throwable $e) {
             return '<pre>Error: '.e($e->getMessage()).'</pre>';
@@ -367,11 +368,6 @@ Route::middleware(['auth', 'super_admin'])->group(function () {
     Route::post('/dpt-upload', [\App\Http\Controllers\DptUploadController::class, 'upload'])->name('dpt-upload.upload');
     Route::delete('/dpt-upload/{dptUpload}', [\App\Http\Controllers\DptUploadController::class, 'destroy'])->name('dpt-upload.destroy');
 
-    // Upload Culaan (field-canvassing sentiment enrichment)
-    Route::get('/upload-culaan', [\App\Http\Controllers\UploadCulaanController::class, 'index'])->name('upload-culaan.index');
-    Route::post('/upload-culaan', [\App\Http\Controllers\UploadCulaanController::class, 'store'])->name('upload-culaan.store')->middleware('throttle:6,60');
-    Route::delete('/upload-culaan/{culaanUpload}', [\App\Http\Controllers\UploadCulaanController::class, 'destroy'])->name('upload-culaan.destroy');
-
     // Claude AI Settings
     Route::get('/settings/claude', [\App\Http\Controllers\ClaudeSettingController::class, 'index'])->name('settings.claude');
     Route::post('/settings/claude', [\App\Http\Controllers\ClaudeSettingController::class, 'update'])->name('settings.claude.update');
@@ -379,6 +375,13 @@ Route::middleware(['auth', 'super_admin'])->group(function () {
 
     // AI Activity Log — token usage & cost
     Route::get('/settings/ai-usage', [\App\Http\Controllers\AiUsageLogController::class, 'index'])->name('settings.ai-usage');
+});
+
+// Upload Culaan (field-canvassing sentiment enrichment) — Super Admin & Admin
+Route::middleware(['auth', 'admin'])->group(function () {
+    Route::get('/upload-culaan', [\App\Http\Controllers\UploadCulaanController::class, 'index'])->name('upload-culaan.index');
+    Route::post('/upload-culaan', [\App\Http\Controllers\UploadCulaanController::class, 'store'])->name('upload-culaan.store')->middleware('throttle:6,60');
+    Route::delete('/upload-culaan/{culaanUpload}', [\App\Http\Controllers\UploadCulaanController::class, 'destroy'])->name('upload-culaan.destroy');
 });
 
 // User Log (super_admin only — audit + Claude-powered anomaly alerts)
@@ -400,8 +403,8 @@ Route::middleware(['auth', 'super_admin'])->group(function () {
     Route::post('/settings/notifications/{template}/test-send', [\App\Http\Controllers\NotificationTemplateController::class, 'testSend'])->name('settings.notifications.test-send');
 });
 
-// Pilihanraya — Digital War Room & Election Intelligence Center (super_admin only)
-Route::middleware(['auth', 'super_admin'])->prefix('pilihanraya')->name('pilihanraya.')->group(function () {
+// Pilihanraya — Digital War Room & Election Intelligence Center (super_admin & admin)
+Route::middleware(['auth', 'admin'])->prefix('pilihanraya')->name('pilihanraya.')->group(function () {
     // Pages
     Route::get('/war-room', [\App\Http\Controllers\PilihanrayaController::class, 'warRoom'])->name('war-room');
     Route::get('/simulasi', [\App\Http\Controllers\PilihanrayaController::class, 'simulasi'])->name('simulasi');
@@ -443,8 +446,8 @@ Route::middleware(['auth', 'super_admin'])->prefix('pilihanraya')->name('pilihan
     Route::post('/jawatankuasa/resync', [\App\Http\Controllers\KeanggotaanJawatankuasaController::class, 'resync'])->name('jawatankuasa.resync');
 });
 
-// Keanggotaan (party membership) — upload, manual CRUD & analysis (super_admin only)
-Route::middleware(['auth', 'super_admin'])->prefix('keanggotaan')->name('keanggotaan.')->group(function () {
+// Keanggotaan (party membership) — upload, manual CRUD & analysis (super_admin & admin)
+Route::middleware(['auth', 'admin'])->prefix('keanggotaan')->name('keanggotaan.')->group(function () {
     Route::get('/', [\App\Http\Controllers\KeanggotaanController::class, 'index'])->name('index');
     Route::post('/', [\App\Http\Controllers\KeanggotaanController::class, 'store'])->name('store');
     Route::post('/set-active', [\App\Http\Controllers\KeanggotaanController::class, 'setActive'])->name('set-active');

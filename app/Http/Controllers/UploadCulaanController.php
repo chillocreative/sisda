@@ -27,7 +27,7 @@ class UploadCulaanController extends Controller
 
     public function store(Request $request)
     {
-        abort_unless($request->user()->isSuperAdmin(), 403);
+        abort_unless($request->user()->isSuperAdmin() || $request->user()->isAdmin(), 403);
 
         $request->validate([
             'fail' => 'required|file|mimes:csv,txt|max:51200',
@@ -58,7 +58,7 @@ class UploadCulaanController extends Controller
 
     public function destroy(CulaanUpload $culaanUpload)
     {
-        abort_unless(auth()->user()->isSuperAdmin(), 403);
+        abort_unless(auth()->user()->isSuperAdmin() || auth()->user()->isAdmin(), 403);
 
         if ($culaanUpload->fail_path) {
             Storage::disk('private')->delete($culaanUpload->fail_path);
