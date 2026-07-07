@@ -216,7 +216,12 @@ function GambaranTab({ data }) {
                         </div>
                         <div>
                             <dt className={t.kpiLabel}>Pengundi berdaftar yang telah dicula</dt>
-                            <dd className={t.kpiValue}>{data.covered.toLocaleString()}</dd>
+                            <dd className={t.kpiValue}>
+                                {data.covered.toLocaleString()}
+                                <span className={`${t.subtext} text-sm font-normal ml-2`}>
+                                    ({data.coverage_pct}% daripada Jumlah Pengundi Berdaftar)
+                                </span>
+                            </dd>
                         </div>
                         <div>
                             <dt className={t.kpiLabel}>Culaan terakhir</dt>
