@@ -482,9 +482,11 @@ class ElectionAnalyticsService
 
             // Culaan volume per Daerah Mengundi — canvassed voters (deduped
             // by IC) grouped by the DM stamped on the record during the
-            // culaan→roll name match. Top 40 keeps the bar chart readable.
+            // culaan→roll name match, split by sentiment color (putih /
+            // kelabu / hitam). Top 40 keeps the bar chart readable.
             $dmRows = DB::select("
-                SELECT c.daerah_mengundi AS dm, COUNT(*) AS jumlah
+                SELECT c.daerah_mengundi AS dm, COUNT(*) AS jumlah,
+                       {$this->colorSumsSql()}
                   FROM ({$dedupSql}) c
                  WHERE c.daerah_mengundi IS NOT NULL AND c.daerah_mengundi <> ''
                  GROUP BY c.daerah_mengundi
@@ -492,7 +494,13 @@ class ElectionAnalyticsService
                  LIMIT 40
             ", $dedupBindings);
             $culaanByDm = collect($dmRows)
-                ->map(fn ($r) => ['dm' => $r->dm, 'jumlah' => (int) $r->jumlah])
+                ->map(fn ($r) => [
+                    'dm' => $r->dm,
+                    'putih' => (int) $r->putih,
+                    'kelabu' => (int) $r->kelabu,
+                    'hitam' => (int) $r->hitam,
+                    'jumlah' => (int) $r->jumlah,
+                ])
                 ->values()->all();
 
             return [
