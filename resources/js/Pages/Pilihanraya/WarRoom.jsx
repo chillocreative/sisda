@@ -336,21 +336,21 @@ function KomposisiTab({ data }) {
                         Tiada data culaan bagi daerah mengundi dalam saringan ini.
                     </p>
                 ) : (
-                    <ResponsiveContainer width="100%" height={Math.max(300, data.culaanByDm.length * 26)}>
-                        <BarChart data={data.culaanByDm} layout="vertical" margin={{ top: 8, right: 56, left: 10, bottom: 8 }}>
+                    <ResponsiveContainer width="100%" height={Math.max(360, data.culaanByDm.length * 46)}>
+                        <BarChart data={data.culaanByDm} layout="vertical" barCategoryGap="20%" margin={{ top: 8, right: 60, left: 10, bottom: 8 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke={t.chartGrid} horizontal={false} />
-                            <XAxis type="number" stroke={t.chartTick} style={{ fontSize: '11px' }} tickFormatter={(v) => v.toLocaleString()} />
-                            <YAxis type="category" dataKey="dm" stroke={t.chartTick} style={{ fontSize: '10px' }} width={170} interval={0} />
+                            <XAxis type="number" stroke={t.chartTick} style={{ fontSize: '12px' }} tickFormatter={(v) => v.toLocaleString()} />
+                            <YAxis type="category" dataKey="dm" stroke={t.chartTick} style={{ fontSize: '11px' }} width={170} interval={0} />
                             <Tooltip contentStyle={t.tooltip} />
                             <Bar dataKey="putih" name="Putih" stackId="a" fill="#f8fafc" stroke="#cbd5e1" strokeWidth={1}>
-                                <LabelList dataKey="putih" position="center" formatter={(v) => v || ''} style={{ fill: '#475569', fontSize: '9px', fontWeight: '600' }} />
+                                <LabelList dataKey="putih" position="center" formatter={(v) => v || ''} style={{ fill: '#475569', fontSize: '11px', fontWeight: '600' }} />
                             </Bar>
                             <Bar dataKey="kelabu" name="Kelabu" stackId="a" fill={CHART_COLORS.kelabu}>
-                                <LabelList dataKey="kelabu" position="center" formatter={(v) => v || ''} style={{ fill: '#1e293b', fontSize: '9px', fontWeight: '600' }} />
+                                <LabelList dataKey="kelabu" position="center" formatter={(v) => v || ''} style={{ fill: '#1e293b', fontSize: '11px', fontWeight: '600' }} />
                             </Bar>
                             <Bar dataKey="hitam" name="Hitam" stackId="a" fill="#0f172a" radius={[0, 6, 6, 0]}>
-                                <LabelList dataKey="hitam" position="center" formatter={(v) => v || ''} style={{ fill: '#f8fafc', fontSize: '9px', fontWeight: '600' }} />
-                                <LabelList dataKey="jumlah" position="right" style={{ fill: t.chartTick, fontSize: '10px', fontWeight: '700' }} formatter={(v) => v.toLocaleString()} />
+                                <LabelList dataKey="hitam" position="center" formatter={(v) => v || ''} style={{ fill: '#f8fafc', fontSize: '11px', fontWeight: '600' }} />
+                                <LabelList dataKey="jumlah" position="right" style={{ fill: t.chartTick, fontSize: '12px', fontWeight: '700' }} formatter={(v) => v.toLocaleString()} />
                             </Bar>
                             <Legend content={renderSentimenLegend} />
                         </BarChart>
