@@ -239,6 +239,13 @@ const RADIAN = Math.PI / 180;
 function KomposisiTab({ data }) {
     const { t } = usePilihanrayaTheme();
 
+    const dmTotals = (data.culaanByDm || []).reduce((acc, r) => ({
+        putih: acc.putih + r.putih,
+        kelabu: acc.kelabu + r.kelabu,
+        hitam: acc.hitam + r.hitam,
+        jumlah: acc.jumlah + r.jumlah,
+    }), { putih: 0, kelabu: 0, hitam: 0, jumlah: 0 });
+
     const renderSentimenLegend = ({ payload }) => (
         <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', fontSize: '12px', marginTop: '6px' }}>
             {(payload || []).map((entry) => (
@@ -336,25 +343,60 @@ function KomposisiTab({ data }) {
                         Tiada data culaan bagi daerah mengundi dalam saringan ini.
                     </p>
                 ) : (
-                    <ResponsiveContainer width="100%" height={Math.max(360, data.culaanByDm.length * 46)}>
-                        <BarChart data={data.culaanByDm} layout="vertical" barCategoryGap="20%" margin={{ top: 8, right: 60, left: 10, bottom: 8 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke={t.chartGrid} horizontal={false} />
-                            <XAxis type="number" stroke={t.chartTick} style={{ fontSize: '12px' }} tickFormatter={(v) => v.toLocaleString()} />
-                            <YAxis type="category" dataKey="dm" stroke={t.chartTick} style={{ fontSize: '11px' }} width={170} interval={0} />
-                            <Tooltip contentStyle={t.tooltip} />
-                            <Bar dataKey="putih" name="Putih" stackId="a" fill="#f8fafc" stroke="#cbd5e1" strokeWidth={1}>
-                                <LabelList dataKey="putih" position="center" formatter={(v) => v || ''} style={{ fill: '#475569', fontSize: '11px', fontWeight: '600' }} />
-                            </Bar>
-                            <Bar dataKey="kelabu" name="Kelabu" stackId="a" fill={CHART_COLORS.kelabu}>
-                                <LabelList dataKey="kelabu" position="center" formatter={(v) => v || ''} style={{ fill: '#1e293b', fontSize: '11px', fontWeight: '600' }} />
-                            </Bar>
-                            <Bar dataKey="hitam" name="Hitam" stackId="a" fill="#0f172a" radius={[0, 6, 6, 0]}>
-                                <LabelList dataKey="hitam" position="center" formatter={(v) => v || ''} style={{ fill: '#f8fafc', fontSize: '11px', fontWeight: '600' }} />
-                                <LabelList dataKey="jumlah" position="right" style={{ fill: t.chartTick, fontSize: '12px', fontWeight: '700' }} formatter={(v) => v.toLocaleString()} />
-                            </Bar>
-                            <Legend content={renderSentimenLegend} />
-                        </BarChart>
-                    </ResponsiveContainer>
+                    <>
+                        <ResponsiveContainer width="100%" height={Math.max(360, data.culaanByDm.length * 46)}>
+                            <BarChart data={data.culaanByDm} layout="vertical" barCategoryGap="20%" margin={{ top: 8, right: 60, left: 10, bottom: 8 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke={t.chartGrid} horizontal={false} />
+                                <XAxis type="number" stroke={t.chartTick} style={{ fontSize: '12px' }} tickFormatter={(v) => v.toLocaleString()} />
+                                <YAxis type="category" dataKey="dm" stroke={t.chartTick} style={{ fontSize: '11px' }} width={170} interval={0} />
+                                <Tooltip contentStyle={t.tooltip} />
+                                <Bar dataKey="putih" name="Putih" stackId="a" fill="#f8fafc" stroke="#cbd5e1" strokeWidth={1}>
+                                    <LabelList dataKey="putih" position="center" formatter={(v) => v || ''} style={{ fill: '#475569', fontSize: '11px', fontWeight: '600' }} />
+                                </Bar>
+                                <Bar dataKey="kelabu" name="Kelabu" stackId="a" fill={CHART_COLORS.kelabu}>
+                                    <LabelList dataKey="kelabu" position="center" formatter={(v) => v || ''} style={{ fill: '#1e293b', fontSize: '11px', fontWeight: '600' }} />
+                                </Bar>
+                                <Bar dataKey="hitam" name="Hitam" stackId="a" fill="#0f172a" radius={[0, 6, 6, 0]}>
+                                    <LabelList dataKey="hitam" position="center" formatter={(v) => v || ''} style={{ fill: '#f8fafc', fontSize: '11px', fontWeight: '600' }} />
+                                    <LabelList dataKey="jumlah" position="right" style={{ fill: t.chartTick, fontSize: '12px', fontWeight: '700' }} formatter={(v) => v.toLocaleString()} />
+                                </Bar>
+                                <Legend content={renderSentimenLegend} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                        <div className="mt-6 overflow-x-auto">
+                            <table className="w-full">
+                                <thead>
+                                    <tr>
+                                        <th className={t.tableHead}>Daerah Mengundi</th>
+                                        <th className={t.tableHead} style={{ textAlign: 'right' }}>Putih</th>
+                                        <th className={t.tableHead} style={{ textAlign: 'right' }}>Kelabu</th>
+                                        <th className={t.tableHead} style={{ textAlign: 'right' }}>Hitam</th>
+                                        <th className={t.tableHead} style={{ textAlign: 'right' }}>Jumlah</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {data.culaanByDm.map((row) => (
+                                        <tr key={row.dm} className={t.tableRow}>
+                                            <td className={t.tableCell}>{row.dm}</td>
+                                            <td className={t.tableCell} style={{ textAlign: 'right' }}>{row.putih.toLocaleString()}</td>
+                                            <td className={t.tableCell} style={{ textAlign: 'right' }}>{row.kelabu.toLocaleString()}</td>
+                                            <td className={t.tableCell} style={{ textAlign: 'right' }}>{row.hitam.toLocaleString()}</td>
+                                            <td className={`${t.tableCell} font-bold`} style={{ textAlign: 'right' }}>{row.jumlah.toLocaleString()}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                                <tfoot>
+                                    <tr className={`${t.tableRow} font-semibold`}>
+                                        <td className={t.tableCell}>Jumlah Keseluruhan</td>
+                                        <td className={t.tableCell} style={{ textAlign: 'right' }}>{dmTotals.putih.toLocaleString()}</td>
+                                        <td className={t.tableCell} style={{ textAlign: 'right' }}>{dmTotals.kelabu.toLocaleString()}</td>
+                                        <td className={t.tableCell} style={{ textAlign: 'right' }}>{dmTotals.hitam.toLocaleString()}</td>
+                                        <td className={`${t.tableCell} font-bold`} style={{ textAlign: 'right' }}>{dmTotals.jumlah.toLocaleString()}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </>
                 )}
             </div>
         </div>
