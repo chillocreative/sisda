@@ -329,6 +329,26 @@ function KomposisiTab({ data }) {
                     </ResponsiveContainer>
                 </div>
             </div>
+            <div className={t.card}>
+                <h3 className={t.cardTitle}>Jumlah Culaan Mengikut DM</h3>
+                {(!data.culaanByDm || data.culaanByDm.length === 0) ? (
+                    <p className={`${t.subtext} text-sm py-12 text-center`}>
+                        Tiada data culaan bagi daerah mengundi dalam saringan ini.
+                    </p>
+                ) : (
+                    <ResponsiveContainer width="100%" height={Math.max(300, data.culaanByDm.length * 26)}>
+                        <BarChart data={data.culaanByDm} layout="vertical" margin={{ top: 8, right: 48, left: 10, bottom: 8 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={t.chartGrid} horizontal={false} />
+                            <XAxis type="number" stroke={t.chartTick} style={{ fontSize: '11px' }} tickFormatter={(v) => v.toLocaleString()} />
+                            <YAxis type="category" dataKey="dm" stroke={t.chartTick} style={{ fontSize: '10px' }} width={170} interval={0} />
+                            <Tooltip contentStyle={t.tooltip} formatter={(v) => [v.toLocaleString(), 'Culaan']} />
+                            <Bar dataKey="jumlah" name="Culaan" fill={CHART_COLORS.blue} radius={[0, 6, 6, 0]}>
+                                <LabelList dataKey="jumlah" position="right" style={{ fontSize: '10px', fill: t.chartTick }} formatter={(v) => v.toLocaleString()} />
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
+                )}
+            </div>
         </div>
     );
 }

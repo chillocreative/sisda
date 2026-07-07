@@ -180,13 +180,13 @@ class ElectionAnalyticsService
 
         $sql = "
             SELECT no_ic, voter_color, bangsa, umur,
-                   kadun, COALESCE(NULLIF(parlimen, ''), bandar) AS parlimen,
+                   kadun, daerah_mengundi, COALESCE(NULLIF(parlimen, ''), bandar) AS parlimen,
                    negeri, created_at, id
               FROM hasil_culaan
              WHERE is_deceased = 0 AND no_ic IS NOT NULL AND no_ic <> ''{$cond}
              UNION ALL
             SELECT no_ic, voter_color, bangsa, umur,
-                   kadun, COALESCE(NULLIF(parlimen, ''), bandar) AS parlimen,
+                   kadun, daerah_mengundi, COALESCE(NULLIF(parlimen, ''), bandar) AS parlimen,
                    negeri, created_at, id
               FROM data_pengundi
              WHERE is_deceased = 0 AND no_ic IS NOT NULL AND no_ic <> ''{$cond}
@@ -480,6 +480,21 @@ class ElectionAnalyticsService
                 'kelabu' => (int) ($ageColorMap[$b['label']]->kelabu ?? 0),
             ])->values()->all();
 
+            // Culaan volume per Daerah Mengundi — canvassed voters (deduped
+            // by IC) grouped by the DM stamped on the record during the
+            // culaan→roll name match. Top 40 keeps the bar chart readable.
+            $dmRows = DB::select("
+                SELECT c.daerah_mengundi AS dm, COUNT(*) AS jumlah
+                  FROM ({$dedupSql}) c
+                 WHERE c.daerah_mengundi IS NOT NULL AND c.daerah_mengundi <> ''
+                 GROUP BY c.daerah_mengundi
+                 ORDER BY jumlah DESC
+                 LIMIT 40
+            ", $dedupBindings);
+            $culaanByDm = collect($dmRows)
+                ->map(fn ($r) => ['dm' => $r->dm, 'jumlah' => (int) $r->jumlah])
+                ->values()->all();
+
             return [
                 'ageBands' => $ageBands,
                 'race' => collect($race)->map(fn ($v, $k) => ['bangsa' => $k, 'jumlah' => $v])->values()->all(),
@@ -489,6 +504,7 @@ class ElectionAnalyticsService
                 ],
                 'genderPyramid' => $genderPyramid,
                 'canvassAgeColor' => $canvassAgeColor,
+                'culaanByDm' => $culaanByDm,
             ];
         });
     }
@@ -503,7 +519,7 @@ class ElectionAnalyticsService
             // date filters; defaults to last 12 weeks when none are set.
             [$unionSql, $unionBindings] = $this->canvassUnionSql($f, true);
             $hasDateFilter = ! empty($f['tarikh_dari']) || ! empty($f['tarikh_hingga']);
-            $outerWhere    = $hasDateFilter ? '' : 'WHERE c.created_at >= DATE_SUB(NOW(), INTERVAL 12 WEEK)';
+            $outerWhere = $hasDateFilter ? '' : 'WHERE c.created_at >= DATE_SUB(NOW(), INTERVAL 12 WEEK)';
             $trendRows = DB::select("
                 SELECT YEARWEEK(c.created_at, 3) AS minggu,
                        MIN(DATE(c.created_at)) AS tarikh,
