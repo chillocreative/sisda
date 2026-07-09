@@ -35,6 +35,7 @@ export const KAUM_LABEL = {
 export const STATUS_STYLES = {
     'PH MENANG': 'bg-emerald-500/15 text-emerald-600 border border-emerald-500/40',
     'BN MENANG': 'bg-blue-500/15 text-blue-600 border border-blue-500/40',
+    'MUDAH': 'bg-emerald-500/15 text-emerald-600 border border-emerald-500/40',
     'BOLEH DICAPAI': 'bg-emerald-500/15 text-emerald-600 border border-emerald-500/40',
     'SUKAR': 'bg-amber-500/15 text-amber-600 border border-amber-500/40',
     'SANGAT SUKAR': 'bg-orange-500/15 text-orange-600 border border-orange-500/40',
@@ -52,3 +53,34 @@ export const pct = (n, digits = 1) => {
 };
 
 export const safeDiv = (a, b) => (b ? a / b : 0);
+
+// Re-derive Keputusan totals from an arbitrary set of rows (used after the
+// Daerah Mengundi filter narrows the visible rows).
+export function computeKeputusanTotals(rows) {
+    const sum = (k) => rows.reduce((s, r) => s + (Number(r[k]) || 0), 0);
+    const ph = sum('ph');
+    const bn = sum('bn');
+    const pn = sum('pn');
+    return {
+        pemilih: sum('pemilih'),
+        keluar: sum('keluar'),
+        ph,
+        pejuang: sum('pejuang'),
+        pn,
+        bn,
+        ditolak: sum('ditolak'),
+        majoriti_bn: Math.abs(bn - ph),
+        undi_pn: pn,
+    };
+}
+
+export function computeKaumTotals(rows) {
+    const sum = (k) => rows.reduce((s, r) => s + (Number(r[k]) || 0), 0);
+    return {
+        melayu: sum('melayu'),
+        cina: sum('cina'),
+        india: sum('india'),
+        lain: sum('lain'),
+        jumlah: sum('jumlah'),
+    };
+}

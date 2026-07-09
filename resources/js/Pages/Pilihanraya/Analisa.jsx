@@ -11,7 +11,8 @@ import {
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PilihanrayaShell, { usePilihanrayaTheme } from './components/PilihanrayaShell';
 import KpiCard from './components/KpiCard';
-import { PARTY, PARTY_LABEL, fmt, pct, safeDiv } from './analisa/shared';
+import { KawasanSelect, DmFilter, FilterBarCard } from './analisa/FilterControls';
+import { PARTY, PARTY_LABEL, computeKeputusanTotals, fmt, pct, safeDiv } from './analisa/shared';
 
 function withDerived(rows) {
     return rows.map((r) => ({
@@ -291,32 +292,37 @@ function ResetButton({ onClick }) {
     );
 }
 
+function EmptyFilter() {
+    const { t } = usePilihanrayaTheme();
+    return (
+        <div className={`${t.card} text-center py-16`}>
+            <BarChart3 className={`h-10 w-10 mx-auto mb-3 ${t.subtext}`} />
+            <p className={`${t.text} font-medium`}>Tiada Daerah Mengundi dipilih</p>
+            <p className={`${t.subtext} text-sm mt-1`}>Pilih sekurang-kurangnya satu Daerah Mengundi dalam penapis di atas.</p>
+        </div>
+    );
+}
+
 /* -------------------------------- Page ----------------------------------- */
 
 export default function Analisa({ context, rows: baseRows, totals: baseTotals }) {
     const [rows, setRows] = useState(baseRows);
-    const [totals, setTotals] = useState(baseTotals);
     const [rawGrid, setRawGrid] = useState(null);
     const [filename, setFilename] = useState(null);
     const [busy, setBusy] = useState(false);
+    const [kawasan, setKawasan] = useState(context.kawasanList?.[0]?.id ?? '');
+    const [dmSel, setDmSel] = useState(() => baseRows.map((r) => r.dm));
 
-    const derived = useMemo(() => withDerived(rows), [rows]);
+    const dmOptions = useMemo(() => rows.map((r) => r.dm), [rows]);
+    const visibleRows = useMemo(() => rows.filter((r) => dmSel.includes(r.dm)), [rows, dmSel]);
+    const derived = useMemo(() => withDerived(visibleRows), [visibleRows]);
+    const totals = useMemo(() => computeKeputusanTotals(visibleRows), [visibleRows]);
     const isCustom = filename !== null;
 
     const onParsed = (parsed, name) => {
         setRawGrid(null);
         setRows(parsed.rows);
-        setTotals({
-            pemilih: parsed.totals.pemilih || 0,
-            keluar: parsed.totals.keluar || 0,
-            ph: parsed.totals.ph || 0,
-            pejuang: parsed.totals.pejuang || 0,
-            pn: parsed.totals.pn || 0,
-            bn: parsed.totals.bn || 0,
-            ditolak: parsed.totals.ditolak || 0,
-            majoriti_bn: Math.abs((parsed.totals.bn || 0) - (parsed.totals.ph || 0)),
-            undi_pn: parsed.totals.pn || 0,
-        });
+        setDmSel(parsed.rows.map((r) => r.dm));
         setFilename(name);
     };
 
@@ -327,7 +333,7 @@ export default function Analisa({ context, rows: baseRows, totals: baseTotals })
 
     const reset = () => {
         setRows(baseRows);
-        setTotals(baseTotals);
+        setDmSel(baseRows.map((r) => r.dm));
         setRawGrid(null);
         setFilename(null);
     };
@@ -343,12 +349,23 @@ export default function Analisa({ context, rows: baseRows, totals: baseTotals })
                 subtitle={`${context.dun} · ${context.parlimen}, ${context.negeri} — PRN Johor ke-15 (2022)`}
                 actions={isCustom ? <ResetButton onClick={reset} /> : null}
             >
+                <FilterBarCard>
+                    <KawasanSelect list={context.kawasanList} value={kawasan} onChange={setKawasan} />
+                    <DmFilter options={dmOptions} selected={dmSel} onChange={setDmSel} />
+                    <div className="text-sm">
+                        <span className="block text-xs opacity-60 mb-1">Paparan</span>
+                        <span className="font-semibold">{visibleRows.length} / {dmOptions.length} Daerah Mengundi</span>
+                    </div>
+                </FilterBarCard>
+
                 <div className="mb-6">
                     <UploadCard onParsed={onParsed} onRawGrid={onRawGrid} busy={busy} setBusy={setBusy} filename={filename} />
                 </div>
 
                 {rawGrid ? (
                     <RawGridTable grid={rawGrid} />
+                ) : visibleRows.length === 0 ? (
+                    <EmptyFilter />
                 ) : (
                     <>
                         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">

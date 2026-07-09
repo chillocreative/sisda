@@ -21,6 +21,7 @@ class PilihanrayaAnalisaController extends Controller
             'dun' => JohorElectionData::DUN,
             'parlimen' => JohorElectionData::PARLIMEN,
             'negeri' => JohorElectionData::NEGERI,
+            'kawasanList' => JohorElectionData::kawasanList(),
         ];
     }
 

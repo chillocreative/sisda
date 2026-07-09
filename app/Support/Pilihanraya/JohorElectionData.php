@@ -17,6 +17,25 @@ class JohorElectionData
     public const NEGERI = 'JOHOR';
 
     /**
+     * Kawasan (DUN) datasets available for the Analisa pages. Currently a
+     * single curated dataset; the filter is structured so more seats slot in
+     * here as their scoresheets are digitised.
+     */
+    public static function kawasanList(): array
+    {
+        return [
+            [
+                'id' => 'N01',
+                'kod' => 'N01',
+                'dun' => self::DUN,
+                'parlimen' => self::PARLIMEN,
+                'negeri' => self::NEGERI,
+                'label' => 'N01 Buloh Kasap',
+            ],
+        ];
+    }
+
+    /**
      * KEPUTUSAN PRN Johor ke-15 (2022) — ringkasan Daerah Mengundi.
      * Ethnic composition (%) is from DPPR 2026; votes are the sah tally.
      */

@@ -1,52 +1,116 @@
+import { useMemo, useState } from 'react';
 import { Head } from '@inertiajs/react';
 import {
     Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer,
     Tooltip, XAxis, YAxis,
 } from 'recharts';
-import { Target, TrendingDown, Users, Vote } from 'lucide-react';
+import { RotateCcw, SlidersHorizontal, Target, TrendingDown, Users, Vote } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PilihanrayaShell, { usePilihanrayaTheme } from './components/PilihanrayaShell';
 import KpiCard from './components/KpiCard';
+import { KawasanSelect, FilterBarCard } from './analisa/FilterControls';
 import { PARTY, STATUS_STYLES, fmt, pct } from './analisa/shared';
 
+/* --------------------------- Model (from Excel) --------------------------- */
+const TURNOUTS_J1 = [0.5, 0.6, 0.7, 0.75, 0.8, 0.85, 0.9];
+const SOKONGAN_J2 = [0.15, 0.2, 0.25, 0.27, 0.3, 0.35];
+const SCENARIOS_J3 = [[0.9, 0, 0.1], [0.7, 0.1, 0.2], [0.6, 0.15, 0.25], [0.5, 0.2, 0.3], [0.4, 0.25, 0.35], [0.3, 0.3, 0.4]];
+// Undi Melayu & undi PN kekal pada paras sebenar 2022 (tidak berubah dgn andaian C/I).
+const MELAYU_PH_2022 = 378.6;
+const MELAYU_BN_2022 = 7932.6;
+const UNDI_PN = 2999;
+
+const statusSM = (s) => (s >= 0.275 ? 'SANGAT SUKAR' : s >= 0.18 ? 'SUKAR' : s >= 0.08 ? 'BOLEH DICAPAI' : 'MUDAH');
+const statusTCI = (t) => (t > 0.85 ? 'TIDAK REALISTIK' : t > 0.78 ? 'SUKAR' : 'BOLEH DICAPAI');
+
+function computeJadual1(a) {
+    const keluarM = a.M * a.tM;
+    return TURNOUTS_J1.map((tCI) => {
+        const keluarC = a.C * tCI;
+        const keluarI = a.I * tCI;
+        const total = keluarM + keluarC + keluarI;
+        const sM = keluarM > 0 ? (0.5 * total - keluarC * a.sC - keluarI * a.sI) / keluarM : 0;
+        return { turnout_ci: tCI, sokongan_min: sM, anjakan: sM - 0.02, status: statusSM(sM) };
+    });
+}
+function computeJadual2(a) {
+    const denom = a.C * a.sC + a.I * a.sI - 0.5 * (a.C + a.I);
+    const keluarM = a.M * a.tM;
+    return SOKONGAN_J2.map((sM) => {
+        const tCI = denom !== 0 ? (keluarM * (0.5 - sM)) / denom : 0;
+        return { sokongan_melayu: sM, turnout_min: tCI, status: statusTCI(tCI) };
+    });
+}
+function computeJadual3(a) {
+    const basePH = MELAYU_PH_2022 + a.C * a.tTarget * a.sC + a.I * a.tTarget * a.sI;
+    const baseBN = MELAYU_BN_2022 + a.C * a.tTarget * (1 - a.sC) + a.I * a.tTarget * (1 - a.sI);
+    return SCENARIOS_J3.map(([bn, ph, tak]) => {
+        const undiPH = basePH + UNDI_PN * ph;
+        const undiBN = baseBN + UNDI_PN * bn;
+        return { pn_bn: bn, pn_ph: ph, pn_tak_keluar: tak, undi_ph: undiPH, undi_bn: undiBN, keputusan: undiPH > undiBN ? 'PH MENANG' : 'BN MENANG' };
+    });
+}
+
+/* ------------------------------ UI helpers ------------------------------- */
 function StatusBadge({ status }) {
     const cls = STATUS_STYLES[status] || 'bg-slate-500/15 text-slate-500 border border-slate-500/40';
     return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${cls}`}>{status}</span>;
 }
 
-function AndaianCard({ a }) {
+function EditField({ label, value, onChange, suffix, step = 1, min = 0, max }) {
     const { t } = usePilihanrayaTheme();
-    const items = [
-        { label: 'Pengundi Melayu', value: fmt(a.pengundi_melayu) },
-        { label: 'Pengundi Cina', value: fmt(a.pengundi_cina) },
-        { label: 'Pengundi India', value: fmt(a.pengundi_india) },
-        { label: 'Turnout Melayu', value: pct(a.turnout_melayu, 0) },
-        { label: 'Sokongan PH — Cina', value: pct(a.sokongan_ph_cina, 0) },
-        { label: 'Sokongan PH — India', value: pct(a.sokongan_ph_india, 0) },
-    ];
     return (
-        <div className={t.card}>
-            <h3 className={t.cardTitle}>Andaian Asas Model</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {items.map((it) => (
-                    <div key={it.label} className={`rounded-lg border ${t.border} p-3`}>
-                        <p className={`${t.subtext} text-xs`}>{it.label}</p>
-                        <p className={`${t.text} text-lg font-bold mt-0.5`}>{it.value}</p>
-                    </div>
-                ))}
+        <div>
+            <label className={`${t.subtext} text-xs block mb-1`}>{label}</label>
+            <div className="relative">
+                <input
+                    type="number" value={value} step={step} min={min} max={max}
+                    onChange={(e) => onChange(e.target.value)}
+                    className={`${t.input} ${suffix ? 'pr-8' : ''}`}
+                />
+                {suffix && <span className={`${t.subtext} absolute right-3 top-1/2 -translate-y-1/2 text-sm`}>{suffix}</span>}
             </div>
         </div>
     );
 }
 
-/* --- Jadual 1: sokongan Melayu minimum ikut turnout Cina+India --- */
+/** Editable assumptions — the blue cells from the workbook. */
+function AndaianEditor({ a, set, reset }) {
+    const { t } = usePilihanrayaTheme();
+    const setPct = (key) => (v) => set(key, Math.min(100, Math.max(0, parseFloat(v) || 0)) / 100);
+    const setNum = (key) => (v) => set(key, Math.max(0, parseInt(v, 10) || 0));
+
+    return (
+        <div className={`${t.card} border-l-4`} style={{ borderLeftColor: PARTY.PN }}>
+            <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                    <SlidersHorizontal className="h-5 w-5" style={{ color: PARTY.PN }} />
+                    <h3 className={t.cardTitle + ' mb-0'}>Pemboleh Ubah Andaian</h3>
+                </div>
+                <button type="button" onClick={reset} className={t.buttonSecondary}>
+                    <RotateCcw className="h-4 w-4" /> Set Semula
+                </button>
+            </div>
+            <p className={`${t.subtext} text-sm mb-4`}>
+                Ubah nilai di bawah (sepadan dengan sel biru dalam fail Excel). Ketiga-tiga jadual dikira semula secara automatik.
+            </p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <EditField label="Pengundi Melayu" value={a.M} onChange={setNum('M')} step={1} />
+                <EditField label="Pengundi Cina" value={a.C} onChange={setNum('C')} step={1} />
+                <EditField label="Pengundi India" value={a.I} onChange={setNum('I')} step={1} />
+                <EditField label="Turnout Melayu" value={Math.round(a.tM * 1000) / 10} onChange={setPct('tM')} suffix="%" step={0.5} max={100} />
+                <EditField label="Sokongan PH — Cina" value={Math.round(a.sC * 1000) / 10} onChange={setPct('sC')} suffix="%" step={0.5} max={100} />
+                <EditField label="Sokongan PH — India" value={Math.round(a.sI * 1000) / 10} onChange={setPct('sI')} suffix="%" step={0.5} max={100} />
+                <EditField label="Turnout Sasaran C+I (Jadual 3)" value={Math.round(a.tTarget * 1000) / 10} onChange={setPct('tTarget')} suffix="%" step={0.5} max={100} />
+            </div>
+        </div>
+    );
+}
+
+/* ------------------------------- Jadual 1 -------------------------------- */
 function Jadual1({ data }) {
     const { t } = usePilihanrayaTheme();
-    const chart = data.map((r) => ({
-        turnout: +(r.turnout_ci * 100).toFixed(0),
-        min: +(r.sokongan_min * 100).toFixed(1),
-        anjakan: +(r.anjakan * 100).toFixed(1),
-    }));
+    const chart = data.map((r) => ({ turnout: +(r.turnout_ci * 100).toFixed(0), min: +(r.sokongan_min * 100).toFixed(1) }));
     return (
         <div className={t.card}>
             <h3 className={t.cardTitle}>Jadual 1 — Sokongan Melayu Minimum untuk PH Menang</h3>
@@ -54,12 +118,12 @@ function Jadual1({ data }) {
             <ResponsiveContainer width="100%" height={280}>
                 <LineChart data={chart} margin={{ left: 0, right: 16, top: 8 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={t.chartGrid} />
-                    <XAxis dataKey="turnout" stroke={t.chartTick} style={{ fontSize: '11px' }} unit="%" label={{ value: 'Turnout Cina+India', position: 'insideBottom', offset: -4, fill: t.chartTick, fontSize: 11 }} />
+                    <XAxis dataKey="turnout" stroke={t.chartTick} style={{ fontSize: '11px' }} unit="%" />
                     <YAxis stroke={t.chartTick} style={{ fontSize: '11px' }} unit="%" />
                     <Tooltip contentStyle={t.tooltip} formatter={(v) => `${v}%`} />
                     <Legend wrapperStyle={{ fontSize: '12px' }} />
                     <ReferenceLine y={2} stroke={PARTY.ditolak} strokeDasharray="5 5" label={{ value: 'Sokongan 2022 (2%)', fill: t.chartTick, fontSize: 10, position: 'insideTopLeft' }} />
-                    <Line type="monotone" dataKey="min" name="Sokongan Melayu MIN" stroke={PARTY.PH} strokeWidth={3} dot={{ r: 4, fill: '#fff', stroke: PARTY.PH, strokeWidth: 2 }} />
+                    <Line type="monotone" dataKey="min" name="Sokongan Melayu MIN" stroke={PARTY.PH} strokeWidth={3} label={{ position: 'top', fill: t.chartTick, fontSize: 11, formatter: (v) => `${v}%` }} dot={{ r: 4, fill: '#fff', stroke: PARTY.PH, strokeWidth: 2 }} />
                 </LineChart>
             </ResponsiveContainer>
             <div className="overflow-x-auto mt-4">
@@ -77,7 +141,7 @@ function Jadual1({ data }) {
                             <tr key={r.turnout_ci} className={t.tableRow}>
                                 <td className={`${t.tableCell} text-right tabular-nums`}>{pct(r.turnout_ci, 0)}</td>
                                 <td className={`${t.tableCell} text-right tabular-nums font-semibold`} style={{ color: PARTY.PH }}>{pct(r.sokongan_min)}</td>
-                                <td className={`${t.tableCell} text-right tabular-nums ${t.subtext}`}>+{pct(r.anjakan)}</td>
+                                <td className={`${t.tableCell} text-right tabular-nums ${t.subtext}`}>{r.anjakan >= 0 ? '+' : ''}{pct(r.anjakan)}</td>
                                 <td className={t.tableCell}><StatusBadge status={r.status} /></td>
                             </tr>
                         ))}
@@ -88,13 +152,10 @@ function Jadual1({ data }) {
     );
 }
 
-/* --- Jadual 2: turnout Cina+India minimum ikut sokongan Melayu --- */
+/* ------------------------------- Jadual 2 -------------------------------- */
 function Jadual2({ data }) {
     const { t } = usePilihanrayaTheme();
-    const chart = data.map((r) => ({
-        sokongan: +(r.sokongan_melayu * 100).toFixed(0),
-        min: +(r.turnout_min * 100).toFixed(1),
-    }));
+    const chart = data.map((r) => ({ sokongan: +(r.sokongan_melayu * 100).toFixed(0), min: +(r.turnout_min * 100).toFixed(1) }));
     return (
         <div className={t.card}>
             <h3 className={t.cardTitle}>Jadual 2 — Turnout Cina+India Minimum untuk PH Menang</h3>
@@ -102,12 +163,12 @@ function Jadual2({ data }) {
             <ResponsiveContainer width="100%" height={280}>
                 <LineChart data={chart} margin={{ left: 0, right: 16, top: 8 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={t.chartGrid} />
-                    <XAxis dataKey="sokongan" stroke={t.chartTick} style={{ fontSize: '11px' }} unit="%" label={{ value: 'Sokongan Melayu kpd PH', position: 'insideBottom', offset: -4, fill: t.chartTick, fontSize: 11 }} />
+                    <XAxis dataKey="sokongan" stroke={t.chartTick} style={{ fontSize: '11px' }} unit="%" />
                     <YAxis stroke={t.chartTick} style={{ fontSize: '11px' }} unit="%" />
                     <Tooltip contentStyle={t.tooltip} formatter={(v) => `${v}%`} />
                     <Legend wrapperStyle={{ fontSize: '12px' }} />
                     <ReferenceLine y={100} stroke={PARTY.ditolak} strokeDasharray="5 5" label={{ value: 'Had realistik 100%', fill: t.chartTick, fontSize: 10, position: 'insideTopRight' }} />
-                    <Line type="monotone" dataKey="min" name="Turnout C+I MIN" stroke={PARTY.PN} strokeWidth={3} dot={{ r: 4, fill: '#fff', stroke: PARTY.PN, strokeWidth: 2 }} />
+                    <Line type="monotone" dataKey="min" name="Turnout C+I MIN" stroke={PARTY.PN} strokeWidth={3} label={{ position: 'top', fill: t.chartTick, fontSize: 11, formatter: (v) => `${v}%` }} dot={{ r: 4, fill: '#fff', stroke: PARTY.PN, strokeWidth: 2 }} />
                 </LineChart>
             </ResponsiveContainer>
             <div className="overflow-x-auto mt-4">
@@ -134,31 +195,26 @@ function Jadual2({ data }) {
     );
 }
 
-/* --- Jadual 3: kesan peralihan undi PN 2022 --- */
+/* ------------------------------- Jadual 3 -------------------------------- */
 function Jadual3({ data }) {
     const { t } = usePilihanrayaTheme();
-    const chart = data.map((r) => ({
-        name: `PN→PH ${pct(r.pn_ph, 0)}`,
-        PH: Math.round(r.undi_ph),
-        BN: Math.round(r.undi_bn),
-    }));
+    const chart = data.map((r) => ({ name: `PN→PH ${pct(r.pn_ph, 0)}`, PH: Math.round(r.undi_ph), BN: Math.round(r.undi_bn) }));
     return (
         <div className={t.card}>
             <h3 className={t.cardTitle}>Jadual 3 — Kesan Peralihan Undi PN 2022 (±2,999 undi)</h3>
             <p className={`${t.subtext} text-sm mb-4`}>
-                Asas: undi 2022 — PH 3,579 / BN 8,956. Turnout Cina/India naik ke 75% memberi PH ±3,650 undi tambahan
-                (sokongan 90%/40%). Undi PN dibahagi ikut nisbah senario di bawah.
+                Asas: undi Melayu kekal pada paras 2022; turnout Cina/India dinaikkan ke sasaran di atas. Undi PN dibahagi
+                ikut nisbah senario di bawah.
             </p>
-            <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={chart} margin={{ left: 10, right: 16 }}>
+            <ResponsiveContainer width="100%" height={320}>
+                <BarChart data={chart} margin={{ left: 10, right: 16, top: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={t.chartGrid} />
                     <XAxis dataKey="name" stroke={t.chartTick} style={{ fontSize: '10px' }} />
                     <YAxis stroke={t.chartTick} style={{ fontSize: '11px' }} />
                     <Tooltip contentStyle={t.tooltip} formatter={(v) => `${fmt(v)} undi`} />
                     <Legend wrapperStyle={{ fontSize: '12px' }} />
-                    <ReferenceLine y={10897} stroke={PARTY.PEJUANG} strokeDasharray="6 3" label={{ value: 'Ambang menang', fill: t.chartTick, fontSize: 10, position: 'insideTopRight' }} />
-                    <Bar dataKey="PH" name="Undi PH" fill={PARTY.PH} radius={[3, 3, 0, 0]} />
-                    <Bar dataKey="BN" name="Undi BN" fill={PARTY.BN} radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="PH" name="Undi PH" fill={PARTY.PH} radius={[3, 3, 0, 0]} label={{ position: 'top', fill: t.chartTick, fontSize: 10, formatter: (v) => fmt(v) }} />
+                    <Bar dataKey="BN" name="Undi BN" fill={PARTY.BN} radius={[3, 3, 0, 0]} label={{ position: 'top', fill: t.chartTick, fontSize: 10, formatter: (v) => fmt(v) }} />
                 </BarChart>
             </ResponsiveContainer>
             <div className="overflow-x-auto mt-4">
@@ -192,7 +248,20 @@ function Jadual3({ data }) {
 }
 
 export default function Minima({ context, minima }) {
-    const a = minima.andaian;
+    const src = minima.andaian;
+    const initial = {
+        M: src.pengundi_melayu, C: src.pengundi_cina, I: src.pengundi_india,
+        tM: src.turnout_melayu, sC: src.sokongan_ph_cina, sI: src.sokongan_ph_india, tTarget: 0.75,
+    };
+    const [kawasan, setKawasan] = useState(context.kawasanList?.[0]?.id ?? '');
+    const [a, setA] = useState(initial);
+    const set = (key, val) => setA((s) => ({ ...s, [key]: val }));
+    const reset = () => setA(initial);
+
+    const j1 = useMemo(() => computeJadual1(a), [a]);
+    const j2 = useMemo(() => computeJadual2(a), [a]);
+    const j3 = useMemo(() => computeJadual3(a), [a]);
+
     return (
         <AuthenticatedLayout>
             <Head title="Pilihanraya — Minima Untuk Menang" />
@@ -200,29 +269,37 @@ export default function Minima({ context, minima }) {
                 title="Minima Untuk PH Menang"
                 subtitle={`${context.dun} · ${context.parlimen}, ${context.negeri} — pertandingan 1 lawan 1 (PH vs BN)`}
             >
+                <FilterBarCard>
+                    <KawasanSelect list={context.kawasanList} value={kawasan} onChange={setKawasan} />
+                    <div className="text-sm">
+                        <span className="block text-xs opacity-60 mb-1">Model</span>
+                        <span className="font-semibold">Pertandingan 1 lawan 1 (PH vs BN)</span>
+                    </div>
+                </FilterBarCard>
+
                 <div className={`${STATUS_STYLES['SUKAR']} rounded-xl px-4 py-3 text-sm mb-6 flex items-start gap-2`}>
                     <Target className="h-5 w-5 shrink-0 mt-0.5" />
                     <span>
-                        <strong>Syarat menang:</strong> PH mesti memperoleh &gt; 50% undi keluar. Analisa di bawah menunjukkan
-                        gabungan minimum turnout dan sokongan yang diperlukan mengikut kaum, serta kesan peralihan undi PN 2022.
+                        <strong>Syarat menang:</strong> PH mesti memperoleh &gt; 50% undi keluar. Ubah pemboleh ubah di bawah untuk
+                        menguji gabungan minimum turnout dan sokongan yang diperlukan mengikut kaum.
                     </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-                    <KpiCard label="Jumlah Pengundi 2026" value={fmt(a.pengundi_melayu + a.pengundi_cina + a.pengundi_india)} icon={Users} sub="DPPR 2026" />
-                    <KpiCard label="Pengundi Melayu" value={fmt(a.pengundi_melayu)} icon={Users} sub={`Turnout andaian ${pct(a.turnout_melayu, 0)}`} iconBg="bg-green-500/15" iconColor="text-green-500" />
-                    <KpiCard label="Sokongan PH Cina" value={pct(a.sokongan_ph_cina, 0)} icon={Vote} sub="Andaian asas" iconBg="bg-rose-500/15" iconColor="text-rose-500" />
-                    <KpiCard label="Sokongan PH India" value={pct(a.sokongan_ph_india, 0)} icon={TrendingDown} sub="Andaian asas" iconBg="bg-amber-500/15" iconColor="text-amber-500" />
+                    <KpiCard label="Jumlah Pengundi 2026" value={fmt(a.M + a.C + a.I)} icon={Users} sub="DPPR 2026" />
+                    <KpiCard label="Pengundi Melayu" value={fmt(a.M)} icon={Users} sub={`Turnout andaian ${pct(a.tM, 0)}`} iconBg="bg-green-500/15" iconColor="text-green-500" />
+                    <KpiCard label="Sokongan PH Cina" value={pct(a.sC, 0)} icon={Vote} sub="Andaian asas" iconBg="bg-rose-500/15" iconColor="text-rose-500" />
+                    <KpiCard label="Sokongan PH India" value={pct(a.sI, 0)} icon={TrendingDown} sub="Andaian asas" iconBg="bg-amber-500/15" iconColor="text-amber-500" />
                 </div>
 
                 <div className="mb-6">
-                    <AndaianCard a={a} />
+                    <AndaianEditor a={a} set={set} reset={reset} />
                 </div>
 
                 <div className="grid grid-cols-1 gap-6">
-                    <Jadual1 data={minima.jadual1} />
-                    <Jadual2 data={minima.jadual2} />
-                    <Jadual3 data={minima.jadual3} />
+                    <Jadual1 data={j1} />
+                    <Jadual2 data={j2} />
+                    <Jadual3 data={j3} />
                 </div>
             </PilihanrayaShell>
         </AuthenticatedLayout>
