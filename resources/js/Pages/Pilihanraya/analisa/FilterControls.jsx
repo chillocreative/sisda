@@ -1,25 +1,48 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown, ListFilter, MapPin } from 'lucide-react';
+import { Check, ChevronDown, Landmark, ListFilter, MapPin } from 'lucide-react';
 import { usePilihanrayaTheme } from '../components/PilihanrayaShell';
 
 /**
- * Kawasan (DUN) dropdown. Currently one curated dataset — the control is here
- * so additional seats appear automatically once their data is added.
+ * Cascading Parlimen → DUN (Kawasan) dropdowns. Currently one curated dataset —
+ * the controls are here so additional seats appear automatically once their
+ * data is added.
  */
 export function KawasanSelect({ list = [], value, onChange }) {
     const { t } = usePilihanrayaTheme();
 
+    const parlimens = [...new Set(list.map((k) => k.parlimen))];
+    const current = list.find((k) => k.id === value) || list[0];
+    const selectedParlimen = current?.parlimen ?? parlimens[0];
+    const dunOptions = list.filter((k) => k.parlimen === selectedParlimen);
+
+    const onParlimenChange = (p) => {
+        const firstDun = list.find((k) => k.parlimen === p);
+        if (firstDun) onChange(firstDun.id);
+    };
+
     return (
-        <div className="min-w-[220px]">
-            <label className={t.label}>
-                <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> Kawasan (DUN)</span>
-            </label>
-            <select value={value} onChange={(e) => onChange(e.target.value)} className={t.input}>
-                {list.map((k) => (
-                    <option key={k.id} value={k.id}>{k.label} — {k.parlimen}</option>
-                ))}
-            </select>
-        </div>
+        <>
+            <div className="min-w-[200px]">
+                <label className={t.label}>
+                    <span className="inline-flex items-center gap-1"><Landmark className="h-3.5 w-3.5" /> Parlimen</span>
+                </label>
+                <select value={selectedParlimen} onChange={(e) => onParlimenChange(e.target.value)} className={t.input}>
+                    {parlimens.map((p) => (
+                        <option key={p} value={p}>{p}</option>
+                    ))}
+                </select>
+            </div>
+            <div className="min-w-[200px]">
+                <label className={t.label}>
+                    <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> DUN (Kawasan)</span>
+                </label>
+                <select value={value} onChange={(e) => onChange(e.target.value)} className={t.input}>
+                    {dunOptions.map((k) => (
+                        <option key={k.id} value={k.id}>{k.dun}</option>
+                    ))}
+                </select>
+            </div>
+        </>
     );
 }
 

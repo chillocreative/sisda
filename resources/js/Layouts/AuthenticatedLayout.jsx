@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
     LayoutDashboard,
     Users,
@@ -232,6 +232,23 @@ export default function AuthenticatedLayout({ children }) {
         setOpenDropdown(prevOpen => prevOpen === dropdownName ? null : dropdownName);
     };
 
+    // Keep the active menu item vertically centred within the sidebar scroll area.
+    const navRef = useRef(null);
+    const activeRef = useRef(null);
+    const currentPath = usePage().url.split('?')[0];
+    const hrefPath = (href) => {
+        try { return new URL(href, window.location.origin).pathname; } catch { return href; }
+    };
+
+    useEffect(() => {
+        const nav = navRef.current;
+        const el = activeRef.current;
+        if (!nav || !el) return;
+        const offsetWithinNav = (el.getBoundingClientRect().top - nav.getBoundingClientRect().top) + nav.scrollTop;
+        const target = offsetWithinNav - nav.clientHeight / 2 + el.clientHeight / 2;
+        nav.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+    }, [currentPath, openDropdown]);
+
     // Automatically open the dropdown based on current route
     useEffect(() => {
         if (route().current('master-data.*')) {
@@ -283,12 +300,13 @@ export default function AuthenticatedLayout({ children }) {
                     </div>
 
                     {/* Navigation */}
-                    <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+                    <nav ref={navRef} className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
                         {navigation.map((item) => (
                             <div key={item.name}>
                                 {item.hasSubmenu ? (
                                     <>
                                         <button
+                                            ref={item.current ? activeRef : null}
                                             onClick={toggleDropdown(item.name)}
                                             className={`
                                                 w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium
@@ -311,21 +329,30 @@ export default function AuthenticatedLayout({ children }) {
                                         </button>
                                         {openDropdown === item.name && (
                                             <div className="mt-1 ml-4 space-y-1">
-                                                {item.submenu.map((subitem) => (
-                                                    <Link
-                                                        key={subitem.name}
-                                                        href={subitem.href}
-                                                        className="flex items-center space-x-3 px-4 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-100 transition-colors"
-                                                    >
-                                                        <subitem.icon className="h-4 w-4" />
-                                                        <span>{subitem.name}</span>
-                                                    </Link>
-                                                ))}
+                                                {item.submenu.map((subitem) => {
+                                                    const isActive = hrefPath(subitem.href) === currentPath;
+                                                    return (
+                                                        <Link
+                                                            key={subitem.name}
+                                                            ref={isActive ? activeRef : null}
+                                                            href={subitem.href}
+                                                            className={`flex items-center space-x-3 px-4 py-2 rounded-lg text-sm transition-colors ${
+                                                                isActive
+                                                                    ? 'bg-slate-100 text-slate-900 font-semibold'
+                                                                    : 'text-slate-600 hover:bg-slate-100'
+                                                            }`}
+                                                        >
+                                                            <subitem.icon className="h-4 w-4" />
+                                                            <span>{subitem.name}</span>
+                                                        </Link>
+                                                    );
+                                                })}
                                             </div>
                                         )}
                                     </>
                                 ) : (
                                     <Link
+                                        ref={item.current ? activeRef : null}
                                         href={item.href}
                                         className={`
                                             flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium
