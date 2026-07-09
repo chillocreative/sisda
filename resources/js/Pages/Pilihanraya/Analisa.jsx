@@ -12,6 +12,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PilihanrayaShell, { usePilihanrayaTheme } from './components/PilihanrayaShell';
 import KpiCard from './components/KpiCard';
 import { KawasanSelect, DmFilter, FilterBarCard } from './analisa/FilterControls';
+import DragScroll from './analisa/DragScroll';
 import { PARTY, PARTY_LABEL, computeKeputusanTotals, fmt, pct, safeDiv } from './analisa/shared';
 
 function withDerived(rows) {
@@ -124,7 +125,7 @@ function RawGridTable({ grid }) {
             <p className={`${t.subtext} text-sm mb-4`}>
                 Format fail tidak dikenali sebagai scoresheet piawai — kandungan dipaparkan seadanya.
             </p>
-            <div className="overflow-x-auto">
+            <DragScroll>
                 <table className="min-w-full">
                     <thead>
                         <tr>
@@ -139,14 +140,14 @@ function RawGridTable({ grid }) {
                         ))}
                     </tbody>
                 </table>
-            </div>
+            </DragScroll>
         </div>
     );
 }
 
 /* -------------------------------- Charts --------------------------------- */
 
-function PartyDonut({ totals }) {
+function PartyPie({ totals }) {
     const { t } = usePilihanrayaTheme();
     const data = [
         { name: PARTY_LABEL.PH, value: totals.ph, color: PARTY.PH },
@@ -157,18 +158,43 @@ function PartyDonut({ totals }) {
     ].filter((d) => d.value > 0);
     const sah = data.reduce((s, d) => s + d.value, 0);
 
+    const sliceLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+        if (percent < 0.05) return null;
+        const RAD = Math.PI / 180;
+        const r = innerRadius + (outerRadius - innerRadius) * 0.62;
+        const x = cx + r * Math.cos(-midAngle * RAD);
+        const y = cy + r * Math.sin(-midAngle * RAD);
+        return (
+            <text x={x} y={y} fill="#ffffff" textAnchor="middle" dominantBaseline="central" fontSize={13} fontWeight={700}>
+                {(percent * 100).toFixed(1)}%
+            </text>
+        );
+    };
+
     return (
         <div className={t.card}>
             <h3 className={t.cardTitle}>Pecahan Undi Mengikut Parti</h3>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={260}>
                 <PieChart>
-                    <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={65} outerRadius={110} paddingAngle={2}>
+                    <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} labelLine={false} label={sliceLabel}>
                         {data.map((d) => <Cell key={d.name} fill={d.color} stroke="transparent" />)}
                     </Pie>
                     <Tooltip contentStyle={t.tooltip} formatter={(v) => `${fmt(v)} undi (${pct(safeDiv(v, sah))})`} />
-                    <Legend wrapperStyle={{ fontSize: '12px' }} />
                 </PieChart>
             </ResponsiveContainer>
+            <div className="mt-2 space-y-1.5">
+                {data.map((d) => (
+                    <div key={d.name} className="flex items-center justify-between text-sm">
+                        <span className="flex items-center gap-2">
+                            <span className="h-3 w-3 rounded-sm" style={{ background: d.color }} />
+                            <span className={t.text}>{d.name}</span>
+                        </span>
+                        <span className={`tabular-nums font-semibold ${t.text}`}>
+                            {fmt(d.value)} <span className={`${t.subtext} font-normal`}>({pct(safeDiv(d.value, sah))})</span>
+                        </span>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 }
@@ -212,7 +238,7 @@ function KeputusanTable({ rows, totals }) {
     return (
         <div className={t.card}>
             <h3 className={t.cardTitle}>Jadual Keputusan Penuh</h3>
-            <div className="overflow-x-auto">
+            <DragScroll>
                 <table className="min-w-full">
                     <thead>
                         <tr>
@@ -278,7 +304,7 @@ function KeputusanTable({ rows, totals }) {
                         </tr>
                     </tfoot>
                 </table>
-            </div>
+            </DragScroll>
         </div>
     );
 }
@@ -383,7 +409,7 @@ export default function Analisa({ context, rows: baseRows, totals: baseTotals })
                         </div>
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                            <PartyDonut totals={totals} />
+                            <PartyPie totals={totals} />
                             <PhVsBnBars rows={derived} />
                         </div>
 

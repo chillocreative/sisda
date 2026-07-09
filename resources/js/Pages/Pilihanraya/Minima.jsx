@@ -9,6 +9,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PilihanrayaShell, { usePilihanrayaTheme } from './components/PilihanrayaShell';
 import KpiCard from './components/KpiCard';
 import { KawasanSelect, FilterBarCard } from './analisa/FilterControls';
+import DragScroll from './analisa/DragScroll';
 import { PARTY, STATUS_STYLES, fmt, pct } from './analisa/shared';
 
 /* --------------------------- Model (from Excel) --------------------------- */
@@ -126,7 +127,7 @@ function Jadual1({ data }) {
                     <Line type="monotone" dataKey="min" name="Sokongan Melayu MIN" stroke={PARTY.PH} strokeWidth={3} label={{ position: 'top', fill: t.chartTick, fontSize: 11, formatter: (v) => `${v}%` }} dot={{ r: 4, fill: '#fff', stroke: PARTY.PH, strokeWidth: 2 }} />
                 </LineChart>
             </ResponsiveContainer>
-            <div className="overflow-x-auto mt-4">
+            <DragScroll className="mt-4">
                 <table className="min-w-full">
                     <thead>
                         <tr>
@@ -147,7 +148,7 @@ function Jadual1({ data }) {
                         ))}
                     </tbody>
                 </table>
-            </div>
+            </DragScroll>
         </div>
     );
 }
@@ -171,7 +172,7 @@ function Jadual2({ data }) {
                     <Line type="monotone" dataKey="min" name="Turnout C+I MIN" stroke={PARTY.PN} strokeWidth={3} label={{ position: 'top', fill: t.chartTick, fontSize: 11, formatter: (v) => `${v}%` }} dot={{ r: 4, fill: '#fff', stroke: PARTY.PN, strokeWidth: 2 }} />
                 </LineChart>
             </ResponsiveContainer>
-            <div className="overflow-x-auto mt-4">
+            <DragScroll className="mt-4">
                 <table className="min-w-full">
                     <thead>
                         <tr>
@@ -190,7 +191,7 @@ function Jadual2({ data }) {
                         ))}
                     </tbody>
                 </table>
-            </div>
+            </DragScroll>
         </div>
     );
 }
@@ -217,7 +218,7 @@ function Jadual3({ data }) {
                     <Bar dataKey="BN" name="Undi BN" fill={PARTY.BN} radius={[3, 3, 0, 0]} label={{ position: 'top', fill: t.chartTick, fontSize: 10, formatter: (v) => fmt(v) }} />
                 </BarChart>
             </ResponsiveContainer>
-            <div className="overflow-x-auto mt-4">
+            <DragScroll className="mt-4">
                 <table className="min-w-full">
                     <thead>
                         <tr>
@@ -242,7 +243,7 @@ function Jadual3({ data }) {
                         ))}
                     </tbody>
                 </table>
-            </div>
+            </DragScroll>
         </div>
     );
 }

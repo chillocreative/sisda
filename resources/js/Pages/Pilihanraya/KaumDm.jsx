@@ -9,6 +9,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PilihanrayaShell, { usePilihanrayaTheme } from './components/PilihanrayaShell';
 import KpiCard from './components/KpiCard';
 import { KawasanSelect, DmFilter, FilterBarCard } from './analisa/FilterControls';
+import DragScroll from './analisa/DragScroll';
 import { KAUM, KAUM_LABEL, computeKaumTotals, fmt, pct, safeDiv } from './analisa/shared';
 
 // Hide a data label when the segment is too small to hold the figure legibly.
@@ -121,7 +122,7 @@ function KaumTable({ rows, totals }) {
     return (
         <div className={t.card}>
             <h3 className={t.cardTitle}>Jadual Anggaran Kaum Mengikut Daerah Mengundi</h3>
-            <div className="overflow-x-auto">
+            <DragScroll>
                 <table className="min-w-full">
                     <thead>
                         <tr>
@@ -166,7 +167,7 @@ function KaumTable({ rows, totals }) {
                         </tr>
                     </tfoot>
                 </table>
-            </div>
+            </DragScroll>
             <p className={`${t.subtext} text-xs mt-4`}>
                 Nota: Kaum dianggar daripada corak nama pengundi (BIN/BINTI = Melayu; A/L, A/P, S/O, D/O = India;
                 ANAK = Lain-lain; selebihnya = Cina). Angka sebenar mungkin berbeza sedikit kerana nama mualaf,
