@@ -409,6 +409,12 @@ Route::middleware(['auth', 'admin'])->prefix('pilihanraya')->name('pilihanraya.'
     Route::get('/war-room', [\App\Http\Controllers\PilihanrayaController::class, 'warRoom'])->name('war-room');
     Route::get('/simulasi', [\App\Http\Controllers\PilihanrayaController::class, 'simulasi'])->name('simulasi');
 
+    // Analisa — Buloh Kasap analytical pages (Keputusan 2022, Minima, Kaum Mengikut DM)
+    Route::get('/analisa', [\App\Http\Controllers\PilihanrayaAnalisaController::class, 'keputusan'])->name('analisa');
+    Route::post('/analisa/upload', [\App\Http\Controllers\PilihanrayaAnalisaController::class, 'upload'])->name('analisa.upload')->middleware('throttle:20,1');
+    Route::get('/minima', [\App\Http\Controllers\PilihanrayaAnalisaController::class, 'minima'])->name('minima');
+    Route::get('/kaum-dm', [\App\Http\Controllers\PilihanrayaAnalisaController::class, 'kaumDm'])->name('kaum-dm');
+
     // War Room tab data (lazy-loaded, cached aggregates)
     Route::get('/api/overview', [\App\Http\Controllers\PilihanrayaController::class, 'overview'])->name('api.overview');
     Route::get('/api/composition', [\App\Http\Controllers\PilihanrayaController::class, 'composition'])->name('api.composition');

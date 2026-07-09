@@ -37,7 +37,10 @@ import {
     ShieldAlert,
     MessageSquare,
     Swords,
-    Radar
+    Radar,
+    BarChart3,
+    Target,
+    PieChart
 } from 'lucide-react';
 
 export default function AuthenticatedLayout({ children }) {
@@ -183,6 +186,9 @@ export default function AuthenticatedLayout({ children }) {
                 hasSubmenu: true,
                 submenu: [
                     { name: 'War Room', href: route('pilihanraya.war-room'), icon: Radar },
+                    { name: 'Analisa Keputusan', href: route('pilihanraya.analisa'), icon: BarChart3 },
+                    { name: 'Kaum Mengikut DM', href: route('pilihanraya.kaum-dm'), icon: PieChart },
+                    { name: 'Minima Untuk Menang', href: route('pilihanraya.minima'), icon: Target },
                     { name: 'Pusat Simulasi', href: route('pilihanraya.simulasi'), icon: Brain },
                     { name: 'Jawatankuasa', href: route('pilihanraya.jawatankuasa.index'), icon: ClipboardList },
                 ]

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Head } from '@inertiajs/react';
 import axios from 'axios';
 import {
-    BrainCircuit, Crosshair, Download, FileText, Loader2, Megaphone, Scale, Sparkles, SlidersHorizontal, Swords,
+    BrainCircuit, Crosshair, Download, FileText, Loader2, Megaphone, Scale, Sparkles, SlidersHorizontal, Swords, Users2,
 } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { EMPTY_FILTERS, cleanParams } from './filters';
@@ -15,11 +15,13 @@ import SliderPanel from './components/SliderPanel';
 import ScenarioChat from './components/ScenarioChat';
 import ResourcePanel from './components/ResourcePanel';
 import BriefingViewer from './components/BriefingViewer';
+import Simulasi1v1 from './components/Simulasi1v1';
 import { DEFAULT_SLIDERS, projectAll } from './simulation/whatIfModel';
 import { CHART_COLORS } from './theme';
 
 const TABS = [
     { key: 'ramalan', label: 'Ramalan', icon: BrainCircuit },
+    { key: 'satulawansatu', label: 'PH vs BN (1 lawan 1)', icon: Users2 },
     { key: 'whatif', label: 'What-If', icon: SlidersHorizontal },
     { key: 'wargame', label: 'War Gaming', icon: Swords },
     { key: 'sumber', label: 'Sumber', icon: Megaphone },
@@ -424,6 +426,7 @@ function SimulasiContent({ filters, setFilters, latestForecast, lists }) {
                 <TabBar tabs={TABS} active={activeTab} onChange={setActiveTab} />
             </div>
             {activeTab === 'ramalan' && <RamalanTab filters={filters} latestForecast={latestForecast} />}
+            {activeTab === 'satulawansatu' && <Simulasi1v1 />}
             {activeTab === 'whatif' && <WhatIfTab filters={filters} sliders={sliders} setSliders={setSliders} />}
             {activeTab === 'wargame' && <ScenarioChat filters={cleanParams(filters)} sliders={sliders} />}
             {activeTab === 'sumber' && <SumberTab filters={filters} />}
