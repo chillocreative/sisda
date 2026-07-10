@@ -76,25 +76,20 @@ class ScoreboardController extends Controller
         $rows = [];
         $phVotes = 0;
         foreach (range(1, $penjuru) as $slot) {
-            // The scoreboard's own party pick (if set) overrides the Borang 14
-            // selection so the KEADILAN/UMNO labels can be changed here directly.
-            $nama = $candidates[$slot]['parti']
-                ?? ($parties[$slot - 1]['nama'] ?? "Parti {$slot}");
-            $partiId = $candidates[$slot]['keahlian_parti_id']
-                ?? ($parties[$slot - 1]['keahlian_parti_id'] ?? null);
+            // The party name always follows the Borang 14 party dropdown.
+            $nama = $parties[$slot - 1]['nama'] ?? "Parti {$slot}";
             $isPh = in_array(strtoupper((string) $nama), self::PH_PARTIES, true);
             $undi = $tally[$slot] ?? 0;
             if ($isPh) {
                 $phVotes += $undi;
             }
             $rows[] = [
-                'slot'              => $slot,
-                'parti'             => $nama,
-                'keahlian_parti_id' => $partiId,
-                'is_ph'             => $isPh,
-                'calon'             => $candidates[$slot]['nama'] ?? null,
-                'gambar'            => ! empty($candidates[$slot]['gambar']) ? asset($candidates[$slot]['gambar']) : null,
-                'undi'              => $undi,
+                'slot'   => $slot,
+                'parti'  => $nama,
+                'is_ph'  => $isPh,
+                'calon'  => $candidates[$slot]['nama'] ?? null,
+                'gambar' => ! empty($candidates[$slot]['gambar']) ? asset($candidates[$slot]['gambar']) : null,
+                'undi'   => $undi,
             ];
         }
 
@@ -130,11 +125,9 @@ class ScoreboardController extends Controller
             'candidates'        => 'array',
             'candidates.*.slot' => 'required|integer|min:1|max:6',
             'candidates.*.nama' => 'nullable|string|max:120',
-            'candidates.*.parti' => 'nullable|string|max:100',
-            'candidates.*.keahlian_parti_id' => 'nullable|integer',
-            'logo'              => 'nullable|image|max:4096',
+            'logo'              => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:4096',
             'photos'            => 'array',
-            'photos.*'          => 'nullable|image|max:4096',
+            'photos.*'          => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:4096',
         ]);
 
         $board = Scoreboard::firstOrNew([
@@ -162,13 +155,7 @@ class ScoreboardController extends Controller
                 $gambar = $this->storePublic($request->file("photos.{$slot}"), 'scoreboard/calon');
             }
 
-            $candidates[] = [
-                'slot'              => $slot,
-                'nama'              => $c['nama'] ?? null,
-                'parti'             => $c['parti'] ?? null,
-                'keahlian_parti_id' => $c['keahlian_parti_id'] ?? null,
-                'gambar'            => $gambar,
-            ];
+            $candidates[] = ['slot' => $slot, 'nama' => $c['nama'] ?? null, 'gambar' => $gambar];
         }
         $board->candidates = $candidates;
         $board->save();
@@ -183,11 +170,33 @@ class ScoreboardController extends Controller
      */
     private function storePublic(UploadedFile $file, string $dir): string
     {
-        $ext = strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: 'jpg');
-        $name = uniqid('', true) . '.' . $ext;
+        // Derive the extension from the file *content* (never the client-supplied
+        // name) and pin it to an image allowlist, so a polyglot named e.g. .php
+        // can't be written into the webroot and executed.
+        $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+        $ext = strtolower($file->guessExtension() ?: '');
+        abort_unless(in_array($ext, $allowed, true), 422, 'Format gambar tidak sah.');
+
+        $name = bin2hex(random_bytes(16)) . '.' . $ext;
         $file->move(public_path('uploads/' . $dir), $name);
+        $this->guardUploadsDir();
 
         return 'uploads/' . $dir . '/' . $name;
+    }
+
+    /** Defense in depth (Apache): stop any file under uploads/ being run as PHP. */
+    private function guardUploadsDir(): void
+    {
+        $htaccess = public_path('uploads/.htaccess');
+        if (! is_file($htaccess)) {
+            file_put_contents($htaccess, <<<'HT'
+                php_flag engine off
+                RemoveHandler .php .phtml .phar .phps
+                <FilesMatch "\.(php|phtml|phar|phps)$">
+                    Require all denied
+                </FilesMatch>
+                HT);
+        }
     }
 
     private function deletePublic(?string $path): void
