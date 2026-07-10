@@ -101,7 +101,7 @@ class Borang14Controller extends Controller
             'penjuru'  => 'required|integer|in:2,3,4,5,6',
             'pusat'    => 'nullable|string|max:255',
             'saluran'  => 'required|string|max:50',
-            'slot'     => 'required|integer|min:1|max:6',
+            'slot'     => 'required|integer|min:0|max:6', // slot 0 = Berdaftar for Undi Awal/Pos
             'undi'     => 'nullable|integer|min:0|max:1000000',
         ]);
 
@@ -128,6 +128,8 @@ class Borang14Controller extends Controller
         $validated = $request->validate([
             'kadun_id' => 'required|integer|exists:kadun,id',
             'penjuru'  => 'required|integer|in:2,3,4,5,6',
+            'parti'    => 'array',
+            'parti.*'  => 'nullable|string|max:100',
         ]);
 
         $reference = Borang14Reference::forKadun((int) $validated['kadun_id']);
@@ -137,7 +139,16 @@ class Borang14Controller extends Controller
             ->where('penjuru', $validated['penjuru'])
             ->first();
 
+        // Prefer the party names passed from the page so the PDF column headers
+        // match the on-screen dropdown selection exactly; fall back to the saved
+        // form when the request doesn't carry them.
         $parties = $form?->parties ?? [];
+        if ($request->filled('parti')) {
+            $parties = [];
+            foreach (array_values($request->input('parti')) as $i => $nama) {
+                $parties[] = ['slot' => $i + 1, 'nama' => $nama];
+            }
+        }
         $votes = $form
             ? $form->votes()->get()->mapWithKeys(fn ($v) => [
                 $this->cellKey($v->pusat, $v->saluran, $v->slot) => $v->undi,

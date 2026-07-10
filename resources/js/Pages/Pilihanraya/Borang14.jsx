@@ -85,6 +85,7 @@ function VoteTable({ block, partyNames, votes, onSave }) {
                             <th className={`${t.tableHead} whitespace-nowrap text-right`}>Berdaftar</th>
                             <th className={`${t.tableHead} whitespace-nowrap text-right`}>% Turnout</th>
                             <th className={`${t.tableHead} whitespace-nowrap text-right`}>Tak Keluar</th>
+                            <th className={`${t.tableHead} whitespace-nowrap text-right`}>% Tak Keluar</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -103,6 +104,7 @@ function VoteTable({ block, partyNames, votes, onSave }) {
                                 <td className={`${t.tableCell} text-right`}>{fmt(r.berdaftar)}</td>
                                 <td className={`${t.tableCell} text-right`}>{pct(r.keluar, r.berdaftar)}</td>
                                 <td className={`${t.tableCell} text-right`}>{fmt((r.berdaftar || 0) - r.keluar)}</td>
+                                <td className={`${t.tableCell} text-right`}>{pct((r.berdaftar || 0) - r.keluar, r.berdaftar)}</td>
                             </tr>
                         ))}
                         <tr className={`border-t-2 ${t.border} font-bold`}>
@@ -114,6 +116,7 @@ function VoteTable({ block, partyNames, votes, onSave }) {
                             <td className={`${t.tableCell} text-right font-bold`}>{fmt(totals.berdaftar)}</td>
                             <td className={`${t.tableCell} text-right font-bold`}>{pct(totals.keluar, totals.berdaftar)}</td>
                             <td className={`${t.tableCell} text-right font-bold`}>{fmt(totals.berdaftar - totals.keluar)}</td>
+                            <td className={`${t.tableCell} text-right font-bold`}>{pct(totals.berdaftar - totals.keluar, totals.berdaftar)}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -141,7 +144,11 @@ function UndiAwalPosTable({ partyNames, votes, onSave }) {
                             {partyNames.map((p, i) => (
                                 <th key={i} className={`${t.tableHead} whitespace-nowrap text-right`}>{p}</th>
                             ))}
-                            <th className={`${t.tableHead} whitespace-nowrap text-right`}>Jumlah Keluar Mengundi</th>
+                            <th className={`${t.tableHead} whitespace-nowrap text-right`}>Jumlah Keluar</th>
+                            <th className={`${t.tableHead} whitespace-nowrap text-right`}>Berdaftar</th>
+                            <th className={`${t.tableHead} whitespace-nowrap text-right`}>% Turnout</th>
+                            <th className={`${t.tableHead} whitespace-nowrap text-right`}>Tak Keluar</th>
+                            <th className={`${t.tableHead} whitespace-nowrap text-right`}>% Tak Keluar</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -149,6 +156,7 @@ function UndiAwalPosTable({ partyNames, votes, onSave }) {
                             const slots = Array.from({ length: nParties }, (_, i) =>
                                 votes[cellKey('', label, i + 1)] ?? 0);
                             const keluar = slots.reduce((a, b) => a + b, 0);
+                            const berdaftar = votes[cellKey('', label, 0)] ?? 0; // slot 0 = registered voters
                             return (
                                 <tr key={label} className={t.tableRow}>
                                     <td className={`${t.tableCell} font-medium whitespace-nowrap`}>{label}</td>
@@ -161,6 +169,15 @@ function UndiAwalPosTable({ partyNames, votes, onSave }) {
                                         </td>
                                     ))}
                                     <td className={`${t.tableCell} text-right font-semibold`}>{fmt(keluar)}</td>
+                                    <td className="px-2 py-1 text-right">
+                                        <EditableCell
+                                            value={berdaftar}
+                                            onCommit={(v) => onSave('', label, 0, v)}
+                                        />
+                                    </td>
+                                    <td className={`${t.tableCell} text-right`}>{pct(keluar, berdaftar)}</td>
+                                    <td className={`${t.tableCell} text-right`}>{fmt(Math.max(0, berdaftar - keluar))}</td>
+                                    <td className={`${t.tableCell} text-right`}>{pct(Math.max(0, berdaftar - keluar), berdaftar)}</td>
                                 </tr>
                             );
                         })}
@@ -269,7 +286,11 @@ function Borang14Body({ negeriList, parlimenList, kadunList, partiList, penjuruO
     }, [kadunId, penjuru]);
 
     const downloadPdf = () => {
-        const url = route('pilihanraya.borang-14.pdf', { kadun_id: kadunId, penjuru: Number(penjuru) });
+        const url = route('pilihanraya.borang-14.pdf', {
+            kadun_id: kadunId,
+            penjuru: Number(penjuru),
+            parti: partyNames, // headers follow the on-screen dropdown selection
+        });
         window.open(url, '_blank');
     };
 

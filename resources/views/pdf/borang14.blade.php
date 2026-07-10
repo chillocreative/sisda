@@ -79,6 +79,7 @@
                         <th>Berdaftar</th>
                         <th>% Turnout</th>
                         <th>Tak Keluar</th>
+                        <th>% Tak Keluar</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -100,6 +101,7 @@
                             <td>{{ $nf($berdaftar) }}</td>
                             <td>{{ $pctf($keluar, $berdaftar) }}</td>
                             <td>{{ $nf($berdaftar - $keluar) }}</td>
+                            <td>{{ $pctf($berdaftar - $keluar, $berdaftar) }}</td>
                         </tr>
                     @endforeach
                     <tr class="total">
@@ -109,6 +111,7 @@
                         <td>{{ $nf($totBerdaftar) }}</td>
                         <td>{{ $pctf($totKeluar, $totBerdaftar) }}</td>
                         <td>{{ $nf($totBerdaftar - $totKeluar) }}</td>
+                        <td>{{ $pctf($totBerdaftar - $totKeluar, $totBerdaftar) }}</td>
                     </tr>
                 </tbody>
             </table>
@@ -122,18 +125,27 @@
                 <tr>
                     <th class="l">Saluran</th>
                     @foreach ($partyNames as $pn)<th>{{ $pn }}</th>@endforeach
-                    <th>Jumlah Keluar Mengundi</th>
+                    <th>Jumlah Keluar</th>
+                    <th>Berdaftar</th>
+                    <th>% Turnout</th>
+                    <th>Tak Keluar</th>
+                    <th>% Tak Keluar</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach (['UNDI AWAL', 'UNDI POS'] as $label)
                     @php $keluar = 0; $slots = [];
                         for ($i = 0; $i < $nParties; $i++) { $v = $vote('', $label, $i + 1); $slots[$i] = $v; $keluar += $v; }
+                        $berdaftar = $vote('', $label, 0);
                     @endphp
                     <tr>
                         <td class="l">{{ $label }}</td>
                         @foreach ($slots as $v)<td>{{ $nf($v) }}</td>@endforeach
                         <td>{{ $nf($keluar) }}</td>
+                        <td>{{ $nf($berdaftar) }}</td>
+                        <td>{{ $pctf($keluar, $berdaftar) }}</td>
+                        <td>{{ $nf(max(0, $berdaftar - $keluar)) }}</td>
+                        <td>{{ $pctf(max(0, $berdaftar - $keluar), $berdaftar) }}</td>
                     </tr>
                 @endforeach
             </tbody>
