@@ -129,7 +129,7 @@ function VoteTable({ block, partyNames, votes, onSave }) {
 
 const SPECIAL_ROWS = ['UNDI AWAL', 'UNDI POS'];
 
-function UndiAwalPosTable({ partyNames, votes, onSave }) {
+function UndiAwalPosTable({ partyNames, votes, onSave, berdaftarByRow }) {
     const { t } = usePilihanrayaTheme();
     const nParties = partyNames.length;
 
@@ -156,7 +156,7 @@ function UndiAwalPosTable({ partyNames, votes, onSave }) {
                             const slots = Array.from({ length: nParties }, (_, i) =>
                                 votes[cellKey('', label, i + 1)] ?? 0);
                             const keluar = slots.reduce((a, b) => a + b, 0);
-                            const berdaftar = votes[cellKey('', label, 0)] ?? 0; // slot 0 = registered voters
+                            const berdaftar = berdaftarByRow?.[label] ?? 0; // registered voters from SPR reference
                             return (
                                 <tr key={label} className={t.tableRow}>
                                     <td className={`${t.tableCell} font-medium whitespace-nowrap`}>{label}</td>
@@ -169,12 +169,7 @@ function UndiAwalPosTable({ partyNames, votes, onSave }) {
                                         </td>
                                     ))}
                                     <td className={`${t.tableCell} text-right font-semibold`}>{fmt(keluar)}</td>
-                                    <td className="px-2 py-1 text-right">
-                                        <EditableCell
-                                            value={berdaftar}
-                                            onCommit={(v) => onSave('', label, 0, v)}
-                                        />
-                                    </td>
+                                    <td className={`${t.tableCell} text-right`}>{fmt(berdaftar)}</td>
                                     <td className={`${t.tableCell} text-right`}>{pct(keluar, berdaftar)}</td>
                                     <td className={`${t.tableCell} text-right`}>{fmt(Math.max(0, berdaftar - keluar))}</td>
                                     <td className={`${t.tableCell} text-right`}>{pct(Math.max(0, berdaftar - keluar), berdaftar)}</td>
@@ -421,7 +416,15 @@ function Borang14Body({ negeriList, parlimenList, kadunList, partiList, penjuruO
                     </div>
 
                     <div className="mt-4">
-                        <UndiAwalPosTable partyNames={partyNames} votes={votes} onSave={saveVote} />
+                        <UndiAwalPosTable
+                            partyNames={partyNames}
+                            votes={votes}
+                            onSave={saveVote}
+                            berdaftarByRow={{
+                                'UNDI AWAL': reference?.undi_awal?.berdaftar ?? 0,
+                                'UNDI POS': reference?.undi_pos?.berdaftar ?? 0,
+                            }}
+                        />
                     </div>
                 </>
             )}

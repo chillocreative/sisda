@@ -97,18 +97,8 @@
     },
     {
       "nama": "BULOH KASAP",
-      "jumlah_berdaftar": 7635,
+      "jumlah_berdaftar": 7620,
       "pusat_mengundi": [
-        {
-          "nama": "BILIK MESYUARAT BALAI POLIS BULOH KASAP Undi Awal",
-          "jumlah_berdaftar": 15,
-          "saluran": [
-            {
-              "no": 1,
-              "berdaftar": 15
-            }
-          ]
-        },
         {
           "nama": "SEKOLAH AGAMA TAMAN YAYASAN",
           "jumlah_berdaftar": 3721,
@@ -447,5 +437,11 @@
         }
       ]
     }
-  ]
+  ],
+  "undi_awal": {
+    "berdaftar": 15
+  },
+  "undi_pos": {
+    "berdaftar": 0
+  }
 }

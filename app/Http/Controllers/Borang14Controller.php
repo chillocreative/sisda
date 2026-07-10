@@ -101,7 +101,7 @@ class Borang14Controller extends Controller
             'penjuru'  => 'required|integer|in:2,3,4,5,6',
             'pusat'    => 'nullable|string|max:255',
             'saluran'  => 'required|string|max:50',
-            'slot'     => 'required|integer|min:0|max:6', // slot 0 = Berdaftar for Undi Awal/Pos
+            'slot'     => 'required|integer|min:1|max:6',
             'undi'     => 'nullable|integer|min:0|max:1000000',
         ]);
 

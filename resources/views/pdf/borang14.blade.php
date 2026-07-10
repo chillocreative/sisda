@@ -133,10 +133,16 @@
                 </tr>
             </thead>
             <tbody>
+                @php
+                    $specialBerdaftar = [
+                        'UNDI AWAL' => $reference['undi_awal']['berdaftar'] ?? 0,
+                        'UNDI POS'  => $reference['undi_pos']['berdaftar'] ?? 0,
+                    ];
+                @endphp
                 @foreach (['UNDI AWAL', 'UNDI POS'] as $label)
                     @php $keluar = 0; $slots = [];
                         for ($i = 0; $i < $nParties; $i++) { $v = $vote('', $label, $i + 1); $slots[$i] = $v; $keluar += $v; }
-                        $berdaftar = $vote('', $label, 0);
+                        $berdaftar = $specialBerdaftar[$label] ?? 0;
                     @endphp
                     <tr>
                         <td class="l">{{ $label }}</td>
