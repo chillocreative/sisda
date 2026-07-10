@@ -251,12 +251,11 @@ export default function Scoreboard(props) {
     );
 }
 
-function ScoreboardBody({ negeriList, parlimenList, kadunList, penjuruOptions }) {
+function ScoreboardBody({ negeriList, parlimenList, kadunList }) {
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [negeriId, setNegeriId] = useState('');
     const [parlimenId, setParlimenId] = useState('');
     const [kadunId, setKadunId] = useState('');
-    const [penjuru, setPenjuru] = useState('');
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [updatedAt, setUpdatedAt] = useState(null);
@@ -265,21 +264,22 @@ function ScoreboardBody({ negeriList, parlimenList, kadunList, penjuruOptions })
     const kadunOptions = parlimenId ? kadunList.filter((k) => String(k.bandar_id) === String(parlimenId)) : [];
     const ready = data?.ready;
 
+    // The penjuru is taken automatically from the Borang 14 data for the DUN.
     const fetchData = useCallback((showSpinner = false) => {
-        if (!kadunId || !penjuru) { setData(null); return; }
+        if (!kadunId) { setData(null); return; }
         if (showSpinner) setLoading(true);
-        axios.get(route('pilihanraya.scoreboard.data'), { params: { kadun_id: kadunId, penjuru } })
+        axios.get(route('pilihanraya.scoreboard.data'), { params: { kadun_id: kadunId } })
             .then(({ data: d }) => { setData(d); setUpdatedAt(new Date()); })
             .finally(() => setLoading(false));
-    }, [kadunId, penjuru]);
+    }, [kadunId]);
 
     // Initial fetch + live polling.
     useEffect(() => {
         fetchData(true);
-        if (!kadunId || !penjuru) return undefined;
+        if (!kadunId) return undefined;
         const id = setInterval(() => fetchData(false), POLL_MS);
         return () => clearInterval(id);
-    }, [fetchData, kadunId, penjuru]);
+    }, [fetchData, kadunId]);
 
     return (
         <PilihanrayaShell
@@ -293,7 +293,7 @@ function ScoreboardBody({ negeriList, parlimenList, kadunList, penjuruOptions })
         >
             {/* Filters */}
             <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm mb-5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1"><span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> Negeri</span></label>
                         <select value={negeriId} onChange={(e) => { setNegeriId(e.target.value); setParlimenId(''); setKadunId(''); }} className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm">
@@ -315,13 +315,6 @@ function ScoreboardBody({ negeriList, parlimenList, kadunList, penjuruOptions })
                             {kadunOptions.map((k) => <option key={k.id} value={k.id}>{k.nama}</option>)}
                         </select>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Bilangan Penjuru</label>
-                        <select value={penjuru} onChange={(e) => setPenjuru(e.target.value)} className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm" disabled={!kadunId}>
-                            <option value="">Pilih Penjuru</option>
-                            {penjuruOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                        </select>
-                    </div>
                 </div>
                 {ready && (
                     <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
@@ -334,10 +327,10 @@ function ScoreboardBody({ negeriList, parlimenList, kadunList, penjuruOptions })
             </div>
 
             {/* States */}
-            {!kadunId || !penjuru ? (
+            {!kadunId ? (
                 <div className="bg-amber-50 border border-amber-300 text-amber-800 rounded-lg px-4 py-3 text-sm flex items-center gap-2">
                     <Info className="h-4 w-4 shrink-0" />
-                    <span>Pilih Negeri &gt; Parlimen &gt; DUN dan bilangan penjuru untuk memaparkan scoreboard.</span>
+                    <span>Pilih Negeri &gt; Parlimen &gt; DUN untuk memaparkan scoreboard.</span>
                 </div>
             ) : loading && !data ? (
                 <div className="flex items-center gap-2 text-slate-500 py-10 justify-center">
@@ -348,14 +341,19 @@ function ScoreboardBody({ negeriList, parlimenList, kadunList, penjuruOptions })
                     <Info className="h-4 w-4 shrink-0" />
                     <span>Data Borang 14 belum tersedia untuk DUN ini.</span>
                 </div>
+            ) : data && data.needsBorang14 ? (
+                <div className="bg-amber-50 border border-amber-300 text-amber-800 rounded-lg px-4 py-3 text-sm flex items-center gap-2">
+                    <Info className="h-4 w-4 shrink-0" />
+                    <span>Sila isi Borang 14 dahulu untuk DUN ini — penjuru & parti diambil dari situ.</span>
+                </div>
             ) : ready ? (
                 <Board data={data} />
             ) : null}
 
-            {settingsOpen && (
+            {settingsOpen && ready && (
                 <SettingsModal
                     kadunId={kadunId}
-                    penjuru={penjuru}
+                    penjuru={data.penjuru}
                     board={data}
                     onClose={() => setSettingsOpen(false)}
                     onSaved={() => fetchData(false)}

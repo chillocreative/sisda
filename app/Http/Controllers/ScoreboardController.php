@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Bandar;
 use App\Models\Borang14Form;
 use App\Models\Kadun;
-use App\Models\KeahlianParti;
 use App\Models\Negeri;
 use App\Models\Scoreboard;
 use App\Support\Borang14Reference;
@@ -26,8 +25,6 @@ class ScoreboardController extends Controller
             'negeriList'     => Negeri::orderBy('nama')->get(['id', 'nama']),
             'parlimenList'   => Bandar::orderBy('nama')->get(['id', 'nama', 'negeri_id']),
             'kadunList'      => Kadun::orderBy('nama')->get(['id', 'nama', 'bandar_id']),
-            'partiList'      => KeahlianParti::orderBy('nama')->get(['id', 'nama']),
-            'penjuruOptions' => collect(self::PENJURU)->map(fn ($label, $val) => ['value' => (int) $val, 'label' => $label])->values(),
         ]);
     }
 
@@ -36,17 +33,23 @@ class ScoreboardController extends Controller
     {
         $validated = $request->validate([
             'kadun_id' => 'required|integer|exists:kadun,id',
-            'penjuru'  => 'nullable|integer|in:2,3,4,5,6',
         ]);
 
         $reference = Borang14Reference::forKadun((int) $validated['kadun_id']);
-        $penjuru = (int) ($validated['penjuru'] ?? 0);
 
-        if (! $reference || ! $penjuru) {
-            return response()->json(['hasData' => $reference !== null, 'ready' => false]);
+        if (! $reference) {
+            return response()->json(['hasData' => false, 'ready' => false]);
         }
 
-        $form = Borang14Form::where('kadun_id', $validated['kadun_id'])->where('penjuru', $penjuru)->first();
+        // The penjuru is taken from whatever Borang 14 scenario exists for this
+        // DUN (most recently worked on) — no manual selection on the scoreboard.
+        $form = Borang14Form::where('kadun_id', $validated['kadun_id'])->latest('updated_at')->first();
+
+        if (! $form) {
+            return response()->json(['hasData' => true, 'ready' => false, 'needsBorang14' => true]);
+        }
+
+        $penjuru = (int) $form->penjuru;
         $board = Scoreboard::where('kadun_id', $validated['kadun_id'])->where('penjuru', $penjuru)->first();
 
         $parties = $form?->parties ?? [];
@@ -99,6 +102,7 @@ class ScoreboardController extends Controller
         return response()->json([
             'hasData'   => true,
             'ready'     => true,
+            'penjuru'   => $penjuru,
             'title'     => $board?->title ?? 'SCOREBOARD',
             'logo_url'  => $board?->logo_path ? asset($board->logo_path) : asset('images/logo.png'),
             'minima'    => $board?->minima,
