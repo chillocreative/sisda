@@ -11,11 +11,13 @@ const fmt = (n) => (n == null || Number.isNaN(n) ? '0' : Number(n).toLocaleStrin
 const POLL_MS = 4000;
 
 const PARTY_COLOR = {
-    KEADILAN: '#0091D0', PKR: '#0091D0', DAP: '#DE0000', AMANAH: '#F58220', MUDA: '#111827',
-    UMNO: '#C8102E', PPBM: '#E30613', BERSATU: '#E30613', PAS: '#0B6E4F', MCA: '#00529B',
+    KEADILAN: '#D71920', PKR: '#D71920', DAP: '#DE0000', AMANAH: '#F58220', MUDA: '#111827',
+    UMNO: '#00529B', PPBM: '#4C1D95', BERSATU: '#4C1D95', PAS: '#0B6E4F', MCA: '#003C71',
     MIC: '#00529B', GERAKAN: '#E4002B', PBM: '#6B21A8', PUTRA: '#166534', PEJUANG: '#7C2D12',
 };
-const partyColor = (nama) => PARTY_COLOR[(nama || '').toUpperCase()] || '#64748b';
+// Match on the leading word so names carrying a coalition suffix (e.g.
+// "UMNO (BN)") still resolve to the party colour.
+const partyColor = (nama) => PARTY_COLOR[((nama || '').toUpperCase().match(/[A-Z]+/) || [''])[0]] || '#64748b';
 
 /* ------------------------------- settings ------------------------------ */
 
@@ -187,7 +189,7 @@ function Board({ data }) {
             </div>
 
             {/* Candidate cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="flex flex-wrap justify-center gap-4">
                 {rows.map((r) => {
                     const isLeader = r.slot === leaderSlot && totalKeluar > 0;
                     const share = totalKeluar > 0 ? (r.undi / totalKeluar) * 100 : 0;
@@ -195,7 +197,7 @@ function Board({ data }) {
                     return (
                         <div
                             key={r.slot}
-                            className={`relative rounded-2xl bg-white border shadow-sm overflow-hidden ${isLeader ? 'ring-2 ring-amber-400 border-amber-300' : 'border-slate-200'}`}
+                            className={`relative w-full sm:w-[380px] rounded-2xl bg-white border shadow-sm overflow-hidden ${isLeader ? 'ring-2 ring-amber-400 border-amber-300' : 'border-slate-200'}`}
                         >
                             <div className="h-2" style={{ backgroundColor: color }} />
                             {isLeader && (
