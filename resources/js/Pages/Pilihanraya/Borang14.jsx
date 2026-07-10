@@ -387,7 +387,7 @@ function Borang14Body({ negeriList, parlimenList, kadunList, partiList, penjuruO
                         </button>
                     </div>
 
-                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4">
                         {blocks.map((b, i) => (
                             <VoteTable
                                 key={`${b.dm}-${b.pusat}-${i}`}

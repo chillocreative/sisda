@@ -4,7 +4,7 @@ export default function Welcome({ auth }) {
     return (
         <>
             <Head title="Selamat Datang ke SISDA" />
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-zinc-900 dark:to-zinc-800 flex flex-col items-center justify-center relative overflow-hidden">
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex flex-col items-center justify-center relative overflow-hidden">
                 {/* Decorative background elements */}
                 <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
                     <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-blue-500/10 blur-3xl"></div>
@@ -13,7 +13,7 @@ export default function Welcome({ auth }) {
                 </div>
 
                 <div className="relative z-10 w-full max-w-md px-6">
-                    <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-white/20 dark:border-zinc-700/50 transform transition-all hover:scale-[1.01] duration-500">
+                    <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-white/20 transform transition-all hover:scale-[1.01] duration-500">
                         
                         {/* Logo Section */}
                         <div className="flex justify-center mb-8">
@@ -29,10 +29,10 @@ export default function Welcome({ auth }) {
 
                         {/* Title Section */}
                         <div className="text-center mb-10">
-                            <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 mb-2">
+                            <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700 mb-2">
                                 SISDA
                             </h1>
-                            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium tracking-wide uppercase">
+                            <p className="text-slate-500 text-sm font-medium tracking-wide uppercase">
                                 Sistem Data Pengundi
                             </p>
                         </div>
@@ -42,7 +42,7 @@ export default function Welcome({ auth }) {
                             {auth.user ? (
                                 <Link
                                     href={route('dashboard')}
-                                    className="block w-full text-center py-3.5 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-semibold shadow-lg shadow-blue-500/30 transition-all duration-300 hover:shadow-blue-500/50 hover:-translate-y-0.5 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-zinc-900"
+                                    className="block w-full text-center py-3.5 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-semibold shadow-lg shadow-blue-500/30 transition-all duration-300 hover:shadow-blue-500/50 hover:-translate-y-0.5 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                                 >
                                     Masuk ke Dashboard
                                 </Link>
@@ -50,20 +50,20 @@ export default function Welcome({ auth }) {
                                 <>
                                     <Link
                                         href={route('login')}
-                                        className="block w-full text-center py-3.5 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold shadow-lg shadow-blue-500/30 transition-all duration-300 hover:shadow-blue-500/50 hover:-translate-y-0.5 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-zinc-900"
+                                        className="block w-full text-center py-3.5 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold shadow-lg shadow-blue-500/30 transition-all duration-300 hover:shadow-blue-500/50 hover:-translate-y-0.5 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                                     >
                                         Log Masuk
                                     </Link>
                                     
                                     <div className="relative flex py-2 items-center">
-                                        <div className="flex-grow border-t border-slate-200 dark:border-zinc-700"></div>
+                                        <div className="flex-grow border-t border-slate-200"></div>
                                         <span className="flex-shrink-0 mx-4 text-slate-400 text-xs uppercase tracking-wider">atau</span>
-                                        <div className="flex-grow border-t border-slate-200 dark:border-zinc-700"></div>
+                                        <div className="flex-grow border-t border-slate-200"></div>
                                     </div>
 
                                     <Link
                                         href={route('register')}
-                                        className="block w-full text-center py-3.5 px-6 rounded-xl bg-white dark:bg-zinc-800 text-slate-700 dark:text-slate-200 font-semibold border border-slate-200 dark:border-zinc-700 shadow-sm hover:bg-slate-50 dark:hover:bg-zinc-700/50 transition-all duration-300 hover:border-slate-300 dark:hover:border-zinc-600 hover:-translate-y-0.5 focus:ring-2 focus:ring-slate-200 dark:focus:ring-zinc-700 focus:ring-offset-2 dark:focus:ring-offset-zinc-900"
+                                        className="block w-full text-center py-3.5 px-6 rounded-xl bg-white text-slate-700 font-semibold border border-slate-200 shadow-sm hover:bg-slate-50 transition-all duration-300 hover:border-slate-300 hover:-translate-y-0.5 focus:ring-2 focus:ring-slate-200 focus:ring-offset-2"
                                     >
                                         Daftar Akaun Baru
                                     </Link>
@@ -74,7 +74,7 @@ export default function Welcome({ auth }) {
 
                     {/* Footer */}
                     <div className="mt-8 text-center">
-                        <p className="text-slate-400 dark:text-zinc-500 text-xs">
+                        <p className="text-slate-400 text-xs">
                             &copy; {new Date().getFullYear()} SISDA. Hak Cipta Terpelihara.
                         </p>
                     </div>

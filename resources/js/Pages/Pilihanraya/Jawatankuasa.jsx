@@ -342,7 +342,7 @@ function Content({ members, filters, jenisOptions, summary, byDun, dunOptions = 
                     </div>
                 </div>
 
-                <div className="mb-4 p-4 rounded-lg border border-dashed border-slate-300 dark:border-slate-700">
+                <div className="mb-4 p-4 rounded-lg border border-dashed border-slate-300">
                     <UploadForm jenisOptions={jenisOptions} />
                 </div>
 

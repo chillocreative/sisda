@@ -1,6 +1,5 @@
 // Shared palette + formatters for the Pilihanraya → Analisa pages.
-// Colours are chosen to read as a coherent PH (KEADILAN) command-centre system
-// and to stay legible against both the light and dark module themes.
+// Colours are chosen to read as a coherent PH (KEADILAN) command-centre system.
 
 export const PARTY = {
     PH: '#e11d48',      // Pakatan Harapan — rose/red

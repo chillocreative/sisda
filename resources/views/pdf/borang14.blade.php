@@ -25,28 +25,28 @@
     <meta charset="utf-8">
     <style>
         * { font-family: 'DejaVu Sans', sans-serif; }
-        @page { margin: 22px 20px; }
+        @page { margin: 28px 44px; }
         body { color: #0f172a; font-size: 9px; }
         .head { text-align: center; margin-bottom: 10px; }
         .head img { height: 46px; margin-bottom: 4px; }
         .head h1 { font-size: 17px; margin: 2px 0; letter-spacing: 2px; }
         .head .geo { font-size: 11px; font-weight: bold; color: #0f172a; margin-top: 2px; }
         .head .sub { font-size: 9px; color: #475569; margin-top: 2px; }
-        .legend { text-align: center; font-size: 8px; color: #334155; margin: 4px 0 12px; }
+        .legend { text-align: center; font-size: 8px; color: #334155; margin: 4px 0 14px; }
         .legend span { display: inline-block; margin: 0 5px; }
-        .grid { width: 100%; }
-        .block { margin-bottom: 12px; page-break-inside: avoid; }
-        .block .title { background: #0f172a; color: #fff; padding: 4px 8px; font-size: 9px; border-radius: 3px 3px 0 0; }
+        /* Narrower, centred blocks so the tables don't stretch edge to edge. */
+        .block { width: 84%; margin: 0 auto 14px; page-break-inside: avoid; }
+        .block .title { background: #0f172a; color: #fff; padding: 5px 10px; font-size: 9px; border-radius: 3px 3px 0 0; }
         .block .title .dm { font-weight: bold; }
         .block .title .pm { font-weight: normal; opacity: .85; }
         table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #cbd5e1; padding: 3px 5px; text-align: right; }
+        th, td { border: 1px solid #cbd5e1; padding: 5px 10px; text-align: right; }
         th { background: #e2e8f0; font-size: 7.5px; text-transform: uppercase; letter-spacing: .3px; }
         td.l, th.l { text-align: left; }
         tr.total td { background: #f1f5f9; font-weight: bold; }
-        .special { margin-top: 14px; page-break-inside: avoid; }
-        .special .title { background: #1e40af; color: #fff; padding: 4px 8px; font-size: 10px; border-radius: 3px 3px 0 0; }
-        .foot { margin-top: 14px; text-align: right; font-size: 7px; color: #94a3b8; }
+        .special { width: 84%; margin: 16px auto 0; page-break-inside: avoid; }
+        .special .title { background: #1e40af; color: #fff; padding: 5px 10px; font-size: 10px; border-radius: 3px 3px 0 0; }
+        .foot { width: 84%; margin: 14px auto 0; text-align: right; font-size: 7px; color: #94a3b8; }
     </style>
 </head>
 <body>
