@@ -48,6 +48,32 @@ function EditableCell({ value, onCommit }) {
     );
 }
 
+/* --------------------------- lead highlighting ------------------------- */
+
+// Classify each value in a row against the row max: the highest lead(s) win
+// (green), the rest trail (red). All-zero rows stay neutral.
+function leadStatus(values) {
+    const max = Math.max(0, ...values);
+    if (max <= 0) return values.map(() => 'none');
+    return values.map((v) => (v === max ? 'lead' : 'low'));
+}
+
+function LeadSquare({ status }) {
+    if (status === 'none') return null;
+    return (
+        <span
+            className={`inline-block h-3 w-3 rounded-sm shrink-0 ${status === 'lead' ? 'bg-emerald-500' : 'bg-rose-500'}`}
+            aria-hidden="true"
+        />
+    );
+}
+
+const totalBgClass = (status, t) => (
+    status === 'lead' ? 'bg-emerald-100 text-emerald-800'
+        : status === 'low' ? 'bg-rose-100 text-rose-800'
+            : t.text
+);
+
 /* --------------------------- per-pusat table --------------------------- */
 
 function VoteTable({ block, partyNames, votes, onSave }) {
@@ -58,7 +84,7 @@ function VoteTable({ block, partyNames, votes, onSave }) {
         const slots = Array.from({ length: nParties }, (_, i) =>
             votes[cellKey(block.pusat, String(s.no), i + 1)] ?? 0);
         const keluar = slots.reduce((a, b) => a + b, 0);
-        return { no: s.no, berdaftar: s.berdaftar, slots, keluar };
+        return { no: s.no, berdaftar: s.berdaftar, slots, keluar, status: leadStatus(slots) };
     });
 
     const totals = {
@@ -66,6 +92,7 @@ function VoteTable({ block, partyNames, votes, onSave }) {
         keluar: rows.reduce((a, r) => a + r.keluar, 0),
         berdaftar: rows.reduce((a, r) => a + (r.berdaftar || 0), 0),
     };
+    const totalStatus = leadStatus(totals.slots);
 
     return (
         <div className={`${t.card} p-4`}>
@@ -93,11 +120,14 @@ function VoteTable({ block, partyNames, votes, onSave }) {
                             <tr key={r.no} className={t.tableRow}>
                                 <td className={`${t.tableCell} font-medium whitespace-nowrap`}>Saluran {r.no}</td>
                                 {r.slots.map((v, i) => (
-                                    <td key={i} className="px-2 py-1 text-right">
-                                        <EditableCell
-                                            value={v}
-                                            onCommit={(undi) => onSave(block.pusat, String(r.no), i + 1, undi)}
-                                        />
+                                    <td key={i} className="px-2 py-1">
+                                        <div className="flex items-center justify-end gap-1.5">
+                                            <LeadSquare status={r.status[i]} />
+                                            <EditableCell
+                                                value={v}
+                                                onCommit={(undi) => onSave(block.pusat, String(r.no), i + 1, undi)}
+                                            />
+                                        </div>
                                     </td>
                                 ))}
                                 <td className={`${t.tableCell} text-right font-semibold`}>{fmt(r.keluar)}</td>
@@ -110,7 +140,7 @@ function VoteTable({ block, partyNames, votes, onSave }) {
                         <tr className={`border-t-2 ${t.border} font-bold`}>
                             <td className={`${t.tableCell} font-bold whitespace-nowrap`}>Jumlah Undi</td>
                             {totals.slots.map((v, i) => (
-                                <td key={i} className={`${t.tableCell} text-right font-bold`}>{fmt(v)}</td>
+                                <td key={i} className={`px-3 py-2 text-sm text-right font-bold ${totalBgClass(totalStatus[i], t)}`}>{fmt(v)}</td>
                             ))}
                             <td className={`${t.tableCell} text-right font-bold`}>{fmt(totals.keluar)}</td>
                             <td className={`${t.tableCell} text-right font-bold`}>{fmt(totals.berdaftar)}</td>
@@ -157,15 +187,19 @@ function UndiAwalPosTable({ partyNames, votes, onSave, berdaftarByRow }) {
                                 votes[cellKey('', label, i + 1)] ?? 0);
                             const keluar = slots.reduce((a, b) => a + b, 0);
                             const berdaftar = berdaftarByRow?.[label] ?? 0; // registered voters from SPR reference
+                            const status = leadStatus(slots);
                             return (
                                 <tr key={label} className={t.tableRow}>
                                     <td className={`${t.tableCell} font-medium whitespace-nowrap`}>{label}</td>
                                     {slots.map((v, i) => (
-                                        <td key={i} className="px-2 py-1 text-right">
-                                            <EditableCell
-                                                value={v}
-                                                onCommit={(undi) => onSave('', label, i + 1, undi)}
-                                            />
+                                        <td key={i} className="px-2 py-1">
+                                            <div className="flex items-center justify-end gap-1.5">
+                                                <LeadSquare status={status[i]} />
+                                                <EditableCell
+                                                    value={v}
+                                                    onCommit={(undi) => onSave('', label, i + 1, undi)}
+                                                />
+                                            </div>
                                         </td>
                                     ))}
                                     <td className={`${t.tableCell} text-right font-semibold`}>{fmt(keluar)}</td>
