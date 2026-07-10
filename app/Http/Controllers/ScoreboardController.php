@@ -10,7 +10,7 @@ use App\Models\Negeri;
 use App\Models\Scoreboard;
 use App\Support\Borang14Reference;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\UploadedFile;
 use Inertia\Inertia;
 
 class ScoreboardController extends Controller
@@ -76,19 +76,25 @@ class ScoreboardController extends Controller
         $rows = [];
         $phVotes = 0;
         foreach (range(1, $penjuru) as $slot) {
-            $nama = $parties[$slot - 1]['nama'] ?? "Parti {$slot}";
-            $isPh = in_array(strtoupper($nama), self::PH_PARTIES, true);
+            // The scoreboard's own party pick (if set) overrides the Borang 14
+            // selection so the KEADILAN/UMNO labels can be changed here directly.
+            $nama = $candidates[$slot]['parti']
+                ?? ($parties[$slot - 1]['nama'] ?? "Parti {$slot}");
+            $partiId = $candidates[$slot]['keahlian_parti_id']
+                ?? ($parties[$slot - 1]['keahlian_parti_id'] ?? null);
+            $isPh = in_array(strtoupper((string) $nama), self::PH_PARTIES, true);
             $undi = $tally[$slot] ?? 0;
             if ($isPh) {
                 $phVotes += $undi;
             }
             $rows[] = [
-                'slot'      => $slot,
-                'parti'     => $nama,
-                'is_ph'     => $isPh,
-                'calon'     => $candidates[$slot]['nama'] ?? null,
-                'gambar'    => isset($candidates[$slot]['gambar']) ? Storage::url($candidates[$slot]['gambar']) : null,
-                'undi'      => $undi,
+                'slot'              => $slot,
+                'parti'             => $nama,
+                'keahlian_parti_id' => $partiId,
+                'is_ph'             => $isPh,
+                'calon'             => $candidates[$slot]['nama'] ?? null,
+                'gambar'            => ! empty($candidates[$slot]['gambar']) ? asset($candidates[$slot]['gambar']) : null,
+                'undi'              => $undi,
             ];
         }
 
@@ -99,7 +105,7 @@ class ScoreboardController extends Controller
             'hasData'   => true,
             'ready'     => true,
             'title'     => $board?->title ?? 'SCOREBOARD',
-            'logo_url'  => $board?->logo_path ? Storage::url($board->logo_path) : asset('images/logo.png'),
+            'logo_url'  => $board?->logo_path ? asset($board->logo_path) : asset('images/logo.png'),
             'minima'    => $board?->minima,
             'dun'       => $reference['dun'] ?? null,
             'parlimen'  => $reference['parlimen'] ?? null,
@@ -124,6 +130,8 @@ class ScoreboardController extends Controller
             'candidates'        => 'array',
             'candidates.*.slot' => 'required|integer|min:1|max:6',
             'candidates.*.nama' => 'nullable|string|max:120',
+            'candidates.*.parti' => 'nullable|string|max:100',
+            'candidates.*.keahlian_parti_id' => 'nullable|integer',
             'logo'              => 'nullable|image|max:4096',
             'photos'            => 'array',
             'photos.*'          => 'nullable|image|max:4096',
@@ -138,10 +146,8 @@ class ScoreboardController extends Controller
         $board->minima = $validated['minima'] ?? null;
 
         if ($request->hasFile('logo')) {
-            if ($board->logo_path) {
-                Storage::disk('public')->delete($board->logo_path);
-            }
-            $board->logo_path = $request->file('logo')->store('scoreboard/logo', 'public');
+            $this->deletePublic($board->logo_path);
+            $board->logo_path = $this->storePublic($request->file('logo'), 'scoreboard/logo');
         }
 
         // Merge candidate names with any newly-uploaded photos (keyed by slot).
@@ -152,17 +158,42 @@ class ScoreboardController extends Controller
             $gambar = $existing[$slot]['gambar'] ?? null;
 
             if ($request->hasFile("photos.{$slot}")) {
-                if ($gambar) {
-                    Storage::disk('public')->delete($gambar);
-                }
-                $gambar = $request->file("photos.{$slot}")->store('scoreboard/calon', 'public');
+                $this->deletePublic($gambar);
+                $gambar = $this->storePublic($request->file("photos.{$slot}"), 'scoreboard/calon');
             }
 
-            $candidates[] = ['slot' => $slot, 'nama' => $c['nama'] ?? null, 'gambar' => $gambar];
+            $candidates[] = [
+                'slot'              => $slot,
+                'nama'              => $c['nama'] ?? null,
+                'parti'             => $c['parti'] ?? null,
+                'keahlian_parti_id' => $c['keahlian_parti_id'] ?? null,
+                'gambar'            => $gambar,
+            ];
         }
         $board->candidates = $candidates;
         $board->save();
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Store an uploaded image straight under public/ so it is served by the
+     * web server via asset() — no dependency on the storage:link symlink,
+     * which may not exist on the deployment target.
+     */
+    private function storePublic(UploadedFile $file, string $dir): string
+    {
+        $ext = strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: 'jpg');
+        $name = uniqid('', true) . '.' . $ext;
+        $file->move(public_path('uploads/' . $dir), $name);
+
+        return 'uploads/' . $dir . '/' . $name;
+    }
+
+    private function deletePublic(?string $path): void
+    {
+        if ($path && str_starts_with($path, 'uploads/') && is_file(public_path($path))) {
+            @unlink(public_path($path));
+        }
     }
 }

@@ -19,12 +19,13 @@ const partyColor = (nama) => PARTY_COLOR[(nama || '').toUpperCase()] || '#64748b
 
 /* ------------------------------- settings ------------------------------ */
 
-function SettingsModal({ kadunId, penjuru, board, onClose, onSaved }) {
+function SettingsModal({ kadunId, penjuru, board, partiList = [], onClose, onSaved }) {
     const { t } = usePilihanrayaTheme();
     const rows = board?.rows || [];
     const [title, setTitle] = useState(board?.title || 'SCOREBOARD');
     const [minima, setMinima] = useState(board?.minima ?? '');
     const [names, setNames] = useState(() => rows.map((r) => r.calon || ''));
+    const [partis, setPartis] = useState(() => rows.map((r) => ({ id: r.keahlian_parti_id || '', nama: r.parti || '' })));
     const [logoFile, setLogoFile] = useState(null);
     const [photoFiles, setPhotoFiles] = useState({}); // slot -> File
     const [saving, setSaving] = useState(false);
@@ -39,6 +40,8 @@ function SettingsModal({ kadunId, penjuru, board, onClose, onSaved }) {
         rows.forEach((r, i) => {
             fd.append(`candidates[${i}][slot]`, r.slot);
             fd.append(`candidates[${i}][nama]`, names[i] || '');
+            fd.append(`candidates[${i}][parti]`, partis[i]?.nama || '');
+            if (partis[i]?.id) fd.append(`candidates[${i}][keahlian_parti_id]`, partis[i].id);
             if (photoFiles[r.slot]) fd.append(`photos[${r.slot}]`, photoFiles[r.slot]);
         });
         if (logoFile) fd.append('logo', logoFile);
@@ -87,12 +90,29 @@ function SettingsModal({ kadunId, penjuru, board, onClose, onSaved }) {
                                 <img
                                     src={photoFiles[r.slot] ? URL.createObjectURL(photoFiles[r.slot]) : (r.gambar || '')}
                                     alt=""
-                                    className="h-14 w-14 object-cover rounded-full border border-slate-200 bg-slate-100"
+                                    className="h-14 w-14 object-cover rounded-full border-2 bg-slate-100"
+                                    style={{ borderColor: partyColor(partis[i]?.nama) }}
                                     onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }}
                                 />
-                                <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
                                     <div>
-                                        <span className="text-xs font-semibold" style={{ color: partyColor(r.parti) }}>{r.parti}</span>
+                                        <label className="block text-xs font-medium text-slate-500 mb-1">Parti {r.slot}</label>
+                                        <select
+                                            value={partis[i]?.id || ''}
+                                            onChange={(e) => {
+                                                const p = partiList.find((x) => String(x.id) === String(e.target.value));
+                                                setPartis((prev) => prev.map((v, idx) => (idx === i
+                                                    ? { id: p ? p.id : '', nama: p ? p.nama : '' }
+                                                    : v)));
+                                            }}
+                                            className={field}
+                                        >
+                                            <option value="">Pilih Parti</option>
+                                            {partiList.map((p) => <option key={p.id} value={p.id}>{p.nama}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-500 mb-1">Nama Calon</label>
                                         <input
                                             value={names[i] || ''}
                                             onChange={(e) => setNames((prev) => prev.map((v, idx) => (idx === i ? e.target.value : v)))}
@@ -100,13 +120,16 @@ function SettingsModal({ kadunId, penjuru, board, onClose, onSaved }) {
                                             placeholder="Nama calon"
                                         />
                                     </div>
-                                    <label className="flex items-end">
-                                        <span className="inline-flex items-center gap-2 px-3 py-2 border border-slate-300 rounded-lg text-sm cursor-pointer hover:bg-slate-50 w-full justify-center">
-                                            <Upload className="h-4 w-4" /> Gambar Calon
-                                            <input type="file" accept="image/*" className="hidden"
-                                                onChange={(e) => setPhotoFiles((prev) => ({ ...prev, [r.slot]: e.target.files?.[0] || null }))} />
-                                        </span>
-                                    </label>
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-500 mb-1">Gambar</label>
+                                        <label className="flex">
+                                            <span className="inline-flex items-center gap-2 px-3 py-2 border border-slate-300 rounded-lg text-sm cursor-pointer hover:bg-slate-50 w-full justify-center">
+                                                <Upload className="h-4 w-4" /> {photoFiles[r.slot] ? 'Tukar' : 'Muat Naik'}
+                                                <input type="file" accept="image/*" className="hidden"
+                                                    onChange={(e) => setPhotoFiles((prev) => ({ ...prev, [r.slot]: e.target.files?.[0] || null }))} />
+                                            </span>
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
                         ))}
@@ -248,7 +271,7 @@ export default function Scoreboard(props) {
     );
 }
 
-function ScoreboardBody({ negeriList, parlimenList, kadunList, penjuruOptions }) {
+function ScoreboardBody({ negeriList, parlimenList, kadunList, partiList, penjuruOptions }) {
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [negeriId, setNegeriId] = useState('');
     const [parlimenId, setParlimenId] = useState('');
@@ -354,6 +377,7 @@ function ScoreboardBody({ negeriList, parlimenList, kadunList, penjuruOptions })
                     kadunId={kadunId}
                     penjuru={penjuru}
                     board={data}
+                    partiList={partiList}
                     onClose={() => setSettingsOpen(false)}
                     onSaved={() => fetchData(false)}
                 />
