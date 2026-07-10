@@ -232,9 +232,11 @@ export default function AuthenticatedLayout({ children }) {
         setOpenDropdown(prevOpen => prevOpen === dropdownName ? null : dropdownName);
     };
 
-    // Keep the active menu item vertically centred within the sidebar scroll area.
+    // Keep the active menu item (or the just-opened dropdown) vertically centred
+    // within the sidebar scroll area.
     const navRef = useRef(null);
     const activeRef = useRef(null);
+    const openRef = useRef(null);
     const currentPath = usePage().url.split('?')[0];
     const hrefPath = (href) => {
         try { return new URL(href, window.location.origin).pathname; } catch { return href; }
@@ -242,10 +244,20 @@ export default function AuthenticatedLayout({ children }) {
 
     useEffect(() => {
         const nav = navRef.current;
-        const el = activeRef.current;
+        // Prefer the just-opened dropdown so clicking it brings its submenu into
+        // view; fall back to the active item when that dropdown already contains it.
+        let el = activeRef.current;
+        const openEl = openRef.current;
+        if (openEl && (!el || !openEl.contains(el))) {
+            el = openEl;
+        }
         if (!nav || !el) return;
         const offsetWithinNav = (el.getBoundingClientRect().top - nav.getBoundingClientRect().top) + nav.scrollTop;
-        const target = offsetWithinNav - nav.clientHeight / 2 + el.clientHeight / 2;
+        // Centre the target, but for a dropdown taller than the viewport align its
+        // top so the button and first items stay visible.
+        const target = el.clientHeight > nav.clientHeight
+            ? offsetWithinNav - 8
+            : offsetWithinNav - nav.clientHeight / 2 + el.clientHeight / 2;
         nav.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
     }, [currentPath, openDropdown]);
 
@@ -302,7 +314,7 @@ export default function AuthenticatedLayout({ children }) {
                     {/* Navigation */}
                     <nav ref={navRef} className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
                         {navigation.map((item) => (
-                            <div key={item.name}>
+                            <div key={item.name} ref={item.hasSubmenu && openDropdown === item.name ? openRef : null}>
                                 {item.hasSubmenu ? (
                                     <>
                                         <button
