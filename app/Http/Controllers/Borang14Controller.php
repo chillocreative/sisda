@@ -123,6 +123,23 @@ class Borang14Controller extends Controller
         return response()->json(['ok' => true]);
     }
 
+    /** Temporary: clear all entered vote figures for a (DUN, penjuru) scenario. */
+    public function reset(Request $request)
+    {
+        $validated = $request->validate([
+            'kadun_id' => 'required|integer|exists:kadun,id',
+            'penjuru'  => 'required|integer|in:2,3,4,5,6',
+        ]);
+
+        $form = Borang14Form::where('kadun_id', $validated['kadun_id'])
+            ->where('penjuru', $validated['penjuru'])
+            ->first();
+
+        $form?->votes()->delete();
+
+        return response()->json(['ok' => true]);
+    }
+
     public function pdf(Request $request)
     {
         $validated = $request->validate([

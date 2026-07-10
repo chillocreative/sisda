@@ -425,6 +425,7 @@ Route::middleware(['auth', 'admin'])->prefix('pilihanraya')->name('pilihanraya.'
     Route::get('/borang-14/data', [\App\Http\Controllers\Borang14Controller::class, 'data'])->name('borang-14.data');
     Route::post('/borang-14/parties', [\App\Http\Controllers\Borang14Controller::class, 'saveParties'])->name('borang-14.parties');
     Route::post('/borang-14/vote', [\App\Http\Controllers\Borang14Controller::class, 'saveVote'])->name('borang-14.vote')->middleware('throttle:120,1');
+    Route::post('/borang-14/reset', [\App\Http\Controllers\Borang14Controller::class, 'reset'])->name('borang-14.reset')->middleware('throttle:20,1');
     Route::get('/borang-14/pdf', [\App\Http\Controllers\Borang14Controller::class, 'pdf'])->name('borang-14.pdf');
 
     // War Room tab data (lazy-loaded, cached aggregates)
