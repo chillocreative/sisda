@@ -41,7 +41,8 @@ import {
     BarChart3,
     Target,
     PieChart,
-    FileSpreadsheet
+    FileSpreadsheet,
+    Trophy
 } from 'lucide-react';
 
 export default function AuthenticatedLayout({ children }) {
@@ -190,6 +191,7 @@ export default function AuthenticatedLayout({ children }) {
                     { name: 'Analisa Keputusan', href: route('pilihanraya.analisa'), icon: BarChart3 },
                     { name: 'Kaum Mengikut DM', href: route('pilihanraya.kaum-dm'), icon: PieChart },
                     { name: 'Minima Untuk Menang', href: route('pilihanraya.minima'), icon: Target },
+                    { name: 'Scoreboard', href: route('pilihanraya.scoreboard'), icon: Trophy },
                     { name: 'Borang 14', href: route('pilihanraya.borang-14'), icon: FileSpreadsheet },
                     { name: 'Pusat Simulasi', href: route('pilihanraya.simulasi'), icon: Brain },
                     { name: 'Jawatankuasa', href: route('pilihanraya.jawatankuasa.index'), icon: ClipboardList },

@@ -415,6 +415,11 @@ Route::middleware(['auth', 'admin'])->prefix('pilihanraya')->name('pilihanraya.'
     Route::get('/minima', [\App\Http\Controllers\PilihanrayaAnalisaController::class, 'minima'])->name('minima');
     Route::get('/kaum-dm', [\App\Http\Controllers\PilihanrayaAnalisaController::class, 'kaumDm'])->name('kaum-dm');
 
+    // Scoreboard — live election night board driven by Borang 14 figures
+    Route::get('/scoreboard', [\App\Http\Controllers\ScoreboardController::class, 'index'])->name('scoreboard');
+    Route::get('/scoreboard/data', [\App\Http\Controllers\ScoreboardController::class, 'data'])->name('scoreboard.data');
+    Route::post('/scoreboard/settings', [\App\Http\Controllers\ScoreboardController::class, 'saveSettings'])->name('scoreboard.settings');
+
     // Borang 14 — polling-stream vote tally per DUN (editable, auto-saved)
     Route::get('/borang-14', [\App\Http\Controllers\Borang14Controller::class, 'index'])->name('borang-14');
     Route::get('/borang-14/data', [\App\Http\Controllers\Borang14Controller::class, 'data'])->name('borang-14.data');
