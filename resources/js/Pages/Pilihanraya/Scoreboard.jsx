@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { Head } from '@inertiajs/react';
 import axios from 'axios';
 import {
@@ -238,24 +239,23 @@ function ScoreboardBody({ negeriList, parlimenList, kadunList }) {
     }, [fetchData, kadunId]);
 
     // Enter/exit skrin penuh. The CSS overlay alone already hides the sidebar
-    // and fills the viewport; the native Fullscreen API is requested on the
-    // overlay element itself (never documentElement) so only the board is
-    // promoted to the top layer — this avoids the blank-screen issue caused
-    // by fullscreening the whole document.
-    const enterFullscreen = () => setFullscreen(true);
+    // and fills the viewport (works even if native fullscreen is denied).
+    // flushSync mounts the overlay synchronously so its ref exists and we can
+    // request native fullscreen on THAT element — while still inside the click
+    // gesture (required for the API) and never touching documentElement.
+    const enterFullscreen = () => {
+        flushSync(() => setFullscreen(true)); // overlay now covers the screen no matter what
+        try {
+            const el = overlayRef.current;
+            if (el && el.requestFullscreen && !document.fullscreenElement) {
+                el.requestFullscreen().catch(() => {}); // stay in CSS overlay if denied
+            }
+        } catch { /* CSS overlay is enough on its own */ }
+    };
     const exitFullscreen = () => {
         if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
         setFullscreen(false);
     };
-
-    // Once the overlay is mounted, promote it (and only it) to native fullscreen.
-    useEffect(() => {
-        if (!fullscreen) return;
-        const el = overlayRef.current;
-        if (el && el.requestFullscreen && !document.fullscreenElement) {
-            el.requestFullscreen().catch(() => {}); // stay in CSS overlay if denied
-        }
-    }, [fullscreen]);
 
     // Keep React state in sync when the user leaves native fullscreen (Esc/F11).
     useEffect(() => {
