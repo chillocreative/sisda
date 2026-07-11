@@ -278,14 +278,9 @@ function ScoreboardBody({ negeriList, parlimenList, kadunList }) {
             title="Scoreboard"
             subtitle="Papan markah pilihanraya secara langsung dari Borang 14"
             actions={ready ? (
-                <>
-                    <button type="button" onClick={enterFullscreen} className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-700 text-white rounded-lg text-sm font-medium">
-                        <Maximize2 className="h-4 w-4" /> Skrin Penuh
-                    </button>
-                    <button type="button" onClick={() => setSettingsOpen(true)} className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-lg text-sm font-medium">
-                        <Settings className="h-4 w-4" /> Tetapan
-                    </button>
-                </>
+                <button type="button" onClick={() => setSettingsOpen(true)} className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-lg text-sm font-medium">
+                    <Settings className="h-4 w-4" /> Tetapan
+                </button>
             ) : null}
         >
             {/* Filters */}
@@ -344,7 +339,24 @@ function ScoreboardBody({ negeriList, parlimenList, kadunList }) {
                     <span>Sila isi Borang 14 dahulu untuk DUN ini — penjuru & parti diambil dari situ.</span>
                 </div>
             ) : ready ? (
-                <Board data={data} />
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200">
+                        <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-700">
+                            <Trophy className="h-4 w-4 text-slate-500" /> Papan Markah Langsung
+                        </span>
+                        <button
+                            type="button"
+                            onClick={enterFullscreen}
+                            title="Besarkan ke skrin penuh"
+                            className="inline-flex items-center gap-2 px-3 py-1.5 border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-lg text-sm font-medium"
+                        >
+                            <Maximize2 className="h-4 w-4" /> Besarkan
+                        </button>
+                    </div>
+                    <div className="p-4 sm:p-5">
+                        <Board data={data} />
+                    </div>
+                </div>
             ) : null}
 
             {settingsOpen && ready && (
