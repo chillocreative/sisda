@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Head } from '@inertiajs/react';
 import axios from 'axios';
 import {
-    Trophy, Crown, Settings, X, Upload, Info, MapPin, Landmark, Vote, Loader2, Radio, Target,
+    Trophy, Crown, Settings, X, Upload, Info, MapPin, Landmark, Vote, Loader2, Radio,
 } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PilihanrayaShell, { usePilihanrayaTheme } from './components/PilihanrayaShell';
@@ -25,7 +25,6 @@ function SettingsModal({ kadunId, penjuru, board, onClose, onSaved }) {
     const { t } = usePilihanrayaTheme();
     const rows = board?.rows || [];
     const [title, setTitle] = useState(board?.title || 'SCOREBOARD');
-    const [minima, setMinima] = useState(board?.minima ?? '');
     const [names, setNames] = useState(() => rows.map((r) => r.calon || ''));
     const [logoFile, setLogoFile] = useState(null);
     const [photoFiles, setPhotoFiles] = useState({}); // slot -> File
@@ -37,7 +36,6 @@ function SettingsModal({ kadunId, penjuru, board, onClose, onSaved }) {
         fd.append('kadun_id', kadunId);
         fd.append('penjuru', penjuru);
         fd.append('title', title || 'SCOREBOARD');
-        if (minima !== '') fd.append('minima', minima);
         rows.forEach((r, i) => {
             fd.append(`candidates[${i}][slot]`, r.slot);
             fd.append(`candidates[${i}][nama]`, names[i] || '');
@@ -64,10 +62,6 @@ function SettingsModal({ kadunId, penjuru, board, onClose, onSaved }) {
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Tajuk</label>
                         <input value={title} onChange={(e) => setTitle(e.target.value)} className={field} placeholder="SCOREBOARD" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Minima PH Untuk Menang</label>
-                        <input type="number" min="0" value={minima} onChange={(e) => setMinima(e.target.value)} className={field} placeholder="cth. 8000" />
                     </div>
                     <div className="sm:col-span-2">
                         <label className="block text-sm font-medium text-slate-700 mb-1">Logo (pilihan)</label>
@@ -131,12 +125,8 @@ function SettingsModal({ kadunId, penjuru, board, onClose, onSaved }) {
 
 function Board({ data }) {
     const { t } = usePilihanrayaTheme();
-    const { rows, minima, ph_votes: phVotes, total_keluar: totalKeluar, total_berdaftar: totalBerdaftar, leader_slot: leaderSlot } = data;
+    const { rows, total_keluar: totalKeluar, total_berdaftar: totalBerdaftar, leader_slot: leaderSlot } = data;
 
-    const minimaSet = minima != null && minima > 0;
-    const progress = minimaSet ? Math.min(100, (phVotes / minima) * 100) : 0;
-    const menang = minimaSet && phVotes >= minima;
-    const baki = minimaSet ? Math.max(0, minima - phVotes) : 0;
     const turnout = totalBerdaftar > 0 ? (totalKeluar / totalBerdaftar) * 100 : 0;
 
     return (
@@ -150,42 +140,6 @@ function Board({ data }) {
                         {data.negeri} · {data.parlimen} · <span className="font-semibold text-white">DUN {data.dun}</span> · {data.penjuru_label}
                     </p>
                 </div>
-            </div>
-
-            {/* Minima PH */}
-            <div className={`${t.card} mb-5`}>
-                <div className="flex items-center gap-2 mb-3">
-                    <Target className="h-5 w-5 text-emerald-600" />
-                    <span className={`text-sm font-semibold uppercase tracking-wider ${t.subtext}`}>Minima PH Untuk Menang</span>
-                </div>
-                {minimaSet ? (
-                    <>
-                        <div className="flex flex-wrap items-end justify-between gap-4">
-                            <div>
-                                <div className="text-4xl font-black text-slate-900">{fmt(minima)}</div>
-                                <div className={`text-sm ${t.subtext} mt-1`}>Undi minima diperlukan</div>
-                            </div>
-                            <div className="text-right">
-                                <div className="text-4xl font-black text-emerald-600">{fmt(phVotes)}</div>
-                                <div className={`text-sm ${t.subtext} mt-1`}>Undi PH semasa</div>
-                            </div>
-                        </div>
-                        <div className="mt-4 h-4 rounded-full bg-slate-100 overflow-hidden">
-                            <div className={`h-full rounded-full transition-all duration-500 ${menang ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${progress}%` }} />
-                        </div>
-                        <div className="mt-2 flex items-center justify-between text-sm">
-                            <span className={t.subtext}>{progress.toFixed(1)}% dicapai</span>
-                            {menang
-                                ? <span className="font-bold text-emerald-600">MENCUKUPI UNTUK MENANG ✓</span>
-                                : <span className="font-semibold text-amber-600">Baki {fmt(baki)} undi</span>}
-                        </div>
-                    </>
-                ) : (
-                    <div className={`${t.banner} flex items-center gap-2`}>
-                        <Info className="h-4 w-4 shrink-0" />
-                        <span>Tetapkan jumlah minima di butang Tetapan untuk memaparkan sasaran kemenangan PH.</span>
-                    </div>
-                )}
             </div>
 
             {/* Candidate cards */}
