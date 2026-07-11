@@ -212,6 +212,14 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
                     </div>
                 </div>
 
+                {!filters.parlimen ? (
+                    <div className="bg-white rounded-xl border border-dashed border-slate-300 px-4 py-12 text-center">
+                        <p className="text-sm text-slate-500">
+                            Sila pilih <span className="font-semibold text-slate-700">Parlimen / Cabang</span> pada penapis di atas untuk memaparkan data analisa.
+                        </p>
+                    </div>
+                ) : (
+                  <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <Kpi label="Jumlah Ahli" value={summary.total.toLocaleString()} sub={`Aktif/ EKYC - ${(summary.aktif_ekyc ?? 0).toLocaleString()}`} icon={Users} />
                     <Kpi label="Dalam Kawasan" value={summary.dalam_kawasan.toLocaleString()} sub={`${pctK(summary.dalam_kawasan)}% daripada cabang`} icon={MapPin} color="text-emerald-600" />
@@ -456,6 +464,8 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
                         </ResponsiveContainer>
                     )}
                 </Card>
+                  </>
+                )}
             </div>
         </AuthenticatedLayout>
     );
