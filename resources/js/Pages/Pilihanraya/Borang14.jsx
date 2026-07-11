@@ -92,7 +92,7 @@ const totalBgClass = (status, t) => (
 
 /* --------------------------- per-pusat table --------------------------- */
 
-function VoteTable({ block, partyNames, votes, onSave }) {
+function VoteTable({ block, partyNames, votes, onSave, anchorId }) {
     const { t } = usePilihanrayaTheme();
     const nParties = partyNames.length;
 
@@ -111,7 +111,7 @@ function VoteTable({ block, partyNames, votes, onSave }) {
     const totalStatus = leadStatus(totals.slots);
 
     return (
-        <div className={`${t.card} p-4`}>
+        <div id={anchorId} className={`${t.card} p-4 scroll-mt-24`}>
             <div className="mb-3">
                 <div className={`text-xs font-semibold uppercase tracking-wider ${t.subtext}`}>DM: {block.dm}</div>
                 <div className={`text-sm font-bold ${t.text}`}>Pusat Mengundi: {block.pusat}</div>
@@ -359,6 +359,21 @@ function Borang14Body({ negeriList, parlimenList, kadunList, partiList, penjuruO
 
     const blocks = useMemo(() => toBlocks(reference), [reference]);
 
+    // One anchor per unique DM (in order), pointing at that DM's first block —
+    // lets the jump buttons scroll straight to the card the user wants to fill.
+    const dmAnchors = useMemo(() => {
+        const map = new Map(); // dm name -> anchor id
+        blocks.forEach((b) => {
+            if (!map.has(b.dm)) map.set(b.dm, `dm-${map.size}`);
+        });
+        return map;
+    }, [blocks]);
+    const dmList = useMemo(() => Array.from(dmAnchors.entries()), [dmAnchors]);
+
+    const scrollToDm = (anchorId) => {
+        document.getElementById(anchorId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
     // Grand rollup across every saluran + undi awal & pos for the bottom summary.
     const summary = useMemo(() => {
         const nParties = partyNames.length;
@@ -532,6 +547,25 @@ function Borang14Body({ negeriList, parlimenList, kadunList, partiList, penjuruO
                         </button>
                     </div>
 
+                    {/* Jump-to-DM buttons — scroll straight to the DM the user wants to fill. */}
+                    {dmList.length > 1 && (
+                        <div className={`${t.cardTight} mb-4`}>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className={`text-xs font-semibold uppercase tracking-wider ${t.subtext} mr-1`}>Lompat ke DM</span>
+                                {dmList.map(([dm, anchorId]) => (
+                                    <button
+                                        key={anchorId}
+                                        type="button"
+                                        onClick={() => scrollToDm(anchorId)}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 text-sm font-medium"
+                                    >
+                                        <MapPin className="h-3.5 w-3.5" /> {dm}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-1 gap-4">
                         {blocks.map((b, i) => (
                             <VoteTable
@@ -540,6 +574,7 @@ function Borang14Body({ negeriList, parlimenList, kadunList, partiList, penjuruO
                                 partyNames={partyNames}
                                 votes={votes}
                                 onSave={saveVote}
+                                anchorId={blocks.findIndex((x) => x.dm === b.dm) === i ? dmAnchors.get(b.dm) : undefined}
                             />
                         ))}
                     </div>
