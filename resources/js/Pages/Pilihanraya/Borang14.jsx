@@ -217,6 +217,56 @@ function UndiAwalPosTable({ partyNames, votes, onSave, berdaftarByRow }) {
     );
 }
 
+/* --------------------------- grand summary ----------------------------- */
+
+// Bottom-of-page rollup across every pusat mengundi + undi awal & pos:
+// per-party grand totals, total turnout (sum of parties), and overall %.
+function GrandSummary({ partyNames, totals }) {
+    const { t } = usePilihanrayaTheme();
+    const status = leadStatus(totals.partyTotals);
+
+    const tileTone = (s) => (
+        s === 'lead' ? 'border-emerald-300 bg-emerald-50'
+            : s === 'low' ? 'border-rose-300 bg-rose-50'
+                : `${t.border} bg-slate-50`
+    );
+    const valueTone = (s) => (
+        s === 'lead' ? 'text-emerald-700'
+            : s === 'low' ? 'text-rose-700'
+                : t.text
+    );
+
+    return (
+        <div className={`${t.card} mt-4`}>
+            <div className="mb-4">
+                <div className={`text-sm font-bold ${t.text}`}>Ringkasan Keseluruhan</div>
+                <div className={`text-xs ${t.subtext}`}>Semua pusat mengundi termasuk undi awal &amp; undi pos</div>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {partyNames.map((name, i) => (
+                    <div key={i} className={`rounded-xl border p-4 ${tileTone(status[i])}`}>
+                        <div className={`text-xs font-semibold uppercase tracking-wider ${t.subtext} flex items-center gap-1.5`}>
+                            <LeadSquare status={status[i]} /> {name}
+                        </div>
+                        <div className={`text-2xl font-bold mt-1 ${valueTone(status[i])}`}>{fmt(totals.partyTotals[i])}</div>
+                        <div className={`text-xs ${t.subtext} mt-0.5`}>Jumlah undi</div>
+                    </div>
+                ))}
+                <div className={`rounded-xl border ${t.border} bg-slate-50 p-4`}>
+                    <div className={`text-xs font-semibold uppercase tracking-wider ${t.subtext}`}>Jumlah Keluar Mengundi</div>
+                    <div className={`text-2xl font-bold mt-1 ${t.text}`}>{fmt(totals.keluar)}</div>
+                    <div className={`text-xs ${t.subtext} mt-0.5`}>{partyNames.join(' + ') || 'Semua parti'}</div>
+                </div>
+                <div className="rounded-xl border border-sky-300 bg-sky-50 p-4">
+                    <div className="text-xs font-semibold uppercase tracking-wider text-sky-700">Peratusan Keluar Mengundi</div>
+                    <div className="text-2xl font-bold mt-1 text-sky-800">{pct(totals.keluar, totals.berdaftar)}</div>
+                    <div className="text-xs text-sky-700/80 mt-0.5">{fmt(totals.keluar)} / {fmt(totals.berdaftar)} berdaftar</div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 /* ------------------------------- page ---------------------------------- */
 
 export default function Borang14({ negeriList, parlimenList, kadunList, partiList, penjuruOptions }) {
@@ -290,6 +340,33 @@ function Borang14Body({ negeriList, parlimenList, kadunList, partiList, penjuruO
     );
 
     const blocks = useMemo(() => toBlocks(reference), [reference]);
+
+    // Grand rollup across every saluran + undi awal & pos for the bottom summary.
+    const summary = useMemo(() => {
+        const nParties = partyNames.length;
+        const partyTotals = Array.from({ length: nParties }, () => 0);
+        let berdaftar = 0;
+        blocks.forEach((b) => {
+            b.saluran.forEach((s) => {
+                berdaftar += s.berdaftar || 0;
+                for (let i = 0; i < nParties; i++) {
+                    partyTotals[i] += votes[cellKey(b.pusat, String(s.no), i + 1)] ?? 0;
+                }
+            });
+        });
+        const specialBerdaftar = {
+            'UNDI AWAL': reference?.undi_awal?.berdaftar ?? 0,
+            'UNDI POS': reference?.undi_pos?.berdaftar ?? 0,
+        };
+        SPECIAL_ROWS.forEach((label) => {
+            berdaftar += specialBerdaftar[label] || 0;
+            for (let i = 0; i < nParties; i++) {
+                partyTotals[i] += votes[cellKey('', label, i + 1)] ?? 0;
+            }
+        });
+        const keluar = partyTotals.reduce((a, b) => a + b, 0);
+        return { partyTotals, keluar, berdaftar };
+    }, [blocks, votes, partyNames, reference]);
 
     const persistParties = useCallback((next) => {
         if (!kadunId || !penjuru) return;
@@ -479,6 +556,8 @@ function Borang14Body({ negeriList, parlimenList, kadunList, partiList, penjuruO
                             }}
                         />
                     </div>
+
+                    <GrandSummary partyNames={partyNames} totals={summary} />
                 </>
             )}
         </>
