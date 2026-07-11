@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Head } from '@inertiajs/react';
 import axios from 'axios';
 import {
-    Trophy, Crown, Settings, X, Upload, Info, MapPin, Landmark, Vote, Loader2, Radio,
+    Trophy, Crown, Settings, X, Upload, Info, MapPin, Landmark, Vote, Loader2, Radio, Maximize2, Minimize2,
 } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PilihanrayaShell, { usePilihanrayaTheme } from './components/PilihanrayaShell';
@@ -213,6 +213,7 @@ function ScoreboardBody({ negeriList, parlimenList, kadunList }) {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [updatedAt, setUpdatedAt] = useState(null);
+    const [fullscreen, setFullscreen] = useState(false);
 
     const parlimenOptions = negeriId ? parlimenList.filter((p) => String(p.negeri_id) === String(negeriId)) : [];
     const kadunOptions = parlimenId ? kadunList.filter((k) => String(k.bandar_id) === String(parlimenId)) : [];
@@ -235,14 +236,47 @@ function ScoreboardBody({ negeriList, parlimenList, kadunList }) {
         return () => clearInterval(id);
     }, [fetchData, kadunId]);
 
+    // Enter/exit skrin penuh — CSS overlay always applies; the native
+    // Fullscreen API is best-effort for a true kiosk display.
+    const enterFullscreen = () => {
+        setFullscreen(true);
+        const el = document.documentElement;
+        if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+    };
+    const exitFullscreen = () => {
+        setFullscreen(false);
+        if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    };
+
+    // Keep React state in sync when the user leaves native fullscreen (Esc/F11).
+    useEffect(() => {
+        const onFsChange = () => { if (!document.fullscreenElement) setFullscreen(false); };
+        document.addEventListener('fullscreenchange', onFsChange);
+        return () => document.removeEventListener('fullscreenchange', onFsChange);
+    }, []);
+
+    // Esc exits the overlay even when the browser denied native fullscreen.
+    useEffect(() => {
+        if (!fullscreen) return undefined;
+        const onKey = (e) => { if (e.key === 'Escape') exitFullscreen(); };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [fullscreen]);
+
     return (
+        <>
         <PilihanrayaShell
             title="Scoreboard"
             subtitle="Papan markah pilihanraya secara langsung dari Borang 14"
             actions={ready ? (
-                <button type="button" onClick={() => setSettingsOpen(true)} className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-lg text-sm font-medium">
-                    <Settings className="h-4 w-4" /> Tetapan
-                </button>
+                <>
+                    <button type="button" onClick={enterFullscreen} className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-700 text-white rounded-lg text-sm font-medium">
+                        <Maximize2 className="h-4 w-4" /> Skrin Penuh
+                    </button>
+                    <button type="button" onClick={() => setSettingsOpen(true)} className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-lg text-sm font-medium">
+                        <Settings className="h-4 w-4" /> Tetapan
+                    </button>
+                </>
             ) : null}
         >
             {/* Filters */}
@@ -314,5 +348,24 @@ function ScoreboardBody({ negeriList, parlimenList, kadunList }) {
                 />
             )}
         </PilihanrayaShell>
+
+        {/* Skrin penuh — fixed overlay covers the sidebar & the whole viewport */}
+        {fullscreen && ready && (
+            <div className="fixed inset-0 z-[60] bg-slate-50 overflow-y-auto">
+                <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 bg-slate-50/90 backdrop-blur border-b border-slate-200">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
+                        <Radio className="h-3.5 w-3.5 animate-pulse" /> LANGSUNG
+                        {updatedAt && <span className="text-slate-400 font-normal">· Dikemaskini {updatedAt.toLocaleTimeString('ms-MY')}</span>}
+                    </span>
+                    <button type="button" onClick={exitFullscreen} className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-lg text-sm font-medium bg-white">
+                        <Minimize2 className="h-4 w-4" /> Keluar Skrin Penuh
+                    </button>
+                </div>
+                <div className="p-4 sm:p-6 max-w-6xl mx-auto">
+                    <Board data={data} />
+                </div>
+            </div>
+        )}
+        </>
     );
 }
