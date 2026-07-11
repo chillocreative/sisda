@@ -192,11 +192,11 @@ export default function PublicScoreboard({ kadunId, initialBoard, negeriList = [
                 {/* Top bar */}
                 <header className="border-b border-slate-200 bg-white/80 backdrop-blur sticky top-0 z-10">
                     <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-                        <span className="text-sm font-bold tracking-widest text-slate-900">SISDA</span>
+                        <span className="text-sm font-bold tracking-wide text-slate-900">Sistem Data Pengundi</span>
                         {kadunId && (
                             <span className="inline-flex items-center gap-2 text-xs text-slate-500">
                                 <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-600">
-                                    <Radio className="h-3.5 w-3.5 animate-pulse" /> LANGSUNG
+                                    <Radio className="h-3.5 w-3.5 animate-pulse" /> Live
                                 </span>
                                 {updatedAt && <span className="tabular-nums">· {updatedAt.toLocaleTimeString('ms-MY')}</span>}
                             </span>
@@ -221,7 +221,7 @@ export default function PublicScoreboard({ kadunId, initialBoard, negeriList = [
                 </main>
 
                 <footer className="max-w-5xl mx-auto px-4 pb-10 text-center">
-                    <p className="text-xs text-slate-400">Dikuasakan oleh <span className="font-semibold text-slate-500">SISDA</span> · Papan markah langsung dari Borang 14</p>
+                    <p className="text-xs text-slate-400">Dikuasakan oleh <span className="font-semibold text-slate-500">Sistem Data Pengundi</span> · Papan markah langsung dari Borang 14</p>
                 </footer>
             </div>
         </>
