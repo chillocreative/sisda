@@ -214,6 +214,7 @@ function ScoreboardBody({ negeriList, parlimenList, kadunList }) {
     const [loading, setLoading] = useState(false);
     const [updatedAt, setUpdatedAt] = useState(null);
     const [fullscreen, setFullscreen] = useState(false);
+    const overlayRef = useRef(null);
 
     const parlimenOptions = negeriId ? parlimenList.filter((p) => String(p.negeri_id) === String(negeriId)) : [];
     const kadunOptions = parlimenId ? kadunList.filter((k) => String(k.bandar_id) === String(parlimenId)) : [];
@@ -236,17 +237,25 @@ function ScoreboardBody({ negeriList, parlimenList, kadunList }) {
         return () => clearInterval(id);
     }, [fetchData, kadunId]);
 
-    // Enter/exit skrin penuh — CSS overlay always applies; the native
-    // Fullscreen API is best-effort for a true kiosk display.
-    const enterFullscreen = () => {
-        setFullscreen(true);
-        const el = document.documentElement;
-        if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
-    };
+    // Enter/exit skrin penuh. The CSS overlay alone already hides the sidebar
+    // and fills the viewport; the native Fullscreen API is requested on the
+    // overlay element itself (never documentElement) so only the board is
+    // promoted to the top layer — this avoids the blank-screen issue caused
+    // by fullscreening the whole document.
+    const enterFullscreen = () => setFullscreen(true);
     const exitFullscreen = () => {
-        setFullscreen(false);
         if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+        setFullscreen(false);
     };
+
+    // Once the overlay is mounted, promote it (and only it) to native fullscreen.
+    useEffect(() => {
+        if (!fullscreen) return;
+        const el = overlayRef.current;
+        if (el && el.requestFullscreen && !document.fullscreenElement) {
+            el.requestFullscreen().catch(() => {}); // stay in CSS overlay if denied
+        }
+    }, [fullscreen]);
 
     // Keep React state in sync when the user leaves native fullscreen (Esc/F11).
     useEffect(() => {
@@ -351,7 +360,7 @@ function ScoreboardBody({ negeriList, parlimenList, kadunList }) {
 
         {/* Skrin penuh — fixed overlay covers the sidebar & the whole viewport */}
         {fullscreen && ready && (
-            <div className="fixed inset-0 z-[60] bg-slate-50 overflow-y-auto">
+            <div ref={overlayRef} className="fixed inset-0 z-[60] bg-slate-50 overflow-y-auto">
                 <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 bg-slate-50/90 backdrop-blur border-b border-slate-200">
                     <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
                         <Radio className="h-3.5 w-3.5 animate-pulse" /> LANGSUNG
