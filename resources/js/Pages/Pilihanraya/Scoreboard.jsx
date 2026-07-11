@@ -222,7 +222,8 @@ function ScoreboardBody({ negeriList, parlimenList, kadunList }) {
     const fetchData = useCallback((showSpinner = false) => {
         if (!kadunId) { setData(null); return; }
         if (showSpinner) setLoading(true);
-        axios.get(route('pilihanraya.scoreboard.data'), { params: { kadun_id: kadunId } })
+        // `_t` cache-buster keeps every poll fresh (no stale browser/CDN cache).
+        axios.get(route('pilihanraya.scoreboard.data'), { params: { kadun_id: kadunId, _t: Date.now() } })
             .then(({ data: d }) => { setData(d); setUpdatedAt(new Date()); })
             .finally(() => setLoading(false));
     }, [kadunId]);

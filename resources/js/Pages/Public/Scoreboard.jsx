@@ -170,7 +170,9 @@ export default function PublicScoreboard({ kadunId, initialBoard, negeriList = [
 
     const fetchData = useCallback(() => {
         if (!kadunId) return;
-        axios.get(`/scoreboard/${kadunId}/data`)
+        // Cache-buster so no browser/CDN layer serves a stale poll response —
+        // the board must reflect Borang 14 key-ins within one poll.
+        axios.get(`/scoreboard/${kadunId}/data`, { params: { _t: Date.now() } })
             .then(({ data: d }) => { setData(d); setUpdatedAt(new Date()); })
             .catch(() => {});
     }, [kadunId]);

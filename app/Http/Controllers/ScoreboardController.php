@@ -35,7 +35,7 @@ class ScoreboardController extends Controller
             'kadun_id' => 'required|integer|exists:kadun,id',
         ]);
 
-        return response()->json($this->boardPayload((int) $validated['kadun_id']));
+        return $this->liveJson($this->boardPayload((int) $validated['kadun_id']));
     }
 
     /** Public, no-login results page at /scoreboard/{kadun?}. */
@@ -57,7 +57,15 @@ class ScoreboardController extends Controller
     {
         abort_unless(Kadun::whereKey($kadun)->exists(), 404);
 
-        return response()->json($this->boardPayload($kadun));
+        return $this->liveJson($this->boardPayload($kadun));
+    }
+
+    /** JSON that must never be cached — polled live during vote entry. */
+    private function liveJson(array $payload)
+    {
+        return response()->json($payload)
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache');
     }
 
     /** Build the live scoreboard payload for a DUN (shared by auth + public). */
