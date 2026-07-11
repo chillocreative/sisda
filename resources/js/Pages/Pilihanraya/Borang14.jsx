@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Head } from '@inertiajs/react';
 import axios from 'axios';
-import { Download, Info, Landmark, MapPin, Vote, Loader2, RotateCcw } from 'lucide-react';
+import { Download, Info, Landmark, MapPin, Vote, Loader2 } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PilihanrayaShell, { usePilihanrayaTheme } from './components/PilihanrayaShell';
 import DragScroll from './analisa/DragScroll';
@@ -418,15 +418,6 @@ function Borang14Body({ negeriList, parlimenList, kadunList, partiList, penjuruO
         window.open(url, '_blank');
     };
 
-    // Temporary: wipe all entered figures for this DUN + penjuru.
-    const resetVotes = () => {
-        if (!window.confirm('Reset semua figure undi untuk DUN & penjuru ini? Tindakan ini tidak boleh dibatalkan.')) return;
-        setVotes({});
-        axios.post(route('pilihanraya.borang-14.reset'), {
-            kadun_id: kadunId, penjuru: Number(penjuru),
-        }).catch(() => {});
-    };
-
     const canShowTables = geographyComplete && hasData && penjuru && blocks.length > 0;
 
     return (
@@ -536,19 +527,9 @@ function Borang14Body({ negeriList, parlimenList, kadunList, partiList, penjuruO
                         <div className={`text-sm ${t.subtext}`}>
                             {reference.negeri} · {reference.parlimen} · <span className={`font-semibold ${t.text}`}>DUN {reference.dun}</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <button
-                                type="button"
-                                onClick={resetVotes}
-                                className="inline-flex items-center gap-2 px-4 py-2 border border-rose-300 text-rose-700 hover:bg-rose-50 rounded-lg text-sm font-medium"
-                                title="Sementara — padam semua figure undi"
-                            >
-                                <RotateCcw className="h-4 w-4" /> Reset (sementara)
-                            </button>
-                            <button type="button" onClick={downloadPdf} className={t.buttonPrimary}>
-                                <Download className="h-4 w-4" /> Muat Turun PDF
-                            </button>
-                        </div>
+                        <button type="button" onClick={downloadPdf} className={t.buttonPrimary}>
+                            <Download className="h-4 w-4" /> Muat Turun PDF
+                        </button>
                     </div>
 
                     <div className="grid grid-cols-1 gap-4">
