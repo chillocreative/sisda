@@ -214,7 +214,7 @@ function UndiAwalPosTable({ partyNames, votes, onSave, berdaftarByRow }) {
                                                 <LeadSquare status={status[i]} />
                                                 <EditableCell
                                                     value={v}
-                                                    max={berdaftar > 0 ? Math.max(0, berdaftar - (keluar - v)) : null}
+                                                    max={null}
                                                     onCommit={(undi) => onSave('', label, i + 1, undi)}
                                                 />
                                             </div>
