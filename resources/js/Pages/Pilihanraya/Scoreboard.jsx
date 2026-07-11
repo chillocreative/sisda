@@ -147,7 +147,6 @@ function Board({ data }) {
             <div className="flex flex-wrap justify-center gap-4">
                 {rows.map((r) => {
                     const isLeader = r.slot === leaderSlot && totalKeluar > 0;
-                    const share = totalKeluar > 0 ? (r.undi / totalKeluar) * 100 : 0;
                     const color = partyColor(r.parti);
                     return (
                         <div
@@ -170,7 +169,6 @@ function Board({ data }) {
                                     <div className="text-xs font-bold uppercase tracking-wide" style={{ color }}>{r.parti}{r.is_ph ? ' · PH' : ''}</div>
                                     <div className="text-lg font-bold text-slate-900 truncate">{r.calon || '—'}</div>
                                     <div className="mt-1 text-3xl font-black text-slate-900">{fmt(r.undi)}</div>
-                                    <div className="text-xs text-slate-500">{share.toFixed(1)}% undi keluar</div>
                                 </div>
                             </div>
                         </div>

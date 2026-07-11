@@ -11,6 +11,13 @@ Route::get('/', function () {
     ]);
 });
 
+// Public live scoreboard — no login required. {kadun} shows that DUN's board;
+// no id shows a picker. The /data endpoint is polled by the page.
+Route::get('/scoreboard/{kadun}/data', [\App\Http\Controllers\ScoreboardController::class, 'publicData'])
+    ->whereNumber('kadun')->name('scoreboard.public.data');
+Route::get('/scoreboard/{kadun?}', [\App\Http\Controllers\ScoreboardController::class, 'publicShow'])
+    ->whereNumber('kadun')->name('scoreboard.public');
+
 Route::get('/dashboard', [\App\Http\Controllers\DashboardController::class, 'index'])
     ->middleware(['auth', 'verified'])
     ->name('dashboard');

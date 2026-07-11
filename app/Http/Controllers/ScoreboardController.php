@@ -28,29 +28,57 @@ class ScoreboardController extends Controller
         ]);
     }
 
-    /** Live scoreboard payload — polled by the page. */
+    /** Live scoreboard payload — polled by the authenticated page. */
     public function data(Request $request)
     {
         $validated = $request->validate([
             'kadun_id' => 'required|integer|exists:kadun,id',
         ]);
 
-        $reference = Borang14Reference::forKadun((int) $validated['kadun_id']);
+        return response()->json($this->boardPayload((int) $validated['kadun_id']));
+    }
+
+    /** Public, no-login results page at /scoreboard/{kadun?}. */
+    public function publicShow(Request $request, ?int $kadun = null)
+    {
+        $board = ($kadun && Kadun::whereKey($kadun)->exists()) ? $this->boardPayload($kadun) : null;
+
+        return Inertia::render('Public/Scoreboard', [
+            'kadunId'      => $board ? $kadun : null,
+            'initialBoard' => $board,
+            'negeriList'   => Negeri::orderBy('nama')->get(['id', 'nama']),
+            'parlimenList' => Bandar::orderBy('nama')->get(['id', 'nama', 'negeri_id']),
+            'kadunList'    => Kadun::orderBy('nama')->get(['id', 'nama', 'bandar_id']),
+        ]);
+    }
+
+    /** Public JSON polled by the public results page. */
+    public function publicData(int $kadun)
+    {
+        abort_unless(Kadun::whereKey($kadun)->exists(), 404);
+
+        return response()->json($this->boardPayload($kadun));
+    }
+
+    /** Build the live scoreboard payload for a DUN (shared by auth + public). */
+    private function boardPayload(int $kadunId): array
+    {
+        $reference = Borang14Reference::forKadun($kadunId);
 
         if (! $reference) {
-            return response()->json(['hasData' => false, 'ready' => false]);
+            return ['hasData' => false, 'ready' => false];
         }
 
         // The penjuru is taken from whatever Borang 14 scenario exists for this
         // DUN (most recently worked on) — no manual selection on the scoreboard.
-        $form = Borang14Form::where('kadun_id', $validated['kadun_id'])->latest('updated_at')->first();
+        $form = Borang14Form::where('kadun_id', $kadunId)->latest('updated_at')->first();
 
         if (! $form) {
-            return response()->json(['hasData' => true, 'ready' => false, 'needsBorang14' => true]);
+            return ['hasData' => true, 'ready' => false, 'needsBorang14' => true];
         }
 
         $penjuru = (int) $form->penjuru;
-        $board = Scoreboard::where('kadun_id', $validated['kadun_id'])->where('penjuru', $penjuru)->first();
+        $board = Scoreboard::where('kadun_id', $kadunId)->where('penjuru', $penjuru)->first();
 
         $parties = $form?->parties ?? [];
         $candidates = collect($board?->candidates ?? [])->keyBy('slot');
@@ -99,7 +127,7 @@ class ScoreboardController extends Controller
         $totalKeluar = array_sum($tally);
         $leaderSlot = $totalKeluar > 0 ? collect($rows)->sortByDesc('undi')->first()['slot'] : null;
 
-        return response()->json([
+        return [
             'hasData'   => true,
             'ready'     => true,
             'penjuru'   => $penjuru,
@@ -115,7 +143,7 @@ class ScoreboardController extends Controller
             'total_keluar'    => $totalKeluar,
             'total_berdaftar' => $berdaftar,
             'leader_slot'     => $leaderSlot,
-        ]);
+        ];
     }
 
     /** Save presentation settings (title, minima, logo, candidate names & photos). */
