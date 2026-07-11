@@ -258,7 +258,6 @@ function ScoreboardBody({ negeriList, parlimenList, kadunList }) {
     }, [fullscreen]);
 
     return (
-        <>
         <PilihanrayaShell
             title="Scoreboard"
             subtitle="Papan markah pilihanraya secara langsung dari Borang 14"
@@ -353,13 +352,13 @@ function ScoreboardBody({ negeriList, parlimenList, kadunList }) {
                     onSaved={() => fetchData(false)}
                 />
             )}
-        </PilihanrayaShell>
 
-        {/* Skrin penuh — portalled to <body> so no ancestor CSS (transform,
-            overflow, stacking) can corrupt the fixed overlay or the fullscreen
-            top-layer render. Covers the sidebar and the whole viewport. */}
-        {fullscreen && ready && createPortal(
-            <div className="fixed inset-0 z-[9999] bg-slate-50 overflow-y-auto">
+            {/* Skrin penuh — portalled to <body> so no ancestor CSS can corrupt
+                the fixed overlay, yet kept INSIDE PilihanrayaShell so the theme
+                context still reaches <Board> (context flows by React tree, not
+                DOM position). Covers the sidebar and the whole viewport. */}
+            {fullscreen && ready && createPortal(
+                <div className="fixed inset-0 z-[9999] bg-slate-50 overflow-y-auto">
                 <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 bg-slate-50/90 backdrop-blur border-b border-slate-200">
                     <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
                         <Radio className="h-3.5 w-3.5 animate-pulse" /> LANGSUNG
@@ -373,8 +372,8 @@ function ScoreboardBody({ negeriList, parlimenList, kadunList }) {
                     <Board data={data} />
                 </div>
             </div>,
-            document.body,
-        )}
-        </>
+                document.body,
+            )}
+        </PilihanrayaShell>
     );
 }
