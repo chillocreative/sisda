@@ -27,21 +27,37 @@ function toBlocks(reference) {
 
 /* ---------------------------- editable cell ---------------------------- */
 
-function EditableCell({ value, onCommit }) {
+// `max` (nullable) caps the value so the row's party total can never exceed
+// the registered voters (Berdaftar). Typing beyond it snaps down to the cap.
+function EditableCell({ value, max, onCommit }) {
     const [local, setLocal] = useState(value ?? '');
     useEffect(() => { setLocal(value ?? ''); }, [value]);
+
+    const clamp = (n) => {
+        if (Number.isNaN(n)) return 0;
+        let v = Math.max(0, n);
+        if (max != null) v = Math.min(v, max);
+        return v;
+    };
 
     return (
         <input
             type="number"
             min="0"
+            max={max ?? undefined}
             inputMode="numeric"
             value={local}
-            onChange={(e) => setLocal(e.target.value)}
+            onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === '') { setLocal(''); return; }
+                setLocal(String(clamp(parseInt(raw, 10))));
+            }}
             onBlur={() => {
-                const num = local === '' ? 0 : Math.max(0, parseInt(local, 10) || 0);
+                const num = local === '' ? 0 : clamp(parseInt(local, 10) || 0);
+                setLocal(String(num));
                 if (num !== (value ?? 0)) onCommit(num);
             }}
+            title={max != null ? `Maksimum ${fmt(max)} undi (had Berdaftar)` : undefined}
             className="w-20 px-2 py-1 text-right text-sm rounded-md bg-sky-100 text-slate-900 border border-sky-300 focus:ring-2 focus:ring-sky-400 focus:outline-none"
             placeholder="0"
         />
@@ -125,6 +141,7 @@ function VoteTable({ block, partyNames, votes, onSave }) {
                                             <LeadSquare status={r.status[i]} />
                                             <EditableCell
                                                 value={v}
+                                                max={r.berdaftar > 0 ? Math.max(0, r.berdaftar - (r.keluar - v)) : null}
                                                 onCommit={(undi) => onSave(block.pusat, String(r.no), i + 1, undi)}
                                             />
                                         </div>
@@ -197,6 +214,7 @@ function UndiAwalPosTable({ partyNames, votes, onSave, berdaftarByRow }) {
                                                 <LeadSquare status={status[i]} />
                                                 <EditableCell
                                                     value={v}
+                                                    max={berdaftar > 0 ? Math.max(0, berdaftar - (keluar - v)) : null}
                                                     onCommit={(undi) => onSave('', label, i + 1, undi)}
                                                 />
                                             </div>
