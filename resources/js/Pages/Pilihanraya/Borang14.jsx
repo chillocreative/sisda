@@ -174,7 +174,8 @@ function VoteTable({ block, partyNames, votes, onSave, anchorId }) {
 
 /* ----------------------- undi awal / undi pos -------------------------- */
 
-const SPECIAL_ROWS = ['UNDI AWAL', 'UNDI POS'];
+// Undi Awal & Undi Pos are entered as one combined row.
+const SPECIAL_ROWS = ['UNDI AWAL & POS'];
 
 function UndiAwalPosTable({ partyNames, votes, onSave, berdaftarByRow }) {
     const { t } = usePilihanrayaTheme();
@@ -388,8 +389,7 @@ function Borang14Body({ negeriList, parlimenList, kadunList, partiList, penjuruO
             });
         });
         const specialBerdaftar = {
-            'UNDI AWAL': reference?.undi_awal?.berdaftar ?? 0,
-            'UNDI POS': reference?.undi_pos?.berdaftar ?? 0,
+            'UNDI AWAL & POS': (reference?.undi_awal?.berdaftar ?? 0) + (reference?.undi_pos?.berdaftar ?? 0),
         };
         SPECIAL_ROWS.forEach((label) => {
             berdaftar += specialBerdaftar[label] || 0;
@@ -585,8 +585,7 @@ function Borang14Body({ negeriList, parlimenList, kadunList, partiList, penjuruO
                             votes={votes}
                             onSave={saveVote}
                             berdaftarByRow={{
-                                'UNDI AWAL': reference?.undi_awal?.berdaftar ?? 0,
-                                'UNDI POS': reference?.undi_pos?.berdaftar ?? 0,
+                                'UNDI AWAL & POS': (reference?.undi_awal?.berdaftar ?? 0) + (reference?.undi_pos?.berdaftar ?? 0),
                             }}
                         />
                     </div>
