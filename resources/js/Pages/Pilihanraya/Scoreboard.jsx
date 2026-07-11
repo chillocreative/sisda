@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { flushSync } from 'react-dom';
+import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Head } from '@inertiajs/react';
 import axios from 'axios';
 import {
@@ -215,7 +215,6 @@ function ScoreboardBody({ negeriList, parlimenList, kadunList }) {
     const [loading, setLoading] = useState(false);
     const [updatedAt, setUpdatedAt] = useState(null);
     const [fullscreen, setFullscreen] = useState(false);
-    const overlayRef = useRef(null);
 
     const parlimenOptions = negeriId ? parlimenList.filter((p) => String(p.negeri_id) === String(negeriId)) : [];
     const kadunOptions = parlimenId ? kadunList.filter((k) => String(k.bandar_id) === String(parlimenId)) : [];
@@ -238,38 +237,24 @@ function ScoreboardBody({ negeriList, parlimenList, kadunList }) {
         return () => clearInterval(id);
     }, [fetchData, kadunId]);
 
-    // Enter/exit skrin penuh. The CSS overlay alone already hides the sidebar
-    // and fills the viewport (works even if native fullscreen is denied).
-    // flushSync mounts the overlay synchronously so its ref exists and we can
-    // request native fullscreen on THAT element — while still inside the click
-    // gesture (required for the API) and never touching documentElement.
-    const enterFullscreen = () => {
-        flushSync(() => setFullscreen(true)); // overlay now covers the screen no matter what
-        try {
-            const el = overlayRef.current;
-            if (el && el.requestFullscreen && !document.fullscreenElement) {
-                el.requestFullscreen().catch(() => {}); // stay in CSS overlay if denied
-            }
-        } catch { /* CSS overlay is enough on its own */ }
-    };
-    const exitFullscreen = () => {
-        if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
-        setFullscreen(false);
-    };
+    // Enter/exit skrin penuh via a full-viewport CSS overlay (portalled to
+    // <body>). We deliberately avoid the native Fullscreen API — promoting a
+    // fixed element to the browser top layer rendered blank on this app — so
+    // the overlay alone hides the sidebar and enlarges the board reliably.
+    const enterFullscreen = () => setFullscreen(true);
+    const exitFullscreen = () => setFullscreen(false);
 
-    // Keep React state in sync when the user leaves native fullscreen (Esc/F11).
-    useEffect(() => {
-        const onFsChange = () => { if (!document.fullscreenElement) setFullscreen(false); };
-        document.addEventListener('fullscreenchange', onFsChange);
-        return () => document.removeEventListener('fullscreenchange', onFsChange);
-    }, []);
-
-    // Esc exits the overlay even when the browser denied native fullscreen.
+    // Lock body scroll and allow Esc to close while the overlay is open.
     useEffect(() => {
         if (!fullscreen) return undefined;
-        const onKey = (e) => { if (e.key === 'Escape') exitFullscreen(); };
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        const onKey = (e) => { if (e.key === 'Escape') setFullscreen(false); };
         window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
+        return () => {
+            document.body.style.overflow = prevOverflow;
+            window.removeEventListener('keydown', onKey);
+        };
     }, [fullscreen]);
 
     return (
@@ -370,9 +355,11 @@ function ScoreboardBody({ negeriList, parlimenList, kadunList }) {
             )}
         </PilihanrayaShell>
 
-        {/* Skrin penuh — fixed overlay covers the sidebar & the whole viewport */}
-        {fullscreen && ready && (
-            <div ref={overlayRef} className="fixed inset-0 z-[60] bg-slate-50 overflow-y-auto">
+        {/* Skrin penuh — portalled to <body> so no ancestor CSS (transform,
+            overflow, stacking) can corrupt the fixed overlay or the fullscreen
+            top-layer render. Covers the sidebar and the whole viewport. */}
+        {fullscreen && ready && createPortal(
+            <div className="fixed inset-0 z-[9999] bg-slate-50 overflow-y-auto">
                 <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 bg-slate-50/90 backdrop-blur border-b border-slate-200">
                     <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
                         <Radio className="h-3.5 w-3.5 animate-pulse" /> LANGSUNG
@@ -385,7 +372,8 @@ function ScoreboardBody({ negeriList, parlimenList, kadunList }) {
                 <div className="p-4 sm:p-6 max-w-6xl mx-auto">
                     <Board data={data} />
                 </div>
-            </div>
+            </div>,
+            document.body,
         )}
         </>
     );
