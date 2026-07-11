@@ -221,7 +221,7 @@ export default function PublicScoreboard({ kadunId, initialBoard, negeriList = [
                 </main>
 
                 <footer className="max-w-5xl mx-auto px-4 pb-10 text-center">
-                    <p className="text-xs text-slate-400">Dikuasakan oleh <span className="font-semibold text-slate-500">Sistem Data Pengundi</span> · Papan markah langsung dari Borang 14</p>
+                    <p className="text-xs text-slate-400">Dikuasakan oleh <span className="font-semibold text-slate-500">SISDA</span></p>
                 </footer>
             </div>
         </>
