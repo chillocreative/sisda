@@ -26,6 +26,19 @@
     $awalPosRows = ($isBulohKasap ?? false)
         ? [['label' => 'UNDI AWAL & POS', 'berdaftar' => $undiAwalBerdaftar + $undiPosBerdaftar]]
         : [['label' => 'UNDI AWAL', 'berdaftar' => $undiAwalBerdaftar], ['label' => 'UNDI POS', 'berdaftar' => $undiPosBerdaftar]];
+
+    // Highest value in a row → green (lead), the rest → red (low); an
+    // all-zero row stays neutral. Mirrors the on-screen leadStatus() logic.
+    $leadStatus = function (array $values) {
+        $max = max(array_merge([0], $values));
+        if ($max <= 0) {
+            return array_fill(0, count($values), 'none');
+        }
+        return array_map(fn ($v) => $v === $max ? 'lead' : 'low', $values);
+    };
+    $cellClass = fn ($status) => $status === 'lead' ? 'lead' : ($status === 'low' ? 'low' : '');
+
+    $partyLogos = array_map(fn ($pn) => \App\Support\PartyLogo::dataUri($pn), $partyNames);
 @endphp
 <!DOCTYPE html>
 <html lang="ms">
@@ -52,6 +65,10 @@
         th { background: #e2e8f0; font-size: 7.5px; text-transform: uppercase; letter-spacing: .3px; }
         td.l, th.l { text-align: left; }
         tr.total td { background: #f1f5f9; font-weight: bold; }
+        td.lead { background: #d1fae5; color: #065f46; font-weight: bold; }
+        td.low { background: #ffe4e6; color: #9f1239; }
+        .party-logo { height: 12px; vertical-align: middle; margin-right: 3px; }
+        th .party-logo { height: 11px; }
         .special { width: 84%; margin: 16px auto 0; page-break-inside: avoid; }
         .special .title { background: #1e40af; color: #fff; padding: 5px 10px; font-size: 10px; border-radius: 3px 3px 0 0; }
         .foot { width: 84%; margin: 14px auto 0; text-align: right; font-size: 7px; color: #94a3b8; }
@@ -67,7 +84,7 @@
 
     <div class="legend">
         @foreach ($partyNames as $i => $pn)
-            <span><b>Parti {{ $i + 1 }}:</b> {{ $pn }}</span>
+            <span><b>Parti {{ $i + 1 }}:</b> @if ($partyLogos[$i])<img class="party-logo" src="{{ $partyLogos[$i] }}" alt="">@endif {{ $pn }}</span>
         @endforeach
     </div>
 
@@ -82,7 +99,7 @@
                 <thead>
                     <tr>
                         <th class="l">Saluran</th>
-                        @foreach ($partyNames as $pn)<th>{{ $pn }}</th>@endforeach
+                        @foreach ($partyNames as $i => $pn)<th>@if ($partyLogos[$i])<img class="party-logo" src="{{ $partyLogos[$i] }}" alt="">@endif{{ $pn }}</th>@endforeach
                         <th>Jumlah Keluar</th>
                         <th>Berdaftar</th>
                         <th>% Turnout</th>
@@ -101,10 +118,11 @@
                             }
                             $berdaftar = (int) ($s['berdaftar'] ?? 0);
                             $totKeluar += $keluar; $totBerdaftar += $berdaftar;
+                            $status = $leadStatus($slots);
                         @endphp
                         <tr>
                             <td class="l">Saluran {{ $s['no'] }}</td>
-                            @foreach ($slots as $v)<td>{{ $nf($v) }}</td>@endforeach
+                            @foreach ($slots as $i => $v)<td class="{{ $cellClass($status[$i]) }}">{{ $nf($v) }}</td>@endforeach
                             <td>{{ $nf($keluar) }}</td>
                             <td>{{ $nf($berdaftar) }}</td>
                             <td>{{ $pctf($keluar, $berdaftar) }}</td>
@@ -112,9 +130,10 @@
                             <td>{{ $pctf($berdaftar - $keluar, $berdaftar) }}</td>
                         </tr>
                     @endforeach
+                    @php $totStatus = $leadStatus($totSlots); @endphp
                     <tr class="total">
                         <td class="l">Jumlah Undi</td>
-                        @foreach ($totSlots as $v)<td>{{ $nf($v) }}</td>@endforeach
+                        @foreach ($totSlots as $i => $v)<td class="{{ $cellClass($totStatus[$i]) }}">{{ $nf($v) }}</td>@endforeach
                         <td>{{ $nf($totKeluar) }}</td>
                         <td>{{ $nf($totBerdaftar) }}</td>
                         <td>{{ $pctf($totKeluar, $totBerdaftar) }}</td>
@@ -132,7 +151,7 @@
             <thead>
                 <tr>
                     <th class="l">Saluran</th>
-                    @foreach ($partyNames as $pn)<th>{{ $pn }}</th>@endforeach
+                    @foreach ($partyNames as $i => $pn)<th>@if ($partyLogos[$i])<img class="party-logo" src="{{ $partyLogos[$i] }}" alt="">@endif{{ $pn }}</th>@endforeach
                     <th>Jumlah Keluar</th>
                     <th>Berdaftar</th>
                     <th>% Turnout</th>
@@ -146,10 +165,11 @@
                         $label = $row['label']; $berdaftar = $row['berdaftar'];
                         $keluar = 0; $slots = [];
                         for ($i = 0; $i < $nParties; $i++) { $v = $vote('', $label, $i + 1); $slots[$i] = $v; $keluar += $v; }
+                        $status = $leadStatus($slots);
                     @endphp
                     <tr>
                         <td class="l">{{ $label }}</td>
-                        @foreach ($slots as $v)<td>{{ $nf($v) }}</td>@endforeach
+                        @foreach ($slots as $i => $v)<td class="{{ $cellClass($status[$i]) }}">{{ $nf($v) }}</td>@endforeach
                         <td>{{ $nf($keluar) }}</td>
                         <td>{{ $nf($berdaftar) }}</td>
                         <td>{{ $pctf($keluar, $berdaftar) }}</td>
