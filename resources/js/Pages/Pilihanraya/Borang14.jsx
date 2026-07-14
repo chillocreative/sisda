@@ -256,7 +256,7 @@ function GrandSummary({ partyNames, totals }) {
     );
 
     return (
-        <div className={`${t.card} mt-4`}>
+        <div className={`${t.card} mt-4 mb-4`}>
             <div className="mb-4">
                 <div className={`text-sm font-bold ${t.text}`}>Ringkasan Keseluruhan</div>
                 <div className={`text-xs ${t.subtext}`}>Semua pusat mengundi termasuk undi awal &amp; undi pos</div>
