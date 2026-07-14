@@ -174,10 +174,11 @@ function VoteTable({ block, partyNames, votes, onSave, anchorId }) {
 
 /* ----------------------- undi awal / undi pos -------------------------- */
 
-// Undi Awal & Undi Pos are entered as one combined row.
-const SPECIAL_ROWS = ['UNDI AWAL & POS'];
+// Undi Awal & Undi Pos are combined into a single row only for DUN Buloh
+// Kasap; every other DUN keeps them as two separate rows.
+const BULOH_KASAP_KADUN_ID = 41;
 
-function UndiAwalPosTable({ partyNames, votes, onSave, berdaftarByRow }) {
+function UndiAwalPosTable({ partyNames, votes, onSave, rows }) {
     const { t } = usePilihanrayaTheme();
     const nParties = partyNames.length;
 
@@ -200,11 +201,10 @@ function UndiAwalPosTable({ partyNames, votes, onSave, berdaftarByRow }) {
                         </tr>
                     </thead>
                     <tbody>
-                        {SPECIAL_ROWS.map((label) => {
+                        {rows.map(({ label, berdaftar }) => {
                             const slots = Array.from({ length: nParties }, (_, i) =>
                                 votes[cellKey('', label, i + 1)] ?? 0);
                             const keluar = slots.reduce((a, b) => a + b, 0);
-                            const berdaftar = berdaftarByRow?.[label] ?? 0; // registered voters from SPR reference
                             const status = leadStatus(slots);
                             return (
                                 <tr key={label} className={t.tableRow}>
@@ -375,6 +375,18 @@ function Borang14Body({ negeriList, parlimenList, kadunList, partiList, penjuruO
         document.getElementById(anchorId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
+    const isBulohKasap = Number(kadunId) === BULOH_KASAP_KADUN_ID;
+
+    // Undi Awal & Undi Pos rows for the current DUN: one combined row for
+    // Buloh Kasap, two separate rows (each with its own Berdaftar) elsewhere.
+    const undiAwalPosRows = useMemo(() => {
+        const awal = reference?.undi_awal?.berdaftar ?? 0;
+        const pos = reference?.undi_pos?.berdaftar ?? 0;
+        return isBulohKasap
+            ? [{ label: 'UNDI AWAL & POS', berdaftar: awal + pos }]
+            : [{ label: 'UNDI AWAL', berdaftar: awal }, { label: 'UNDI POS', berdaftar: pos }];
+    }, [reference, isBulohKasap]);
+
     // Grand rollup across every saluran + undi awal & pos for the bottom summary.
     const summary = useMemo(() => {
         const nParties = partyNames.length;
@@ -388,18 +400,15 @@ function Borang14Body({ negeriList, parlimenList, kadunList, partiList, penjuruO
                 }
             });
         });
-        const specialBerdaftar = {
-            'UNDI AWAL & POS': (reference?.undi_awal?.berdaftar ?? 0) + (reference?.undi_pos?.berdaftar ?? 0),
-        };
-        SPECIAL_ROWS.forEach((label) => {
-            berdaftar += specialBerdaftar[label] || 0;
+        undiAwalPosRows.forEach(({ label, berdaftar: rowBerdaftar }) => {
+            berdaftar += rowBerdaftar;
             for (let i = 0; i < nParties; i++) {
                 partyTotals[i] += votes[cellKey('', label, i + 1)] ?? 0;
             }
         });
         const keluar = partyTotals.reduce((a, b) => a + b, 0);
         return { partyTotals, keluar, berdaftar };
-    }, [blocks, votes, partyNames, reference]);
+    }, [blocks, votes, partyNames, undiAwalPosRows]);
 
     const persistParties = useCallback((next) => {
         if (!kadunId || !penjuru) return;
@@ -547,6 +556,8 @@ function Borang14Body({ negeriList, parlimenList, kadunList, partiList, penjuruO
                         </button>
                     </div>
 
+                    <GrandSummary partyNames={partyNames} totals={summary} />
+
                     {/* Jump-to-DM buttons — scroll straight to the DM the user wants to fill. */}
                     {dmList.length > 1 && (
                         <div className={`${t.cardTight} mb-4`}>
@@ -584,13 +595,9 @@ function Borang14Body({ negeriList, parlimenList, kadunList, partiList, penjuruO
                             partyNames={partyNames}
                             votes={votes}
                             onSave={saveVote}
-                            berdaftarByRow={{
-                                'UNDI AWAL & POS': (reference?.undi_awal?.berdaftar ?? 0) + (reference?.undi_pos?.berdaftar ?? 0),
-                            }}
+                            rows={undiAwalPosRows}
                         />
                     </div>
-
-                    <GrandSummary partyNames={partyNames} totals={summary} />
                 </>
             )}
         </>

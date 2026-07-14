@@ -16,6 +16,9 @@ use Inertia\Inertia;
 
 class Borang14Controller extends Controller
 {
+    /** Undi Awal & Undi Pos are combined into a single row only for this DUN. */
+    private const BULOH_KASAP_KADUN_ID = 41;
+
     /** Penjuru dropdown → number of party columns. */
     private const PENJURU = [
         2 => '1 vs 1',
@@ -181,6 +184,7 @@ class Borang14Controller extends Controller
             'parties'   => $parties,
             'votes'     => $votes,
             'logo'      => $logo,
+            'isBulohKasap' => (int) $validated['kadun_id'] === self::BULOH_KASAP_KADUN_ID,
         ])
             ->setPaper('a4', 'landscape')
             ->setOptions(['isHtml5ParserEnabled' => true, 'isRemoteEnabled' => false, 'defaultFont' => 'DejaVu Sans']);

@@ -18,6 +18,14 @@
     }
     $nf = fn ($n) => number_format((int) $n);
     $pctf = fn ($num, $den) => $den > 0 ? number_format($num / $den * 100, 1) . '%' : '—';
+
+    // Undi Awal & Undi Pos: one combined row for Buloh Kasap (matches how the
+    // votes were saved on-screen), two separate rows for every other DUN.
+    $undiAwalBerdaftar = $reference['undi_awal']['berdaftar'] ?? 0;
+    $undiPosBerdaftar = $reference['undi_pos']['berdaftar'] ?? 0;
+    $awalPosRows = ($isBulohKasap ?? false)
+        ? [['label' => 'UNDI AWAL & POS', 'berdaftar' => $undiAwalBerdaftar + $undiPosBerdaftar]]
+        : [['label' => 'UNDI AWAL', 'berdaftar' => $undiAwalBerdaftar], ['label' => 'UNDI POS', 'berdaftar' => $undiPosBerdaftar]];
 @endphp
 <!DOCTYPE html>
 <html lang="ms">
@@ -133,16 +141,11 @@
                 </tr>
             </thead>
             <tbody>
-                @php
-                    $specialBerdaftar = [
-                        'UNDI AWAL' => $reference['undi_awal']['berdaftar'] ?? 0,
-                        'UNDI POS'  => $reference['undi_pos']['berdaftar'] ?? 0,
-                    ];
-                @endphp
-                @foreach (['UNDI AWAL', 'UNDI POS'] as $label)
-                    @php $keluar = 0; $slots = [];
+                @foreach ($awalPosRows as $row)
+                    @php
+                        $label = $row['label']; $berdaftar = $row['berdaftar'];
+                        $keluar = 0; $slots = [];
                         for ($i = 0; $i < $nParties; $i++) { $v = $vote('', $label, $i + 1); $slots[$i] = $v; $keluar += $v; }
-                        $berdaftar = $specialBerdaftar[$label] ?? 0;
                     @endphp
                     <tr>
                         <td class="l">{{ $label }}</td>
