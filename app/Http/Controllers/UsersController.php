@@ -179,12 +179,19 @@ class UsersController extends Controller
             'name' => 'required|string|max:255',
             'telephone' => 'required|string|max:255|unique:users,telephone,' . $user->id,
             'email' => 'nullable|string|email|max:255|unique:users,email,' . $user->id,
+            'password' => ['nullable', 'confirmed', Rules\Password::defaults()],
             'role' => 'required|in:super_admin,admin,super_user,user',
             'negeri_id' => 'required|exists:negeri,id',
             'bandar_id' => 'required|exists:bandar,id',
             'kadun_id' => 'required|exists:kadun,id',
             'status' => 'required|in:pending,approved,rejected',
         ]);
+
+        if (! empty($validated['password'])) {
+            $validated['password'] = Hash::make($validated['password']);
+        } else {
+            unset($validated['password']);
+        }
 
         // Admin Restriction: Cannot promote to Super Admin or move user outside Parlimen
         if ($currentUser->isAdmin()) {

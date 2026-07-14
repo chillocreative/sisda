@@ -492,6 +492,7 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
                                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                                         className="w-full mt-1"
                                         placeholder={editingUser ? 'Biarkan kosong jika tidak tukar' : ''}
+                                        autoComplete="new-password"
                                         required={!editingUser}
                                     />
                                 </div>
@@ -503,6 +504,7 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
                                             value={formData.password_confirmation}
                                             onChange={(e) => setFormData({ ...formData, password_confirmation: e.target.value })}
                                             className="w-full mt-1"
+                                            autoComplete="new-password"
                                             required={!editingUser || formData.password}
                                         />
                                     </div>
