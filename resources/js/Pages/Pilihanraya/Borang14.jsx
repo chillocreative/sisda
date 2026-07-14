@@ -555,6 +555,13 @@ function Borang14Body({ negeriList, parlimenList, kadunList, partiList, penjuruO
                         </button>
                     </div>
 
+                    {reference.source === 'dpt_estimate' && (
+                        <div className={`${t.banner} flex items-center gap-2 mb-4`}>
+                            <Info className="h-4 w-4 shrink-0" />
+                            <span>Pusat Mengundi &amp; Berdaftar dianggarkan daripada data DPT yang dimuat naik (dikumpul ikut Lokaliti, satu Saluran setiap Pusat Mengundi) — bukan pecahan Saluran rasmi gazet SPR.</span>
+                        </div>
+                    )}
+
                     <GrandSummary partyNames={partyNames} totals={summary} />
 
                     {/* Jump-to-Pusat-Mengundi — scroll straight to the card the user wants to fill. */}
