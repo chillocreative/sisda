@@ -317,6 +317,7 @@ function Borang14Body({ negeriList, parlimenList, kadunList, partiList, penjuruO
     const [hasData, setHasData] = useState(true);
     const [votes, setVotes] = useState({});
     const [loading, setLoading] = useState(false);
+    const [selectedPusat, setSelectedPusat] = useState('');
 
     const parlimenOptions = negeriId
         ? parlimenList.filter((p) => String(p.negeri_id) === String(negeriId))
@@ -332,6 +333,7 @@ function Borang14Body({ negeriList, parlimenList, kadunList, partiList, penjuruO
         if (!kadunId) { setReference(null); setHasData(true); setVotes({}); return; }
         let cancelled = false;
         setLoading(true);
+        setSelectedPusat('');
         axios.get(route('pilihanraya.borang-14.data'), { params: { kadun_id: kadunId, penjuru: penjuru || undefined } })
             .then(({ data }) => {
                 if (cancelled) return;
@@ -360,19 +362,16 @@ function Borang14Body({ negeriList, parlimenList, kadunList, partiList, penjuruO
 
     const blocks = useMemo(() => toBlocks(reference), [reference]);
 
-    // One anchor per unique DM (in order), pointing at that DM's first block —
-    // lets the jump buttons scroll straight to the card the user wants to fill.
-    const dmAnchors = useMemo(() => {
-        const map = new Map(); // dm name -> anchor id
-        blocks.forEach((b) => {
-            if (!map.has(b.dm)) map.set(b.dm, `dm-${map.size}`);
-        });
-        return map;
-    }, [blocks]);
-    const dmList = useMemo(() => Array.from(dmAnchors.entries()), [dmAnchors]);
+    // One anchor per Pusat Mengundi (each block is already one PM) — lets the
+    // dropdown jump straight to the card the user wants to fill.
+    const pusatAnchors = useMemo(
+        () => blocks.map((b, i) => ({ anchorId: `pm-${i}`, dm: b.dm, pusat: b.pusat })),
+        [blocks],
+    );
 
-    const scrollToDm = (anchorId) => {
-        document.getElementById(anchorId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const goToPusat = () => {
+        if (!selectedPusat) return;
+        document.getElementById(selectedPusat)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
     const isBulohKasap = Number(kadunId) === BULOH_KASAP_KADUN_ID;
@@ -558,21 +557,31 @@ function Borang14Body({ negeriList, parlimenList, kadunList, partiList, penjuruO
 
                     <GrandSummary partyNames={partyNames} totals={summary} />
 
-                    {/* Jump-to-DM buttons — scroll straight to the DM the user wants to fill. */}
-                    {dmList.length > 1 && (
+                    {/* Jump-to-Pusat-Mengundi — scroll straight to the card the user wants to fill. */}
+                    {pusatAnchors.length > 1 && (
                         <div className={`${t.cardTight} mb-4`}>
                             <div className="flex flex-wrap items-center gap-2">
-                                <span className={`text-xs font-semibold uppercase tracking-wider ${t.subtext} mr-1`}>Lompat ke DM</span>
-                                {dmList.map(([dm, anchorId]) => (
-                                    <button
-                                        key={anchorId}
-                                        type="button"
-                                        onClick={() => scrollToDm(anchorId)}
-                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 text-sm font-medium"
-                                    >
-                                        <MapPin className="h-3.5 w-3.5" /> {dm}
-                                    </button>
-                                ))}
+                                <span className={`text-xs font-semibold uppercase tracking-wider ${t.subtext} mr-1 inline-flex items-center gap-1`}>
+                                    <MapPin className="h-3.5 w-3.5" /> Pusat Mengundi
+                                </span>
+                                <select
+                                    value={selectedPusat}
+                                    onChange={(e) => setSelectedPusat(e.target.value)}
+                                    className={`${t.input} max-w-md`}
+                                >
+                                    <option value="">Pilih Pusat Mengundi</option>
+                                    {pusatAnchors.map(({ anchorId, dm, pusat }) => (
+                                        <option key={anchorId} value={anchorId}>{pusat} — DM: {dm}</option>
+                                    ))}
+                                </select>
+                                <button
+                                    type="button"
+                                    onClick={goToPusat}
+                                    disabled={!selectedPusat}
+                                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-slate-900 text-white text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-800"
+                                >
+                                    Go
+                                </button>
                             </div>
                         </div>
                     )}
@@ -585,7 +594,7 @@ function Borang14Body({ negeriList, parlimenList, kadunList, partiList, penjuruO
                                 partyNames={partyNames}
                                 votes={votes}
                                 onSave={saveVote}
-                                anchorId={blocks.findIndex((x) => x.dm === b.dm) === i ? dmAnchors.get(b.dm) : undefined}
+                                anchorId={pusatAnchors[i]?.anchorId}
                             />
                         ))}
                     </div>
