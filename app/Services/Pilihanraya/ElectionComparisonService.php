@@ -55,6 +55,9 @@ class ElectionComparisonService
             ."each scenario's `tarikh` (coalition landscape, national events such as PRU-14 2018, Langkah Sheraton 2020, "
             .'PRN Johor 2022, PRU-15, Undi18 / automatic voter registration, economic conditions) AND the situation now '
             ."({$today}). Use search ONLY for qualitative context and causal argument — never for numbers about this seat. "
+            .'IMPORTANT: the contesting parties differ per scenario and are given in each scenario\'s `parti` list and '
+            .'`undi`/`peratus_undi` maps (read from the actual scoresheet) — refer to parties by their real names as '
+            .'given; do NOT assume a fixed PH/BN/PN line-up. '
             .'Respond ONLY with a JSON object matching exactly this schema: '
             .'{"tajuk":"string","ringkasan_eksekutif":"string",'
             .'"pengundi_baru_lama":{"analisis":"string","bullet_points":["string"]},'
@@ -132,53 +135,62 @@ class ElectionComparisonService
         ];
     }
 
-    /** Derived per-scenario summary — all figures from the persisted totals. */
+    /**
+     * Derived per-scenario summary — party-agnostic. Parties come from the
+     * scenario's own `undi` map (detected from the uploaded sheet), so any set
+     * of contesting parties is supported.
+     */
     private function scenarioSummary($scenario): array
     {
         $t = $scenario->parsed_totals ?? [];
         $rows = $scenario->parsed_rows ?? [];
 
+        $undi = collect($t['undi'] ?? [])->map(fn ($v) => (int) $v)->all();
+        $parties = ! empty($t['parties']) ? array_values($t['parties']) : array_keys($undi);
+
         $pemilih = (float) ($t['pemilih'] ?? 0);
-        $keluar = (float) ($t['keluar'] ?? 0);
-        $ph = (float) ($t['ph'] ?? 0);
-        $bn = (float) ($t['bn'] ?? 0);
-        $pn = (float) ($t['pn'] ?? 0);
-        $pejuang = (float) ($t['pejuang'] ?? 0);
         $ditolak = (float) ($t['ditolak'] ?? 0);
+        $keluar = (float) ($t['keluar'] ?? 0);
+        if ($keluar <= 0) {
+            $keluar = array_sum($undi) + $ditolak;
+        }
 
         $share = fn ($v) => $keluar > 0 ? round($v / $keluar * 100, 1) : 0;
+        $peratus = [];
+        foreach ($parties as $p) {
+            $peratus[$p] = $share((int) ($undi[$p] ?? 0));
+        }
 
-        $parties = ['PH' => $ph, 'BN' => $bn, 'PN' => $pn, 'PEJUANG' => $pejuang];
-        arsort($parties);
-        $ranked = array_keys($parties);
-        $vals = array_values($parties);
+        $ranked = $undi;
+        arsort($ranked);
+        $rankedKeys = array_keys($ranked);
+        $rankedVals = array_values($ranked);
 
         // Cap oversized sheets in the AI payload (totals stay exact).
         $truncated = count($rows) > 40;
         $dmRows = collect($rows)
-            ->sortByDesc(fn ($r) => (float) ($r['keluar'] ?? 0))
+            ->sortByDesc(fn ($r) => (float) ($r['keluar'] ?? array_sum($r['undi'] ?? [])))
             ->take($truncated ? 15 : 100)
             ->map(fn ($r) => [
-                'dm' => $r['dm'] ?? '',
+                'kawasan' => $r['kawasan'] ?? ($r['dm'] ?? ''),
                 'pemilih' => (int) ($r['pemilih'] ?? 0),
                 'keluar' => (int) ($r['keluar'] ?? 0),
-                'ph' => (int) ($r['ph'] ?? 0),
-                'bn' => (int) ($r['bn'] ?? 0),
-                'pn' => (int) ($r['pn'] ?? 0),
+                'undi' => collect($r['undi'] ?? [])->map(fn ($v) => (int) $v)->all(),
             ])->values()->all();
 
         return [
             'label' => $scenario->label,
             'tarikh' => $scenario->election_date?->format('Y-m-d'),
             'tahun' => $scenario->election_date?->format('Y'),
+            'parti' => $parties,
             'pemilih_berdaftar' => (int) $pemilih,
             'undi_keluar' => (int) $keluar,
             'peratus_keluar' => $pemilih > 0 ? round($keluar / $pemilih * 100, 1) : null,
-            'undi' => ['ph' => (int) $ph, 'bn' => (int) $bn, 'pn' => (int) $pn, 'pejuang' => (int) $pejuang, 'ditolak' => (int) $ditolak],
-            'peratus_undi' => ['ph' => $share($ph), 'bn' => $share($bn), 'pn' => $share($pn), 'pejuang' => $share($pejuang)],
-            'pemenang' => $ranked[0] ?? null,
-            'majoriti' => (int) round(($vals[0] ?? 0) - ($vals[1] ?? 0)),
-            'daerah_mengundi' => $dmRows,
+            'undi' => $undi,
+            'peratus_undi' => $peratus,
+            'pemenang' => $rankedKeys[0] ?? null,
+            'majoriti' => (int) round(($rankedVals[0] ?? 0) - ($rankedVals[1] ?? 0)),
+            'kawasan' => $dmRows,
             'rows_truncated' => $truncated,
         ];
     }
@@ -191,6 +203,13 @@ class ElectionComparisonService
             $a = $summaries[$i - 1];
             $b = $summaries[$i];
             $dPemilih = $b['pemilih_berdaftar'] - $a['pemilih_berdaftar'];
+
+            $parties = array_values(array_unique(array_merge($a['parti'] ?? [], $b['parti'] ?? [])));
+            $ayun = [];
+            foreach ($parties as $p) {
+                $ayun[$p] = round(($b['peratus_undi'][$p] ?? 0) - ($a['peratus_undi'][$p] ?? 0), 1);
+            }
+
             $out[] = [
                 'dari' => $a['label'],
                 'ke' => $b['label'],
@@ -198,11 +217,7 @@ class ElectionComparisonService
                 'perubahan_pemilih_pct' => $a['pemilih_berdaftar'] > 0 ? round($dPemilih / $a['pemilih_berdaftar'] * 100, 1) : null,
                 'perubahan_peratus_keluar' => ($a['peratus_keluar'] !== null && $b['peratus_keluar'] !== null)
                     ? round($b['peratus_keluar'] - $a['peratus_keluar'], 1) : null,
-                'ayunan_undi' => [
-                    'ph' => round($b['peratus_undi']['ph'] - $a['peratus_undi']['ph'], 1),
-                    'bn' => round($b['peratus_undi']['bn'] - $a['peratus_undi']['bn'], 1),
-                    'pn' => round($b['peratus_undi']['pn'] - $a['peratus_undi']['pn'], 1),
-                ],
+                'ayunan_undi' => $ayun,
             ];
         }
 

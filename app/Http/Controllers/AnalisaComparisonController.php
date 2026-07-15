@@ -5,9 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\AnalisaComparison;
 use App\Models\AnalisaScenario;
 use App\Services\Pilihanraya\ElectionComparisonService;
+use App\Services\Pilihanraya\ScoresheetExtractor;
 use App\Support\Pdf;
 use App\Support\Pilihanraya\JohorElectionData;
-use App\Support\Pilihanraya\ScoresheetParser;
 use Illuminate\Http\Request;
 
 /**
@@ -60,7 +60,7 @@ class AnalisaComparisonController extends Controller
         return response()->json(['comparisons' => $this->listPayload()]);
     }
 
-    public function storeScenario(Request $request, AnalisaComparison $comparison)
+    public function storeScenario(Request $request, AnalisaComparison $comparison, ScoresheetExtractor $extractor)
     {
         $data = $request->validate([
             'label' => 'required|string|max:120',
@@ -72,10 +72,15 @@ class AnalisaComparisonController extends Controller
             return response()->json(['message' => 'Maksimum 3 senario setiap perbandingan.'], 422);
         }
 
-        $parsed = ScoresheetParser::parse($request->file('fail'));
-        if (empty($parsed['parsed']['rows'])) {
+        @set_time_limit(180);
+        $file = $request->file('fail');
+
+        // The AI reads the sheet itself and detects the contesting parties from
+        // its own headers; the standard layout is still parsed for free first.
+        $extracted = $extractor->extract($file);
+        if (! $extracted || empty($extracted['rows'])) {
             return response()->json([
-                'message' => 'Format scoresheet tidak dikenali. Pastikan fail mempunyai lajur Daerah Mengundi serta PH dan BN.',
+                'message' => 'Tidak dapat membaca scoresheet ini. Untuk fail format bukan standard, aktifkan AI (Tetapan → Claude) supaya sistem boleh membaca data dan mengesan parti yang bertanding secara automatik.',
             ], 422);
         }
 
@@ -86,10 +91,10 @@ class AnalisaComparisonController extends Controller
             'position' => $position,
             'label' => $data['label'],
             'election_date' => $data['election_date'],
-            'source_filename' => $parsed['filename'],
-            'parsed_rows' => $parsed['parsed']['rows'],
-            'parsed_totals' => $parsed['parsed']['totals'],
-            'row_count' => count($parsed['parsed']['rows']),
+            'source_filename' => $file->getClientOriginalName(),
+            'parsed_rows' => $extracted['rows'],
+            'parsed_totals' => $extracted['totals'],
+            'row_count' => count($extracted['rows']),
         ]);
 
         // Re-analysis needed after the scenario set changes.

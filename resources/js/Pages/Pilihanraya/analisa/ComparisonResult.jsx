@@ -1,8 +1,9 @@
 import {
     AlertTriangle, ArrowRight, Download, ExternalLink, Sparkles, TrendingDown, TrendingUp,
 } from 'lucide-react';
+import { useMemo } from 'react';
 import { usePilihanrayaTheme } from '../components/PilihanrayaShell';
-import { PARTY } from './shared';
+import { partyColor } from './shared';
 
 const fmt = (n) => (n === null || n === undefined || Number.isNaN(Number(n)) ? '—'
     : Number(n).toLocaleString('en-MY'));
@@ -50,6 +51,16 @@ export default function ComparisonResult({ comparison }) {
     const saluran = facts.saluran_semasa || {};
     const isFallback = comparison.ai_status === 'fallback';
     const isEstimate = saluran.sumber === 'dpt_estimate';
+
+    // Party set = union across scenarios, in first-seen order (detected from
+    // the uploaded sheets, so any line-up is supported).
+    const allParties = useMemo(() => {
+        const seen = [];
+        senario.forEach((s) => (s.parti || Object.keys(s.undi || {})).forEach((p) => {
+            if (!seen.includes(p)) seen.push(p);
+        }));
+        return seen;
+    }, [senario]);
 
     const metricRow = (label, render) => (
         <tr className={t.tableRow}>
@@ -110,15 +121,23 @@ export default function ComparisonResult({ comparison }) {
                                 {metricRow('Pemilih Berdaftar', (s) => fmt(s.pemilih_berdaftar))}
                                 {metricRow('Undi Keluar', (s) => fmt(s.undi_keluar))}
                                 {metricRow('% Keluar', (s) => (s.peratus_keluar !== null ? `${s.peratus_keluar}%` : '—'))}
-                                <tr className={t.tableRow}>
-                                    <td className={`${t.tableCell} font-medium`}>Undi PH</td>
-                                    {senario.map((s, i) => <td key={i} className="px-3 py-2 text-sm text-right tabular-nums font-semibold" style={{ color: PARTY.PH }}>{fmt(s.undi.ph)}</td>)}
-                                </tr>
-                                <tr className={t.tableRow}>
-                                    <td className={`${t.tableCell} font-medium`}>Undi BN</td>
-                                    {senario.map((s, i) => <td key={i} className="px-3 py-2 text-sm text-right tabular-nums font-semibold" style={{ color: PARTY.BN }}>{fmt(s.undi.bn)}</td>)}
-                                </tr>
-                                {metricRow('Undi PN', (s) => fmt(s.undi.pn))}
+                                {allParties.map((party, pi) => (
+                                    <tr key={party} className={t.tableRow}>
+                                        <td className={`${t.tableCell} font-medium`}>
+                                            <span className="inline-flex items-center gap-1.5">
+                                                <span className="h-2.5 w-2.5 rounded-sm" style={{ background: partyColor(party, pi) }} />
+                                                {party}
+                                            </span>
+                                        </td>
+                                        {senario.map((s, i) => (
+                                            <td key={i} className="px-3 py-2 text-sm text-right tabular-nums font-semibold" style={{ color: partyColor(party, pi) }}>
+                                                {s.undi && s.undi[party] !== undefined
+                                                    ? `${fmt(s.undi[party])} (${s.peratus_undi?.[party] ?? 0}%)`
+                                                    : '—'}
+                                            </td>
+                                        ))}
+                                    </tr>
+                                ))}
                                 <tr className={t.tableRow}>
                                     <td className={`${t.tableCell} font-medium`}>Pemenang</td>
                                     {senario.map((s, i) => <td key={i} className="px-3 py-2 text-sm text-right font-bold text-slate-900">{s.pemenang || '—'}</td>)}

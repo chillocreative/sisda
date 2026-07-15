@@ -40,8 +40,8 @@
 
         .bar-row { margin-bottom: 6px; }
         .bar-logo { width: 16px; height: 16px; vertical-align: middle; }
-        .bar-name { display: inline-block; width: 90px; font-size: 9px; color: #334155; vertical-align: middle; }
-        .bar-track { display: inline-block; vertical-align: middle; width: 200px; height: 11px; background: #f1f5f9; border-radius: 3px; overflow: hidden; }
+        .bar-name { display: inline-block; width: 135px; font-size: 9px; color: #334155; vertical-align: middle; }
+        .bar-track { display: inline-block; vertical-align: middle; width: 170px; height: 11px; background: #f1f5f9; border-radius: 3px; overflow: hidden; }
         .bar-fill { height: 11px; border-radius: 3px; display: inline-block; }
         .bar-pct { display: inline-block; vertical-align: middle; font-size: 9px; font-weight: bold; margin-left: 6px; }
 
@@ -80,6 +80,26 @@
         ? round($growth / $first['pemilih_berdaftar'] * 100, 1) : 0;
 
     $n = fn ($v) => number_format((float) $v);
+
+    // Party colours (party-agnostic — detected from the sheets).
+    $pmap = [
+        'PH'=>'#e11d48','PAKATAN HARAPAN'=>'#e11d48','HARAPAN'=>'#e11d48','PKR'=>'#e11d48','KEADILAN'=>'#e11d48','DAP'=>'#e11d48','AMANAH'=>'#e11d48',
+        'BN'=>'#1d4ed8','BARISAN NASIONAL'=>'#1d4ed8','UMNO'=>'#1d4ed8','MCA'=>'#1d4ed8','MIC'=>'#1d4ed8',
+        'PN'=>'#0d9488','PERIKATAN NASIONAL'=>'#0d9488','BERSATU'=>'#0d9488','PAS'=>'#0d9488','GERAKAN'=>'#0d9488',
+        'PEJUANG'=>'#f59e0b','MUDA'=>'#8b5cf6','GPS'=>'#16a34a','GRS'=>'#16a34a',
+    ];
+    $palette = ['#e11d48','#1d4ed8','#0d9488','#f59e0b','#8b5cf6','#16a34a','#db2777','#0891b2'];
+    $pcolor = function ($name, $i) use ($pmap, $palette) {
+        $k = mb_strtoupper(trim((string) $name));
+        return $pmap[$k] ?? $palette[$i % count($palette)];
+    };
+    $allParties = [];
+    foreach ($senario as $s) {
+        foreach (($s['parti'] ?? array_keys($s['undi'] ?? [])) as $p) {
+            if (! in_array($p, $allParties, true)) $allParties[] = $p;
+        }
+    }
+
     $statusLabel = ($comparison->ai_status ?? '') === 'fallback' ? 'Laporan Deterministik' : 'Analisis AI';
     $isEstimate = ($saluran['sumber'] ?? '') === 'dpt_estimate';
     $genAt = optional($comparison->ai_generated_at)->translatedFormat('d F Y, g:i A') ?? now()->translatedFormat('d F Y');
@@ -139,9 +159,14 @@
             <tr><td class="lbl">Pemilih Berdaftar</td>@foreach ($senario as $s)<td>{{ $n($s['pemilih_berdaftar']) }}</td>@endforeach</tr>
             <tr><td class="lbl">Undi Keluar</td>@foreach ($senario as $s)<td>{{ $n($s['undi_keluar']) }}</td>@endforeach</tr>
             <tr><td class="lbl">% Keluar</td>@foreach ($senario as $s)<td>{{ $s['peratus_keluar'] !== null ? $s['peratus_keluar'].'%' : '—' }}</td>@endforeach</tr>
-            <tr><td class="lbl">Undi PH</td>@foreach ($senario as $s)<td style="color:#e11d48; font-weight:600;">{{ $n($s['undi']['ph']) }}</td>@endforeach</tr>
-            <tr><td class="lbl">Undi BN</td>@foreach ($senario as $s)<td style="color:#1d4ed8; font-weight:600;">{{ $n($s['undi']['bn']) }}</td>@endforeach</tr>
-            <tr><td class="lbl">Undi PN</td>@foreach ($senario as $s)<td style="color:#0d9488;">{{ $n($s['undi']['pn']) }}</td>@endforeach</tr>
+            @foreach ($allParties as $pi => $party)
+            <tr>
+                <td class="lbl"><span style="display:inline-block;width:8px;height:8px;background:{{ $pcolor($party,$pi) }};"></span> {{ $party }}</td>
+                @foreach ($senario as $s)
+                    <td style="color:{{ $pcolor($party,$pi) }}; font-weight:600;">{{ isset($s['undi'][$party]) ? $n($s['undi'][$party]).' ('.($s['peratus_undi'][$party] ?? 0).'%)' : '—' }}</td>
+                @endforeach
+            </tr>
+            @endforeach
             <tr><td class="lbl">Pemenang</td>@foreach ($senario as $s)<td style="font-weight:bold;">{{ $s['pemenang'] ?? '—' }}</td>@endforeach</tr>
             <tr><td class="lbl">Majoriti</td>@foreach ($senario as $s)<td>{{ $n($s['majoriti']) }}</td>@endforeach</tr>
         </tbody>
@@ -149,20 +174,16 @@
 
     <div style="margin-top:14px;">
         @foreach ($senario as $s)
-            @php $ph = $s['peratus_undi']['ph'] ?? 0; $bn = $s['peratus_undi']['bn'] ?? 0; @endphp
-            <div style="font-size:9px; color:#64748b; margin:8px 0 4px;">{{ $s['label'] }} — PH vs BN (% undi)</div>
-            <div class="bar-row">
-                @if (PartyLogo::dataUri('PH'))<img src="{{ PartyLogo::dataUri('PH') }}" class="bar-logo">@endif
-                <span class="bar-name">PH</span>
-                <span class="bar-track"><span class="bar-fill" style="width:{{ min(100, $ph) }}%; background:#e11d48;"></span></span>
-                <span class="bar-pct" style="color:#e11d48;">{{ $ph }}%</span>
-            </div>
-            <div class="bar-row">
-                @if (PartyLogo::dataUri('BN'))<img src="{{ PartyLogo::dataUri('BN') }}" class="bar-logo">@endif
-                <span class="bar-name">BN</span>
-                <span class="bar-track"><span class="bar-fill" style="width:{{ min(100, $bn) }}%; background:#1d4ed8;"></span></span>
-                <span class="bar-pct" style="color:#1d4ed8;">{{ $bn }}%</span>
-            </div>
+            <div style="font-size:9px; color:#64748b; margin:8px 0 4px;">{{ $s['label'] }} — % undi mengikut parti</div>
+            @foreach (($s['parti'] ?? array_keys($s['undi'] ?? [])) as $pi => $party)
+                @php $pv = $s['peratus_undi'][$party] ?? 0; $col = $pcolor($party, $pi); $logo = PartyLogo::dataUri($party); @endphp
+                <div class="bar-row">
+                    @if ($logo)<img src="{{ $logo }}" class="bar-logo">@endif
+                    <span class="bar-name">{{ $party }}</span>
+                    <span class="bar-track"><span class="bar-fill" style="width:{{ min(100, $pv) }}%; background:{{ $col }};"></span></span>
+                    <span class="bar-pct" style="color:{{ $col }};">{{ $pv }}%</span>
+                </div>
+            @endforeach
         @endforeach
     </div>
 </div>

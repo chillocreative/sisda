@@ -17,6 +17,23 @@ export const PARTY_LABEL = {
     ditolak: 'Ditolak',
 };
 
+// Party/coalition colours for the (party-agnostic) comparison views. Known
+// names map to a fixed colour; anything else cycles through the palette by
+// index so unfamiliar parties still render distinctly.
+export const PARTY_PALETTE = ['#e11d48', '#1d4ed8', '#0d9488', '#f59e0b', '#8b5cf6', '#16a34a', '#db2777', '#0891b2'];
+
+const PARTY_COLOR_MAP = {
+    PH: '#e11d48', 'PAKATAN HARAPAN': '#e11d48', HARAPAN: '#e11d48', PKR: '#e11d48', KEADILAN: '#e11d48', DAP: '#e11d48', AMANAH: '#e11d48',
+    BN: '#1d4ed8', 'BARISAN NASIONAL': '#1d4ed8', UMNO: '#1d4ed8', MCA: '#1d4ed8', MIC: '#1d4ed8',
+    PN: '#0d9488', 'PERIKATAN NASIONAL': '#0d9488', BERSATU: '#0d9488', PAS: '#0d9488', GERAKAN: '#0d9488',
+    PEJUANG: '#f59e0b', MUDA: '#8b5cf6', GPS: '#16a34a', GRS: '#16a34a',
+};
+
+export function partyColor(name, idx = 0) {
+    const k = String(name || '').toUpperCase().trim();
+    return PARTY_COLOR_MAP[k] || PARTY_PALETTE[idx % PARTY_PALETTE.length];
+}
+
 export const KAUM = {
     melayu: '#16a34a', // green
     cina: '#dc2626',   // red

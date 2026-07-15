@@ -103,6 +103,11 @@ function ScenarioChip({ scenario, comparisonId, onRemoved }) {
     const { t } = usePilihanrayaTheme();
     const [busy, setBusy] = useState(false);
     const totals = scenario.parsed_totals || {};
+    const undi = totals.undi || {};
+    const topParties = Object.entries(undi)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 4)
+        .map(([name, votes]) => `${name} ${fmt(votes)}`);
 
     const remove = async () => {
         setBusy(true);
@@ -127,10 +132,10 @@ function ScenarioChip({ scenario, comparisonId, onRemoved }) {
             </div>
             <div className="mt-3 flex items-center gap-2 text-xs text-emerald-600">
                 <CheckCircle2 className="h-3.5 w-3.5" />
-                {scenario.row_count} DM · Pemilih {fmt(totals.pemilih)} · Keluar {fmt(totals.keluar)}
+                {scenario.row_count} kawasan · Pemilih {fmt(totals.pemilih)} · Keluar {fmt(totals.keluar)}
             </div>
             <div className="mt-1 text-xs text-slate-500">
-                PH {fmt(totals.ph)} · BN {fmt(totals.bn)} · PN {fmt(totals.pn)}
+                {topParties.length ? topParties.join(' · ') : 'Tiada data undi'}
             </div>
         </div>
     );
