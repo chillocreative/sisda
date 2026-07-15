@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import {
-    Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis,
+    Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip,
 } from 'recharts';
 import { Download, Loader2, RotateCcw, Trophy } from 'lucide-react';
 import { usePilihanrayaTheme } from './PilihanrayaShell';
 import KpiCard from './KpiCard';
 import EditableCell from './EditableCell';
 import { cleanParams } from '../filters';
-import { fmt, pct, partyColor, KAUM_LABEL } from '../analisa/shared';
+import { fmt, pct, safeDiv, partyColor, KAUM_LABEL } from '../analisa/shared';
 import { KAUM_KEYS, simulate } from '../simulation/nCornerModel';
 
 // Preferred default line-up so 1 lawan 1 seeds PH vs BN (the workbook), and each
@@ -26,6 +26,23 @@ const DEFAULT_ANDAIAN = {
 };
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
+
+const RAD = Math.PI / 180;
+
+// Draws the party code + vote figure + % just outside each pie slice. Zero
+// slices (parti with no votes) get no label so the chart stays clean.
+function renderPieLabel({ cx, cy, midAngle, outerRadius, percent, value, payload }) {
+    if (!percent || !value) return null;
+    const r = outerRadius + 24;
+    const x = cx + r * Math.cos(-midAngle * RAD);
+    const y = cy + r * Math.sin(-midAngle * RAD);
+    return (
+        <text x={x} y={y} textAnchor={x >= cx ? 'start' : 'end'} dominantBaseline="central" fontSize={12} fontWeight={600} fill="#0f172a">
+            <tspan fill={payload.color} fontWeight={700}>{payload.kod}</tspan>
+            {` ${fmt(value)} (${(percent * 100).toFixed(1)}%)`}
+        </text>
+    );
+}
 
 function defaultSlots(n, parties) {
     const known = new Set(parties.map((p) => p.kod));
@@ -142,11 +159,13 @@ export default function SimulasiPilihanraya({ filters, simulasiParties = [], pen
         penjuruOptions.find((o) => Number(o.value) === penjuru)?.label || `${penjuru} Penjuru`
     } (${parties.map((p) => p.kod).join(' vs ')})`;
 
-    const chartData = result.perKaum.map((r) => {
-        const row = { name: KAUM_LABEL[r.key] };
-        parties.forEach((p, i) => { row[p.kod] = Math.round(r.undi[i]); });
-        return row;
-    });
+    // Overall vote-share pie: total votes per contesting party.
+    const pieData = parties.map((p, i) => ({
+        kod: p.kod,
+        nama: p.nama,
+        value: Math.round(result.undiTotals[i]),
+        color: partyColor(p.kod, i),
+    }));
 
     const winnerColor = result.winner ? partyColor(result.winner.kod, result.winner.index) : '#334155';
     const cellNum = 'px-3 py-2 text-sm text-right tabular-nums';
@@ -413,20 +432,32 @@ export default function SimulasiPilihanraya({ filters, simulasiParties = [], pen
                 </div>
             </div>
 
-            {/* Chart */}
+            {/* Vote-share pie */}
             <div className={t.card}>
-                <h3 className={t.cardTitle}>Undi Mengikut Kaum</h3>
-                <ResponsiveContainer width="100%" height={340}>
-                    <BarChart data={chartData} margin={{ left: 10, right: 16 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={t.chartGrid} />
-                        <XAxis dataKey="name" stroke={t.chartTick} style={{ fontSize: '12px' }} />
-                        <YAxis stroke={t.chartTick} style={{ fontSize: '11px' }} />
-                        <Tooltip contentStyle={t.tooltip} formatter={(v) => `${fmt(v)} undi`} />
-                        <Legend wrapperStyle={{ fontSize: '12px' }} />
-                        {parties.map((p, i) => (
-                            <Bar key={p.kod} dataKey={p.kod} name={`Undi ${p.kod}`} stackId="a" fill={partyColor(p.kod, i)} radius={i === parties.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]} />
-                        ))}
-                    </BarChart>
+                <h3 className={t.cardTitle}>Perkongsian Undi Mengikut Parti</h3>
+                <ResponsiveContainer width="100%" height={380}>
+                    <PieChart>
+                        <Pie
+                            data={pieData}
+                            dataKey="value"
+                            nameKey="kod"
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={120}
+                            labelLine={{ stroke: '#cbd5e1', strokeWidth: 1 }}
+                            label={renderPieLabel}
+                            isAnimationActive={false}
+                        >
+                            {pieData.map((d) => (
+                                <Cell key={d.kod} fill={d.color} stroke="#ffffff" strokeWidth={2} />
+                            ))}
+                        </Pie>
+                        <Tooltip
+                            contentStyle={t.tooltip}
+                            formatter={(v, _n, item) => [`${fmt(v)} undi (${pct(safeDiv(v, result.keluar))})`, item?.payload?.nama || item?.payload?.kod]}
+                        />
+                        <Legend wrapperStyle={{ fontSize: '12px' }} formatter={(value) => partyByKod[value]?.nama || value} />
+                    </PieChart>
                 </ResponsiveContainer>
             </div>
         </div>
