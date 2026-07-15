@@ -37,13 +37,17 @@ class ClaudeService
     /**
      * Send a single-turn chat completion to Anthropic.
      *
+     * `$userPrompt` may be a plain string, or a content-block array (list of
+     * {type:text|image|document,...} blocks) to send documents/images that
+     * Claude reads natively — e.g. a PDF or photographed scoresheet.
+     *
      * Returns a normalised array:
      *   ['ok' => bool, 'content' => string|array|null, 'raw' => array|null, 'error' => string|null]
      *
      * Never throws — callers check `ok` and degrade gracefully when the
      * AI is unavailable so the audit UI still renders heuristic findings.
      */
-    public function chat(string $systemPrompt, string $userPrompt, ?int $maxTokens = null, int $timeout = 30, ?string $context = null): array
+    public function chat(string $systemPrompt, string|array $userPrompt, ?int $maxTokens = null, int $timeout = 30, ?string $context = null): array
     {
         $config = ClaudeSetting::current();
 

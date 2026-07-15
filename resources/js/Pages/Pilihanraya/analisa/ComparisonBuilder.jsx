@@ -72,7 +72,7 @@ function AddScenarioForm({ comparisonId, position, onAdded }) {
                         drag ? 'border-emerald-500 bg-emerald-500/5' : 'border-slate-200 hover:border-emerald-400'
                     }`}
                 >
-                    <input ref={inputRef} type="file" accept=".xlsx,.xls,.csv,.pdf" className="hidden"
+                    <input ref={inputRef} type="file" accept=".xlsx,.xls,.csv,.pdf,.jpg,.jpeg,.png,.webp" className="hidden"
                         onChange={(e) => setFile(e.target.files?.[0] || null)} />
                     {file ? (
                         <div className="flex items-center justify-center gap-2 text-sm text-emerald-600">
@@ -81,8 +81,8 @@ function AddScenarioForm({ comparisonId, position, onAdded }) {
                     ) : (
                         <div className="flex flex-col items-center gap-1 text-slate-500">
                             <Upload className="h-6 w-6" />
-                            <span className="text-sm">Klik atau seret scoresheet (XLSX / XLS / CSV / PDF)</span>
-                            <span className="text-xs text-slate-400">Fail PDF akan dibaca secara automatik oleh AI</span>
+                            <span className="text-sm">Klik atau seret scoresheet (XLSX / XLS / CSV / PDF / imej)</span>
+                            <span className="text-xs text-slate-400">Fail PDF &amp; imej dibaca terus oleh Claude AI</span>
                         </div>
                     )}
                 </div>

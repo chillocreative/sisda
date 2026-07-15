@@ -41,13 +41,26 @@ class ScoresheetExtractor
 
     public function __construct(protected ClaudeService $claude) {}
 
+    private const IMAGE_MEDIA = [
+        'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png',
+        'webp' => 'image/webp', 'gif' => 'image/gif',
+    ];
+
     /** @return array{parties:array,rows:array,totals:array,source:string,contest:?string}|null */
     public function extract(UploadedFile $file): ?array
     {
-        // PDF scoresheet → extract its text and let Claude read it. There is no
-        // deterministic fast path (PDFs have no reliable tabular grid).
+        // PDFs and images have no reliable tabular grid — send the file to
+        // Claude as a native document/image so it reads the scoresheet itself
+        // (this handles scanned PDFs and photographed sheets, not just text).
+        if ($this->isImage($file)) {
+            $ext = strtolower($file->getClientOriginalExtension());
+            return $this->fromMedia($file, 'image', self::IMAGE_MEDIA[$ext] ?? 'image/jpeg');
+        }
         if ($this->isPdf($file)) {
-            return $this->fromPdf($file);
+            // Native document read first; fall back to text extraction if the
+            // configured model can't take documents.
+            return $this->fromMedia($file, 'document', 'application/pdf')
+                ?? $this->fromPdfText($file);
         }
 
         $grid = ScoresheetParser::grid($file);
@@ -68,12 +81,45 @@ class ScoresheetExtractor
             || strtolower((string) $file->getClientMimeType()) === 'application/pdf';
     }
 
-    /** Pull the text layer out of a PDF and hand it to Claude for extraction. */
-    private function fromPdf(UploadedFile $file): ?array
+    private function isImage(UploadedFile $file): bool
+    {
+        return isset(self::IMAGE_MEDIA[strtolower($file->getClientOriginalExtension())])
+            || str_starts_with(strtolower((string) $file->getClientMimeType()), 'image/');
+    }
+
+    /**
+     * Send the raw file to Claude as a native document/image content block —
+     * the most reliable path for PDFs and photos. Returns null on any failure
+     * so the caller can fall back or surface the standard error.
+     */
+    private function fromMedia(UploadedFile $file, string $blockType, string $mediaType): ?array
+    {
+        $bytes = @file_get_contents($file->getRealPath());
+        if ($bytes === false || $bytes === '') {
+            return null;
+        }
+
+        $content = [
+            [
+                'type' => $blockType,
+                'source' => ['type' => 'base64', 'media_type' => $mediaType, 'data' => base64_encode($bytes)],
+            ],
+            ['type' => 'text', 'text' => 'Baca scoresheet dalam fail ini dan ekstrak pertandingan DUN (negeri) mengikut arahan sistem. Balas JSON sahaja.'],
+        ];
+
+        $result = $this->claude->chat(self::SYSTEM, $content, 6000, 180, 'scoresheet_extract');
+        if (! $result['ok']) {
+            return null;
+        }
+
+        return $this->sanitize($this->claude->extractJson($result['content']));
+    }
+
+    /** Fallback for PDFs: extract the text layer and read that instead. */
+    private function fromPdfText(UploadedFile $file): ?array
     {
         try {
-            $pdf = (new PdfParser)->parseFile($file->getRealPath());
-            $text = trim((string) $pdf->getText());
+            $text = trim((string) (new PdfParser)->parseFile($file->getRealPath())->getText());
         } catch (\Throwable $e) {
             return null;
         }
@@ -83,10 +129,7 @@ class ScoresheetExtractor
             return null;
         }
 
-        // Cap the payload so a huge PDF can't blow the token budget.
-        $text = mb_substr($text, 0, 24000);
-
-        return $this->extractWithAi("Raw scoresheet text extracted from a PDF:\n".$text);
+        return $this->extractWithAi("Raw scoresheet text extracted from a PDF:\n".mb_substr($text, 0, 24000));
     }
 
     /** Convert the deterministic parser output into the party-agnostic shape. */
