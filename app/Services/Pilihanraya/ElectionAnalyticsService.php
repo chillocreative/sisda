@@ -317,7 +317,17 @@ class ElectionAnalyticsService
                 return $counts + ['jumlah' => 0, 'source' => null];
             }
 
-            $rows = (clone $this->rollQuery($f))
+            // Dedup to ONE row per voter before bucketing. A voter can appear in
+            // several active batches (e.g. a re-upload where one batch has no
+            // bangsa) — counting every row would double-count them, inflating the
+            // Lain-lain bucket with blank-bangsa duplicates. Keep the row that
+            // actually carries a race value, then the most recent (latest DPPR).
+            $deduped = (clone $this->rollQuery($f))
+                ->select('no_ic', 'bangsa')
+                ->selectRaw("ROW_NUMBER() OVER (PARTITION BY no_ic ORDER BY (CASE WHEN TRIM(COALESCE(bangsa, '')) = '' THEN 1 ELSE 0 END), id DESC) AS rn");
+
+            $rows = DB::query()->fromSub($deduped, 'r')
+                ->where('rn', 1)
                 ->select('bangsa', DB::raw('COUNT(*) AS jumlah'))
                 ->groupBy('bangsa')
                 ->get();
