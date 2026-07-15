@@ -190,7 +190,6 @@ export default function AuthenticatedLayout({ children }) {
                     { name: 'War Room', href: route('pilihanraya.war-room'), icon: Radar },
                     { name: 'Analisa Keputusan', href: route('pilihanraya.analisa'), icon: BarChart3 },
                     { name: 'Kaum Mengikut DM', href: route('pilihanraya.kaum-dm'), icon: PieChart },
-                    { name: 'Minima Untuk Menang', href: route('pilihanraya.minima'), icon: Target },
                     { name: 'Scoreboard', href: route('pilihanraya.scoreboard'), icon: Trophy },
                     { name: 'Borang 14', href: route('pilihanraya.borang-14'), icon: FileSpreadsheet },
                     { name: 'Simulasi Pilihanraya', href: route('pilihanraya.simulasi'), icon: Brain },
