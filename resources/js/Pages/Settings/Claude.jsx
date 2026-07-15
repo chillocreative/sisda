@@ -10,6 +10,7 @@ export default function Claude({ settings }) {
     const { data, setData, post, processing } = useForm({
         api_key: settings?.api_key || '',
         model: settings?.model || 'claude-opus-4-8',
+        document_model: settings?.document_model || '',
         max_tokens: settings?.max_tokens || 4096,
         is_active: settings?.is_active || false,
     });
@@ -18,6 +19,14 @@ export default function Claude({ settings }) {
         { value: 'claude-opus-4-8', label: 'Claude Opus 4.8 (Terkuat)' },
         { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6 (Seimbang)' },
         { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5 (Pantas, Jimat)' },
+    ];
+
+    // Reading scoresheets/PDFs is a vision-heavy task — offer only the stronger
+    // models here, plus "follow main model".
+    const documentModels = [
+        { value: '', label: 'Ikut model utama' },
+        { value: 'claude-opus-4-8', label: 'Claude Opus 4.8 (Terbaik untuk imej & jadual)' },
+        { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6 (Seimbang)' },
     ];
 
     const handleSave = (e) => {
@@ -108,6 +117,22 @@ export default function Claude({ settings }) {
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                                 />
                             </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Model Bacaan Dokumen / Scoresheet</label>
+                            <select
+                                value={data.document_model}
+                                onChange={(e) => setData('document_model', e.target.value)}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
+                            >
+                                {documentModels.map((m) => (
+                                    <option key={m.value} value={m.value}>{m.label}</option>
+                                ))}
+                            </select>
+                            <p className="text-xs text-slate-500 mt-1">
+                                Digunakan khas untuk membaca scoresheet &amp; PDF (jadual kompleks). Pilih Sonnet/Opus untuk ketepatan lebih baik walaupun model utama ditetapkan kepada Haiku.
+                            </p>
                         </div>
 
                         <div className="flex items-center gap-3">

@@ -17,6 +17,7 @@ class ClaudeSettingController extends Controller
             'settings' => $settings ? [
                 'api_key' => $settings->api_key ? '••••••••' : '',
                 'model' => $settings->model,
+                'document_model' => $settings->document_model,
                 'max_tokens' => $settings->max_tokens,
                 'is_active' => $settings->is_active,
                 'has_key' => ! empty($settings->api_key),
@@ -29,9 +30,13 @@ class ClaudeSettingController extends Controller
         $validated = $request->validate([
             'api_key' => 'nullable|string',
             'model' => 'required|string|max:100',
+            'document_model' => 'nullable|string|max:100',
             'max_tokens' => 'required|integer|min:256|max:128000',
             'is_active' => 'required|boolean',
         ]);
+
+        // Empty string → null (follow the main model).
+        $validated['document_model'] = $validated['document_model'] ?: null;
 
         $settings = ClaudeSetting::first();
 

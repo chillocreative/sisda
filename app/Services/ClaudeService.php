@@ -47,7 +47,7 @@ class ClaudeService
      * Never throws — callers check `ok` and degrade gracefully when the
      * AI is unavailable so the audit UI still renders heuristic findings.
      */
-    public function chat(string $systemPrompt, string|array $userPrompt, ?int $maxTokens = null, int $timeout = 30, ?string $context = null): array
+    public function chat(string $systemPrompt, string|array $userPrompt, ?int $maxTokens = null, int $timeout = 30, ?string $context = null, ?string $model = null): array
     {
         $config = ClaudeSetting::current();
 
@@ -56,7 +56,7 @@ class ClaudeService
         }
 
         $payload = [
-            'model' => $config->model,
+            'model' => $model ?: $config->model,
             'max_tokens' => $maxTokens ?? $config->max_tokens ?? 2048,
             'system' => $systemPrompt,
             'messages' => [
@@ -234,6 +234,15 @@ class ClaudeService
         }
 
         return 'web_search_20250305';
+    }
+
+    /**
+     * The model configured for reading documents/images (scoresheet & PDF
+     * extraction) — falls back to the main model. Null when AI is unconfigured.
+     */
+    public function documentModel(): ?string
+    {
+        return ClaudeSetting::current()?->documentModel();
     }
 
     /**

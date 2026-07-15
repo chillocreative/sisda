@@ -123,7 +123,7 @@ class ScoresheetExtractor
             ['type' => 'text', 'text' => 'Baca scoresheet dalam fail ini dan ekstrak pertandingan DUN (negeri) mengikut arahan sistem. Balas JSON sahaja.'],
         ];
 
-        $result = $this->claude->chat(self::SYSTEM, $content, 6000, 180, 'scoresheet_extract');
+        $result = $this->claude->chat(self::SYSTEM, $content, 6000, 180, 'scoresheet_extract', $this->claude->documentModel());
         if (! $result['ok']) {
             return null;
         }
@@ -201,7 +201,7 @@ class ScoresheetExtractor
     /** Read raw scoresheet text (grid dump or PDF text) with Claude. */
     private function extractWithAi(string $text): ?array
     {
-        $result = $this->claude->chat(self::SYSTEM, $text, 6000, 120, 'scoresheet_extract');
+        $result = $this->claude->chat(self::SYSTEM, $text, 6000, 120, 'scoresheet_extract', $this->claude->documentModel());
         if (! $result['ok']) {
             return null;
         }
