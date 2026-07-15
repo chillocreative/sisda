@@ -302,6 +302,42 @@ class ElectionAnalyticsService
         };
     }
 
+    /**
+     * Latest DPPR voter counts bucketed by kaum for the Simulasi Pilihanraya
+     * table. Uses the same active-batch roll every other Pilihanraya page reads,
+     * so "latest DPPR" stays consistent across the system. Returns zeros with
+     * source=null when no roll is loaded — the UI keeps its editable defaults.
+     */
+    public function pengundiByKaum(array $f): array
+    {
+        return $this->remember('pengundiByKaum', $f, function () use ($f) {
+            $counts = ['melayu' => 0, 'cina' => 0, 'india' => 0, 'lain' => 0];
+
+            if ($this->activeBatchIds() === []) {
+                return $counts + ['jumlah' => 0, 'source' => null];
+            }
+
+            $rows = (clone $this->rollQuery($f))
+                ->select('bangsa', DB::raw('COUNT(*) AS jumlah'))
+                ->groupBy('bangsa')
+                ->get();
+
+            // bangsaBucket() → 'Melayu'|'Cina'|'India'|'Lain-lain'; fold into keys.
+            $keyOf = ['Melayu' => 'melayu', 'Cina' => 'cina', 'India' => 'india', 'Lain-lain' => 'lain'];
+            foreach ($rows as $row) {
+                $counts[$keyOf[$this->bangsaBucket($row->bangsa)]] += (int) $row->jumlah;
+            }
+
+            $jumlah = array_sum($counts);
+            $scope = $f['kadun'] ?? $f['parlimen'] ?? $f['negeri'] ?? 'Semua kawasan';
+
+            return $counts + [
+                'jumlah' => $jumlah,
+                'source' => $jumlah > 0 ? "DPPR semasa — {$scope}" : null,
+            ];
+        });
+    }
+
     /* ----------------------------------------------------------------
      |  War Room tab data
      * ---------------------------------------------------------------- */

@@ -23,6 +23,25 @@ class PilihanrayaController extends Controller
         protected ElectionForecastService $forecast,
     ) {}
 
+    /** Parties/coalitions selectable in the Simulasi Pilihanraya table. */
+    private const SIMULASI_PARTIES = [
+        ['kod' => 'PH', 'nama' => 'Pakatan Harapan'],
+        ['kod' => 'PN', 'nama' => 'Perikatan Nasional'],
+        ['kod' => 'BN', 'nama' => 'Barisan Nasional'],
+        ['kod' => 'PEJUANG', 'nama' => 'PEJUANG'],
+        ['kod' => 'MUDA', 'nama' => 'MUDA'],
+        ['kod' => 'BEBAS', 'nama' => 'Calon Bebas'],
+    ];
+
+    /** Contest sizes: penjuru => label (2 = 1 lawan 1). */
+    private const PENJURU_OPTIONS = [
+        2 => '1 lawan 1',
+        3 => '3 Penjuru',
+        4 => '4 Penjuru',
+        5 => '5 Penjuru',
+        6 => '6 Penjuru',
+    ];
+
     /* ------------------------------ Pages ------------------------------ */
 
     public function warRoom(Request $request)
@@ -46,9 +65,99 @@ class PilihanrayaController extends Controller
                     'result' => $latest->result,
                     'generated_at' => $latest->created_at->toIso8601String(),
                 ] : null,
+                'simulasiParties' => self::SIMULASI_PARTIES,
+                'penjuruOptions' => collect(self::PENJURU_OPTIONS)
+                    ->map(fn ($label, $value) => ['value' => $value, 'label' => $label])
+                    ->values(),
             ],
             $this->analytics->filterLists(),
         ));
+    }
+
+    /** Latest DPPR voter counts by kaum for the selected Parlimen/KADUN. */
+    public function simulasiPengundi(Request $request)
+    {
+        return response()->json($this->analytics->pengundiByKaum($this->f($request)));
+    }
+
+    /**
+     * Professional PDF of a Simulasi Pilihanraya scenario. The scenario lives
+     * only in the browser (session-only), so it is POSTed back and re-sanitised
+     * server-side before dompdf renders it.
+     */
+    public function simulasiPdf(Request $request)
+    {
+        $data = $request->validate([
+            'title' => 'required|string|max:200',
+            'penjuru_label' => 'nullable|string|max:60',
+            'kawasan' => 'nullable|string|max:160',
+            'parties' => 'required|array|min:2|max:6',
+            'parties.*.kod' => 'required|string|max:20',
+            'parties.*.nama' => 'required|string|max:80',
+            'parties.*.color' => 'nullable|string|max:9',
+            'pengundi' => 'required|array',
+            'andaian' => 'required|array|max:4',
+            'keputusan' => 'required|array|max:4',
+            'totals' => 'required|array',
+        ]);
+
+        // Coerce a colour to a safe #rrggbb string (defends the inline styles).
+        $safeColor = fn ($c) => preg_match('/^#[0-9a-fA-F]{6}$/', (string) $c) ? $c : '#64748b';
+
+        $parties = collect($data['parties'])->map(fn ($p) => [
+            'kod' => (string) $p['kod'],
+            'nama' => (string) $p['nama'],
+            'color' => $safeColor($p['color'] ?? null),
+        ])->values()->all();
+
+        $num = fn ($v) => (float) ($v ?? 0);
+        $partyCount = count($parties);
+        $undiArr = fn ($a) => collect($a ?? [])->take($partyCount)->map($num)->all();
+
+        $andaian = collect($data['andaian'])->map(fn ($r) => [
+            'kaum' => (string) ($r['kaum'] ?? ''),
+            'turnout' => $num($r['turnout'] ?? 0),
+            'sokongan' => collect($r['sokongan'] ?? [])->map($num)->all(),
+            'baki_kod' => (string) ($r['baki_kod'] ?? ''),
+        ])->all();
+
+        $keputusan = collect($data['keputusan'])->map(fn ($r) => [
+            'kaum' => (string) ($r['kaum'] ?? ''),
+            'pengundi' => $num($r['pengundi'] ?? 0),
+            'keluar' => $num($r['keluar'] ?? 0),
+            'undi' => $undiArr($r['undi'] ?? []),
+        ])->all();
+
+        $totals = $data['totals'];
+        $totals = [
+            'undi' => $undiArr($totals['undi'] ?? []),
+            'keluar' => $num($totals['keluar'] ?? 0),
+            'pengundi' => $num($totals['pengundi'] ?? 0),
+            'perlu' => $num($totals['perlu'] ?? 0),
+            'turnout_all' => $num($totals['turnout_all'] ?? 0),
+            'majoriti' => $num($totals['majoriti'] ?? 0),
+            'status' => (string) ($totals['status'] ?? '—'),
+            'winner' => isset($totals['winner']) && is_array($totals['winner']) ? [
+                'kod' => (string) ($totals['winner']['kod'] ?? ''),
+                'nama' => (string) ($totals['winner']['nama'] ?? ''),
+            ] : null,
+        ];
+
+        $pdf = Pdf::loadView('pdf.simulasi-pilihanraya', [
+            'title' => $data['title'],
+            'penjuruLabel' => $data['penjuru_label'] ?? '',
+            'kawasan' => $data['kawasan'] ?? 'Data manual',
+            'parties' => $parties,
+            'pengundi' => $data['pengundi'],
+            'andaian' => $andaian,
+            'keputusan' => $keputusan,
+            'totals' => $totals,
+            'genAt' => now()->translatedFormat('d F Y, g:i A'),
+        ])
+            ->setPaper('a4', 'portrait')
+            ->setOptions(['isHtml5ParserEnabled' => true, 'isRemoteEnabled' => false, 'defaultFont' => 'DejaVu Sans']);
+
+        return $pdf->download('simulasi-pilihanraya-'.now()->format('Y-m-d').'.pdf');
     }
 
     /* -------------------------- War Room data -------------------------- */

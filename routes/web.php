@@ -456,6 +456,8 @@ Route::middleware(['auth', 'admin'])->prefix('pilihanraya')->name('pilihanraya.'
 
     // Simulation Center
     Route::get('/api/baseline', [\App\Http\Controllers\PilihanrayaController::class, 'baseline'])->name('api.baseline');
+    Route::get('/api/simulasi/pengundi', [\App\Http\Controllers\PilihanrayaController::class, 'simulasiPengundi'])->name('api.simulasi.pengundi');
+    Route::post('/simulasi/pdf', [\App\Http\Controllers\PilihanrayaController::class, 'simulasiPdf'])->name('simulasi.pdf');
     Route::post('/api/forecast', [\App\Http\Controllers\PilihanrayaController::class, 'runForecast'])->name('api.forecast')->middleware('throttle:5,1');
     Route::post('/api/war-game', [\App\Http\Controllers\PilihanrayaController::class, 'warGame'])->name('api.war-game')->middleware('throttle:5,1');
     Route::post('/api/resources', [\App\Http\Controllers\PilihanrayaController::class, 'resources'])->name('api.resources')->middleware('throttle:5,1');

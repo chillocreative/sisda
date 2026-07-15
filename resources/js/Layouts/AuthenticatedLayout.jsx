@@ -193,7 +193,7 @@ export default function AuthenticatedLayout({ children }) {
                     { name: 'Minima Untuk Menang', href: route('pilihanraya.minima'), icon: Target },
                     { name: 'Scoreboard', href: route('pilihanraya.scoreboard'), icon: Trophy },
                     { name: 'Borang 14', href: route('pilihanraya.borang-14'), icon: FileSpreadsheet },
-                    { name: 'Pusat Simulasi', href: route('pilihanraya.simulasi'), icon: Brain },
+                    { name: 'Simulasi Pilihanraya', href: route('pilihanraya.simulasi'), icon: Brain },
                     { name: 'Jawatankuasa', href: route('pilihanraya.jawatankuasa.index'), icon: ClipboardList },
                 ]
             }

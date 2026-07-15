@@ -15,13 +15,13 @@ import SliderPanel from './components/SliderPanel';
 import ScenarioChat from './components/ScenarioChat';
 import ResourcePanel from './components/ResourcePanel';
 import BriefingViewer from './components/BriefingViewer';
-import Simulasi1v1 from './components/Simulasi1v1';
+import SimulasiPilihanraya from './components/SimulasiPilihanraya';
 import { DEFAULT_SLIDERS, projectAll } from './simulation/whatIfModel';
 import { CHART_COLORS } from './theme';
 
 const TABS = [
     { key: 'ramalan', label: 'Ramalan', icon: BrainCircuit },
-    { key: 'satulawansatu', label: 'PH vs BN (1 lawan 1)', icon: Users2 },
+    { key: 'satulawansatu', label: 'Simulasi Kerusi', icon: Users2 },
     { key: 'whatif', label: 'What-If', icon: SlidersHorizontal },
     { key: 'wargame', label: 'War Gaming', icon: Swords },
     { key: 'sumber', label: 'Sumber', icon: Megaphone },
@@ -415,7 +415,7 @@ function TaklimatTab({ filters, lists }) {
     );
 }
 
-function SimulasiContent({ filters, setFilters, latestForecast, lists }) {
+function SimulasiContent({ filters, setFilters, latestForecast, lists, simulasiParties, penjuruOptions }) {
     const [activeTab, setActiveTab] = useState('ramalan');
     const [sliders, setSliders] = useState({ ...DEFAULT_SLIDERS });
 
@@ -426,7 +426,9 @@ function SimulasiContent({ filters, setFilters, latestForecast, lists }) {
                 <TabBar tabs={TABS} active={activeTab} onChange={setActiveTab} />
             </div>
             {activeTab === 'ramalan' && <RamalanTab filters={filters} latestForecast={latestForecast} />}
-            {activeTab === 'satulawansatu' && <Simulasi1v1 />}
+            {activeTab === 'satulawansatu' && (
+                <SimulasiPilihanraya filters={filters} simulasiParties={simulasiParties} penjuruOptions={penjuruOptions} lists={lists} />
+            )}
             {activeTab === 'whatif' && <WhatIfTab filters={filters} sliders={sliders} setSliders={setSliders} />}
             {activeTab === 'wargame' && <ScenarioChat filters={cleanParams(filters)} sliders={sliders} />}
             {activeTab === 'sumber' && <SumberTab filters={filters} />}
@@ -435,21 +437,23 @@ function SimulasiContent({ filters, setFilters, latestForecast, lists }) {
     );
 }
 
-export default function Simulasi({ latestForecast, negeriList, parlimenList, kadunList }) {
+export default function Simulasi({ latestForecast, negeriList, parlimenList, kadunList, simulasiParties = [], penjuruOptions = [] }) {
     const [filters, setFilters] = useState(EMPTY_FILTERS);
 
     return (
         <AuthenticatedLayout>
-            <Head title="Pilihanraya — Pusat Simulasi" />
+            <Head title="Pilihanraya — Simulasi Pilihanraya" />
             <PilihanrayaShell
-                title="Pusat Simulasi Pilihanraya"
-                subtitle="Ramalan AI, simulasi what-if, war gaming dan taklimat eksekutif"
+                title="Simulasi Pilihanraya"
+                subtitle="Ramalan AI, simulasi kerusi mengikut kaum, what-if, war gaming dan taklimat eksekutif"
             >
                 <SimulasiContent
                     filters={filters}
                     setFilters={setFilters}
                     latestForecast={latestForecast}
                     lists={{ negeriList, parlimenList, kadunList }}
+                    simulasiParties={simulasiParties}
+                    penjuruOptions={penjuruOptions}
                 />
             </PilihanrayaShell>
         </AuthenticatedLayout>
