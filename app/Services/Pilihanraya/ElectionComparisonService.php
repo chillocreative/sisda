@@ -47,55 +47,74 @@ class ElectionComparisonService
     {
         $comparison->loadMissing('scenarios');
         $facts = $this->buildFactPayload($comparison);
-        $comparison->fact_payload = $facts;
 
         $today = now()->translatedFormat('d F Y');
-        $system = self::PERSONA
-            .'Use the web_search tool (maximum 5 searches) to research the political context of Malaysia/Johor around '
-            ."each scenario's `tarikh` (coalition landscape, national events such as PRU-14 2018, Langkah Sheraton 2020, "
-            .'PRN Johor 2022, PRU-15, Undi18 / automatic voter registration, economic conditions) AND the situation now '
-            ."({$today}). Use search ONLY for qualitative context and causal argument — never for numbers about this seat. "
-            .'IMPORTANT: the contesting parties differ per scenario and are given in each scenario\'s `parti` list and '
-            .'`undi`/`peratus_undi` maps (read from the actual scoresheet) — refer to parties by their real names as '
-            .'given; do NOT assume a fixed PH/BN/PN line-up. '
-            .'Respond ONLY with a JSON object matching exactly this schema: '
-            .'{"tajuk":"string","ringkasan_eksekutif":"string",'
-            .'"pengundi_baru_lama":{"analisis":"string","bullet_points":["string"]},'
-            .'"pengundi_muda":{"analisis":"string","bullet_points":["string"]},'
-            .'"saluran":{"analisis":"string","bullet_points":["string"]},'
-            .'"perbandingan_senario":[{"label":"string","tahun":"string","sorotan":"string"}],'
-            .'"faktor_perubahan":[{"tajuk":"string","hujah":"string","sumber":"string atau null"}],'
-            .'"kesimpulan":"string","rujukan":[{"tajuk":"string","url":"string"}]}. '
-            .'`faktor_perubahan` is your professional, well-argued explanation of WHY the results/electorate changed '
-            .'(maximum 6 factors, each a titled argument with an optional cited source). All prose in Bahasa Malaysia.';
+        $factsJson = json_encode($facts, JSON_UNESCAPED_UNICODE);
 
-        $result = $this->claude->chatWithWebSearch(
-            $system,
-            json_encode($facts, JSON_UNESCAPED_UNICODE),
-            6000,
-            180,
-            'analisa_comparison',
-            5,
-        );
+        // ── Phase 1: research + narrative WITH live web search ──────────────
+        // Tool-using models (incl. Haiku) write prose reliably but emit clean
+        // JSON poorly while interleaving tool calls, so we do NOT ask for JSON
+        // here — just a thorough BM analysis grounded in the supplied facts.
+        $p1system = self::PERSONA
+            .'Gunakan alat web_search (maksimum 5 carian) untuk mengkaji konteks politik Malaysia/Johor pada masa setiap '
+            ."`tarikh` senario (landskap gabungan, peristiwa nasional seperti PRU-14 2018, Langkah Sheraton 2020, PRN Johor 2022, "
+            ."PRU-15, Undi18 / pendaftaran automatik, keadaan ekonomi) DAN keadaan sekarang ({$today}). Guna carian HANYA untuk "
+            .'konteks kualitatif dan hujah sebab-akibat — jangan sekali-kali untuk angka tentang kerusi ini. '
+            .'Parti yang bertanding berbeza mengikut senario dan diberikan dalam medan `parti` serta peta `undi`/`peratus_undi` '
+            .'setiap senario (dibaca daripada scoresheet sebenar) — rujuk parti mengikut nama sebenar; jangan andaikan barisan '
+            .'PH/BN/PN tetap. Tulis analisis profesional yang lengkap dalam Bahasa Malaysia formal, meliputi dengan jelas: '
+            .'(1) pertumbuhan pengundi baru berbanding pengundi lama, (2) peratus pengundi muda, (3) pecahan mengikut saluran, '
+            .'(4) faktor-faktor KENAPA keputusan dan komposisi pengundi berubah (hujah bernas, sertakan sumber carian web), '
+            .'dan (5) kesimpulan. Setiap angka mesti diambil terus daripada fakta yang diberi.';
 
-        if ($result['ok']) {
-            $parsed = self::sanitizeComparison($this->claude->extractJson($result['content']), $result['citations'] ?? []);
-            if ($parsed) {
-                $comparison->fill([
-                    'fact_payload' => $facts,
-                    'ai_result' => $parsed,
-                    'ai_status' => 'ok',
-                    'ai_model' => ClaudeSetting::current()?->model,
-                    'ai_generated_at' => now(),
-                    'web_search_count' => (int) ($result['searches'] ?? 0),
-                    'status' => 'analyzed',
-                ])->save();
+        $p1 = $this->claude->chatWithWebSearch($p1system, $factsJson, 6000, 180, 'analisa_comparison', 5);
+        $searches = (int) ($p1['searches'] ?? 0);
+        $citations = $p1['citations'] ?? [];
 
-                return ['status' => 'ok', 'result' => $parsed, 'facts' => $facts, 'generated_at' => $comparison->ai_generated_at->toIso8601String()];
+        $parsed = null;
+        if ($p1['ok'] && trim((string) $p1['content']) !== '') {
+            // ── Phase 2: structure the narrative into strict JSON (no tools) ──
+            $p2system = 'Anda menyusun analisis pilihanraya kepada JSON yang tepat. Balas HANYA dengan satu objek JSON, '
+                .'tanpa sebarang teks lain, pembuka, atau pagar kod, mengikut skema INI dengan tepat: '
+                .'{"tajuk":"string","ringkasan_eksekutif":"string",'
+                .'"pengundi_baru_lama":{"analisis":"string","bullet_points":["string"]},'
+                .'"pengundi_muda":{"analisis":"string","bullet_points":["string"]},'
+                .'"saluran":{"analisis":"string","bullet_points":["string"]},'
+                .'"perbandingan_senario":[{"label":"string","tahun":"string","sorotan":"string"}],'
+                .'"faktor_perubahan":[{"tajuk":"string","hujah":"string","sumber":"string atau null"}],'
+                .'"kesimpulan":"string","rujukan":[{"tajuk":"string","url":"string"}]}. '
+                .'Kekalkan semua kandungan dan SEMUA angka daripada draf/fakta; `faktor_perubahan` maksimum 6 faktor; '
+                .'semua teks dalam Bahasa Malaysia formal.';
+            $p2user = "FAKTA (angka rasmi — jangan ubah):\n{$factsJson}\n\nDRAF ANALISIS:\n"
+                .$p1['content']
+                ."\n\nRUJUKAN (URL carian web):\n".json_encode(array_values($citations), JSON_UNESCAPED_UNICODE);
+
+            $p2 = $this->claude->chat($p2system, $p2user, 6000, 120, 'analisa_comparison_format');
+            if ($p2['ok']) {
+                $parsed = self::sanitizeComparison($this->claude->extractJson($p2['content']), $citations);
+            }
+            // Fallback attempt: maybe phase 1 already contained a JSON object.
+            if (! $this->isMeaningful($parsed)) {
+                $alt = self::sanitizeComparison($this->claude->extractJson($p1['content']), $citations);
+                $parsed = $this->isMeaningful($alt) ? $alt : $parsed;
             }
         }
 
-        Log::warning('Analisa comparison fell back to deterministic report', ['error' => $result['error'] ?? 'parse_failed']);
+        if ($this->isMeaningful($parsed)) {
+            $comparison->fill([
+                'fact_payload' => $facts,
+                'ai_result' => $parsed,
+                'ai_status' => 'ok',
+                'ai_model' => ClaudeSetting::current()?->model,
+                'ai_generated_at' => now(),
+                'web_search_count' => $searches,
+                'status' => 'analyzed',
+            ])->save();
+
+            return ['status' => 'ok', 'result' => $parsed, 'facts' => $facts, 'generated_at' => $comparison->ai_generated_at->toIso8601String()];
+        }
+
+        Log::warning('Analisa comparison fell back to deterministic report', ['error' => $p1['error'] ?? 'parse_failed', 'searches' => $searches]);
         $fallback = $this->fallbackReport($facts);
         $comparison->fill([
             'fact_payload' => $facts,
@@ -103,11 +122,23 @@ class ElectionComparisonService
             'ai_status' => 'fallback',
             'ai_model' => ClaudeSetting::current()?->model,
             'ai_generated_at' => now(),
-            'web_search_count' => (int) ($result['searches'] ?? 0),
+            'web_search_count' => $searches,
             'status' => 'analyzed',
         ])->save();
 
         return ['status' => 'fallback', 'result' => $fallback, 'facts' => $facts, 'generated_at' => $comparison->ai_generated_at->toIso8601String()];
+    }
+
+    /** A parsed AI result is only "real" if it carries actual narrative content. */
+    private function isMeaningful(?array $r): bool
+    {
+        if (! $r) {
+            return false;
+        }
+
+        return trim((string) ($r['ringkasan_eksekutif'] ?? '')) !== ''
+            || ! empty($r['faktor_perubahan'])
+            || trim((string) ($r['pengundi_baru_lama']['analisis'] ?? '')) !== '';
     }
 
     /* ----------------------------------------------------------------
@@ -424,9 +455,9 @@ class ElectionComparisonService
 
         return [
             'tajuk' => 'Perbandingan Senario Pilihanraya — '.($facts['kawasan']['dun'] ?? ''),
-            'ringkasan_eksekutif' => 'Laporan ini dijana secara deterministik kerana AI tidak tersedia. Semua angka '
-                .'diambil terus daripada scoresheet yang dimuat naik dan pangkalan data pengundi semasa. Aktifkan '
-                .'Tetapan Claude AI untuk analisis naratif dan carian web penuh.',
+            'ringkasan_eksekutif' => 'Ringkasan berangka dijana secara automatik. Analisis naratif AI tidak dapat dijana '
+                .'buat masa ini (sila semak Tetapan Claude AI). Semua angka diambil terus daripada scoresheet yang dimuat '
+                .'naik dan pangkalan data pengundi semasa.',
             'pengundi_baru_lama' => [
                 'analisis' => ($roll['tersedia'] ?? false)
                     ? 'Daftar pemilih semasa mempunyai '.$n($roll['jumlah']).' pengundi, di mana '.$n($roll['baru'])
@@ -454,7 +485,7 @@ class ElectionComparisonService
                     .($s['peratus_keluar'] ?? '—').'%.',
             ])->take(3)->values()->all(),
             'faktor_perubahan' => [],
-            'kesimpulan' => 'AI tidak tersedia — hanya ringkasan berangka deterministik dipaparkan.',
+            'kesimpulan' => 'Analisis naratif AI tidak dapat dijana — hanya ringkasan berangka dipaparkan.',
             'rujukan' => [],
         ];
     }
