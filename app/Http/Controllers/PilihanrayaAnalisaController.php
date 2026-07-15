@@ -2,10 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AnalisaComparison;
+use App\Models\Keanggotaan;
+use App\Models\KeanggotaanBatch;
+use App\Models\UploadBatch;
+use App\Services\Pilihanraya\ElectionAnalyticsService;
 use App\Support\Pilihanraya\JohorElectionData;
+use App\Support\Pilihanraya\ScoresheetParser;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
-use Maatwebsite\Excel\Facades\Excel;
 
 /**
  * Pilihanraya → Analisa. Serves the Buloh Kasap analytical pages (Keputusan
@@ -31,7 +38,25 @@ class PilihanrayaAnalisaController extends Controller
             'context' => $this->context(),
             'rows' => JohorElectionData::keputusan2022(),
             'totals' => JohorElectionData::keputusan2022Totals(),
+            'savedComparisons' => $this->savedComparisons(),
         ]);
+    }
+
+    /** Compact list of saved comparisons for the page's "open saved" dropdown. */
+    private function savedComparisons(): array
+    {
+        return AnalisaComparison::withCount('scenarios')
+            ->latest()
+            ->get()
+            ->map(fn ($c) => [
+                'id' => $c->id,
+                'title' => $c->title,
+                'dun' => $c->dun,
+                'status' => $c->status,
+                'ai_status' => $c->ai_status,
+                'scenario_count' => $c->scenarios_count,
+                'updated_at' => $c->updated_at?->toIso8601String(),
+            ])->all();
     }
 
     public function minima(Request $request)
@@ -63,135 +88,137 @@ class PilihanrayaAnalisaController extends Controller
             'fail' => 'required|file|mimes:xlsx,xls,csv,txt|max:20480',
         ]);
 
-        $file = $request->file('fail');
-
-        $sheets = Excel::toArray(null, $file);
-        $grid = $sheets[0] ?? [];
-
-        // Trim fully-empty trailing rows/columns.
-        $grid = array_map(fn ($row) => array_map(
-            fn ($c) => is_null($c) ? '' : (is_string($c) ? trim($c) : $c),
-            $row
-        ), $grid);
-        $grid = array_values(array_filter($grid, fn ($row) => implode('', array_map('strval', $row)) !== ''));
-
-        return response()->json([
-            'filename' => $file->getClientOriginalName(),
-            'grid' => $grid,
-            'parsed' => $this->normalizeScoresheet($grid),
-        ]);
+        return response()->json(ScoresheetParser::parse($request->file('fail')));
     }
 
     /**
-     * Best-effort mapping of a scoresheet grid to the Keputusan schema. Locates
-     * the header row (one that names "Daerah Mengundi" or carries PH & BN
-     * columns) and pulls the standard result columns from it. Returns null when
-     * the layout is unrecognised — the caller then falls back to the raw grid.
+     * Keanggotaan (membership) card for the Analisa page — member counts for the
+     * selected DUN, broken down by DM / Lokaliti, matched against the DPPR roll
+     * (matched_* columns filled by MemberMatchService) and culaan (is_dicula).
+     * Follows the page's Parlimen→DUN filter via the `dun` query param.
      */
-    private function normalizeScoresheet(array $grid): ?array
+    public function keanggotaanCard(Request $request)
     {
-        $headerIdx = null;
-        $map = [];
+        $dun = trim((string) $request->query('dun', ''));
+        $kadunName = $this->stripCode($dun);
+        $batchIds = KeanggotaanBatch::activeIds();
 
-        foreach ($grid as $i => $row) {
-            $cells = array_map(fn ($c) => strtoupper(trim((string) $c)), $row);
-            $joined = implode('|', $cells);
-
-            $hasDm = str_contains($joined, 'DAERAH MENGUNDI');
-            $hasPh = in_array('PH', $cells, true) || str_contains($joined, '|PH|');
-            $hasBn = in_array('BN', $cells, true);
-
-            if ($hasDm || ($hasPh && $hasBn)) {
-                $headerIdx = $i;
-                foreach ($cells as $c => $label) {
-                    $map[$this->columnKey($label)][] = $c;
-                }
-                break;
-            }
+        if ($dun === '' || empty($batchIds)) {
+            return response()->json([
+                'no_batch' => true,
+                'scope' => ['dun' => $dun],
+                'summary' => null,
+                'byDm' => [],
+                'byLokaliti' => [],
+                'ageBands' => [],
+            ]);
         }
 
-        if ($headerIdx === null) {
-            return null;
-        }
+        $cacheKey = 'analisa:keanggotaan:'.md5($dun.'|'.implode(',', $batchIds));
 
-        $col = function (string $key) use ($map) {
-            return $map[$key][0] ?? null;
-        };
+        return response()->json(Cache::remember($cacheKey, 60, function () use ($dun, $kadunName, $batchIds) {
+            $upperKadun = mb_strtoupper($kadunName);
+            $member = fn () => Keanggotaan::whereIn('batch_id', $batchIds)
+                ->whereRaw('UPPER(matched_kadun) = ?', [$upperKadun]);
 
-        $dmCol = $col('dm');
-        $phCol = $col('ph');
-        $bnCol = $col('bn');
-        if ($dmCol === null || $phCol === null || $bnCol === null) {
-            return null;
-        }
+            // Summary — matched members in this DUN.
+            $agg = (clone $member())->selectRaw('
+                COUNT(*) AS anggota,
+                COALESCE(SUM(is_dicula), 0) AS dicula
+            ')->first();
+            $anggota = (int) ($agg->anggota ?? 0);
+            $dicula = (int) ($agg->dicula ?? 0);
 
-        $num = fn ($v) => is_numeric(str_replace([',', '%'], '', (string) $v))
-            ? (float) str_replace([',', '%'], '', (string) $v)
-            : null;
+            // Members whose file DUN matches but who are not found in the DPPR roll.
+            $luar = Keanggotaan::whereIn('batch_id', $batchIds)
+                ->whereRaw('UPPER(COALESCE(dun, "")) LIKE ?', ['%'.$upperKadun.'%'])
+                ->whereIn('status_kawasan', ['luar_kawasan', 'tiada_dppr'])
+                ->count();
 
-        $rows = [];
-        $totals = ['pemilih' => 0, 'keluar' => 0, 'ph' => 0, 'pejuang' => 0, 'pn' => 0, 'bn' => 0, 'ditolak' => 0];
+            // DPPR roll count for this DUN (active batches OR DPT uploads).
+            $activeRollIds = UploadBatch::activeIds();
+            $rollRows = DB::table('pangkalan_data_pengundi')
+                ->where('is_deceased', false)
+                ->whereRaw('UPPER(kadun) = ?', [$upperKadun])
+                ->where(function ($w) use ($activeRollIds) {
+                    $w->whereIn('upload_batch_id', $activeRollIds ?: [-1])->orWhereNotNull('dpt_upload_id');
+                })
+                ->selectRaw('daerah_mengundi, COUNT(*) AS jumlah')
+                ->groupBy('daerah_mengundi')
+                ->get();
+            $rollTotal = (int) $rollRows->sum('jumlah');
+            $rollByDm = $rollRows->keyBy(fn ($r) => ElectionAnalyticsService::nameKey($r->daerah_mengundi));
 
-        for ($i = $headerIdx + 1; $i < count($grid); $i++) {
-            $row = $grid[$i];
-            $name = trim((string) ($row[$dmCol] ?? ''));
-            if ($name === '' || $num($row[$phCol] ?? null) === null && $num($row[$bnCol] ?? null) === null) {
-                continue;
-            }
+            // By Daerah Mengundi.
+            $dmRows = (clone $member())
+                ->selectRaw('matched_daerah_mengundi AS dm,
+                    COUNT(*) AS anggota,
+                    COALESCE(SUM(is_dicula), 0) AS dicula')
+                ->whereNotNull('matched_daerah_mengundi')
+                ->where('matched_daerah_mengundi', '!=', '')
+                ->groupBy('matched_daerah_mengundi')
+                ->orderByDesc('anggota')
+                ->get()
+                ->map(function ($r) use ($rollByDm) {
+                    $roll = (int) ($rollByDm[ElectionAnalyticsService::nameKey($r->dm)]->jumlah ?? 0);
 
-            // A totals row inside the sheet — capture but don't double count.
-            $isTotal = (bool) preg_match('/\b(JUMLAH|JUMLAH BESAR|TOTAL)\b/u', strtoupper($name));
+                    return [
+                        'nama' => $r->dm,
+                        'anggota' => (int) $r->anggota,
+                        'dicula' => (int) $r->dicula,
+                        'roll' => $roll,
+                        'pct_penetrasi' => $roll > 0 ? round((int) $r->anggota / $roll * 100, 1) : null,
+                    ];
+                })->all();
 
-            $rec = [
-                'dm' => $name,
-                'pemilih' => $col('pemilih') !== null ? $num($row[$col('pemilih')] ?? null) : null,
-                'keluar' => $col('keluar') !== null ? $num($row[$col('keluar')] ?? null) : null,
-                'ph' => $num($row[$phCol] ?? null) ?? 0,
-                'pejuang' => $col('pejuang') !== null ? ($num($row[$col('pejuang')] ?? null) ?? 0) : 0,
-                'pn' => $col('pn') !== null ? ($num($row[$col('pn')] ?? null) ?? 0) : 0,
-                'bn' => $num($row[$bnCol] ?? null) ?? 0,
-                'ditolak' => $col('ditolak') !== null ? ($num($row[$col('ditolak')] ?? null) ?? 0) : 0,
-                'melayu' => $col('melayu') !== null ? $num($row[$col('melayu')] ?? null) : null,
-                'cina' => $col('cina') !== null ? $num($row[$col('cina')] ?? null) : null,
-                'india' => $col('india') !== null ? $num($row[$col('india')] ?? null) : null,
+            // By Lokaliti (top 30).
+            $lokRows = (clone $member())
+                ->selectRaw('matched_daerah_mengundi AS dm, matched_lokaliti AS nama,
+                    COUNT(*) AS anggota,
+                    COALESCE(SUM(is_dicula), 0) AS dicula')
+                ->whereNotNull('matched_lokaliti')
+                ->where('matched_lokaliti', '!=', '')
+                ->groupBy('matched_daerah_mengundi', 'matched_lokaliti')
+                ->orderByDesc('anggota')
+                ->limit(30)
+                ->get()
+                ->map(fn ($r) => [
+                    'dm' => $r->dm,
+                    'nama' => $r->nama,
+                    'anggota' => (int) $r->anggota,
+                    'dicula' => (int) $r->dicula,
+                ])->all();
+
+            // Age bands over the members' umur.
+            $bandCase = collect(ElectionAnalyticsService::AGE_BANDS)
+                ->map(fn ($b, $i) => "COALESCE(SUM(umur BETWEEN {$b['min']} AND {$b['max']}), 0) AS band_{$i}")
+                ->implode(', ');
+            $bandRow = (clone $member())->selectRaw($bandCase)->first();
+            $ageBands = collect(ElectionAnalyticsService::AGE_BANDS)
+                ->map(fn ($b, $i) => ['label' => $b['label'], 'anggota' => (int) ($bandRow->{"band_{$i}"} ?? 0)])
+                ->all();
+
+            return [
+                'no_batch' => false,
+                'scope' => ['dun' => $dun],
+                'summary' => [
+                    'anggota' => $anggota,
+                    'dicula' => $dicula,
+                    'pct_dicula' => $anggota > 0 ? round($dicula / $anggota * 100, 1) : 0,
+                    'luar_kawasan' => $luar,
+                    'roll' => $rollTotal,
+                    'pct_penetrasi' => $rollTotal > 0 ? round($anggota / $rollTotal * 100, 1) : null,
+                ],
+                'byDm' => $dmRows,
+                'byLokaliti' => $lokRows,
+                'ageBands' => $ageBands,
             ];
-
-            if ($isTotal) {
-                continue;
-            }
-
-            foreach ($totals as $k => $_) {
-                if (($rec[$k] ?? null) !== null) {
-                    $totals[$k] += $rec[$k];
-                }
-            }
-            $rows[] = $rec;
-        }
-
-        if (count($rows) === 0) {
-            return null;
-        }
-
-        return ['rows' => $rows, 'totals' => $totals];
+        }));
     }
 
-    private function columnKey(string $label): string
+    /** Strip a leading DUN code ("N01 BULOH KASAP" → "BULOH KASAP"). */
+    private function stripCode(string $dun): string
     {
-        $label = strtoupper(trim($label));
-
-        return match (true) {
-            str_contains($label, 'DAERAH MENGUNDI') => 'dm',
-            $label === 'PEMILIH' || str_contains($label, 'DPPR') || str_contains($label, 'PENGUNDI') => 'pemilih',
-            str_contains($label, 'UNDI KELUAR') || str_contains($label, 'KELUAR') || str_contains($label, 'UNDI SAH') => 'keluar',
-            $label === 'PH' => 'ph',
-            $label === 'BN' => 'bn',
-            $label === 'PN' => 'pn',
-            str_contains($label, 'PEJUANG') => 'pejuang',
-            str_contains($label, 'DITOLAK') || str_contains($label, 'ROSAK') => 'ditolak',
-            str_contains($label, 'MELAYU') => 'melayu',
-            str_contains($label, 'CINA') => 'cina',
-            str_contains($label, 'INDIA') => 'india',
-            default => 'x_'.$label,
-        };
+        return trim(preg_replace('/^[A-Z]\d+\s+/i', '', $dun));
     }
 }

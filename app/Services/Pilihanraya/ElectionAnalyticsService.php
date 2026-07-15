@@ -260,7 +260,7 @@ class ElectionAnalyticsService
      * pivot YY<=25) when tahun_lahir is missing — many DPPR uploads carry
      * no birth year, so without this the roll age charts stay empty.
      */
-    private function rollAgeExpr(): string
+    public function rollAgeExpr(): string
     {
         return "CASE
             WHEN tahun_lahir REGEXP '^[0-9]{4}$' THEN (YEAR(CURDATE()) - CAST(tahun_lahir AS UNSIGNED))
@@ -273,7 +273,7 @@ class ElectionAnalyticsService
         END";
     }
 
-    private function rollAgeGuard(): string
+    public function rollAgeGuard(): string
     {
         return "(tahun_lahir REGEXP '^[0-9]{4}$' OR no_ic REGEXP '^[0-9]{12}$')";
     }

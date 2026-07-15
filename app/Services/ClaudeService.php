@@ -95,6 +95,144 @@ class ClaudeService
     }
 
     /**
+     * Single-turn chat with the Anthropic server-side web_search tool enabled.
+     *
+     * Unlike chat(), the reply `content` is a BLOCK LIST (interleaved text /
+     * server_tool_use / web_search_tool_result), and the server-side search
+     * loop can return stop_reason "pause_turn" which we resume by re-posting.
+     * We concatenate every text block for `content` and collect {title,url}
+     * from each search result into `citations`.
+     *
+     * Returns:
+     *   ['ok'=>bool,'content'=>string|null,'citations'=>array,'searches'=>int,
+     *    'raw'=>array|null,'error'=>string|null]
+     */
+    public function chatWithWebSearch(
+        string $systemPrompt,
+        string $userPrompt,
+        ?int $maxTokens = null,
+        int $timeout = 180,
+        ?string $context = null,
+        int $maxSearches = 5,
+    ): array {
+        $config = ClaudeSetting::current();
+
+        if (! $config || ! $config->is_active || empty($config->api_key)) {
+            return ['ok' => false, 'content' => null, 'citations' => [], 'searches' => 0, 'raw' => null, 'error' => 'claude_disabled'];
+        }
+
+        $messages = [['role' => 'user', 'content' => $userPrompt]];
+        $payload = [
+            'model' => $config->model,
+            'max_tokens' => $maxTokens ?? $config->max_tokens ?? 4096,
+            'system' => $systemPrompt,
+            'messages' => $messages,
+            'tools' => [[
+                'type' => self::webSearchToolType($config->model),
+                'name' => 'web_search',
+                'max_uses' => $maxSearches,
+            ]],
+        ];
+
+        $text = '';
+        $citations = [];
+        $searches = 0;
+        $usage = ['input_tokens' => 0, 'output_tokens' => 0, 'cache_creation_input_tokens' => 0, 'cache_read_input_tokens' => 0];
+        $lastRaw = null;
+
+        try {
+            // The server-side search loop can pause; resume up to 3 times.
+            for ($turn = 0; $turn < 4; $turn++) {
+                $payload['messages'] = $messages;
+
+                $response = Http::timeout($timeout)
+                    ->withHeaders([
+                        'x-api-key' => $config->api_key,
+                        'anthropic-version' => self::ANTHROPIC_VERSION,
+                    ])
+                    ->acceptJson()
+                    ->asJson()
+                    ->post(self::API_URL, $payload);
+
+                if (! $response->successful()) {
+                    $error = $response->json('error.message') ?? $response->body();
+                    Log::error('Claude web-search call failed', ['status' => $response->status(), 'error' => $error]);
+
+                    return ['ok' => false, 'content' => null, 'citations' => [], 'searches' => $searches, 'raw' => $response->json(), 'error' => $error];
+                }
+
+                $json = $response->json();
+                $lastRaw = $json;
+                $content = $json['content'] ?? [];
+
+                foreach ((is_array($content) && array_is_list($content) ? $content : []) as $block) {
+                    if (! is_array($block)) {
+                        continue;
+                    }
+                    if (($block['type'] ?? '') === 'text') {
+                        $text .= $block['text'] ?? '';
+                    } elseif (($block['type'] ?? '') === 'web_search_tool_result') {
+                        // Errored search → content is an object, not a list; skip it.
+                        $results = $block['content'] ?? [];
+                        if (is_array($results) && array_is_list($results)) {
+                            foreach ($results as $r) {
+                                if (is_array($r) && ($r['type'] ?? '') === 'web_search_result' && ! empty($r['url'])) {
+                                    $citations[$r['url']] = ['tajuk' => (string) ($r['title'] ?? $r['url']), 'url' => (string) $r['url']];
+                                }
+                            }
+                        }
+                    }
+                }
+
+                $u = $json['usage'] ?? [];
+                $usage['input_tokens'] += (int) ($u['input_tokens'] ?? 0);
+                $usage['output_tokens'] += (int) ($u['output_tokens'] ?? 0);
+                $usage['cache_creation_input_tokens'] += (int) ($u['cache_creation_input_tokens'] ?? 0);
+                $usage['cache_read_input_tokens'] += (int) ($u['cache_read_input_tokens'] ?? 0);
+                $searches += (int) ($u['server_tool_use']['web_search_requests'] ?? 0);
+
+                if (($json['stop_reason'] ?? '') !== 'pause_turn') {
+                    break;
+                }
+
+                // Resume: append the assistant turn and re-post unchanged.
+                $messages[] = ['role' => 'assistant', 'content' => $content];
+            }
+
+            $this->logUsage($lastRaw['model'] ?? $config->model, $usage, $context, $searches);
+
+            return [
+                'ok' => true,
+                'content' => $text,
+                'citations' => array_values($citations),
+                'searches' => $searches,
+                'raw' => $lastRaw,
+                'error' => null,
+            ];
+        } catch (\Throwable $e) {
+            Log::error('Claude web-search exception: '.$e->getMessage());
+
+            return ['ok' => false, 'content' => null, 'citations' => [], 'searches' => $searches, 'raw' => null, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Web-search tool version by model: current-generation models get the
+     * dynamic-filtering variant; older models fall back to the basic one.
+     */
+    private static function webSearchToolType(string $model): string
+    {
+        $modern = ['claude-fable-5', 'claude-mythos-5', 'claude-opus-4-8', 'claude-opus-4-7', 'claude-opus-4-6', 'claude-sonnet-5', 'claude-sonnet-4-6'];
+        foreach ($modern as $prefix) {
+            if (str_starts_with($model, $prefix)) {
+                return 'web_search_20260209';
+            }
+        }
+
+        return 'web_search_20250305';
+    }
+
+    /**
      * Convenience: pull a JSON object out of a Claude reply, even when
      * the model wraps it in prose or code fences.
      */
@@ -129,7 +267,7 @@ class ClaudeService
      * Record token usage and estimated cost for a successful call. Wrapped
      * so a logging failure never breaks the AI feature that called us.
      */
-    private function logUsage(string $model, array $usage, ?string $context): void
+    private function logUsage(string $model, array $usage, ?string $context, int $webSearches = 0): void
     {
         try {
             $input = (int) ($usage['input_tokens'] ?? 0);
@@ -139,12 +277,14 @@ class ClaudeService
 
             [$inPrice, $outPrice] = self::priceFor($model);
             // Input billed at 1x, cache writes ~1.25x, cache reads ~0.1x.
+            // Web search adds $10 per 1,000 requests, folded into cost_usd.
             $cost = (
                 $input * $inPrice
                 + $cacheCreate * $inPrice * 1.25
                 + $cacheRead * $inPrice * 0.1
                 + $output * $outPrice
-            ) / 1_000_000;
+            ) / 1_000_000
+                + $webSearches * (10.0 / 1000);
 
             AiUsageLog::create([
                 'user_id' => auth()->id(),

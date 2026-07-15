@@ -13,6 +13,8 @@ import PilihanrayaShell, { usePilihanrayaTheme } from './components/PilihanrayaS
 import KpiCard from './components/KpiCard';
 import { KawasanSelect, DmFilter, FilterBarCard } from './analisa/FilterControls';
 import DragScroll from './analisa/DragScroll';
+import ComparisonBuilder from './analisa/ComparisonBuilder';
+import KeanggotaanCard from './analisa/KeanggotaanCard';
 import { PARTY, PARTY_LABEL, computeKeputusanTotals, fmt, pct, safeDiv } from './analisa/shared';
 
 function withDerived(rows) {
@@ -331,13 +333,18 @@ function EmptyFilter() {
 
 /* -------------------------------- Page ----------------------------------- */
 
-export default function Analisa({ context, rows: baseRows, totals: baseTotals }) {
+export default function Analisa({ context, rows: baseRows, totals: baseTotals, savedComparisons = [] }) {
     const [rows, setRows] = useState(baseRows);
     const [rawGrid, setRawGrid] = useState(null);
     const [filename, setFilename] = useState(null);
     const [busy, setBusy] = useState(false);
     const [kawasan, setKawasan] = useState(context.kawasanList?.[0]?.id ?? '');
     const [dmSel, setDmSel] = useState(() => baseRows.map((r) => r.dm));
+
+    const currentKawasan = useMemo(
+        () => context.kawasanList?.find((k) => k.id === kawasan) || context.kawasanList?.[0],
+        [context.kawasanList, kawasan],
+    );
 
     const dmOptions = useMemo(() => rows.map((r) => r.dm), [rows]);
     const visibleRows = useMemo(() => rows.filter((r) => dmSel.includes(r.dm)), [rows, dmSel]);
@@ -386,6 +393,14 @@ export default function Analisa({ context, rows: baseRows, totals: baseTotals })
 
                 <div className="mb-6">
                     <UploadCard onParsed={onParsed} onRawGrid={onRawGrid} busy={busy} setBusy={setBusy} filename={filename} />
+                </div>
+
+                <div className="mb-6">
+                    <ComparisonBuilder savedComparisons={savedComparisons} currentKawasan={currentKawasan} />
+                </div>
+
+                <div className="mb-6">
+                    <KeanggotaanCard kawasan={currentKawasan} />
                 </div>
 
                 {rawGrid ? (

@@ -422,6 +422,17 @@ Route::middleware(['auth', 'admin'])->prefix('pilihanraya')->name('pilihanraya.'
     Route::get('/minima', [\App\Http\Controllers\PilihanrayaAnalisaController::class, 'minima'])->name('minima');
     Route::get('/kaum-dm', [\App\Http\Controllers\PilihanrayaAnalisaController::class, 'kaumDm'])->name('kaum-dm');
 
+    // Analisa — AI comparison scenarios (saveable) + Keanggotaan card
+    Route::get('/analisa/comparisons', [\App\Http\Controllers\AnalisaComparisonController::class, 'index'])->name('analisa.comparisons.index');
+    Route::post('/analisa/comparisons', [\App\Http\Controllers\AnalisaComparisonController::class, 'store'])->name('analisa.comparisons.store');
+    Route::get('/analisa/comparisons/{comparison}', [\App\Http\Controllers\AnalisaComparisonController::class, 'show'])->name('analisa.comparisons.show');
+    Route::delete('/analisa/comparisons/{comparison}', [\App\Http\Controllers\AnalisaComparisonController::class, 'destroy'])->name('analisa.comparisons.destroy');
+    Route::post('/analisa/comparisons/{comparison}/scenarios', [\App\Http\Controllers\AnalisaComparisonController::class, 'storeScenario'])->name('analisa.comparisons.scenarios.store')->middleware('throttle:20,1');
+    Route::delete('/analisa/comparisons/{comparison}/scenarios/{scenario}', [\App\Http\Controllers\AnalisaComparisonController::class, 'destroyScenario'])->name('analisa.comparisons.scenarios.destroy');
+    Route::post('/analisa/comparisons/{comparison}/analyze', [\App\Http\Controllers\AnalisaComparisonController::class, 'analyze'])->name('analisa.comparisons.analyze')->middleware('throttle:5,1');
+    Route::get('/analisa/comparisons/{comparison}/pdf', [\App\Http\Controllers\AnalisaComparisonController::class, 'pdf'])->name('analisa.comparisons.pdf');
+    Route::get('/analisa/keanggotaan-card', [\App\Http\Controllers\PilihanrayaAnalisaController::class, 'keanggotaanCard'])->name('analisa.keanggotaan-card');
+
     // Scoreboard — live election night board driven by Borang 14 figures
     Route::get('/scoreboard', [\App\Http\Controllers\ScoreboardController::class, 'index'])->name('scoreboard');
     Route::get('/scoreboard/data', [\App\Http\Controllers\ScoreboardController::class, 'data'])->name('scoreboard.data');
