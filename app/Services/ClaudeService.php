@@ -118,6 +118,7 @@ class ClaudeService
         int $timeout = 180,
         ?string $context = null,
         int $maxSearches = 5,
+        ?int $deadlineSeconds = null,
     ): array {
         $config = ClaudeSetting::current();
 
@@ -144,8 +145,13 @@ class ClaudeService
         $usage = ['input_tokens' => 0, 'output_tokens' => 0, 'cache_creation_input_tokens' => 0, 'cache_read_input_tokens' => 0];
         $lastRaw = null;
 
+        $startedAt = microtime(true);
+
         try {
-            // The server-side search loop can pause; resume up to 3 times.
+            // The server-side search loop can pause; resume up to 3 times. A
+            // wall-clock deadline (when set) stops us re-posting once the budget
+            // is spent, so a long search loop can't blow the request timeout —
+            // we return the partial narrative gathered so far instead.
             for ($turn = 0; $turn < 4; $turn++) {
                 $payload['messages'] = $messages;
 
@@ -196,6 +202,11 @@ class ClaudeService
                 $searches += (int) ($u['server_tool_use']['web_search_requests'] ?? 0);
 
                 if (($json['stop_reason'] ?? '') !== 'pause_turn') {
+                    break;
+                }
+
+                // Out of wall-clock budget → stop resuming and use what we have.
+                if ($deadlineSeconds !== null && (microtime(true) - $startedAt) >= $deadlineSeconds) {
                     break;
                 }
 

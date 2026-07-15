@@ -45,6 +45,30 @@ class ElectionComparisonService
 
     public function analyze(AnalisaComparison $comparison, int $userId): array
     {
+        try {
+            return $this->runAnalysis($comparison, $userId);
+        } catch (\Throwable $e) {
+            // Any failure (incl. a slow/half-finished AI step) still yields the
+            // deterministic report so the user gets a result, never a hard error.
+            Log::error('Analisa comparison crashed — deterministic fallback', ['error' => $e->getMessage()]);
+            $facts = $this->buildFactPayload($comparison);
+            $fallback = $this->fallbackReport($facts);
+            $comparison->fill([
+                'fact_payload' => $facts,
+                'ai_result' => $fallback,
+                'ai_status' => 'fallback',
+                'ai_model' => ClaudeSetting::current()?->model,
+                'ai_generated_at' => now(),
+                'web_search_count' => 0,
+                'status' => 'analyzed',
+            ])->save();
+
+            return ['status' => 'fallback', 'result' => $fallback, 'facts' => $facts, 'generated_at' => $comparison->ai_generated_at->toIso8601String()];
+        }
+    }
+
+    private function runAnalysis(AnalisaComparison $comparison, int $userId): array
+    {
         $comparison->loadMissing('scenarios');
         $facts = $this->buildFactPayload($comparison);
 
@@ -67,7 +91,10 @@ class ElectionComparisonService
             .'(4) faktor-faktor KENAPA keputusan dan komposisi pengundi berubah (hujah bernas, sertakan sumber carian web), '
             .'dan (5) kesimpulan. Setiap angka mesti diambil terus daripada fakta yang diberi.';
 
-        $p1 = $this->claude->chatWithWebSearch($p1system, $factsJson, 6000, 180, 'analisa_comparison', 5);
+        // Bounded so the whole request finishes well inside the PHP/proxy
+        // timeout: ≤3 searches, 70s per HTTP call, ~140s total wall-clock for
+        // the search loop. If it runs out, we format the partial narrative.
+        $p1 = $this->claude->chatWithWebSearch($p1system, $factsJson, 6000, 70, 'analisa_comparison', 3, 140);
         $searches = (int) ($p1['searches'] ?? 0);
         $citations = $p1['citations'] ?? [];
 
@@ -89,7 +116,7 @@ class ElectionComparisonService
                 .$p1['content']
                 ."\n\nRUJUKAN (URL carian web):\n".json_encode(array_values($citations), JSON_UNESCAPED_UNICODE);
 
-            $p2 = $this->claude->chat($p2system, $p2user, 6000, 120, 'analisa_comparison_format');
+            $p2 = $this->claude->chat($p2system, $p2user, 6000, 80, 'analisa_comparison_format');
             if ($p2['ok']) {
                 $parsed = self::sanitizeComparison($this->claude->extractJson($p2['content']), $citations);
             }

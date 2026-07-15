@@ -132,7 +132,10 @@ class AnalisaComparisonController extends Controller
             return response()->json(['message' => 'Tambah sekurang-kurangnya satu senario dahulu.'], 422);
         }
 
-        @set_time_limit(240);
+        // The frontend waits 300s; give PHP the same headroom so a slow AI step
+        // completes (or falls back) instead of being killed mid-request.
+        @set_time_limit(295);
+        @ini_set('max_execution_time', '295');
         $result = $this->service->analyze($comparison, $request->user()->id);
 
         return response()->json([
