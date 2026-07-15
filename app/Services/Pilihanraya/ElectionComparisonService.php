@@ -155,14 +155,17 @@ class ElectionComparisonService
 
         return [
             'kawasan' => [
-                'dun' => $comparison->dun,
+                'negeri' => $comparison->negeri,
                 'parlimen' => $comparison->parlimen,
+                'dun' => $comparison->dun,
+                'level' => $comparison->level,
+                'nama' => $comparison->level === 'dun' ? $comparison->dun : $comparison->parlimen,
             ],
             'tarikh_analisis' => now()->format('Y-m-d'),
             'senario' => $summaries,
             'perubahan' => $this->deltas($summaries),
-            'roll_semasa' => $this->currentRoll($comparison->dun),
-            'saluran_semasa' => $this->currentSaluran($comparison->dun),
+            'roll_semasa' => $this->currentRoll($comparison),
+            'saluran_semasa' => $this->currentSaluran($comparison),
         ];
     }
 
@@ -256,21 +259,18 @@ class ElectionComparisonService
     }
 
     /**
-     * Current electorate metrics for the DUN — new vs old voters, youth share,
-     * age bands — from the live roll union (active batches OR DPT uploads).
+     * Current electorate metrics for the kawasan — new vs old voters, youth
+     * share, age bands — from the live roll union (active batches OR DPT
+     * uploads). Scoped to the DUN (kadun) or the whole Parlimen.
      */
-    private function currentRoll(string $dun): array
+    private function currentRoll(AnalisaComparison $comparison): array
     {
-        $kadun = $this->resolveKadun($dun);
-        $kadunName = $kadun?->nama ?? $this->stripCode($dun);
-
         $ageExpr = $this->analytics->rollAgeExpr();
         $guard = $this->analytics->rollAgeGuard();
         $activeIds = UploadBatch::activeIds();
+        $scope = $this->rollScope($comparison);
 
-        $base = fn () => DB::table('pangkalan_data_pengundi')
-            ->where('is_deceased', false)
-            ->whereRaw('UPPER(kadun) = ?', [mb_strtoupper($kadunName)])
+        $base = fn () => $scope(DB::table('pangkalan_data_pengundi')->where('is_deceased', false))
             ->where(function ($w) use ($activeIds) {
                 $w->whereIn('upload_batch_id', $activeIds ?: [-1])->orWhereNotNull('dpt_upload_id');
             });
@@ -308,38 +308,49 @@ class ElectionComparisonService
         ];
     }
 
-    /** Saluran (voting-stream) registered-voter breakdown for the DUN. */
-    private function currentSaluran(string $dun): array
+    /**
+     * Saluran (voting-stream) registered-voter breakdown for the kawasan — the
+     * DUN's Borang 14 reference, or the union across every DUN in the Parlimen.
+     */
+    private function currentSaluran(AnalisaComparison $comparison): array
     {
-        $kadun = $this->resolveKadun($dun);
-        if (! $kadun) {
-            return ['tersedia' => false, 'sumber' => null, 'jumlah_berdaftar' => 0, 'saluran' => []];
-        }
-
-        $ref = Borang14Reference::forKadun($kadun->id);
-        if (! $ref) {
-            return ['tersedia' => false, 'sumber' => null, 'jumlah_berdaftar' => 0, 'saluran' => []];
-        }
+        $kadunIds = $comparison->level === 'dun'
+            ? array_filter([$comparison->kadun_id])
+            : Kadun::where('bandar_id', $comparison->bandar_id)->pluck('id')->all();
 
         $flat = [];
         $total = 0;
-        foreach ($ref['daerah_mengundi'] ?? [] as $dm) {
-            foreach ($dm['pusat_mengundi'] ?? [] as $pusat) {
-                foreach ($pusat['saluran'] ?? [] as $sal) {
-                    $berdaftar = (int) ($sal['berdaftar'] ?? 0);
-                    $total += $berdaftar;
-                    $flat[] = [
-                        'dm' => $dm['nama'] ?? '',
-                        'pusat' => $pusat['nama'] ?? '',
-                        'saluran' => 'Saluran '.($sal['no'] ?? 1),
-                        'berdaftar' => $berdaftar,
-                    ];
+        $estimate = false;
+        foreach ($kadunIds as $kid) {
+            $ref = Borang14Reference::forKadun((int) $kid);
+            if (! $ref) {
+                continue;
+            }
+            if (($ref['source'] ?? '') === 'dpt_estimate') {
+                $estimate = true;
+            }
+            foreach ($ref['daerah_mengundi'] ?? [] as $dm) {
+                foreach ($dm['pusat_mengundi'] ?? [] as $pusat) {
+                    foreach ($pusat['saluran'] ?? [] as $sal) {
+                        $berdaftar = (int) ($sal['berdaftar'] ?? 0);
+                        $total += $berdaftar;
+                        $flat[] = [
+                            'dm' => $dm['nama'] ?? '',
+                            'pusat' => $pusat['nama'] ?? '',
+                            'saluran' => 'Saluran '.($sal['no'] ?? 1),
+                            'berdaftar' => $berdaftar,
+                        ];
+                    }
                 }
             }
         }
 
+        if ($total === 0) {
+            return ['tersedia' => false, 'sumber' => null, 'jumlah_saluran' => 0, 'jumlah_berdaftar' => 0, 'saluran' => []];
+        }
+
         foreach ($flat as &$s) {
-            $s['pct'] = $total > 0 ? round($s['berdaftar'] / $total * 100, 1) : 0;
+            $s['pct'] = round($s['berdaftar'] / $total * 100, 1);
         }
         unset($s);
 
@@ -347,26 +358,26 @@ class ElectionComparisonService
         usort($flat, fn ($a, $b) => $b['berdaftar'] <=> $a['berdaftar']);
 
         return [
-            'tersedia' => $total > 0,
-            'sumber' => $ref['source'] ?? 'gazet',
+            'tersedia' => true,
+            'sumber' => $estimate ? 'dpt_estimate' : 'gazet',
             'jumlah_saluran' => count($flat),
             'jumlah_berdaftar' => $total,
             'saluran' => array_slice($flat, 0, 30),
         ];
     }
 
-    private function resolveKadun(string $dun): ?Kadun
+    /** Roll-query scope predicate for the comparison's level (DUN or Parlimen). */
+    private function rollScope(AnalisaComparison $comparison): \Closure
     {
-        $name = $this->stripCode($dun);
+        if ($comparison->level === 'dun') {
+            $upper = mb_strtoupper((string) $comparison->dun);
 
-        return Kadun::whereRaw('UPPER(nama) = ?', [mb_strtoupper($name)])->first()
-            ?? Kadun::whereRaw('UPPER(nama) = ?', [mb_strtoupper($dun)])->first();
-    }
+            return fn ($q) => $q->whereRaw('UPPER(kadun) = ?', [$upper]);
+        }
 
-    /** Strip a leading DUN code ("N01 BULOH KASAP" → "BULOH KASAP"). */
-    private function stripCode(string $dun): string
-    {
-        return trim(preg_replace('/^[A-Z]\d+\s+/i', '', $dun));
+        $upper = mb_strtoupper((string) $comparison->parlimen);
+
+        return fn ($q) => $q->whereRaw('UPPER(parlimen) LIKE ?', ['%'.$upper.'%']);
     }
 
     /* ----------------------------------------------------------------
@@ -454,7 +465,7 @@ class ElectionComparisonService
         }
 
         return [
-            'tajuk' => 'Perbandingan Senario Pilihanraya — '.($facts['kawasan']['dun'] ?? ''),
+            'tajuk' => 'Perbandingan Senario Pilihanraya — '.($facts['kawasan']['nama'] ?? ''),
             'ringkasan_eksekutif' => 'Ringkasan berangka dijana secara automatik. Analisis naratif AI tidak dapat dijana '
                 .'buat masa ini (sila semak Tetapan Claude AI). Semua angka diambil terus daripada scoresheet yang dimuat '
                 .'naik dan pangkalan data pengundi semasa.',

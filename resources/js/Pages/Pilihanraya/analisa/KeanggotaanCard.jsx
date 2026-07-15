@@ -20,24 +20,26 @@ function Kpi({ label, value, sub, color }) {
     );
 }
 
-export default function KeanggotaanCard({ kawasan }) {
+export default function KeanggotaanCard({ scope }) {
     const { t } = usePilihanrayaTheme();
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [expanded, setExpanded] = useState({});
 
-    const dun = kawasan?.dun;
+    const scopeKey = scope ? `${scope.level}-${scope.bandar_id}-${scope.kadun_id ?? 'all'}` : '';
 
     useEffect(() => {
-        if (!dun) return;
+        if (!scope?.bandar_id) return;
         let cancelled = false;
         setLoading(true);
-        axios.get(route('pilihanraya.analisa.keanggotaan-card'), { params: { dun } })
+        axios.get(route('pilihanraya.analisa.keanggotaan-card'), {
+            params: { level: scope.level, bandar_id: scope.bandar_id, kadun_id: scope.kadun_id },
+        })
             .then((res) => { if (!cancelled) setData(res.data); })
             .catch(() => { if (!cancelled) setData(null); })
             .finally(() => { if (!cancelled) setLoading(false); });
         return () => { cancelled = true; };
-    }, [dun]);
+    }, [scopeKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const chartData = useMemo(
         () => (data?.byDm || []).slice(0, 15).map((d) => ({ dm: d.nama, Anggota: d.anggota })),
@@ -56,7 +58,7 @@ export default function KeanggotaanCard({ kawasan }) {
         <div className={t.card}>
             <div className="mb-4 flex items-center gap-2">
                 <Users className="h-5 w-5 text-emerald-500" />
-                <h3 className={t.cardTitle + ' mb-0'}>Keanggotaan — {kawasan?.dun || ''}</h3>
+                <h3 className={t.cardTitle + ' mb-0'}>Keanggotaan — {scope?.label || ''}</h3>
             </div>
 
             {loading ? (

@@ -143,9 +143,14 @@ function ScenarioChip({ scenario, comparisonId, onRemoved }) {
 
 /* ------------------------------- Main card -------------------------------- */
 
-export default function ComparisonBuilder({ savedComparisons = [], currentKawasan }) {
+export default function ComparisonBuilder({ savedComparisons = [], currentScope }) {
     const { t } = usePilihanrayaTheme();
-    const [saved, setSaved] = useState(savedComparisons);
+    // Only show saved comparisons for the currently-selected kawasan.
+    const scoped = savedComparisons.filter((c) =>
+        c.level === currentScope.level
+        && String(c.bandar_id) === String(currentScope.bandar_id)
+        && String(c.kadun_id ?? '') === String(currentScope.kadun_id ?? ''));
+    const [saved, setSaved] = useState(scoped);
     const [comparison, setComparison] = useState(null);
     const [title, setTitle] = useState('');
     const [openId, setOpenId] = useState('');
@@ -159,7 +164,9 @@ export default function ComparisonBuilder({ savedComparisons = [], currentKawasa
         try {
             const res = await axios.post(route('pilihanraya.analisa.comparisons.store'), {
                 title: title.trim(),
-                kawasan_id: currentKawasan?.id,
+                level: currentScope.level,
+                bandar_id: currentScope.bandar_id,
+                kadun_id: currentScope.kadun_id,
             });
             setComparison(res.data.comparison);
             setTitle('');
@@ -221,16 +228,16 @@ export default function ComparisonBuilder({ savedComparisons = [], currentKawasa
             {!comparison ? (
                 <div className="space-y-4">
                     <p className={`${t.subtext} text-sm`}>
-                        Bina perbandingan 1–3 pilihanraya (setiap senario = satu scoresheet + tarikh). AI akan membanding
-                        keputusan, merujuk keadaan politik pada masa itu dan sekarang (carian web), serta menganalisa
-                        pengundi baru/lama, peratus pengundi muda dan pecahan saluran.
+                        Kawasan: <strong>{currentScope.label}</strong>. Bina perbandingan 1–3 pilihanraya (setiap senario =
+                        satu scoresheet + tarikh). AI akan membanding keputusan, merujuk keadaan politik pada masa itu dan
+                        sekarang (carian web), serta menganalisa pengundi baru/lama, peratus pengundi muda dan pecahan saluran.
                     </p>
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div>
                             <label className={t.label}>Perbandingan Baru — Tajuk</label>
                             <div className="flex gap-2">
                                 <input value={title} onChange={(e) => setTitle(e.target.value)}
-                                    placeholder={`Perbandingan ${currentKawasan?.dun || ''}`} className={t.input} />
+                                    placeholder={`Perbandingan ${currentScope.label || ''}`} className={t.input} />
                                 <button type="button" onClick={create} disabled={busy} className={t.buttonPrimary}>
                                     {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Cipta
                                 </button>

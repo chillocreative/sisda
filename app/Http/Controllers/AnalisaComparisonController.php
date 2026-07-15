@@ -4,10 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\AnalisaComparison;
 use App\Models\AnalisaScenario;
+use App\Models\Bandar;
+use App\Models\Kadun;
 use App\Services\Pilihanraya\ElectionComparisonService;
 use App\Services\Pilihanraya\ScoresheetExtractor;
 use App\Support\Pdf;
-use App\Support\Pilihanraya\JohorElectionData;
 use Illuminate\Http\Request;
 
 /**
@@ -28,20 +29,33 @@ class AnalisaComparisonController extends Controller
     {
         $data = $request->validate([
             'title' => 'required|string|max:160',
-            'kawasan_id' => 'required|string',
+            'level' => 'required|in:dun,parlimen',
+            'bandar_id' => 'required|integer',
+            'kadun_id' => 'nullable|integer',
         ]);
 
-        $kawasan = collect(JohorElectionData::kawasanList())->firstWhere('id', $data['kawasan_id']);
-        if (! $kawasan) {
-            return response()->json(['message' => 'Kawasan tidak sah.'], 422);
+        $bandar = Bandar::with('negeri')->find($data['bandar_id']);
+        if (! $bandar) {
+            return response()->json(['message' => 'Parlimen tidak sah.'], 422);
+        }
+
+        $kadun = null;
+        if ($data['level'] === 'dun') {
+            $kadun = Kadun::find($data['kadun_id']);
+            if (! $kadun || (int) $kadun->bandar_id !== (int) $bandar->id) {
+                return response()->json(['message' => 'DUN tidak sah untuk parlimen ini.'], 422);
+            }
         }
 
         $comparison = AnalisaComparison::create([
             'user_id' => $request->user()->id,
             'title' => $data['title'],
-            'kawasan_id' => $kawasan['id'],
-            'dun' => $kawasan['dun'],
-            'parlimen' => $kawasan['parlimen'],
+            'level' => $data['level'],
+            'negeri' => $bandar->negeri?->nama,
+            'bandar_id' => $bandar->id,
+            'kadun_id' => $kadun?->id,
+            'parlimen' => $bandar->nama,
+            'dun' => $kadun?->nama,
             'status' => 'draft',
         ]);
 
@@ -150,7 +164,12 @@ class AnalisaComparisonController extends Controller
             ->map(fn ($c) => [
                 'id' => $c->id,
                 'title' => $c->title,
+                'level' => $c->level,
+                'negeri' => $c->negeri,
+                'parlimen' => $c->parlimen,
                 'dun' => $c->dun,
+                'bandar_id' => $c->bandar_id,
+                'kadun_id' => $c->kadun_id,
                 'status' => $c->status,
                 'ai_status' => $c->ai_status,
                 'scenario_count' => $c->scenarios_count,
@@ -165,7 +184,10 @@ class AnalisaComparisonController extends Controller
         return [
             'id' => $comparison->id,
             'title' => $comparison->title,
-            'kawasan_id' => $comparison->kawasan_id,
+            'level' => $comparison->level,
+            'negeri' => $comparison->negeri,
+            'bandar_id' => $comparison->bandar_id,
+            'kadun_id' => $comparison->kadun_id,
             'dun' => $comparison->dun,
             'parlimen' => $comparison->parlimen,
             'status' => $comparison->status,
