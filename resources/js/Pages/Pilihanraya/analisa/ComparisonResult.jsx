@@ -234,8 +234,7 @@ export default function ComparisonResult({ comparison }) {
             )}
 
             <p className="text-xs text-slate-400">
-                Disimpan automatik · {comparison.web_search_count > 0 ? `${comparison.web_search_count} carian web · ` : ''}
-                {comparison.ai_model || 'AI'}
+                Disimpan automatik{comparison.web_search_count > 0 ? ` · ${comparison.web_search_count} carian web` : ''}
             </p>
         </div>
     );
