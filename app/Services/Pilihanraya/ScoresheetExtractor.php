@@ -24,11 +24,27 @@ use Smalot\PdfParser\Parser as PdfParser;
 class ScoresheetExtractor
 {
     private const SYSTEM = 'You extract structured results from a raw Malaysian election scoresheet (given as a '
-        ."delimited grid, or as raw text extracted from a PDF) for analysis of a STATE assembly seat (DUN). Read the sheet's own column headers to identify "
+        ."delimited grid, as raw text extracted from a PDF, or as a document/image you can read directly) for analysis of a STATE assembly seat (DUN). Read the sheet's own column headers to identify "
         .'the contesting parties/coalitions — do NOT assume a fixed party set. If the sheet contains more than one '
         .'contest (e.g. a parliamentary/PRU block and a state/PRN or DUN block side by side or stacked), extract ONLY '
         .'the STATE (DUN / ADUN / PRN) contest. Aggregate per polling area (Daerah Mengundi, or the largest area level '
         .'available) — do not return per-saluran detail. '
+        .'MANY of these files are the standard SPR score sheet (HELAIAN MATA / SCORE SHEET, Borang SPR 760). Its columns '
+        .'run, left to right: Bil; No. Kod Daerah Mengundi; Nama Pusat Mengundi; Nombor Tempat Mengundi (saluran); '
+        .'"Jumlah kertas undi yang patut berada di dalam peti undi (A)"; then ONE COLUMN PER CANDIDATE under the banner '
+        .'"Bilangan undian oleh pemilih bagi setiap orang calon yang bertanding" — each column is headed by the CANDIDATE '
+        .'NAME with the party symbol/logo beneath it; then "Jumlah undian oleh pemilih"; "Bilangan kertas undi yang '
+        .'ditolak (C)"; and "...tidak dimasukkan ke dalam peti undi (D)". For THIS form follow these rules exactly: '
+        .'(1) registered voters `pemilih` = the "JUMLAH PEMILIH" figure printed at the TOP of the sheet — NOT column (A); '
+        .'(2) take each candidate total from the final bold "JUMLAH" (grand-total) row. The number of candidate '
+        .'vote-totals in that JUMLAH row MUST equal the number of candidate columns — align every total to its OWN '
+        .'candidate column strictly by left-to-right position, and NEVER shift, merge, or skip a column even when a '
+        ."candidate's total is very small (e.g. a 3-digit value between larger ones); double-check the count matches "
+        .'before answering; (3) `keluar` (votes cast) = the "Jumlah undian oleh pemilih" total, which normally equals the '
+        .'sum of all candidate totals plus rejected votes — use it as a cross-check that your columns are aligned; '
+        .'(4) `ditolak` = the "Bilangan kertas undi yang ditolak (C)" total; (5) for each candidate set the party key to '
+        .'the coalition/party shown by the symbol or party name in that candidate\'s column (PAKATAN HARAPAN, PERIKATAN '
+        .'NASIONAL, BARISAN NASIONAL, PEJUANG, etc.); use the candidate\'s own name only if no party is identifiable. '
         .'Respond ONLY with a JSON object, no prose: '
         .'{"contest":"short description of which contest you extracted",'
         .'"parties":["exact party/coalition name as printed"],'
