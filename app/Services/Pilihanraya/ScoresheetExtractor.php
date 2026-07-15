@@ -5,6 +5,7 @@ namespace App\Services\Pilihanraya;
 use App\Services\ClaudeService;
 use App\Support\Pilihanraya\ScoresheetParser;
 use Illuminate\Http\UploadedFile;
+use Smalot\PdfParser\Parser as PdfParser;
 
 /**
  * Turns an uploaded scoresheet (any layout) into a party-agnostic result set:
@@ -23,7 +24,7 @@ use Illuminate\Http\UploadedFile;
 class ScoresheetExtractor
 {
     private const SYSTEM = 'You extract structured results from a raw Malaysian election scoresheet (given as a '
-        ."delimited grid) for analysis of a STATE assembly seat (DUN). Read the sheet's own column headers to identify "
+        ."delimited grid, or as raw text extracted from a PDF) for analysis of a STATE assembly seat (DUN). Read the sheet's own column headers to identify "
         .'the contesting parties/coalitions — do NOT assume a fixed party set. If the sheet contains more than one '
         .'contest (e.g. a parliamentary/PRU block and a state/PRN or DUN block side by side or stacked), extract ONLY '
         .'the STATE (DUN / ADUN / PRN) contest. Aggregate per polling area (Daerah Mengundi, or the largest area level '
@@ -43,6 +44,12 @@ class ScoresheetExtractor
     /** @return array{parties:array,rows:array,totals:array,source:string,contest:?string}|null */
     public function extract(UploadedFile $file): ?array
     {
+        // PDF scoresheet → extract its text and let Claude read it. There is no
+        // deterministic fast path (PDFs have no reliable tabular grid).
+        if ($this->isPdf($file)) {
+            return $this->fromPdf($file);
+        }
+
         $grid = ScoresheetParser::grid($file);
 
         // Fast path: the standard "DAERAH MENGUNDI + PH/BN" layout.
@@ -52,7 +59,34 @@ class ScoresheetExtractor
         }
 
         // Any other layout → let Claude read the sheet and detect the parties.
-        return $this->fromAi($grid);
+        return $this->extractWithAi($this->gridToText($grid));
+    }
+
+    private function isPdf(UploadedFile $file): bool
+    {
+        return strtolower($file->getClientOriginalExtension()) === 'pdf'
+            || strtolower((string) $file->getClientMimeType()) === 'application/pdf';
+    }
+
+    /** Pull the text layer out of a PDF and hand it to Claude for extraction. */
+    private function fromPdf(UploadedFile $file): ?array
+    {
+        try {
+            $pdf = (new PdfParser)->parseFile($file->getRealPath());
+            $text = trim((string) $pdf->getText());
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        // A scanned/image-only PDF yields (almost) no text — nothing to read.
+        if (mb_strlen($text) < 40) {
+            return null;
+        }
+
+        // Cap the payload so a huge PDF can't blow the token budget.
+        $text = mb_substr($text, 0, 24000);
+
+        return $this->extractWithAi("Raw scoresheet text extracted from a PDF:\n".$text);
     }
 
     /** Convert the deterministic parser output into the party-agnostic shape. */
@@ -105,10 +139,9 @@ class ScoresheetExtractor
         ];
     }
 
-    /** Read an unknown-layout sheet with Claude and normalise the reply. */
-    private function fromAi(array $grid): ?array
+    /** Read raw scoresheet text (grid dump or PDF text) with Claude. */
+    private function extractWithAi(string $text): ?array
     {
-        $text = $this->gridToText($grid);
         $result = $this->claude->chat(self::SYSTEM, $text, 6000, 120, 'scoresheet_extract');
         if (! $result['ok']) {
             return null;

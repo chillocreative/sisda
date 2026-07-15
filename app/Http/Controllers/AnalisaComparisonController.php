@@ -79,7 +79,7 @@ class AnalisaComparisonController extends Controller
         $data = $request->validate([
             'label' => 'required|string|max:120',
             'election_date' => 'required|date',
-            'fail' => 'required|file|mimes:xlsx,xls,csv,txt|max:20480',
+            'fail' => 'required|file|mimes:xlsx,xls,csv,txt,pdf|max:20480',
         ]);
 
         if ($comparison->scenarios()->count() >= 3) {
