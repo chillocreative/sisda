@@ -56,15 +56,8 @@ class PilihanrayaController extends Controller
 
     public function simulasi(Request $request)
     {
-        $latest = $this->forecast->latestForecast();
-
         return Inertia::render('Pilihanraya/Simulasi', array_merge(
             [
-                'latestForecast' => $latest ? [
-                    'status' => $latest->status,
-                    'result' => $latest->result,
-                    'generated_at' => $latest->created_at->toIso8601String(),
-                ] : null,
                 'simulasiParties' => self::SIMULASI_PARTIES,
                 'penjuruOptions' => collect(self::PENJURU_OPTIONS)
                     ->map(fn ($label, $value) => ['value' => $value, 'label' => $label])
