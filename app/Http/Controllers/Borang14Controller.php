@@ -17,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class Borang14Controller extends Controller
@@ -172,8 +173,15 @@ class Borang14Controller extends Controller
 
     public function pdf(Request $request)
     {
+        // kawasan_id's exists-table depends on kawasan_type — validated against
+        // bandar for Parlimen, kadun for DUN, so an id from the wrong table
+        // (e.g. a Parlimen id passed with kawasan_type=dun) is always rejected.
+        $kawasanType = $request->input('kawasan_type');
+        $existsTable = $kawasanType === Borang14Form::KAWASAN_PARLIMEN ? 'bandar' : 'kadun';
+
         $validated = $request->validate([
-            'kadun_id' => 'required|integer|exists:kadun,id',
+            'kawasan_type' => ['required', Rule::in([Borang14Form::KAWASAN_PARLIMEN, Borang14Form::KAWASAN_DUN])],
+            'kawasan_id'   => ['required', 'integer', Rule::exists($existsTable, 'id')],
             'jenis_pr' => 'required|in:pru,prn,prk',
             'tahun'    => 'required|integer|between:1959,2100',
             'penjuru'  => 'required|integer|in:2,3,4,5,6',
@@ -181,11 +189,18 @@ class Borang14Controller extends Controller
             'parti.*'  => 'nullable|string|max:100',
         ]);
 
-        $reference = Borang14Reference::forKadun((int) $validated['kadun_id']);
-        abort_if(! $reference, 404, 'Data Borang 14 belum tersedia untuk DUN ini.');
+        $isParlimen = $validated['kawasan_type'] === Borang14Form::KAWASAN_PARLIMEN;
+        $kawasanId = (int) $validated['kawasan_id'];
 
-        $form = Borang14Form::where('kawasan_type', Borang14Form::KAWASAN_DUN)
-            ->where('kawasan_id', $validated['kadun_id'])
+        $reference = $isParlimen
+            ? Borang14Reference::forBandar($kawasanId)
+            : Borang14Reference::forKadun($kawasanId);
+
+        $seatLabel = $isParlimen ? 'Parlimen' : 'DUN';
+        abort_if(! $reference, 404, "Data Borang 14 belum tersedia untuk {$seatLabel} ini.");
+
+        $form = Borang14Form::where('kawasan_type', $validated['kawasan_type'])
+            ->where('kawasan_id', $kawasanId)
             ->where('jenis_pr', $validated['jenis_pr'])
             ->where('tahun', $validated['tahun'])
             ->first();
@@ -215,12 +230,15 @@ class Borang14Controller extends Controller
             'parties'   => $parties,
             'votes'     => $votes,
             'logo'      => $logo,
-            'isBulohKasap' => (int) $validated['kadun_id'] === self::BULOH_KASAP_KADUN_ID,
+            // Buloh Kasap's Undi Awal/Pos merge is a DUN-only exception — a
+            // Parlimen that happens to share id 41 must never trigger it.
+            'isBulohKasap' => ! $isParlimen && $kawasanId === self::BULOH_KASAP_KADUN_ID,
         ])
             ->setPaper('a4', 'landscape')
             ->setOptions(['isHtml5ParserEnabled' => true, 'isRemoteEnabled' => false, 'defaultFont' => 'DejaVu Sans']);
 
-        $name = 'borang-14-' . str($reference['dun'] ?? 'dun')->slug() . '-' . now()->format('Y-m-d') . '.pdf';
+        $areaName = $isParlimen ? ($reference['parlimen'] ?? 'parlimen') : ($reference['dun'] ?? 'dun');
+        $name = 'borang-14-' . str($areaName)->slug() . '-' . now()->format('Y-m-d') . '.pdf';
 
         return $pdf->download($name);
     }
@@ -463,13 +481,27 @@ class Borang14Controller extends Controller
             })
             ->orderByDesc('tahun')->orderBy('jenis_pr')->orderBy('kawasan_type')
             ->get()
-            ->map(fn (Borang14Form $f) => [
-                'id' => $f->id, 'tahun' => $f->tahun, 'jenis_pr' => $f->jenis_pr,
-                'kawasan_type' => $f->kawasan_type, 'kawasan_nama' => $f->kawasanNama(),
-                'penjuru' => $f->penjuru, 'status' => $f->status, 'source' => $f->source,
-                'source_filename' => $f->source_filename, 'needs_review' => $f->needs_review,
-                'published_at' => $f->published_at,
-            ]);
+            ->map(function (Borang14Form $f) {
+                // Resolve the real ids ourselves so the frontend never has to
+                // recover them by matching kawasan_nama strings — duplicate
+                // names within a state (plausible since this feature CREATES
+                // seats from AI-read sheets) would otherwise silently target
+                // the wrong seat.
+                $isParlimen = $f->kawasan_type === Borang14Form::KAWASAN_PARLIMEN;
+                $kawasan = $f->kawasan();
+                $bandar = $isParlimen ? $kawasan : $kawasan?->bandar;
+
+                return [
+                    'id' => $f->id, 'tahun' => $f->tahun, 'jenis_pr' => $f->jenis_pr,
+                    'kawasan_type' => $f->kawasan_type, 'kawasan_id' => $f->kawasan_id,
+                    'kawasan_nama' => $kawasan?->nama ?? '—',
+                    'negeri_id' => $bandar?->negeri_id,
+                    'bandar_id' => $isParlimen ? $f->kawasan_id : $kawasan?->bandar_id,
+                    'penjuru' => $f->penjuru, 'status' => $f->status, 'source' => $f->source,
+                    'source_filename' => $f->source_filename, 'needs_review' => $f->needs_review,
+                    'published_at' => $f->published_at,
+                ];
+            });
 
         return response()->json(['rows' => $rows]);
     }

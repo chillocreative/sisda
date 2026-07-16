@@ -19,8 +19,9 @@
     $nf = fn ($n) => number_format((int) $n);
     $pctf = fn ($num, $den) => $den > 0 ? number_format($num / $den * 100, 1) . '%' : '—';
 
-    // Undi Awal & Undi Pos: one combined row for Buloh Kasap (matches how the
-    // votes were saved on-screen), two separate rows for every other DUN.
+    // Undi Awal & Undi Pos: one combined row for Buloh Kasap DUN (matches how
+    // the votes were saved on-screen), two separate rows otherwise (every
+    // other DUN, and every Parlimen — the merge is a DUN-only exception).
     $undiAwalBerdaftar = $reference['undi_awal']['berdaftar'] ?? 0;
     $undiPosBerdaftar = $reference['undi_pos']['berdaftar'] ?? 0;
     $awalPosRows = ($isBulohKasap ?? false)
@@ -78,7 +79,12 @@
     <div class="head">
         @if ($logo)<img src="{{ $logo }}" alt="Logo">@endif
         <h1>BORANG 14</h1>
-        <div class="geo">{{ $reference['negeri'] }} &middot; {{ $reference['parlimen'] }} &middot; DUN {{ $reference['dun'] }}</div>
+        <div class="geo">
+            {{ $reference['negeri'] }} &middot; Parlimen {{ $reference['parlimen'] }}
+            @if ($reference['dun'] ?? null)
+                &middot; DUN {{ $reference['dun'] }}
+            @endif
+        </div>
         <div class="sub">Penyata Undi Mengikut Saluran &mdash; {{ $penjuruLabel }}</div>
         @if (($reference['source'] ?? null) === 'dpt_estimate')
             <div class="sub" style="color:#b45309;">Pusat Mengundi &amp; Berdaftar dianggarkan daripada data DPT (ikut Lokaliti) &mdash; bukan pecahan Saluran rasmi gazet SPR.</div>

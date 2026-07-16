@@ -176,7 +176,8 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
 
     const downloadPdf = () => {
         const url = route('pilihanraya.borang-14.pdf', {
-            kadun_id: kadunId,
+            kawasan_type: 'dun',
+            kawasan_id: kadunId,
             penjuru: Number(penjuru),
             parti: partyNames, // headers follow the on-screen dropdown selection
         });

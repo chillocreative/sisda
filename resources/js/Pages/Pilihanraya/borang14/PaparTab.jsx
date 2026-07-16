@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Download, Eye, Info, Landmark, Loader2, MapPin, RotateCcw, Vote } from 'lucide-react';
 import { usePilihanrayaTheme } from '../components/PilihanrayaShell';
@@ -19,21 +19,14 @@ const SUMBER_LABEL = { manual: 'Manual', scoresheet: 'Scoresheet' };
  * Tab "Papar" — sejarah rekod Borang 14 disimpan, dengan penapis lata
  * Negeri > Parlimen > DUN.
  *
- * Kontrak backend sebenar (app/Http/Controllers/Borang14Controller.php,
- * method senarai/pdf/revert) berbeza daripada brief Task 11 asal:
- *   - Parameter kedua ialah `bandar_id` (BUKAN `parlimen_id` seperti dalam
- *     brief) — jadual `bandar` = Parlimen dalam domain sistem ini.
- *   - Baris yang dipulangkan TIADA kawasan_id/negeri_id/parlimen_id/kadun_id
- *     atau has_snapshot — hanya { id, tahun, jenis_pr, kawasan_type,
- *     kawasan_nama, penjuru, status, source, source_filename, needs_review,
- *     published_at }. ID kawasan diselesaikan di sini secara nama, ikut
- *     senarai negeri/parlimen/kadun yang sedia ada pada props halaman.
- *   - route('pilihanraya.borang-14.pdf') hanya menyokong `kadun_id` (peringkat
- *     DUN sahaja) — bukan `kawasan_type`/`kawasan_id` seperti brief nyatakan.
- *     Rekod peringkat Parlimen tidak boleh dimuat turun PDF melalui laluan ini.
- *   - Revert tiada penanda has_snapshot pada baris; butang Revert sentiasa
- *     dipaparkan dan pelayan memulangkan 422 dengan mesej BM jika tiada
- *     snapshot untuk dipulihkan.
+ * GET route('pilihanraya.borang-14.senarai') memulangkan id sebenar terus
+ * daripada pelayan (kawasan_id, negeri_id, bandar_id) — TIADA lagi padanan
+ * nama kawasan di sisi klien (rapuh: nama boleh berlanggar antara kerusi,
+ * dan ciri ini mencipta kawasan daripada scoresheet AI, jadi perlanggaran
+ * nama munasabah berlaku).
+ *
+ * route('pilihanraya.borang-14.pdf') kini menyokong kedua-dua peringkat
+ * Parlimen dan DUN melalui kawasan_type + kawasan_id.
  */
 export default function PaparTab({ negeriList, parlimenList, kadunList, onOpenKeyin }) {
     const { t } = usePilihanrayaTheme();
@@ -50,29 +43,6 @@ export default function PaparTab({ negeriList, parlimenList, kadunList, onOpenKe
         ? parlimenList.filter((p) => String(p.negeri_id) === String(negeriId)) : [];
     const kadunOptions = parlimenId
         ? kadunList.filter((k) => String(k.bandar_id) === String(parlimenId)) : [];
-
-    // Senarai Parlimen & DUN dalam negeri terpilih — dipakai untuk padan
-    // kawasan_nama pulangan pelayan kembali kepada ID sebenar (lihat nota di
-    // atas: pelayan tidak pulangkan ID kawasan bagi setiap baris).
-    const negeriBandarIds = useMemo(
-        () => new Set(parlimenList.filter((p) => String(p.negeri_id) === String(negeriId)).map((p) => String(p.id))),
-        [parlimenList, negeriId],
-    );
-    const kadunDalamNegeri = useMemo(
-        () => kadunList.filter((k) => negeriBandarIds.has(String(k.bandar_id))),
-        [kadunList, negeriBandarIds],
-    );
-
-    const resolveKawasan = (r) => {
-        if (r.kawasan_type === 'dun') {
-            const match = kadunDalamNegeri.find((k) => k.nama === r.kawasan_nama);
-            if (!match) return null;
-            return { negeriId, parlimenId: String(match.bandar_id), kadunId: String(match.id) };
-        }
-        const match = parlimenList.find((p) => String(p.negeri_id) === String(negeriId) && p.nama === r.kawasan_nama);
-        if (!match) return null;
-        return { negeriId, parlimenId: String(match.id), kadunId: '' };
-    };
 
     const load = () => {
         if (!negeriId) { setRows([]); return; }
@@ -98,15 +68,10 @@ export default function PaparTab({ negeriList, parlimenList, kadunList, onOpenKe
     useEffect(load, [negeriId, parlimenId, kadunId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const openPapar = (r) => {
-        const kw = resolveKawasan(r);
-        if (!kw) {
-            setError(`Tidak dapat mengenal pasti kawasan "${r.kawasan_nama}" untuk paparan di Keyin.`);
-            return;
-        }
         onOpenKeyin({
-            negeriId: kw.negeriId,
-            parlimenId: kw.parlimenId,
-            kadunId: kw.kadunId,
+            negeriId: String(r.negeri_id ?? negeriId),
+            parlimenId: String(r.bandar_id ?? ''),
+            kadunId: r.kawasan_type === 'dun' ? String(r.kawasan_id) : '',
             kawasanType: r.kawasan_type,
             jenisPr: r.jenis_pr,
             tahun: r.tahun,
@@ -115,13 +80,9 @@ export default function PaparTab({ negeriList, parlimenList, kadunList, onOpenKe
     };
 
     const openPdf = (r) => {
-        const kw = resolveKawasan(r);
-        if (!kw || !kw.kadunId) {
-            setError('Muat turun PDF ketika ini hanya disokong untuk rekod peringkat DUN.');
-            return;
-        }
         window.open(route('pilihanraya.borang-14.pdf', {
-            kadun_id: kw.kadunId, jenis_pr: r.jenis_pr, tahun: r.tahun, penjuru: r.penjuru,
+            kawasan_type: r.kawasan_type, kawasan_id: r.kawasan_id,
+            jenis_pr: r.jenis_pr, tahun: r.tahun, penjuru: r.penjuru,
         }), '_blank');
     };
 
@@ -201,47 +162,42 @@ export default function PaparTab({ negeriList, parlimenList, kadunList, onOpenKe
                             {rows.length === 0 && (
                                 <tr><td colSpan={7} className={`${t.tableCell} text-center py-8 ${t.subtext}`}>Tiada rekod Borang 14 untuk penapis ini.</td></tr>
                             )}
-                            {rows.map((r) => {
-                                const isDun = r.kawasan_type === 'dun';
-                                return (
-                                    <tr key={r.id} className={t.tableRow}>
-                                        <td className={`${t.tableCell} font-semibold`}>{r.tahun}</td>
-                                        <td className={t.tableCell}>{JENIS_LABEL[r.jenis_pr] ?? r.jenis_pr}</td>
-                                        <td className={t.tableCell}>
-                                            <span className={`${t.badge} ${KAWASAN_BADGE[r.kawasan_type]} mr-2`}>{r.kawasan_type.toUpperCase()}</span>
-                                            {r.kawasan_nama}
-                                            {r.needs_review && <span className={`${t.badge} bg-amber-100 text-amber-800 ml-2`}>Perlu Semakan</span>}
-                                        </td>
-                                        <td className={`${t.tableCell} text-right`}>{r.penjuru}</td>
-                                        <td className={t.tableCell}>
-                                            <span className={`${t.badge} ${STATUS_BADGE[r.status]}`}>{r.status === 'draft' ? 'DRAF' : 'DITERBITKAN'}</span>
-                                            {r.status === 'published' && r.published_at && (
-                                                <div className="text-xs text-slate-400 mt-0.5">{new Date(r.published_at).toLocaleDateString('ms-MY')}</div>
-                                            )}
-                                        </td>
-                                        <td className={t.tableCell} title={r.source_filename || undefined}>{SUMBER_LABEL[r.source] ?? r.source}</td>
-                                        <td className={`${t.tableCell} text-right whitespace-nowrap`}>
-                                            <button type="button" title="Papar dalam Keyin"
-                                                onClick={() => openPapar(r)}
-                                                className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mr-3">
-                                                <Eye className="h-4 w-4" /> Papar
-                                            </button>
-                                            <button type="button"
-                                                title={isDun ? 'Muat turun PDF' : 'PDF hanya disokong untuk rekod peringkat DUN'}
-                                                onClick={() => isDun && openPdf(r)}
-                                                disabled={!isDun}
-                                                className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mr-3 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-slate-600">
-                                                <Download className="h-4 w-4" /> PDF
-                                            </button>
-                                            <button type="button" title="Pulih keadaan sebelum scoresheet menimpa"
-                                                onClick={() => setRevertTarget(r)}
-                                                className="inline-flex items-center gap-1 text-sm text-rose-600 hover:text-rose-700">
-                                                <RotateCcw className="h-4 w-4" /> Revert
-                                            </button>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
+                            {rows.map((r) => (
+                                <tr key={r.id} className={t.tableRow}>
+                                    <td className={`${t.tableCell} font-semibold`}>{r.tahun}</td>
+                                    <td className={t.tableCell}>{JENIS_LABEL[r.jenis_pr] ?? r.jenis_pr}</td>
+                                    <td className={t.tableCell}>
+                                        <span className={`${t.badge} ${KAWASAN_BADGE[r.kawasan_type]} mr-2`}>{r.kawasan_type.toUpperCase()}</span>
+                                        {r.kawasan_nama}
+                                        {r.needs_review && <span className={`${t.badge} bg-amber-100 text-amber-800 ml-2`}>Perlu Semakan</span>}
+                                    </td>
+                                    <td className={`${t.tableCell} text-right`}>{r.penjuru}</td>
+                                    <td className={t.tableCell}>
+                                        <span className={`${t.badge} ${STATUS_BADGE[r.status]}`}>{r.status === 'draft' ? 'DRAF' : 'DITERBITKAN'}</span>
+                                        {r.status === 'published' && r.published_at && (
+                                            <div className="text-xs text-slate-400 mt-0.5">{new Date(r.published_at).toLocaleDateString('ms-MY')}</div>
+                                        )}
+                                    </td>
+                                    <td className={t.tableCell} title={r.source_filename || undefined}>{SUMBER_LABEL[r.source] ?? r.source}</td>
+                                    <td className={`${t.tableCell} text-right whitespace-nowrap`}>
+                                        <button type="button" title="Papar dalam Keyin"
+                                            onClick={() => openPapar(r)}
+                                            className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mr-3">
+                                            <Eye className="h-4 w-4" /> Papar
+                                        </button>
+                                        <button type="button" title="Muat turun PDF"
+                                            onClick={() => openPdf(r)}
+                                            className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mr-3">
+                                            <Download className="h-4 w-4" /> PDF
+                                        </button>
+                                        <button type="button" title="Pulih keadaan sebelum scoresheet menimpa"
+                                            onClick={() => setRevertTarget(r)}
+                                            className="inline-flex items-center gap-1 text-sm text-rose-600 hover:text-rose-700">
+                                            <RotateCcw className="h-4 w-4" /> Revert
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
                         </tbody>
                     </table>
                 </div>
