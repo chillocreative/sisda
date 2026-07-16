@@ -135,6 +135,63 @@ class Borang14PdfTest extends TestCase
         $this->assertStringContainsString('UNDI POS', $text);
     }
 
+    /**
+     * Finding 4 (Important): pdf() still aborted 404 whenever
+     * Borang14Reference::forKadun()/forBandar() returned null — but data()
+     * already falls back to referenceFromStructure() for scoresheet-only
+     * seats (no curated reference, no DPT roll uploaded). Every seat this
+     * feature creates via upload is exactly that case, so "Muat Turun PDF"
+     * always failed for them. pdf() must get the same fallback; the 404
+     * should only remain for the genuinely-no-data case (no reference AND no
+     * saved structure).
+     */
+    public function test_pdf_falls_back_to_structure_reference_for_scoresheet_only_seat(): void
+    {
+        // Deliberately NO seedDpt() call — this seat has no DPT roll and no
+        // curated reference JSON, exactly like every seat this feature creates.
+        $negeri = Negeri::create(['nama' => 'Negeri Ujian']);
+        $bandar = Bandar::create(['nama' => 'Parlimen Ujian', 'negeri_id' => $negeri->id]);
+        $kadun = Kadun::create(['nama' => 'Juasseh Ujian', 'bandar_id' => $bandar->id]);
+
+        $form = Borang14Form::create([
+            'kawasan_type' => 'dun', 'kawasan_id' => $kadun->id,
+            'jenis_pr' => 'prn', 'tahun' => 2023, 'penjuru' => 2, 'status' => 'draft',
+            'source' => 'scoresheet',
+            'structure' => [
+                'calon' => [['nama' => 'A'], ['nama' => 'B']],
+                'rows' => [[
+                    'pusat' => 'PM Ujian', 'dm' => 'DM Ujian', 'saluran' => '1',
+                    'a' => 10, 'undi' => [6, 4], 'jumlah_undian' => 10, 'ditolak' => 0, 'tidak_dimasukkan' => 0,
+                ]],
+            ],
+        ]);
+        $form->votes()->create(['pusat' => 'PM Ujian', 'saluran' => '1', 'slot' => 1, 'undi' => 6]);
+        $form->votes()->create(['pusat' => 'PM Ujian', 'saluran' => '1', 'slot' => 2, 'undi' => 4]);
+
+        $res = $this->actingAs($this->adminUser())->get(route('pilihanraya.borang-14.pdf', [
+            'kawasan_type' => 'dun', 'kawasan_id' => $kadun->id,
+            'jenis_pr' => 'prn', 'tahun' => 2023, 'penjuru' => 2,
+        ]));
+
+        $res->assertOk();
+        $this->assertStringContainsString('application/pdf', $res->headers->get('content-type'));
+    }
+
+    public function test_pdf_still_404s_when_there_is_genuinely_no_data(): void
+    {
+        $negeri = Negeri::create(['nama' => 'Negeri Ujian']);
+        $bandar = Bandar::create(['nama' => 'Parlimen Ujian', 'negeri_id' => $negeri->id]);
+        $kadun = Kadun::create(['nama' => 'Dun Ujian', 'bandar_id' => $bandar->id]);
+        // No DPT, no curated reference, no form/structure at all.
+
+        $res = $this->actingAs($this->adminUser())->get(route('pilihanraya.borang-14.pdf', [
+            'kawasan_type' => 'dun', 'kawasan_id' => $kadun->id,
+            'jenis_pr' => 'prn', 'tahun' => 2023, 'penjuru' => 2,
+        ]));
+
+        $res->assertStatus(404);
+    }
+
     public function test_senarai_returns_kawasan_and_geography_ids(): void
     {
         $negeri = Negeri::create(['nama' => 'Negeri Ujian']);

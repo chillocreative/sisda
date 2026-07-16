@@ -405,14 +405,22 @@ class Borang14Controller extends Controller
             ? Borang14Reference::forBandar($kawasanId)
             : Borang14Reference::forKadun($kawasanId);
 
-        $seatLabel = $isParlimen ? 'Parlimen' : 'DUN';
-        abort_if(! $reference, 404, "Data Borang 14 belum tersedia untuk {$seatLabel} ini.");
-
         $form = Borang14Form::where('kawasan_type', $validated['kawasan_type'])
             ->where('kawasan_id', $kawasanId)
             ->where('jenis_pr', $validated['jenis_pr'])
             ->where('tahun', $validated['tahun'])
             ->first();
+
+        // Same fallback as data(): a seat created from an upload has no curated
+        // reference JSON and no DPT roll uploaded yet, so build the reference
+        // straight from the scoresheet's own frozen structure instead of 404ing
+        // on every seat this feature creates.
+        if (! $reference && $form?->structure) {
+            $reference = $this->referenceFromStructure($form->structure, $form->kawasan());
+        }
+
+        $seatLabel = $isParlimen ? 'Parlimen' : 'DUN';
+        abort_if(! $reference, 404, "Data Borang 14 belum tersedia untuk {$seatLabel} ini.");
 
         // Prefer the party names passed from the page so the PDF column headers
         // match the on-screen dropdown selection exactly; fall back to the saved
