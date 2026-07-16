@@ -414,25 +414,76 @@ TXT;
     }
 
     /**
-     * Silang-semak setiap baris: (A) == jumlah undi calon + (C) + (D).
-     * Disahkan pada sheet Juasseh sebenar: 4471 + 4549 + 87 + 15 == 9122.
-     * @return array<int, array{index:int, pusat:string, saluran:string, jangka:int, dapat:int}>
+     * Silang-semak setiap baris (dan baris JUMLAH/grand-total) terhadap TIGA peraturan:
+     *
+     *   - calon_count:    count(undi) == count(calon) — `undi` ialah ARRAY POSISI yang
+     *                      MESTI selaras 1-ke-1 dengan senarai `calon`; ketidakpadanan
+     *                      bilangan ialah tanda pasti lajur calon tersalah jajar/hilang.
+     *   - jumlah_undian:  jumlah_undian == sum(undi) — jumlah setiap baris mesti sama
+     *                      dengan jumlah nilai undi bagi baris itu.
+     *   - balance:        (A) == sum(undi) + ditolak + tidak_dimasukkan.
+     *                      Disahkan pada sheet Juasseh sebenar: 4471+4549+87+15 == 9122.
+     *
+     * @return array<int, array{rule:string, index:int|string, pusat:string, saluran:string,
+     *                           jangka?:int, dapat?:int, expected?:int, actual?:int}>
      */
     public static function validateBalance(array $data): array
     {
         $bad = [];
-        foreach (($data['rows'] ?? []) as $i => $r) {
-            $jangka = array_sum($r['undi'] ?? []) + (int) ($r['ditolak'] ?? 0) + (int) ($r['tidak_dimasukkan'] ?? 0);
-            if ($jangka !== (int) ($r['a'] ?? 0)) {
+        $expectedCalon = count($data['calon'] ?? []);
+
+        $check = function ($r, $index) use (&$bad, $expectedCalon) {
+            $undi = $r['undi'] ?? [];
+            $pusat = (string) ($r['pusat'] ?? '');
+            $saluran = (string) ($r['saluran'] ?? '');
+
+            $actualCalon = count($undi);
+            if ($actualCalon !== $expectedCalon) {
                 $bad[] = [
-                    'index' => $i,
-                    'pusat' => (string) ($r['pusat'] ?? ''),
-                    'saluran' => (string) ($r['saluran'] ?? ''),
-                    'jangka' => $jangka,
-                    'dapat' => (int) ($r['a'] ?? 0),
+                    'rule' => 'calon_count',
+                    'index' => $index,
+                    'pusat' => $pusat,
+                    'saluran' => $saluran,
+                    'expected' => $expectedCalon,
+                    'actual' => $actualCalon,
                 ];
             }
+
+            $sumUndi = array_sum($undi);
+            $jumlahUndian = (int) ($r['jumlah_undian'] ?? 0);
+            if ($jumlahUndian !== $sumUndi) {
+                $bad[] = [
+                    'rule' => 'jumlah_undian',
+                    'index' => $index,
+                    'pusat' => $pusat,
+                    'saluran' => $saluran,
+                    'jangka' => $sumUndi,
+                    'dapat' => $jumlahUndian,
+                ];
+            }
+
+            $jangka = $sumUndi + (int) ($r['ditolak'] ?? 0) + (int) ($r['tidak_dimasukkan'] ?? 0);
+            $dapat = (int) ($r['a'] ?? 0);
+            if ($jangka !== $dapat) {
+                $bad[] = [
+                    'rule' => 'balance',
+                    'index' => $index,
+                    'pusat' => $pusat,
+                    'saluran' => $saluran,
+                    'jangka' => $jangka,
+                    'dapat' => $dapat,
+                ];
+            }
+        };
+
+        foreach (($data['rows'] ?? []) as $i => $r) {
+            $check($r, $i);
         }
+
+        if (! empty($data['jumlah'])) {
+            $check($data['jumlah'], 'jumlah');
+        }
+
         return $bad;
     }
 }

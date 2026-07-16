@@ -55,5 +55,58 @@ class ScoresheetExtractorDetailedTest extends TestCase
         $bad = ScoresheetExtractor::validateBalance($data);
         $this->assertCount(1, $bad);
         $this->assertSame(1, $bad[0]['index']);
+        $this->assertSame('balance', $bad[0]['rule']);
+    }
+
+    public function test_row_with_undi_count_mismatched_to_calon_is_reported(): void
+    {
+        $data = $this->fixture();
+        // Sheet has 2 calon; drop one entry from row 1's positional undi array —
+        // this is exactly the column-misalignment bug the feature exists to catch.
+        $data['rows'][1]['undi'] = [48];
+        $bad = ScoresheetExtractor::validateBalance($data);
+
+        $mismatch = collect($bad)->firstWhere('rule', 'calon_count');
+        $this->assertNotNull($mismatch, 'undi count mismatched to calon count mesti dilaporkan');
+        $this->assertSame(1, $mismatch['index']);
+        $this->assertSame(2, $mismatch['expected']);
+        $this->assertSame(1, $mismatch['actual']);
+    }
+
+    public function test_row_with_jumlah_undian_not_matching_sum_of_undi_is_reported(): void
+    {
+        $data = $this->fixture();
+        $data['rows'][1]['jumlah_undian'] = 999;   // sepatutnya 48+76=124
+        $bad = ScoresheetExtractor::validateBalance($data);
+
+        $mismatch = collect($bad)->firstWhere('rule', 'jumlah_undian');
+        $this->assertNotNull($mismatch, 'jumlah_undian != sum(undi) mesti dilaporkan');
+        $this->assertSame(1, $mismatch['index']);
+        $this->assertSame(124, $mismatch['jangka']);
+        $this->assertSame(999, $mismatch['dapat']);
+    }
+
+    public function test_jumlah_block_calon_count_mismatch_is_reported(): void
+    {
+        $data = $this->fixture();
+        $data['jumlah']['undi'] = [4471];   // patut 2 nilai selaras dengan calon
+        $bad = ScoresheetExtractor::validateBalance($data);
+
+        $mismatch = collect($bad)->firstWhere('rule', 'calon_count');
+        $this->assertNotNull($mismatch);
+        $this->assertSame('jumlah', $mismatch['index']);
+    }
+
+    public function test_jumlah_block_jumlah_undian_mismatch_is_reported(): void
+    {
+        $data = $this->fixture();
+        $data['jumlah']['jumlah_undian'] = 1;
+        $bad = ScoresheetExtractor::validateBalance($data);
+
+        $mismatch = collect($bad)->firstWhere('rule', 'jumlah_undian');
+        $this->assertNotNull($mismatch);
+        $this->assertSame('jumlah', $mismatch['index']);
+        $this->assertSame(9020, $mismatch['jangka']);
+        $this->assertSame(1, $mismatch['dapat']);
     }
 }
