@@ -139,14 +139,22 @@ class Borang14SubmenuTest extends TestCase
                 );
         });
 
-        $upload = fn (string $name) => $this->actingAs($user)->post(route('pilihanraya.borang-14.upload'), [
+        // Upload is now a two-step dry-run/commit flow: dry run extracts + resolves
+        // WITHOUT writing, commit reads the cached extraction back out by token.
+        // The extractor mock above expects exactly 2 calls — one per dry run below;
+        // commit must NOT re-extract.
+        $dryRun = fn (string $name) => $this->actingAs($user)->post(route('pilihanraya.borang-14.upload'), [
+            'dry_run' => 1,
             'fail' => UploadedFile::fake()->create($name, 10, 'application/pdf'),
             'jenis_pr' => 'prn',
             'tahun' => 2023,
         ]);
+        $commit = fn (string $token) => $this->actingAs($user)
+            ->post(route('pilihanraya.borang-14.upload'), ['token' => $token]);
 
         // Muat naik pertama: borang baru — TIADA snapshot patut dicipta.
-        $res1 = $upload('scoresheet-1.pdf')->assertOk();
+        $token1 = $dryRun('scoresheet-1.pdf')->assertOk()->json('token');
+        $res1 = $commit($token1)->assertOk();
         $formId = $res1->json('form_id');
         $this->assertSame(
             0,
@@ -156,7 +164,8 @@ class Borang14SubmenuTest extends TestCase
 
         // Muat naik kedua: borang SUDAH wujud — scoresheet menang, tetapi snapshot
         // keadaan LAMA mesti dicipta dahulu sebelum undi lama dipadam.
-        $upload('scoresheet-2.pdf')->assertOk();
+        $token2 = $dryRun('scoresheet-2.pdf')->assertOk()->json('token');
+        $commit($token2)->assertOk();
 
         $snap = Borang14Snapshot::where('borang14_form_id', $formId)
             ->where('reason', 'before_scoresheet_overwrite')->first();

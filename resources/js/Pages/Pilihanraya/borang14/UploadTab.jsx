@@ -6,6 +6,10 @@ import {
 } from 'lucide-react';
 import { usePilihanrayaTheme } from '../components/PilihanrayaShell';
 
+function jenisKawasanLabel(jenis) {
+    return jenis === 'parlimen' ? 'Parlimen' : 'DUN';
+}
+
 // PRU/PRN/PRK — mesti dipilih, mempengaruhi bagaimana kawasan diselaraskan.
 const JENIS_PR_OPTIONS = [
     { value: 'pru', label: 'PRU — Pilihanraya Umum' },
@@ -50,19 +54,24 @@ export default function UploadTab({ onUploaded }) {
     const [tahun, setTahun] = useState('');
     const [file, setFile] = useState(null);
     const [drag, setDrag] = useState(false);
-    const [busy, setBusy] = useState(false);
+    // 'idle' | 'extracting' | 'confirm' | 'committing'
+    const [phase, setPhase] = useState('idle');
     const [elapsed, setElapsed] = useState(0);
     const [error, setError] = useState(null);
+    const [pending, setPending] = useState(null); // { token, willCreate, negeri, kawasanNama, needsReview, unbalanced }
     const [result, setResult] = useState(null); // { formId, created, unbalanced, needsReview }
+
+    const busy = phase === 'extracting' || phase === 'committing';
+    const locked = busy || phase === 'confirm';
 
     // Honest elapsed-time counter while the AI reads the sheet — no fake
     // progress bar, just proof the request is still alive.
     useEffect(() => {
-        if (!busy) return undefined;
+        if (phase !== 'extracting') return undefined;
         setElapsed(0);
         const id = setInterval(() => setElapsed((s) => s + 1), 1000);
         return () => clearInterval(id);
-    }, [busy]);
+    }, [phase]);
 
     const ready = jenisPr && tahun && file;
 
@@ -79,21 +88,51 @@ export default function UploadTab({ onUploaded }) {
 
     const reset = () => {
         setResult(null);
+        setPending(null);
         setError(null);
         setFile(null);
         setJenisPr('');
         setTahun('');
+        setPhase('idle');
     };
 
+    // Langkah 2: guna token daripada dry run — TIADA fail dihantar semula, jadi
+    // pembacaan AI (mahal & lambat) tidak berulang. Hanya sekarang kawasan
+    // benar-benar dicipta dan borang/undi ditulis.
+    const commit = async (token) => {
+        setPhase('committing');
+        setError(null);
+        try {
+            const { data } = await axios.post(route('pilihanraya.borang-14.upload'), { token });
+            setResult({
+                formId: data.form_id,
+                created: data.created || [],
+                unbalanced: data.unbalanced || [],
+                needsReview: !!data.needs_review,
+            });
+            setPending(null);
+            setFile(null);
+            setPhase('idle');
+        } catch (e) {
+            setError(e.response?.data?.message || 'Muat naik gagal. Cuba semula.');
+            setPending(null);
+            setPhase('idle');
+        }
+    };
+
+    // Langkah 1: baca scoresheet & padan kawasan TANPA menulis apa-apa. Jika
+    // kawasan itu sudah wujud, tiada apa untuk disahkan — terus ke langkah 2.
     const submit = async () => {
         setError(null);
         if (!ready) {
             setError('Pilih Jenis PR, Tahun dan muat naik scoresheet dahulu.');
             return;
         }
-        setBusy(true);
+        setPhase('extracting');
         setResult(null);
+        setPending(null);
         const form = new FormData();
+        form.append('dry_run', '1');
         form.append('fail', file);
         form.append('jenis_pr', jenisPr);
         form.append('tahun', tahun);
@@ -104,18 +143,32 @@ export default function UploadTab({ onUploaded }) {
                 // leave generous margin above that for network/queueing.
                 timeout: 240000,
             });
-            setResult({
-                formId: data.form_id,
-                created: data.created || [],
-                unbalanced: data.unbalanced || [],
+            const willCreate = data.will_create || [];
+            if (willCreate.length === 0) {
+                // Kawasan sudah wujud — tiada apa untuk disahkan, terus cipta.
+                await commit(data.token);
+                return;
+            }
+            setPending({
+                token: data.token,
+                willCreate,
+                negeri: data.negeri,
+                kawasanNama: data.kawasan_nama,
                 needsReview: !!data.needs_review,
+                unbalanced: data.unbalanced || [],
             });
-            setFile(null);
+            setPhase('confirm');
         } catch (e) {
             setError(e.response?.data?.message || 'Muat naik gagal. Cuba semula.');
-        } finally {
-            setBusy(false);
+            setPhase('idle');
         }
+    };
+
+    // Batal: buang token di sisi klien sahaja — TIADA permintaan dihantar,
+    // jadi tiada apa-apa ditulis ke pangkalan data.
+    const cancelPending = () => {
+        setPending(null);
+        setPhase('idle');
     };
 
     const goToKeyin = () => {
@@ -136,7 +189,7 @@ export default function UploadTab({ onUploaded }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                     <label className={t.label}><span className="inline-flex items-center gap-1"><ListFilter className="h-3.5 w-3.5" /> Jenis PR</span></label>
-                    <select value={jenisPr} className={t.input} disabled={busy}
+                    <select value={jenisPr} className={t.input} disabled={locked}
                         onChange={(e) => setJenisPr(e.target.value)}>
                         <option value="">Pilih Jenis PR</option>
                         {JENIS_PR_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -144,7 +197,7 @@ export default function UploadTab({ onUploaded }) {
                 </div>
                 <div>
                     <label className={t.label}><span className="inline-flex items-center gap-1"><CalendarDays className="h-3.5 w-3.5" /> Tahun</span></label>
-                    <select value={tahun} className={t.input} disabled={busy}
+                    <select value={tahun} className={t.input} disabled={locked}
                         onChange={(e) => setTahun(e.target.value)}>
                         <option value="">Pilih Tahun</option>
                         {TAHUN_OPTIONS.map((y) => <option key={y} value={y}>{y}</option>)}
@@ -153,15 +206,15 @@ export default function UploadTab({ onUploaded }) {
             </div>
 
             <div
-                onDragOver={(e) => { e.preventDefault(); if (!busy) setDrag(true); }}
+                onDragOver={(e) => { e.preventDefault(); if (!locked) setDrag(true); }}
                 onDragLeave={() => setDrag(false)}
-                onDrop={(e) => { e.preventDefault(); setDrag(false); if (!busy) pickFile(e.dataTransfer.files?.[0] || null); }}
-                onClick={() => !busy && inputRef.current?.click()}
-                className={`rounded-lg border-2 border-dashed px-4 py-6 text-center transition ${busy ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${
+                onDrop={(e) => { e.preventDefault(); setDrag(false); if (!locked) pickFile(e.dataTransfer.files?.[0] || null); }}
+                onClick={() => !locked && inputRef.current?.click()}
+                className={`rounded-lg border-2 border-dashed px-4 py-6 text-center transition ${locked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${
                     drag ? 'border-emerald-500 bg-emerald-500/5' : 'border-slate-200 hover:border-emerald-400'
                 }`}
             >
-                <input ref={inputRef} type="file" accept={ACCEPT} className="hidden" disabled={busy}
+                <input ref={inputRef} type="file" accept={ACCEPT} className="hidden" disabled={locked}
                     onChange={(e) => pickFile(e.target.files?.[0] || null)} />
                 {file ? (
                     <div className="flex items-center justify-center gap-2 text-sm text-emerald-600">
@@ -182,16 +235,48 @@ export default function UploadTab({ onUploaded }) {
                 </div>
             )}
 
-            <div className="flex items-center gap-3">
-                <button type="button" onClick={submit} disabled={busy || !ready} className={t.buttonPrimary}>
-                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Muat Naik &amp; Baca
-                </button>
-                {busy && (
-                    <span className={`text-sm ${t.subtext}`}>
-                        AI sedang membaca scoresheet… {elapsed}s (biasanya 1–3 minit untuk PDF berbilang muka surat — jangan tutup tab ini)
-                    </span>
-                )}
-            </div>
+            {phase !== 'confirm' && !(phase === 'committing' && pending) && (
+                <div className="flex items-center gap-3">
+                    <button type="button" onClick={submit} disabled={locked || !ready} className={t.buttonPrimary}>
+                        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Muat Naik &amp; Baca
+                    </button>
+                    {phase === 'extracting' && (
+                        <span className={`text-sm ${t.subtext}`}>
+                            AI sedang membaca scoresheet… {elapsed}s (biasanya 1–3 minit untuk PDF berbilang muka surat — jangan tutup tab ini)
+                        </span>
+                    )}
+                    {phase === 'committing' && (
+                        <span className={`text-sm ${t.subtext}`}>
+                            Mencipta kawasan dan menyimpan draf…
+                        </span>
+                    )}
+                </div>
+            )}
+
+            {(phase === 'confirm' || phase === 'committing') && pending && (
+                <div className="space-y-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
+                    <div className="flex items-center gap-1.5 text-sm font-semibold text-amber-800">
+                        <MapPinPlus className="h-4 w-4" /> Kawasan ini akan dicipta:
+                    </div>
+                    <ul className="list-disc pl-5 text-sm text-amber-900">
+                        {pending.willCreate.map((c, i) => (
+                            <li key={i}>{jenisKawasanLabel(c.jenis)}: <strong>{c.nama}</strong></li>
+                        ))}
+                    </ul>
+                    <div className="text-xs text-amber-800">
+                        Dikesan daripada scoresheet: <strong>{pending.negeri}</strong> — <strong>{pending.kawasanNama}</strong>.
+                        Sahkan nama ini betul sebelum diteruskan — kawasan baharu akan ditulis ke pangkalan data selepas ini.
+                    </div>
+                    <div className="flex items-center gap-3 pt-1">
+                        <button type="button" onClick={() => commit(pending.token)} disabled={busy} className={t.buttonPrimary}>
+                            {phase === 'committing' ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />} Cipta &amp; teruskan
+                        </button>
+                        <button type="button" onClick={cancelPending} disabled={busy} className="inline-flex items-center gap-2 px-4 py-2 border border-rose-300 text-rose-700 hover:bg-rose-50 rounded-lg text-sm font-medium disabled:opacity-50">
+                            <X className="h-4 w-4" /> Batal
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {result && (
                 <div className="space-y-3 border-t border-dashed border-slate-200 pt-4">

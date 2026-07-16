@@ -14,7 +14,9 @@ use App\Services\Pilihanraya\ScoresheetExtractor;
 use App\Support\Borang14Reference;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class Borang14Controller extends Controller
@@ -223,8 +225,31 @@ class Borang14Controller extends Controller
         return $pdf->download($name);
     }
 
-    /** Upload a scoresheet: read it via AI, resolve/create its kawasan, and overwrite the draft (snapshotting first). */
+    /** TTL untuk cache dry-run — cukup masa untuk pengguna baca prompt pengesahan. */
+    private const DRY_RUN_TTL_MINUTES = 15;
+
+    /**
+     * Upload scoresheet dalam DUA langkah supaya AI yang tersalah baca nama kawasan
+     * boleh dibatalkan SEBELUM apa-apa ditulis:
+     *   1) dry_run=1 + fail  -> baca (AI) + padan kawasan TANPA menulis; pulangkan token.
+     *   2) token (tiada fail) -> baca semula hasil ekstrak dari cache ikut token, tulis sebenar.
+     * Ekstrak (mahal, ~200s) hanya berlaku SEKALI, semasa langkah 1.
+     */
     public function upload(Request $request, ScoresheetExtractor $extractor)
+    {
+        if ($request->boolean('dry_run')) {
+            return $this->uploadDryRun($request, $extractor);
+        }
+
+        if ($request->filled('token')) {
+            return $this->uploadCommit($request);
+        }
+
+        return response()->json(['message' => 'Permintaan muat naik tidak lengkap.'], 422);
+    }
+
+    /** Langkah 1: baca scoresheet, padan kawasan tanpa menulis, simpan hasil ekstrak dalam cache. */
+    private function uploadDryRun(Request $request, ScoresheetExtractor $extractor)
     {
         $data = $request->validate([
             'fail' => 'required|file|mimes:xlsx,xls,csv,txt,pdf,jpg,jpeg,png,webp|max:20480',
@@ -239,16 +264,63 @@ class Borang14Controller extends Controller
             return response()->json(['message' => $res['error'] ?: 'Bacaan scoresheet gagal. Semak Tetapan → Claude.'], 422);
         }
 
-        $kawasan = KawasanResolver::resolve($res['data']);
+        $kawasan = KawasanResolver::resolve($res['data'], dryRun: true);
         if (! $kawasan['ok']) {
+            return response()->json(['message' => $kawasan['error']], 422);
+        }
+
+        $token = Str::random(40);
+        Cache::put($this->dryRunCacheKey($token), [
+            'user_id' => $request->user()?->id,
+            'extracted' => $res['data'],
+            'jenis_pr' => $data['jenis_pr'],
+            'tahun' => $data['tahun'],
+            'filename' => $request->file('fail')->getClientOriginalName(),
+        ], now()->addMinutes(self::DRY_RUN_TTL_MINUTES));
+
+        $unbalanced = ScoresheetExtractor::validateBalance($res['data']);
+        $anyGuess = collect($res['data']['calon'] ?? [])->contains(fn ($c) => ! ($c['yakin'] ?? false));
+        $noSaluran = collect($res['data']['rows'] ?? [])
+            ->contains(fn ($r) => ($r['pusat'] ?? '') !== '' && blank($r['saluran'] ?? null));
+
+        return response()->json([
+            'ok' => true,
+            'token' => $token,
+            'will_create' => $kawasan['created'],
+            'negeri' => $res['data']['negeri'] ?? null,
+            'kawasan_nama' => $res['data']['kawasan_nama'] ?? null,
+            'needs_review' => $unbalanced !== [] || $anyGuess || $noSaluran,
+            'unbalanced' => $unbalanced,
+        ]);
+    }
+
+    /** Langkah 2: ambil hasil ekstrak dari cache ikut token, cipta kawasan sebenar, tulis borang + undi. */
+    private function uploadCommit(Request $request)
+    {
+        $data = $request->validate(['token' => 'required|string']);
+
+        $cacheKey = $this->dryRunCacheKey($data['token']);
+        $cached = Cache::get($cacheKey);
+
+        // Token asing/luput/tidak wujud dilayan SAMA — jangan bocorkan sebab sebenar.
+        if (! $cached || ($cached['user_id'] ?? null) !== $request->user()?->id) {
+            return response()->json(['message' => 'Token muat naik tidak sah atau telah tamat tempoh. Sila muat naik semula.'], 422);
+        }
+
+        $extractedData = $cached['extracted'];
+
+        $kawasan = KawasanResolver::resolve($extractedData, dryRun: false);
+        if (! $kawasan['ok']) {
+            Cache::forget($cacheKey);
+
             return response()->json(['message' => $kawasan['error']], 422);
         }
 
         $form = Borang14Form::firstOrNew([
             'kawasan_type' => $kawasan['kawasan_type'],
             'kawasan_id' => $kawasan['kawasan_id'],
-            'jenis_pr' => $data['jenis_pr'],
-            'tahun' => $data['tahun'],
+            'jenis_pr' => $cached['jenis_pr'],
+            'tahun' => $cached['tahun'],
         ]);
 
         // Scoresheet menang — tetapi simpan keadaan lama dahulu supaya boleh revert.
@@ -264,29 +336,32 @@ class Borang14Controller extends Controller
             $form->votes()->delete();
         }
 
-        $unbalanced = ScoresheetExtractor::validateBalance($res['data']);
-        $anyGuess = collect($res['data']['calon'] ?? [])->contains(fn ($c) => ! ($c['yakin'] ?? false));
-        $noSaluran = collect($res['data']['rows'] ?? [])
+        $unbalanced = ScoresheetExtractor::validateBalance($extractedData);
+        $anyGuess = collect($extractedData['calon'] ?? [])->contains(fn ($c) => ! ($c['yakin'] ?? false));
+        $noSaluran = collect($extractedData['rows'] ?? [])
             ->contains(fn ($r) => ($r['pusat'] ?? '') !== '' && blank($r['saluran'] ?? null));
 
         $form->fill([
-            'penjuru' => max(2, count($res['data']['calon'] ?? [])),
-            'parties' => collect($res['data']['calon'] ?? [])->values()
+            'penjuru' => max(2, count($extractedData['calon'] ?? [])),
+            'parties' => collect($extractedData['calon'] ?? [])->values()
                 ->map(fn ($c, $i) => ['slot' => $i + 1, 'keahlian_parti_id' => null, 'nama' => $c['nama']])->all(),
-            'structure' => $res['data'],
+            'structure' => $extractedData,
             'status' => 'draft',
             'source' => 'scoresheet',
-            'source_filename' => $request->file('fail')->getClientOriginalName(),
+            'source_filename' => $cached['filename'],
             'needs_review' => $unbalanced !== [] || $anyGuess || $noSaluran,
         ])->save();
 
-        foreach ($res['data']['rows'] as $r) {
+        foreach ($extractedData['rows'] as $r) {
             foreach (($r['undi'] ?? []) as $i => $undi) {
                 $this->putVote($form, $r, $i + 1, (int) $undi);
             }
             $this->putVote($form, $r, 90, (int) ($r['ditolak'] ?? 0));
             $this->putVote($form, $r, 91, (int) ($r['tidak_dimasukkan'] ?? 0));
         }
+
+        // Elak main semula token selepas commit berjaya.
+        Cache::forget($cacheKey);
 
         return response()->json([
             'ok' => true,
@@ -295,6 +370,11 @@ class Borang14Controller extends Controller
             'unbalanced' => $unbalanced,
             'needs_review' => $form->needs_review,
         ]);
+    }
+
+    private function dryRunCacheKey(string $token): string
+    {
+        return 'borang14:upload-dry-run:' . $token;
     }
 
     /** Satu baris per sel. Baris Undi Pos/Awal guna pusat=''. */
