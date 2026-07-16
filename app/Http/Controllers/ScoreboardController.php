@@ -79,14 +79,17 @@ class ScoreboardController extends Controller
 
         // The penjuru is taken from whatever Borang 14 scenario exists for this
         // DUN (most recently worked on) — no manual selection on the scoreboard.
-        $form = Borang14Form::where('kadun_id', $kadunId)->latest('updated_at')->first();
+        $form = Borang14Form::where('kawasan_type', 'dun')
+            ->where('kawasan_id', $kadunId)
+            ->latest('updated_at')
+            ->first();
 
         if (! $form) {
             return ['hasData' => true, 'ready' => false, 'needsBorang14' => true];
         }
 
         $penjuru = (int) $form->penjuru;
-        $board = Scoreboard::where('kadun_id', $kadunId)->where('penjuru', $penjuru)->first();
+        $board = Scoreboard::where('borang14_form_id', $form->id)->first();
 
         $parties = $form?->parties ?? [];
         $candidates = collect($board?->candidates ?? [])->keyBy('slot');
@@ -170,10 +173,17 @@ class ScoreboardController extends Controller
             'photos.*'          => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:4096',
         ]);
 
-        $board = Scoreboard::firstOrNew([
-            'kadun_id' => $validated['kadun_id'],
-            'penjuru'  => $validated['penjuru'],
-        ]);
+        // Resolve the (DUN, penjuru) pair to the Borang 14 form it belongs to —
+        // scoreboards are now keyed by borang14_form_id, not kadun_id/penjuru
+        // directly. Same "most recently worked on" resolution as boardPayload().
+        $form = Borang14Form::where('kawasan_type', 'dun')
+            ->where('kawasan_id', $validated['kadun_id'])
+            ->latest('updated_at')
+            ->first();
+
+        abort_unless($form, 404, 'Sila isi Borang 14 dahulu untuk DUN ini.');
+
+        $board = Scoreboard::firstOrNew(['borang14_form_id' => $form->id]);
 
         $board->title = $validated['title'] ?: 'SCOREBOARD';
         $board->minima = $validated['minima'] ?? null;
