@@ -45,52 +45,93 @@ class Borang14Controller extends Controller
         ]);
     }
 
-    /** JSON payload for a chosen DUN (+ jenis PR/tahun + optional penjuru): reference geography, saved parties & votes. */
+    /**
+     * JSON payload for a chosen kawasan (Parlimen OR DUN) + jenis PR/tahun: reference
+     * geography, saved parties & votes, and the form's review/publish state.
+     *
+     * Accepts EITHER `form_id` alone (used by the Upload tab's hand-off, which only
+     * knows the form id — never the geography) OR the full
+     * (kawasan_type, kawasan_id, jenis_pr, tahun) tuple used by the on-page picker.
+     * Either way the response carries a `resolved` block so the caller can populate
+     * its Negeri/Parlimen/DUN/Jenis PR/Tahun selects from whichever path was used.
+     */
     public function data(Request $request)
     {
-        $validated = $request->validate([
-            'kadun_id' => 'required|integer|exists:kadun,id',
-            'jenis_pr' => 'required|in:pru,prn,prk',
-            'tahun'    => 'required|integer|between:1959,2100',
-            'penjuru'  => 'nullable|integer|in:2,3,4,5,6',
-        ]);
+        if ($request->filled('form_id')) {
+            $form = Borang14Form::findOrFail((int) $request->input('form_id'));
+            $kawasanType = $form->kawasan_type;
+            $kawasanId = (int) $form->kawasan_id;
+            $jenisPr = $form->jenis_pr;
+            $tahun = (int) $form->tahun;
+        } else {
+            $kawasanType = $request->input('kawasan_type');
+            $existsTable = $kawasanType === Borang14Form::KAWASAN_PARLIMEN ? 'bandar' : 'kadun';
 
-        $reference = Borang14Reference::forKadun((int) $validated['kadun_id']);
+            $validated = $request->validate([
+                'kawasan_type' => ['required', Rule::in([Borang14Form::KAWASAN_PARLIMEN, Borang14Form::KAWASAN_DUN])],
+                'kawasan_id'   => ['required', 'integer', Rule::exists($existsTable, 'id')],
+                'jenis_pr' => 'required|in:pru,prn,prk',
+                'tahun'    => 'required|integer|between:1959,2100',
+                'penjuru'  => 'nullable|integer|in:2,3,4,5,6', // accepted for backward compat; not required to find the form
+            ]);
 
-        $parties = [];
-        $votes = [];
-        if ($reference && ! empty($validated['penjuru'])) {
-            $form = Borang14Form::where('kawasan_type', Borang14Form::KAWASAN_DUN)
-                ->where('kawasan_id', $validated['kadun_id'])
-                ->where('jenis_pr', $validated['jenis_pr'])
-                ->where('tahun', $validated['tahun'])
+            $kawasanType = $validated['kawasan_type'];
+            $kawasanId = (int) $validated['kawasan_id'];
+            $jenisPr = $validated['jenis_pr'];
+            $tahun = (int) $validated['tahun'];
+
+            $form = Borang14Form::forKawasan($kawasanType, $kawasanId)
+                ->where('jenis_pr', $jenisPr)
+                ->where('tahun', $tahun)
                 ->first();
-
-            if ($form) {
-                $parties = $form->parties ?? [];
-                $votes = $form->votes()
-                    ->get(['pusat', 'saluran', 'slot', 'undi'])
-                    ->map(fn ($v) => [
-                        'key'  => $this->cellKey($v->pusat, $v->saluran, $v->slot),
-                        'undi' => $v->undi,
-                    ])
-                    ->pluck('undi', 'key');
-            }
         }
 
+        $isParlimen = $kawasanType === Borang14Form::KAWASAN_PARLIMEN;
+        $reference = $isParlimen
+            ? Borang14Reference::forBandar($kawasanId)
+            : Borang14Reference::forKadun($kawasanId);
+
+        // Newly-created (scoresheet-sourced) kawasan have no curated reference JSON
+        // and no DPT roll uploaded yet — fall back to the scoresheet's own structure
+        // so the tables still render instead of silently showing "no data".
+        if (! $reference && $form?->structure) {
+            $reference = $this->referenceFromStructure($form->structure, $form->kawasan());
+        }
+
+        $votes = $form
+            ? $form->votes()->get(['pusat', 'saluran', 'slot', 'undi'])
+                ->mapWithKeys(fn ($v) => [$this->cellKey($v->pusat, $v->saluran, $v->slot) => $v->undi])
+            : collect();
+
         return response()->json([
-            'reference'   => $reference,
-            'hasData'     => $reference !== null,
-            'parties'     => $parties,
-            'votes'       => $votes,
+            'reference' => $reference,
+            'hasData'   => $reference !== null,
+            'parties'   => $form->parties ?? [],
+            'votes'     => $votes,
+            'form' => $form ? [
+                'id' => $form->id,
+                'status' => $form->status,
+                'source' => $form->source,
+                'needs_review' => $form->needs_review,
+                'crosscheck_issues' => $this->crosscheckIssues($form),
+                'penjuru' => $form->penjuru,
+            ] : null,
+            'resolved' => array_merge(
+                ['kawasan_type' => $kawasanType, 'kawasan_id' => $kawasanId, 'jenis_pr' => $jenisPr, 'tahun' => $tahun],
+                $this->resolveIds($kawasanType, $kawasanId),
+            ),
         ]);
     }
 
-    /** Persist the chosen party names for a (DUN, jenis PR, tahun, penjuru) scenario. */
+    /** Persist the chosen party names for a (kawasan, jenis PR, tahun) scenario. */
     public function saveParties(Request $request)
     {
+        $kawasanType = $request->input('kawasan_type');
+        $existsTable = $kawasanType === Borang14Form::KAWASAN_PARLIMEN ? 'bandar' : 'kadun';
+
         $validated = $request->validate([
-            'kadun_id' => 'required|integer|exists:kadun,id',
+            'kawasan_type' => ['required', Rule::in([Borang14Form::KAWASAN_PARLIMEN, Borang14Form::KAWASAN_DUN])],
+            'kawasan_id'   => ['required', 'integer', Rule::exists($existsTable, 'id')],
             'jenis_pr' => 'required|in:pru,prn,prk',
             'tahun'    => 'required|integer|between:1959,2100',
             'penjuru'  => 'required|integer|in:2,3,4,5,6',
@@ -98,12 +139,13 @@ class Borang14Controller extends Controller
             'parties.*.slot' => 'required|integer|min:1|max:6',
             'parties.*.keahlian_parti_id' => 'nullable|integer',
             'parties.*.nama' => 'nullable|string|max:100',
+            'parties.*.calon' => 'nullable|string|max:150',
         ]);
 
         $form = Borang14Form::updateOrCreate(
             [
-                'kawasan_type' => Borang14Form::KAWASAN_DUN,
-                'kawasan_id'   => $validated['kadun_id'],
+                'kawasan_type' => $validated['kawasan_type'],
+                'kawasan_id'   => $validated['kawasan_id'],
                 'jenis_pr'     => $validated['jenis_pr'],
                 'tahun'        => $validated['tahun'],
             ],
@@ -116,8 +158,12 @@ class Borang14Controller extends Controller
     /** Upsert a single editable cell (auto-save on blur). */
     public function saveVote(Request $request)
     {
+        $kawasanType = $request->input('kawasan_type');
+        $existsTable = $kawasanType === Borang14Form::KAWASAN_PARLIMEN ? 'bandar' : 'kadun';
+
         $validated = $request->validate([
-            'kadun_id' => 'required|integer|exists:kadun,id',
+            'kawasan_type' => ['required', Rule::in([Borang14Form::KAWASAN_PARLIMEN, Borang14Form::KAWASAN_DUN])],
+            'kawasan_id'   => ['required', 'integer', Rule::exists($existsTable, 'id')],
             'jenis_pr' => 'required|in:pru,prn,prk',
             'tahun'    => 'required|integer|between:1959,2100',
             'penjuru'  => 'required|integer|in:2,3,4,5,6',
@@ -129,8 +175,8 @@ class Borang14Controller extends Controller
 
         $form = Borang14Form::firstOrCreate(
             [
-                'kawasan_type' => Borang14Form::KAWASAN_DUN,
-                'kawasan_id'   => $validated['kadun_id'],
+                'kawasan_type' => $validated['kawasan_type'],
+                'kawasan_id'   => $validated['kawasan_id'],
                 'jenis_pr'     => $validated['jenis_pr'],
                 'tahun'        => $validated['tahun'],
             ],
@@ -150,18 +196,20 @@ class Borang14Controller extends Controller
         return response()->json(['ok' => true]);
     }
 
-    /** Temporary: clear all entered vote figures for a (DUN, jenis PR, tahun, penjuru) scenario. */
+    /** Temporary: clear all entered vote figures for a (kawasan, jenis PR, tahun) scenario. */
     public function reset(Request $request)
     {
+        $kawasanType = $request->input('kawasan_type');
+        $existsTable = $kawasanType === Borang14Form::KAWASAN_PARLIMEN ? 'bandar' : 'kadun';
+
         $validated = $request->validate([
-            'kadun_id' => 'required|integer|exists:kadun,id',
+            'kawasan_type' => ['required', Rule::in([Borang14Form::KAWASAN_PARLIMEN, Borang14Form::KAWASAN_DUN])],
+            'kawasan_id'   => ['required', 'integer', Rule::exists($existsTable, 'id')],
             'jenis_pr' => 'required|in:pru,prn,prk',
             'tahun'    => 'required|integer|between:1959,2100',
-            'penjuru'  => 'required|integer|in:2,3,4,5,6',
         ]);
 
-        $form = Borang14Form::where('kawasan_type', Borang14Form::KAWASAN_DUN)
-            ->where('kawasan_id', $validated['kadun_id'])
+        $form = Borang14Form::forKawasan($validated['kawasan_type'], $validated['kawasan_id'])
             ->where('jenis_pr', $validated['jenis_pr'])
             ->where('tahun', $validated['tahun'])
             ->first();
@@ -169,6 +217,146 @@ class Borang14Controller extends Controller
         $form?->votes()->delete();
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Builds a Borang14Reference-shaped structure straight from a scoresheet's raw
+     * extraction when no curated reference file / DPT roll exists yet for the
+     * kawasan (true for any seat this feature just created). berdaftar figures are
+     * ALWAYS null here — the scoresheet has no registered-voter column, only column
+     * (A) which is ballots in the box, not registrations. Rows with pusat === ''
+     * (UNDI AWAL / UNDI POS) are surfaced as undi_awal/undi_pos and are only present
+     * when the sheet actually printed that row — never fabricated.
+     *
+     * @return array<string,mixed>
+     */
+    private function referenceFromStructure(array $structure, Bandar|Kadun|null $kawasan): array
+    {
+        $isParlimen = $kawasan instanceof Bandar;
+        $daerah = [];
+        $undiAwal = null;
+        $undiPos = null;
+
+        foreach ($structure['rows'] ?? [] as $r) {
+            $pusat = (string) ($r['pusat'] ?? '');
+            $saluran = (string) ($r['saluran'] ?? '');
+
+            if ($pusat === '') {
+                $label = strtoupper($saluran);
+                if (str_contains($label, 'AWAL')) {
+                    $undiAwal = ['berdaftar' => null];
+                } elseif (str_contains($label, 'POS')) {
+                    $undiPos = ['berdaftar' => null];
+                }
+
+                continue;
+            }
+
+            $dmNama = (string) ($r['dm'] ?? '');
+            $daerah[$dmNama] ??= ['nama' => $dmNama, 'pusat_mengundi' => []];
+
+            $pmIndex = null;
+            foreach ($daerah[$dmNama]['pusat_mengundi'] as $i => $pm) {
+                if ($pm['nama'] === $pusat) {
+                    $pmIndex = $i;
+
+                    break;
+                }
+            }
+            if ($pmIndex === null) {
+                $daerah[$dmNama]['pusat_mengundi'][] = ['nama' => $pusat, 'jumlah_berdaftar' => null, 'saluran' => []];
+                $pmIndex = array_key_last($daerah[$dmNama]['pusat_mengundi']);
+            }
+
+            $daerah[$dmNama]['pusat_mengundi'][$pmIndex]['saluran'][] = ['no' => $saluran, 'berdaftar' => null];
+        }
+
+        return [
+            'negeri'   => $isParlimen ? ($kawasan?->negeri?->nama ?? '') : ($kawasan?->bandar?->negeri?->nama ?? ''),
+            'parlimen' => $isParlimen ? $kawasan?->nama : ($kawasan?->bandar?->nama ?? ''),
+            'dun'      => $isParlimen ? null : $kawasan?->nama,
+            'daerah_mengundi' => array_values($daerah),
+            'undi_awal' => $undiAwal,
+            'undi_pos'  => $undiPos,
+            'source'    => 'scoresheet',
+        ];
+    }
+
+    /** Negeri/Parlimen ids for a kawasan — lets the frontend picker resync from a bare form_id. */
+    private function resolveIds(string $kawasanType, int $kawasanId): array
+    {
+        if ($kawasanType === Borang14Form::KAWASAN_PARLIMEN) {
+            $bandar = Bandar::find($kawasanId);
+
+            return ['negeri_id' => $bandar?->negeri_id, 'bandar_id' => $kawasanId];
+        }
+
+        $kadun = Kadun::find($kawasanId);
+
+        return ['negeri_id' => $kadun?->bandar?->negeri_id, 'bandar_id' => $kadun?->bandar_id];
+    }
+
+    /**
+     * Live silang-semak against the CURRENT votes (not the frozen extraction) so
+     * fixing a cell clears its own warning on the next fetch. Column (A) itself is
+     * not editable (no slot stores it), so it's taken as-is from the frozen
+     * structure; everything else (party undi, ditolak, tidak dimasukkan) is
+     * re-read from borang14_votes. Only meaningful for scoresheet-sourced forms —
+     * manual entry has no independent (A) to check against.
+     *
+     * @return string[]
+     */
+    private function crosscheckIssues(Borang14Form $form): array
+    {
+        $structure = $form->structure;
+        if (empty($structure['rows'])) {
+            return [];
+        }
+
+        $nCalon = max(1, (int) $form->penjuru);
+        $votesByCell = $form->votes()->get(['pusat', 'saluran', 'slot', 'undi'])
+            ->groupBy(fn ($v) => $v->pusat.'|'.$v->saluran);
+
+        $liveRows = collect($structure['rows'])->map(function ($r) use ($votesByCell, $nCalon) {
+            $pusat = (string) ($r['pusat'] ?? '');
+            $saluran = (string) ($r['saluran'] ?? '');
+            $cells = $votesByCell->get($pusat.'|'.$saluran, collect());
+            $slotVal = fn (int $n) => (int) ($cells->firstWhere('slot', $n)->undi ?? 0);
+
+            $undi = [];
+            for ($i = 1; $i <= $nCalon; $i++) {
+                $undi[] = $slotVal($i);
+            }
+
+            return [
+                'pusat' => $pusat,
+                'saluran' => $saluran,
+                'a' => (int) ($r['a'] ?? 0),
+                'undi' => $undi,
+                'jumlah_undian' => array_sum($undi),
+                'ditolak' => $slotVal(90),
+                'tidak_dimasukkan' => $slotVal(91),
+            ];
+        })->all();
+
+        $findings = ScoresheetExtractor::validateBalance([
+            'calon' => array_fill(0, $nCalon, ''),
+            'rows' => $liveRows,
+        ]);
+
+        return collect($findings)->map(fn ($f) => $this->formatCrosscheckMessage($f))->values()->all();
+    }
+
+    private function formatCrosscheckMessage(array $f): string
+    {
+        $loc = $f['pusat'] !== '' ? "{$f['pusat']} — Saluran {$f['saluran']}" : $f['saluran'];
+
+        return match ($f['rule']) {
+            'balance' => "{$loc}: (A) dijangka {$f['jangka']}, dapat {$f['dapat']}",
+            'jumlah_undian' => "{$loc}: jumlah undian dijangka {$f['jangka']}, dapat {$f['dapat']}",
+            'calon_count' => "{$loc}: bilangan calon dijangka {$f['expected']}, dapat {$f['actual']}",
+            default => "{$loc}: silang-semak tidak sepadan",
+        };
     }
 
     public function pdf(Request $request)
@@ -355,8 +543,15 @@ class Borang14Controller extends Controller
 
         $form->fill([
             'penjuru' => max(2, count($extractedData['calon'] ?? [])),
+            // 'nama' starts out as the candidate's own name (placeholder until the
+            // user maps a party) while 'calon' permanently records who the AI read
+            // off the sheet, so the dropdown UI can always show "Calon: X" even
+            // after a party is picked and 'nama' becomes the party name instead.
             'parties' => collect($extractedData['calon'] ?? [])->values()
-                ->map(fn ($c, $i) => ['slot' => $i + 1, 'keahlian_parti_id' => null, 'nama' => $c['nama']])->all(),
+                ->map(fn ($c, $i) => [
+                    'slot' => $i + 1, 'keahlian_parti_id' => null,
+                    'nama' => $c['nama'], 'calon' => $c['nama'],
+                ])->all(),
             'structure' => $extractedData,
             'status' => 'draft',
             'source' => 'scoresheet',

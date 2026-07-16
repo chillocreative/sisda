@@ -6,22 +6,33 @@ import DragScroll from '../analisa/DragScroll';
 /* ------------------------------- helpers ------------------------------- */
 
 export const fmt = (n) => (n == null || Number.isNaN(n) ? '0' : Number(n).toLocaleString('en-MY'));
-export const pct = (num, den) => (den > 0 ? `${((num / den) * 100).toFixed(1)}%` : '—');
+// The scoresheet carries NO registered-voter (berdaftar) count — column (A) is
+// ballots in the box, not registrations. null means "not in this reference",
+// and must render as an honest '—', never a fabricated 0.
+export const fmtOrDash = (n) => (n == null ? '—' : fmt(n));
+export const pct = (num, den) => (den == null || den <= 0 ? '—' : `${((num / den) * 100).toFixed(1)}%`);
 export const cellKey = (pusat, saluran, slot) => `${pusat ?? ''}|${saluran}|${slot}`;
 
 // Undi Awal & Undi Pos are combined into a single row only for DUN Buloh Kasap.
 export const BULOH_KASAP_KADUN_ID = 41;
 
 // Flatten reference into one block per Pusat Mengundi (a DM may have several).
+// berdaftar stays null (never coerced to 0) when the source is a scoresheet —
+// the sheet itself has no registered-voter column.
 export function toBlocks(reference) {
     if (!reference) return [];
     return reference.daerah_mengundi.flatMap((dm) =>
-        dm.pusat_mengundi.map((p) => ({
-            dm: dm.nama,
-            pusat: p.nama,
-            berdaftar: p.jumlah_berdaftar ?? p.saluran.reduce((s, x) => s + (x.berdaftar || 0), 0),
-            saluran: p.saluran,
-        })),
+        dm.pusat_mengundi.map((p) => {
+            const known = p.saluran.some((x) => x.berdaftar != null) || p.jumlah_berdaftar != null;
+            return {
+                dm: dm.nama,
+                pusat: p.nama,
+                berdaftar: known
+                    ? (p.jumlah_berdaftar ?? p.saluran.reduce((s, x) => s + (x.berdaftar || 0), 0))
+                    : null,
+                saluran: p.saluran,
+            };
+        }),
     );
 }
 
@@ -79,13 +90,25 @@ export function VoteTable({ block, partyNames, votes, onSave, anchorId, cellStat
     const rows = block.saluran.map((s) => {
         const slots = Array.from({ length: nParties }, (_, i) =>
             votes[cellKey(block.pusat, String(s.no), i + 1)] ?? 0);
-        const keluar = slots.reduce((a, b) => a + b, 0);
-        return { no: s.no, berdaftar: s.berdaftar, slots, keluar, status: leadStatus(slots) };
+        const ditolak = votes[cellKey(block.pusat, String(s.no), 90)] ?? 0;
+        const tidakMasuk = votes[cellKey(block.pusat, String(s.no), 91)] ?? 0;
+        const undian = slots.reduce((a, b) => a + b, 0);         // JUMLAH UNDIAN = Σ undi calon
+        const keluar = undian + ditolak + tidakMasuk;            // (A) = Σ undi + (C) + (D)
+        return {
+            no: s.no,
+            berdaftar: s.berdaftar ?? null,                       // null → render '—', never 0
+            slots, ditolak, tidakMasuk, undian, keluar,
+            status: leadStatus(slots),
+        };
     });
 
     const totals = {
         slots: Array.from({ length: nParties }, (_, i) => rows.reduce((a, r) => a + r.slots[i], 0)),
+        ditolak: rows.reduce((a, r) => a + r.ditolak, 0),
+        tidakMasuk: rows.reduce((a, r) => a + r.tidakMasuk, 0),
+        undian: rows.reduce((a, r) => a + r.undian, 0),
         keluar: rows.reduce((a, r) => a + r.keluar, 0),
+        berdaftarKnown: rows.some((r) => r.berdaftar != null),
         berdaftar: rows.reduce((a, r) => a + (r.berdaftar || 0), 0),
     };
     const totalStatus = leadStatus(totals.slots);
@@ -104,6 +127,9 @@ export function VoteTable({ block, partyNames, votes, onSave, anchorId, cellStat
                             {partyNames.map((p, i) => (
                                 <th key={i} className={`${t.tableHead} whitespace-nowrap text-right`}>{p}</th>
                             ))}
+                            <th className={`${t.tableHead} whitespace-nowrap text-right`}>Ditolak (C)</th>
+                            <th className={`${t.tableHead} whitespace-nowrap text-right`}>Tak Dimasukkan (D)</th>
+                            <th className={`${t.tableHead} whitespace-nowrap text-right`}>Jumlah Undian</th>
                             <th className={`${t.tableHead} whitespace-nowrap text-right`}>Jumlah Keluar</th>
                             <th className={`${t.tableHead} whitespace-nowrap text-right`}>Berdaftar</th>
                             <th className={`${t.tableHead} whitespace-nowrap text-right`}>% Turnout</th>
@@ -125,18 +151,35 @@ export function VoteTable({ block, partyNames, votes, onSave, anchorId, cellStat
                                                 <EditableCell
                                                     value={v}
                                                     invalid={cellStatus[key] === 'error'}
-                                                    max={r.berdaftar > 0 ? Math.max(0, r.berdaftar - (r.keluar - v)) : null}
+                                                    max={r.berdaftar != null ? Math.max(0, r.berdaftar - (r.keluar - v)) : null}
                                                     onCommit={(undi) => onSave(block.pusat, String(r.no), i + 1, undi)}
                                                 />
                                             </div>
                                         </td>
                                     );
                                 })}
+                                {[{ slot: 90, v: r.ditolak }, { slot: 91, v: r.tidakMasuk }].map(({ slot, v }) => {
+                                    const key = cellKey(block.pusat, String(r.no), slot);
+                                    return (
+                                        <td key={slot} className="px-2 py-1">
+                                            <div className="flex items-center justify-end gap-1.5">
+                                                <SaveStatusDot status={cellStatus[key]} />
+                                                <EditableCell
+                                                    value={v}
+                                                    invalid={cellStatus[key] === 'error'}
+                                                    max={r.berdaftar != null ? Math.max(0, r.berdaftar - (r.keluar - v)) : null}
+                                                    onCommit={(undi) => onSave(block.pusat, String(r.no), slot, undi)}
+                                                />
+                                            </div>
+                                        </td>
+                                    );
+                                })}
+                                <td className={`${t.tableCell} text-right`}>{fmt(r.undian)}</td>
                                 <td className={`${t.tableCell} text-right font-semibold`}>{fmt(r.keluar)}</td>
-                                <td className={`${t.tableCell} text-right`}>{fmt(r.berdaftar)}</td>
-                                <td className={`${t.tableCell} text-right`}>{pct(r.keluar, r.berdaftar)}</td>
-                                <td className={`${t.tableCell} text-right`}>{fmt((r.berdaftar || 0) - r.keluar)}</td>
-                                <td className={`${t.tableCell} text-right`}>{pct((r.berdaftar || 0) - r.keluar, r.berdaftar)}</td>
+                                <td className={`${t.tableCell} text-right`}>{fmtOrDash(r.berdaftar)}</td>
+                                <td className={`${t.tableCell} text-right`}>{r.berdaftar == null ? '—' : pct(r.keluar, r.berdaftar)}</td>
+                                <td className={`${t.tableCell} text-right`}>{r.berdaftar == null ? '—' : fmt(Math.max(0, r.berdaftar - r.keluar))}</td>
+                                <td className={`${t.tableCell} text-right`}>{r.berdaftar == null ? '—' : pct(Math.max(0, r.berdaftar - r.keluar), r.berdaftar)}</td>
                             </tr>
                         ))}
                         <tr className={`border-t-2 ${t.border} font-bold`}>
@@ -144,11 +187,14 @@ export function VoteTable({ block, partyNames, votes, onSave, anchorId, cellStat
                             {totals.slots.map((v, i) => (
                                 <td key={i} className={`px-3 py-2 text-sm text-right font-bold ${totalBgClass(totalStatus[i], t)}`}>{fmt(v)}</td>
                             ))}
+                            <td className={`${t.tableCell} text-right font-bold`}>{fmt(totals.ditolak)}</td>
+                            <td className={`${t.tableCell} text-right font-bold`}>{fmt(totals.tidakMasuk)}</td>
+                            <td className={`${t.tableCell} text-right font-bold`}>{fmt(totals.undian)}</td>
                             <td className={`${t.tableCell} text-right font-bold`}>{fmt(totals.keluar)}</td>
-                            <td className={`${t.tableCell} text-right font-bold`}>{fmt(totals.berdaftar)}</td>
-                            <td className={`${t.tableCell} text-right font-bold`}>{pct(totals.keluar, totals.berdaftar)}</td>
-                            <td className={`${t.tableCell} text-right font-bold`}>{fmt(totals.berdaftar - totals.keluar)}</td>
-                            <td className={`${t.tableCell} text-right font-bold`}>{pct(totals.berdaftar - totals.keluar, totals.berdaftar)}</td>
+                            <td className={`${t.tableCell} text-right font-bold`}>{totals.berdaftarKnown ? fmt(totals.berdaftar) : '—'}</td>
+                            <td className={`${t.tableCell} text-right font-bold`}>{totals.berdaftarKnown ? pct(totals.keluar, totals.berdaftar) : '—'}</td>
+                            <td className={`${t.tableCell} text-right font-bold`}>{totals.berdaftarKnown ? fmt(Math.max(0, totals.berdaftar - totals.keluar)) : '—'}</td>
+                            <td className={`${t.tableCell} text-right font-bold`}>{totals.berdaftarKnown ? pct(Math.max(0, totals.berdaftar - totals.keluar), totals.berdaftar) : '—'}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -174,6 +220,9 @@ export function UndiAwalPosTable({ partyNames, votes, onSave, rows, cellStatus =
                             {partyNames.map((p, i) => (
                                 <th key={i} className={`${t.tableHead} whitespace-nowrap text-right`}>{p}</th>
                             ))}
+                            <th className={`${t.tableHead} whitespace-nowrap text-right`}>Ditolak (C)</th>
+                            <th className={`${t.tableHead} whitespace-nowrap text-right`}>Tak Dimasukkan (D)</th>
+                            <th className={`${t.tableHead} whitespace-nowrap text-right`}>Jumlah Undian</th>
                             <th className={`${t.tableHead} whitespace-nowrap text-right`}>Jumlah Keluar</th>
                             <th className={`${t.tableHead} whitespace-nowrap text-right`}>Berdaftar</th>
                             <th className={`${t.tableHead} whitespace-nowrap text-right`}>% Turnout</th>
@@ -185,8 +234,12 @@ export function UndiAwalPosTable({ partyNames, votes, onSave, rows, cellStatus =
                         {rows.map(({ label, berdaftar }) => {
                             const slots = Array.from({ length: nParties }, (_, i) =>
                                 votes[cellKey('', label, i + 1)] ?? 0);
-                            const keluar = slots.reduce((a, b) => a + b, 0);
+                            const ditolak = votes[cellKey('', label, 90)] ?? 0;
+                            const tidakMasuk = votes[cellKey('', label, 91)] ?? 0;
+                            const undian = slots.reduce((a, b) => a + b, 0);
+                            const keluar = undian + ditolak + tidakMasuk;
                             const status = leadStatus(slots);
+                            const berdaftarKnown = berdaftar != null;
                             return (
                                 <tr key={label} className={t.tableRow}>
                                     <td className={`${t.tableCell} font-medium whitespace-nowrap`}>{label}</td>
@@ -207,11 +260,28 @@ export function UndiAwalPosTable({ partyNames, votes, onSave, rows, cellStatus =
                                             </td>
                                         );
                                     })}
+                                    {[{ slot: 90, v: ditolak }, { slot: 91, v: tidakMasuk }].map(({ slot, v }) => {
+                                        const key = cellKey('', label, slot);
+                                        return (
+                                            <td key={slot} className="px-2 py-1">
+                                                <div className="flex items-center justify-end gap-1.5">
+                                                    <SaveStatusDot status={cellStatus[key]} />
+                                                    <EditableCell
+                                                        value={v}
+                                                        invalid={cellStatus[key] === 'error'}
+                                                        max={null}
+                                                        onCommit={(undi) => onSave('', label, slot, undi)}
+                                                    />
+                                                </div>
+                                            </td>
+                                        );
+                                    })}
+                                    <td className={`${t.tableCell} text-right`}>{fmt(undian)}</td>
                                     <td className={`${t.tableCell} text-right font-semibold`}>{fmt(keluar)}</td>
-                                    <td className={`${t.tableCell} text-right`}>{fmt(berdaftar)}</td>
-                                    <td className={`${t.tableCell} text-right`}>{pct(keluar, berdaftar)}</td>
-                                    <td className={`${t.tableCell} text-right`}>{fmt(Math.max(0, berdaftar - keluar))}</td>
-                                    <td className={`${t.tableCell} text-right`}>{pct(Math.max(0, berdaftar - keluar), berdaftar)}</td>
+                                    <td className={`${t.tableCell} text-right`}>{fmtOrDash(berdaftar)}</td>
+                                    <td className={`${t.tableCell} text-right`}>{berdaftarKnown ? pct(keluar, berdaftar) : '—'}</td>
+                                    <td className={`${t.tableCell} text-right`}>{berdaftarKnown ? fmt(Math.max(0, berdaftar - keluar)) : '—'}</td>
+                                    <td className={`${t.tableCell} text-right`}>{berdaftarKnown ? pct(Math.max(0, berdaftar - keluar), berdaftar) : '—'}</td>
                                 </tr>
                             );
                         })}
@@ -225,7 +295,8 @@ export function UndiAwalPosTable({ partyNames, votes, onSave, rows, cellStatus =
 /* --------------------------- grand summary ----------------------------- */
 
 // Bottom-of-page rollup across every pusat mengundi + undi awal & pos:
-// per-party grand totals, total turnout (sum of parties), and overall %.
+// per-party grand totals, Ditolak/Tak Dimasukkan, total turnout (sum of
+// parties + C + D), and overall % — honest '—' when berdaftar is unknown.
 export function GrandSummary({ partyNames, totals }) {
     const { t } = usePilihanrayaTheme();
     const status = leadStatus(totals.partyTotals);
@@ -258,14 +329,23 @@ export function GrandSummary({ partyNames, totals }) {
                     </div>
                 ))}
                 <div className={`rounded-xl border ${t.border} bg-slate-50 p-4`}>
+                    <div className={`text-xs font-semibold uppercase tracking-wider ${t.subtext}`}>Ditolak (C) / Tak Dimasukkan (D)</div>
+                    <div className={`text-2xl font-bold mt-1 ${t.text}`}>{fmt(totals.ditolak)} / {fmt(totals.tidakDimasukkan)}</div>
+                    <div className={`text-xs ${t.subtext} mt-0.5`}>Kertas undi bermasalah</div>
+                </div>
+                <div className={`rounded-xl border ${t.border} bg-slate-50 p-4`}>
                     <div className={`text-xs font-semibold uppercase tracking-wider ${t.subtext}`}>Jumlah Keluar Mengundi</div>
                     <div className={`text-2xl font-bold mt-1 ${t.text}`}>{fmt(totals.keluar)}</div>
-                    <div className={`text-xs ${t.subtext} mt-0.5`}>{partyNames.join(' + ') || 'Semua parti'}</div>
+                    <div className={`text-xs ${t.subtext} mt-0.5`}>{partyNames.join(' + ') || 'Semua parti'} + C + D</div>
                 </div>
                 <div className="rounded-xl border border-sky-300 bg-sky-50 p-4">
                     <div className="text-xs font-semibold uppercase tracking-wider text-sky-700">Peratusan Keluar Mengundi</div>
-                    <div className="text-2xl font-bold mt-1 text-sky-800">{pct(totals.keluar, totals.berdaftar)}</div>
-                    <div className="text-xs text-sky-700/80 mt-0.5">{fmt(totals.keluar)} / {fmt(totals.berdaftar)} berdaftar</div>
+                    <div className="text-2xl font-bold mt-1 text-sky-800">
+                        {totals.berdaftarKnown ? pct(totals.keluar, totals.berdaftar) : '—'}
+                    </div>
+                    <div className="text-xs text-sky-700/80 mt-0.5">
+                        {totals.berdaftarKnown ? `${fmt(totals.keluar)} / ${fmt(totals.berdaftar)} berdaftar` : 'Berdaftar tiada dalam scoresheet — perlukan rujukan SPR'}
+                    </div>
                 </div>
             </div>
         </div>
