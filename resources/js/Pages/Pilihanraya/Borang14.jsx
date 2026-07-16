@@ -6,6 +6,7 @@ import PilihanrayaShell from './components/PilihanrayaShell';
 import TabBar from './components/TabBar';
 import KeyinTab from './borang14/KeyinTab';
 import UploadTab from './borang14/UploadTab';
+import PaparTab from './borang14/PaparTab';
 
 const TABS = [
     { key: 'upload', label: 'Upload Scoresheet', icon: Upload },
@@ -45,9 +46,12 @@ export default function Borang14({ negeriList, parlimenList, kadunList, partiLis
                 )}
 
                 {tab === 'papar' && (
-                    <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
-                        Papar akan tersedia tidak lama lagi.
-                    </div>
+                    <PaparTab
+                        negeriList={negeriList}
+                        parlimenList={parlimenList}
+                        kadunList={kadunList}
+                        onOpenKeyin={(prefill) => openKeyin(prefill)}
+                    />
                 )}
 
                 {/* Keyin stays mounted so half-filled entry is not lost when peeking at other tabs. */}
