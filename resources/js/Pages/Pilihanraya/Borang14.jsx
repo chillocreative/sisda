@@ -5,6 +5,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PilihanrayaShell from './components/PilihanrayaShell';
 import TabBar from './components/TabBar';
 import KeyinTab from './borang14/KeyinTab';
+import UploadTab from './borang14/UploadTab';
 
 const TABS = [
     { key: 'upload', label: 'Upload Scoresheet', icon: Upload },
@@ -38,9 +39,9 @@ export default function Borang14({ negeriList, parlimenList, kadunList, partiLis
                 </div>
 
                 {tab === 'upload' && (
-                    <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
-                        Upload Scoresheet akan tersedia tidak lama lagi.
-                    </div>
+                    <UploadTab
+                        onUploaded={({ formId, jenisPr, tahun }) => openKeyin({ formId, jenisPr, tahun })}
+                    />
                 )}
 
                 {tab === 'papar' && (
