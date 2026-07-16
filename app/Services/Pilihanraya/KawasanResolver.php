@@ -6,6 +6,7 @@ use App\Models\Bandar;
 use App\Models\Borang14Form;
 use App\Models\Kadun;
 use App\Models\Negeri;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Padan kawasan dari header scoresheet; cipta jika tiada.
@@ -28,8 +29,6 @@ class KawasanResolver
             ];
         }
 
-        $created = [];
-
         // Kod DM '129/15/01' -> Parlimen 129. Nama Parlimen jarang ada pada sheet.
         $parlimenKod = trim((string) ($extracted['parlimen_kod'] ?? ''));
         if ($parlimenKod === '') {
@@ -39,43 +38,54 @@ class KawasanResolver
             ];
         }
 
-        $namaParlimen = 'P.' . $parlimenKod;   // placeholder — jangan teka nama sebenar
-        $bandar = Bandar::where('negeri_id', $negeri->id)
-            ->whereRaw('UPPER(nama) = ?', [mb_strtoupper($namaParlimen)])
-            ->first();
-
-        if (! $bandar) {
-            $bandar = Bandar::create(['nama' => $namaParlimen, 'negeri_id' => $negeri->id]);
-            $created[] = ['jenis' => 'parlimen', 'nama' => $namaParlimen];
-        }
-
         $namaDun = trim((string) ($extracted['kawasan_nama'] ?? ''));
         if ($namaDun === '') {
             return [
-                'ok' => false, 'kawasan_type' => null, 'kawasan_id' => null, 'created' => $created,
+                'ok' => false, 'kawasan_type' => null, 'kawasan_id' => null, 'created' => [],
                 'error' => 'Nama kawasan tidak dapat dibaca dari scoresheet.',
             ];
         }
 
-        $kadun = Kadun::where('bandar_id', $bandar->id)
-            ->whereRaw('UPPER(nama) = ?', [mb_strtoupper($namaDun)])
-            ->first();
+        // Semua pengesahan input lulus — sekarang selamat untuk menulis. Bungkus
+        // dalam transaksi supaya kegagalan Kadun::create() tidak meninggalkan
+        // Bandar anak-yatim yang baru dicipta.
+        return DB::transaction(function () use ($negeri, $parlimenKod, $namaDun, $extracted) {
+            $created = [];
 
-        if (! $kadun) {
-            $kadun = Kadun::create([
-                'nama' => $namaDun,
-                'kod_dun' => $extracted['kawasan_kod'] ?? null,
-                'bandar_id' => $bandar->id,
-            ]);
-            $created[] = ['jenis' => 'dun', 'nama' => $namaDun];
-        }
+            $namaParlimen = 'P.' . $parlimenKod;   // placeholder — jangan teka nama sebenar
+            $bandar = Bandar::where('negeri_id', $negeri->id)
+                ->whereRaw('UPPER(nama) = ?', [mb_strtoupper($namaParlimen)])
+                ->first();
 
-        return [
-            'ok' => true,
-            'kawasan_type' => Borang14Form::KAWASAN_DUN,
-            'kawasan_id' => $kadun->id,
-            'created' => $created,
-            'error' => null,
-        ];
+            if (! $bandar) {
+                $bandar = Bandar::create([
+                    'nama' => $namaParlimen,
+                    'kod_parlimen' => $parlimenKod,
+                    'negeri_id' => $negeri->id,
+                ]);
+                $created[] = ['jenis' => 'parlimen', 'nama' => $namaParlimen];
+            }
+
+            $kadun = Kadun::where('bandar_id', $bandar->id)
+                ->whereRaw('UPPER(nama) = ?', [mb_strtoupper($namaDun)])
+                ->first();
+
+            if (! $kadun) {
+                $kadun = Kadun::create([
+                    'nama' => $namaDun,
+                    'kod_dun' => $extracted['kawasan_kod'] ?? null,
+                    'bandar_id' => $bandar->id,
+                ]);
+                $created[] = ['jenis' => 'dun', 'nama' => $namaDun];
+            }
+
+            return [
+                'ok' => true,
+                'kawasan_type' => Borang14Form::KAWASAN_DUN,
+                'kawasan_id' => $kadun->id,
+                'created' => $created,
+                'error' => null,
+            ];
+        });
     }
 }

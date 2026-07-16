@@ -4,11 +4,15 @@ namespace Tests\Feature;
 
 use App\Models\Bandar;
 use App\Models\Borang14Form;
+use App\Models\Borang14Snapshot;
+use App\Models\Borang14Vote;
 use App\Models\Kadun;
 use App\Models\Negeri;
 use App\Models\User;
 use App\Services\Pilihanraya\KawasanResolver;
+use App\Services\Pilihanraya\ScoresheetExtractor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class Borang14SubmenuTest extends TestCase
@@ -37,12 +41,32 @@ class Borang14SubmenuTest extends TestCase
 
     public function test_unknown_negeri_is_rejected_and_creates_nothing(): void
     {
-        $before = \DB::table('negeri')->count();
+        $beforeNegeri = \DB::table('negeri')->count();
+        $beforeBandar = \DB::table('bandar')->count();
+        $beforeKadun = \DB::table('kadun')->count();
 
         $res = KawasanResolver::resolve($this->extracted(['negeri' => 'NEGERI REKAAN']));
 
         $this->assertFalse($res['ok']);
-        $this->assertSame($before, \DB::table('negeri')->count(), 'Negeri TIDAK boleh dicipta.');
+        $this->assertSame($beforeNegeri, \DB::table('negeri')->count(), 'Negeri TIDAK boleh dicipta.');
+        $this->assertSame($beforeBandar, \DB::table('bandar')->count(), 'Bandar TIDAK boleh dicipta apabila negeri ditolak.');
+        $this->assertSame($beforeKadun, \DB::table('kadun')->count(), 'Kadun TIDAK boleh dicipta apabila negeri ditolak.');
+    }
+
+    public function test_blank_kawasan_nama_is_rejected_and_creates_nothing(): void
+    {
+        $beforeNegeri = \DB::table('negeri')->count();
+        $beforeBandar = \DB::table('bandar')->count();
+        $beforeKadun = \DB::table('kadun')->count();
+
+        // Negeri & Kod Parlimen sah, tetapi nama kawasan (DUN) kosong — mesti ditolak
+        // TANPA meninggalkan sebarang bandar/kadun anak-yatim (rollback penuh).
+        $res = KawasanResolver::resolve($this->extracted(['kawasan_nama' => '']));
+
+        $this->assertFalse($res['ok']);
+        $this->assertSame($beforeNegeri, \DB::table('negeri')->count(), 'Negeri TIDAK boleh dicipta.');
+        $this->assertSame($beforeBandar, \DB::table('bandar')->count(), 'Bandar TIDAK boleh dicipta apabila nama kawasan kosong.');
+        $this->assertSame($beforeKadun, \DB::table('kadun')->count(), 'Kadun TIDAK boleh dicipta apabila nama kawasan kosong.');
     }
 
     public function test_missing_kawasan_is_created_under_matched_negeri(): void
@@ -53,7 +77,7 @@ class Borang14SubmenuTest extends TestCase
         $this->assertTrue($res['ok']);
         $this->assertSame('dun', $res['kawasan_type']);
         $this->assertDatabaseHas('kadun', ['nama' => 'JUASSEH']);
-        $this->assertDatabaseHas('bandar', ['nama' => 'P.129']);
+        $this->assertDatabaseHas('bandar', ['nama' => 'P.129', 'kod_parlimen' => '129']);
     }
 
     public function test_publish_moves_draft_into_senarai(): void
@@ -89,5 +113,62 @@ class Borang14SubmenuTest extends TestCase
         ]));
 
         $res->assertOk()->assertJsonCount(2, 'rows');
+    }
+
+    /**
+     * Prove the ordering invariant in Borang14Controller::upload(): when a scoresheet
+     * overwrites an EXISTING form, the Borang14Snapshot (reason 'before_scoresheet_overwrite')
+     * must be written BEFORE the old votes are deleted. If the code snapshotted AFTER
+     * deleting, the snapshot's votes would be empty — this test proves it captures the
+     * OLD numbers, not the new ones and not nothing.
+     */
+    public function test_scoresheet_overwrite_snapshots_old_votes_before_deleting_them(): void
+    {
+        $user = User::factory()->create(['role' => 'admin', 'telephone' => '0123456780']);
+
+        $first = $this->extracted();
+        $second = $this->extracted();
+        $second['rows'][0]['undi'] = [500, 300];   // baris "UNDI POS" — nilai baru, boleh dibezakan drpd yang lama (98, 73)
+
+        $this->mock(ScoresheetExtractor::class, function ($mock) use ($first, $second) {
+            $mock->shouldReceive('extractDetailed')
+                ->twice()
+                ->andReturn(
+                    ['ok' => true, 'data' => $first, 'error' => null],
+                    ['ok' => true, 'data' => $second, 'error' => null],
+                );
+        });
+
+        $upload = fn (string $name) => $this->actingAs($user)->post(route('pilihanraya.borang-14.upload'), [
+            'fail' => UploadedFile::fake()->create($name, 10, 'application/pdf'),
+            'jenis_pr' => 'prn',
+            'tahun' => 2023,
+        ]);
+
+        // Muat naik pertama: borang baru — TIADA snapshot patut dicipta.
+        $res1 = $upload('scoresheet-1.pdf')->assertOk();
+        $formId = $res1->json('form_id');
+        $this->assertSame(
+            0,
+            Borang14Snapshot::where('borang14_form_id', $formId)->count(),
+            'Muat naik pertama (borang baru) tidak sepatutnya mencipta snapshot.'
+        );
+
+        // Muat naik kedua: borang SUDAH wujud — scoresheet menang, tetapi snapshot
+        // keadaan LAMA mesti dicipta dahulu sebelum undi lama dipadam.
+        $upload('scoresheet-2.pdf')->assertOk();
+
+        $snap = Borang14Snapshot::where('borang14_form_id', $formId)
+            ->where('reason', 'before_scoresheet_overwrite')->first();
+        $this->assertNotNull($snap, 'Snapshot before_scoresheet_overwrite mesti wujud.');
+
+        $oldVote = collect($snap->votes)
+            ->first(fn ($v) => $v['pusat'] === '' && $v['saluran'] === 'UNDI POS' && (int) $v['slot'] === 1);
+        $this->assertNotNull($oldVote, 'Snapshot mesti mengandungi undi LAMA — bukan kosong.');
+        $this->assertSame(98, $oldVote['undi'], 'Snapshot mesti tangkap nilai SEBELUM overwrite (98), bukan selepas padam (kosong) atau nilai baru (500).');
+
+        $newVote = Borang14Vote::where('borang14_form_id', $formId)
+            ->where('pusat', '')->where('saluran', 'UNDI POS')->where('slot', 1)->first();
+        $this->assertSame(500, $newVote->undi, 'Borang semasa mesti mempunyai nilai BARU selepas overwrite.');
     }
 }
