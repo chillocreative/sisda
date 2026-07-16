@@ -239,7 +239,7 @@ class Borang14Controller extends Controller
 
         foreach ($structure['rows'] ?? [] as $r) {
             $pusat = (string) ($r['pusat'] ?? '');
-            $saluran = (string) ($r['saluran'] ?? '');
+            $saluran = $this->normalizeSaluran($r['saluran'] ?? null);
 
             if ($pusat === '') {
                 // Carry the REAL saluran string through as 'label' — votes are
@@ -276,7 +276,14 @@ class Borang14Controller extends Controller
                 $pmIndex = array_key_last($daerah[$dmNama]['pusat_mengundi']);
             }
 
-            $daerah[$dmNama]['pusat_mengundi'][$pmIndex]['saluran'][] = ['no' => $saluran, 'berdaftar' => null];
+            // Dedup: several raw rows can normalise to the SAME saluran value for one
+            // Pusat (the blank-saluran case — the AI couldn't read that column at
+            // all). Those votes are aggregated into ONE DB row by putVote(), so the
+            // reference must show ONE Saluran row too, not a duplicate per raw row.
+            $alreadyListed = collect($daerah[$dmNama]['pusat_mengundi'][$pmIndex]['saluran'])->contains('no', $saluran);
+            if (! $alreadyListed) {
+                $daerah[$dmNama]['pusat_mengundi'][$pmIndex]['saluran'][] = ['no' => $saluran, 'berdaftar' => null];
+            }
         }
 
         return [
@@ -340,7 +347,7 @@ class Borang14Controller extends Controller
 
         $liveRows = collect($structure['rows'])->map(function ($r) use ($votesByCell, $nCalon) {
             $pusat = (string) ($r['pusat'] ?? '');
-            $saluran = (string) ($r['saluran'] ?? '');
+            $saluran = $this->normalizeSaluran($r['saluran'] ?? null);
             $cells = $votesByCell->get($pusat.'|'.$saluran, collect());
             $slotVal = fn (int $n) => (int) ($cells->firstWhere('slot', $n)->undi ?? 0);
 
@@ -635,18 +642,43 @@ class Borang14Controller extends Controller
         ];
     }
 
-    /** Satu baris per sel. Baris Undi Pos/Awal guna pusat=''. */
+    /**
+     * Satu baris per sel. Baris Undi Pos/Awal guna pusat=''.
+     *
+     * AGGREGATE (jumlah), bukan tulis ganti: beberapa baris mentah scoresheet
+     * boleh menyimpang kepada kunci sel (pusat, saluran, slot) yang SAMA apabila
+     * saluran kosong (AI gagal baca lajur "No. Tempat Mengundi" untuk baris itu)
+     * — spesifikasi memerlukan baris sebegini digabung menjadi SATU baris per
+     * Pusat, bukan biarkan baris terakhir menulis ganti yang sebelumnya (undi
+     * hilang secara senyap). Untuk kes biasa (saluran sebenar, unik per baris)
+     * kelakuan ini SAMA seperti tulis ganti — tiada baris sedia ada untuk
+     * ditambah kepada, jadi ia berkelakuan seperti "set" seperti sebelum ini.
+     */
     private function putVote(Borang14Form $form, array $row, int $slot, int $undi): void
     {
-        Borang14Vote::updateOrCreate(
-            [
-                'borang14_form_id' => $form->id,
-                'pusat' => (string) ($row['pusat'] ?? ''),
-                'saluran' => (string) ($row['saluran'] ?? '1'),
-                'slot' => $slot,
-            ],
-            ['undi' => $undi],
-        );
+        $key = [
+            'borang14_form_id' => $form->id,
+            'pusat' => (string) ($row['pusat'] ?? ''),
+            'saluran' => $this->normalizeSaluran($row['saluran'] ?? null),
+            'slot' => $slot,
+        ];
+
+        $existingUndi = (int) (Borang14Vote::where($key)->value('undi') ?? 0);
+
+        Borang14Vote::updateOrCreate($key, ['undi' => $existingUndi + $undi]);
+    }
+
+    /**
+     * SATU tempat sahaja untuk normalkan saluran kosong — writer (putVote())
+     * dan readers (referenceFromStructure(), crosscheckIssues()) MESTI guna
+     * nilai yang SAMA, jika tidak kunci sel (cellKey) menyimpang: undi
+     * tersimpan di DB di bawah satu kunci, tetapi skrin/PDF membaca kunci
+     * lain — sel kelihatan 0 walaupun undi selamat tersimpan, dan sebarang
+     * suntingan skrin menulis baris anak-yatim baharu yang tiada siapa baca.
+     */
+    private function normalizeSaluran(?string $raw): string
+    {
+        return trim((string) ($raw ?? ''));
     }
 
     public function publish(Request $request)
