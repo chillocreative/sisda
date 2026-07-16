@@ -43,6 +43,10 @@ function Borang14Body({ negeriList, parlimenList, kadunList, partiList, penjuruO
     const [selectedPusat, setSelectedPusat] = useState('');
     const [cellStatus, setCellStatus] = useState({});
     const statusTimers = useRef({});
+    // Per-cellKey request sequence — guards against out-of-order POST
+    // resolutions (see Task 8 review finding: resolution order is not send
+    // order, so a stale response must never overwrite a newer one).
+    const requestSeq = useRef({});
     useEffect(() => () => Object.values(statusTimers.current).forEach(clearTimeout), []);
 
     const parlimenOptions = negeriId
@@ -153,19 +157,30 @@ function Borang14Body({ negeriList, parlimenList, kadunList, partiList, penjuruO
 
     const saveVote = useCallback((pusat, saluran, slot, undi) => {
         const key = cellKey(pusat, saluran, slot);
+        // Claim this request as the latest for the cell *before* the await —
+        // a later re-edit of the same cell will bump this again, and only
+        // the resolution whose seq still matches the ref may write status.
+        const mySeq = (requestSeq.current[key] || 0) + 1;
+        requestSeq.current[key] = mySeq;
         setVotes((prev) => ({ ...prev, [key]: undi }));
         setCellStatus((prev) => ({ ...prev, [key]: 'saving' }));
         axios.post(route('pilihanraya.borang-14.vote'), {
             kadun_id: kadunId, penjuru: Number(penjuru), pusat, saluran, slot, undi,
         })
             .then(() => {
+                if (requestSeq.current[key] !== mySeq) return; // superseded — a newer request owns this cell now
                 setCellStatus((prev) => ({ ...prev, [key]: 'saved' }));
                 clearTimeout(statusTimers.current[key]);
                 statusTimers.current[key] = setTimeout(() => {
+                    if (requestSeq.current[key] !== mySeq) return; // don't clear a status set by a newer request
                     setCellStatus((prev) => { const next = { ...prev }; delete next[key]; return next; });
                 }, 2000);
             })
-            .catch(() => setCellStatus((prev) => ({ ...prev, [key]: 'error' }))); // visible & persistent — see Task 8 brief
+            .catch(() => {
+                if (requestSeq.current[key] !== mySeq) return; // stale failure — a newer request already succeeded
+                clearTimeout(statusTimers.current[key]);
+                setCellStatus((prev) => ({ ...prev, [key]: 'error' })); // visible & persistent — see Task 8 brief
+            });
     }, [kadunId, penjuru]);
 
     const downloadPdf = () => {
