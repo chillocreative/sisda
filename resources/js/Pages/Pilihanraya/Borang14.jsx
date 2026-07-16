@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Head } from '@inertiajs/react';
 import axios from 'axios';
 import { Download, Info, Landmark, MapPin, Vote, Loader2 } from 'lucide-react';
@@ -41,6 +41,9 @@ function Borang14Body({ negeriList, parlimenList, kadunList, partiList, penjuruO
     const [votes, setVotes] = useState({});
     const [loading, setLoading] = useState(false);
     const [selectedPusat, setSelectedPusat] = useState('');
+    const [cellStatus, setCellStatus] = useState({});
+    const statusTimers = useRef({});
+    useEffect(() => () => Object.values(statusTimers.current).forEach(clearTimeout), []);
 
     const parlimenOptions = negeriId
         ? parlimenList.filter((p) => String(p.negeri_id) === String(negeriId))
@@ -149,10 +152,20 @@ function Borang14Body({ negeriList, parlimenList, kadunList, partiList, penjuruO
     };
 
     const saveVote = useCallback((pusat, saluran, slot, undi) => {
-        setVotes((prev) => ({ ...prev, [cellKey(pusat, saluran, slot)]: undi }));
+        const key = cellKey(pusat, saluran, slot);
+        setVotes((prev) => ({ ...prev, [key]: undi }));
+        setCellStatus((prev) => ({ ...prev, [key]: 'saving' }));
         axios.post(route('pilihanraya.borang-14.vote'), {
             kadun_id: kadunId, penjuru: Number(penjuru), pusat, saluran, slot, undi,
-        }).catch(() => {});
+        })
+            .then(() => {
+                setCellStatus((prev) => ({ ...prev, [key]: 'saved' }));
+                clearTimeout(statusTimers.current[key]);
+                statusTimers.current[key] = setTimeout(() => {
+                    setCellStatus((prev) => { const next = { ...prev }; delete next[key]; return next; });
+                }, 2000);
+            })
+            .catch(() => setCellStatus((prev) => ({ ...prev, [key]: 'error' }))); // visible & persistent — see Task 8 brief
     }, [kadunId, penjuru]);
 
     const downloadPdf = () => {
@@ -285,6 +298,12 @@ function Borang14Body({ negeriList, parlimenList, kadunList, partiList, penjuruO
                         </div>
                     )}
 
+                    {Object.values(cellStatus).includes('error') && (
+                        <div className="bg-rose-50 border border-rose-300 text-rose-800 rounded-lg px-4 py-3 text-sm mb-4">
+                            Sesetengah sel gagal disimpan (bertanda merah). Ubah semula nilai sel itu untuk cuba simpan sekali lagi.
+                        </div>
+                    )}
+
                     <GrandSummary partyNames={partyNames} totals={summary} />
 
                     {/* Jump-to-Pusat-Mengundi — scroll straight to the card the user wants to fill. */}
@@ -325,6 +344,7 @@ function Borang14Body({ negeriList, parlimenList, kadunList, partiList, penjuruO
                                 votes={votes}
                                 onSave={saveVote}
                                 anchorId={pusatAnchors[i]?.anchorId}
+                                cellStatus={cellStatus}
                             />
                         ))}
                     </div>
@@ -335,6 +355,7 @@ function Borang14Body({ negeriList, parlimenList, kadunList, partiList, penjuruO
                             votes={votes}
                             onSave={saveVote}
                             rows={undiAwalPosRows}
+                            cellStatus={cellStatus}
                         />
                     </div>
                 </>

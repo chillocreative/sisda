@@ -1,3 +1,4 @@
+import { Loader2, Check, AlertCircle } from 'lucide-react';
 import { usePilihanrayaTheme } from './PilihanrayaShell';
 import EditableCell from './EditableCell';
 import DragScroll from '../analisa/DragScroll';
@@ -50,9 +51,28 @@ export const totalBgClass = (status, t) => (
             : t.text
 );
 
+/* --------------------------- save-status dot ---------------------------- */
+
+// Per-cell autosave feedback: blank when untouched, quiet spinner while the
+// request is in flight, a quiet green tick that fades on success, and an
+// unmissable, non-auto-dismissing red icon on failure (see cellStatus in
+// Borang14.jsx — the failure must stay visible until the cell is re-saved).
+export function SaveStatusDot({ status }) {
+    if (!status) return <span className="inline-block w-3.5" aria-hidden="true" />;
+    if (status === 'saving') return <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" aria-label="Menyimpan…" />;
+    if (status === 'saved') return <Check className="h-3.5 w-3.5 text-emerald-500" aria-label="Disimpan" />;
+    return (
+        <AlertCircle
+            className="h-3.5 w-3.5 text-rose-500"
+            aria-label="Gagal disimpan"
+            title="Gagal disimpan — ubah nilai sel ini untuk cuba semula"
+        />
+    );
+}
+
 /* --------------------------- per-pusat table --------------------------- */
 
-export function VoteTable({ block, partyNames, votes, onSave, anchorId }) {
+export function VoteTable({ block, partyNames, votes, onSave, anchorId, cellStatus = {} }) {
     const { t } = usePilihanrayaTheme();
     const nParties = partyNames.length;
 
@@ -95,18 +115,23 @@ export function VoteTable({ block, partyNames, votes, onSave, anchorId }) {
                         {rows.map((r) => (
                             <tr key={r.no} className={t.tableRow}>
                                 <td className={`${t.tableCell} font-medium whitespace-nowrap`}>Saluran {r.no}</td>
-                                {r.slots.map((v, i) => (
-                                    <td key={i} className="px-2 py-1">
-                                        <div className="flex items-center justify-end gap-1.5">
-                                            <LeadSquare status={r.status[i]} />
-                                            <EditableCell
-                                                value={v}
-                                                max={r.berdaftar > 0 ? Math.max(0, r.berdaftar - (r.keluar - v)) : null}
-                                                onCommit={(undi) => onSave(block.pusat, String(r.no), i + 1, undi)}
-                                            />
-                                        </div>
-                                    </td>
-                                ))}
+                                {r.slots.map((v, i) => {
+                                    const key = cellKey(block.pusat, String(r.no), i + 1);
+                                    return (
+                                        <td key={i} className="px-2 py-1">
+                                            <div className="flex items-center justify-end gap-1.5">
+                                                <LeadSquare status={r.status[i]} />
+                                                <SaveStatusDot status={cellStatus[key]} />
+                                                <EditableCell
+                                                    value={v}
+                                                    invalid={cellStatus[key] === 'error'}
+                                                    max={r.berdaftar > 0 ? Math.max(0, r.berdaftar - (r.keluar - v)) : null}
+                                                    onCommit={(undi) => onSave(block.pusat, String(r.no), i + 1, undi)}
+                                                />
+                                            </div>
+                                        </td>
+                                    );
+                                })}
                                 <td className={`${t.tableCell} text-right font-semibold`}>{fmt(r.keluar)}</td>
                                 <td className={`${t.tableCell} text-right`}>{fmt(r.berdaftar)}</td>
                                 <td className={`${t.tableCell} text-right`}>{pct(r.keluar, r.berdaftar)}</td>
@@ -134,7 +159,7 @@ export function VoteTable({ block, partyNames, votes, onSave, anchorId }) {
 
 /* ----------------------- undi awal / undi pos -------------------------- */
 
-export function UndiAwalPosTable({ partyNames, votes, onSave, rows }) {
+export function UndiAwalPosTable({ partyNames, votes, onSave, rows, cellStatus = {} }) {
     const { t } = usePilihanrayaTheme();
     const nParties = partyNames.length;
 
@@ -165,18 +190,23 @@ export function UndiAwalPosTable({ partyNames, votes, onSave, rows }) {
                             return (
                                 <tr key={label} className={t.tableRow}>
                                     <td className={`${t.tableCell} font-medium whitespace-nowrap`}>{label}</td>
-                                    {slots.map((v, i) => (
-                                        <td key={i} className="px-2 py-1">
-                                            <div className="flex items-center justify-end gap-1.5">
-                                                <LeadSquare status={status[i]} />
-                                                <EditableCell
-                                                    value={v}
-                                                    max={null}
-                                                    onCommit={(undi) => onSave('', label, i + 1, undi)}
-                                                />
-                                            </div>
-                                        </td>
-                                    ))}
+                                    {slots.map((v, i) => {
+                                        const key = cellKey('', label, i + 1);
+                                        return (
+                                            <td key={i} className="px-2 py-1">
+                                                <div className="flex items-center justify-end gap-1.5">
+                                                    <LeadSquare status={status[i]} />
+                                                    <SaveStatusDot status={cellStatus[key]} />
+                                                    <EditableCell
+                                                        value={v}
+                                                        invalid={cellStatus[key] === 'error'}
+                                                        max={null}
+                                                        onCommit={(undi) => onSave('', label, i + 1, undi)}
+                                                    />
+                                                </div>
+                                            </td>
+                                        );
+                                    })}
                                     <td className={`${t.tableCell} text-right font-semibold`}>{fmt(keluar)}</td>
                                     <td className={`${t.tableCell} text-right`}>{fmt(berdaftar)}</td>
                                     <td className={`${t.tableCell} text-right`}>{pct(keluar, berdaftar)}</td>
