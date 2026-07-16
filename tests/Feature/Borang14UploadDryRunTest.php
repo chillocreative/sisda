@@ -106,7 +106,10 @@ class Borang14UploadDryRunTest extends TestCase
         $this->assertCount(2, $commit->json('created'));
         $this->assertSame($beforeForms + 1, Borang14Form::count());
         $this->assertDatabaseHas('kadun', ['nama' => 'JUASSEH']);
-        $this->assertDatabaseHas('bandar', ['nama' => 'P.129', 'kod_parlimen' => '129']);
+        // kod_parlimen mesti disimpan ikut konvensyen seeder sedia ada ('P' + nombor,
+        // TANPA titik — cth 'P160') supaya upload akan datang bagi Parlimen yang SAMA
+        // memadan kod ini, bukan mencipta pertindihan lain.
+        $this->assertDatabaseHas('bandar', ['nama' => 'P.129', 'kod_parlimen' => 'P129']);
     }
 
     public function test_commit_forgets_token_so_it_cannot_be_replayed(): void
@@ -171,8 +174,13 @@ class Borang14UploadDryRunTest extends TestCase
 
     public function test_dry_run_skips_will_create_when_kawasan_already_exists(): void
     {
+        // Realistically-named seat (matching real seeded convention, e.g. Johor's
+        // Bandar rows carry real names like "Kluang" with kod_parlimen "P152") with
+        // a matching kod_parlimen — NOT the literal placeholder 'P.129'. A test that
+        // pre-creates the placeholder name is tautological: it can never catch a
+        // regression where matching falls back to name instead of kod (see finding 2).
         $negeri = Negeri::where('nama', 'Negeri Sembilan')->first();
-        $bandar = Bandar::create(['nama' => 'P.129', 'kod_parlimen' => '129', 'negeri_id' => $negeri->id]);
+        $bandar = Bandar::create(['nama' => 'Juasseh Parlimen Sebenar', 'kod_parlimen' => 'P129', 'negeri_id' => $negeri->id]);
         Kadun::create(['nama' => 'JUASSEH', 'bandar_id' => $bandar->id]);
 
         $this->mockExtractor($this->extractedFixture());
@@ -181,5 +189,34 @@ class Borang14UploadDryRunTest extends TestCase
         $res = $this->dryRunRequest($user)->assertOk();
 
         $this->assertSame([], $res->json('will_create'));
+    }
+
+    /**
+     * Finding 2 (BLOCKER): bandar is already seeded for some negeri (e.g. Johor,
+     * Penang) under REAL names. Uploading a sheet whose parlimen_kod matches an
+     * EXISTING real seat must resolve to that seat — never create a duplicate
+     * "P.<kod>" placeholder Parlimen detached from the real one.
+     */
+    public function test_existing_parlimen_matched_by_kod_is_not_duplicated_by_placeholder_name(): void
+    {
+        $negeri = Negeri::where('nama', 'Negeri Sembilan')->first();
+        $realBandar = Bandar::create(['nama' => 'Juasseh Sebenar', 'kod_parlimen' => 'P129', 'negeri_id' => $negeri->id]);
+
+        $this->mockExtractor($this->extractedFixture());
+        $user = $this->user('0123450006');
+
+        $beforeBandar = Bandar::count();
+
+        $dry = $this->dryRunRequest($user)->assertOk();
+        // Parlimen already resolves by kod — only the DUN underneath is new.
+        $this->assertCount(1, $dry->json('will_create'));
+        $this->assertSame('dun', $dry->json('will_create.0.jenis'));
+
+        $commit = $this->actingAs($user)
+            ->post(route('pilihanraya.borang-14.upload'), ['token' => $dry->json('token')])
+            ->assertOk();
+
+        $this->assertSame($beforeBandar, Bandar::count(), 'No duplicate Parlimen must be created when kod_parlimen already matches a real seat.');
+        $this->assertDatabaseHas('kadun', ['nama' => 'JUASSEH', 'bandar_id' => $realBandar->id]);
     }
 }

@@ -58,7 +58,7 @@ export default function UploadTab({ onUploaded }) {
     const [phase, setPhase] = useState('idle');
     const [elapsed, setElapsed] = useState(0);
     const [error, setError] = useState(null);
-    const [pending, setPending] = useState(null); // { token, willCreate, negeri, kawasanNama, needsReview, unbalanced }
+    const [pending, setPending] = useState(null); // { token, willCreate, kawasanType, negeri, kawasanNama, needsReview, unbalanced }
     const [result, setResult] = useState(null); // { formId, created, unbalanced, needsReview }
 
     const busy = phase === 'extracting' || phase === 'committing';
@@ -163,6 +163,7 @@ export default function UploadTab({ onUploaded }) {
             setPending({
                 token: data.token,
                 willCreate,
+                kawasanType: data.kawasan_type,
                 negeri: data.negeri,
                 kawasanNama: data.kawasan_nama,
                 needsReview: !!data.needs_review,
@@ -275,8 +276,8 @@ export default function UploadTab({ onUploaded }) {
                         ))}
                     </ul>
                     <div className="text-xs text-amber-800">
-                        Dikesan daripada scoresheet: <strong>{pending.negeri}</strong> — <strong>{pending.kawasanNama}</strong>.
-                        Sahkan nama ini betul sebelum diteruskan — kawasan baharu akan ditulis ke pangkalan data selepas ini.
+                        Dikesan daripada scoresheet: <strong>{pending.negeri}</strong> — <strong>{jenisKawasanLabel(pending.kawasanType)} {pending.kawasanNama}</strong>.
+                        Sahkan jenis kawasan (Parlimen/DUN) dan nama ini betul sebelum diteruskan — kawasan baharu akan ditulis ke pangkalan data selepas ini.
                     </div>
 
                     {pending.needsReview && (

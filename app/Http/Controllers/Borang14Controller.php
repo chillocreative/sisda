@@ -511,6 +511,11 @@ class Borang14Controller extends Controller
             'ok' => true,
             'token' => $token,
             'will_create' => $kawasan['created'],
+            // Surface the resolved seat type BEFORE anything is written, so the
+            // confirm panel can show "Parlimen" vs "DUN" explicitly rather than
+            // the user only finding out afterwards (or, before this fix, never —
+            // the resolver used to hardcode DUN regardless of the sheet's level).
+            'kawasan_type' => $kawasan['kawasan_type'],
             'negeri' => $res['data']['negeri'] ?? null,
             'kawasan_nama' => $res['data']['kawasan_nama'] ?? null,
             'needs_review' => $review['needs_review'],

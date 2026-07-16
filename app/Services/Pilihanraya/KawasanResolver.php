@@ -32,17 +32,17 @@ class KawasanResolver
             return $check['fail'];
         }
 
-        ['negeri' => $negeri, 'parlimenKod' => $parlimenKod, 'namaDun' => $namaDun] = $check;
+        ['negeri' => $negeri, 'kawasanType' => $kawasanType, 'parlimenKod' => $parlimenKod, 'namaKawasan' => $namaKawasan] = $check;
         $kawasanKod = $extracted['kawasan_kod'] ?? null;
 
         if ($dryRun) {
-            return self::match($negeri, $parlimenKod, $namaDun, $kawasanKod, false);
+            return self::match($negeri, $kawasanType, $parlimenKod, $namaKawasan, $kawasanKod, false);
         }
 
         // Semua pengesahan input lulus — sekarang selamat untuk menulis. Bungkus
         // dalam transaksi supaya kegagalan Kadun::create() tidak meninggalkan
         // Bandar anak-yatim yang baru dicipta.
-        return DB::transaction(fn () => self::match($negeri, $parlimenKod, $namaDun, $kawasanKod, true));
+        return DB::transaction(fn () => self::match($negeri, $kawasanType, $parlimenKod, $namaKawasan, $kawasanKod, true));
     }
 
     /** Pengesahan input — SAMA untuk dry run & commit. Tidak menyentuh DB tulis. */
@@ -53,18 +53,39 @@ class KawasanResolver
             return ['ok' => false, 'fail' => self::fail('Negeri "' . ($extracted['negeri'] ?? '') . '" tidak dikenali dalam sistem.')];
         }
 
+        // Header SPR bezakan aras kerusi melalui awalan kawasan_kod:
+        // "N.15 JUASSEH" -> DUN, "P.129 ..." -> Parlimen. Upload sebelum ini
+        // sentiasa menulis DUN tanpa mengira aras sebenar sheet — kini kod
+        // awalan itu sendiri yang menentukan, dan sheet yang tidak jelas
+        // ditolak dengan mesej jelas dan BUKAN diandaikan DUN secara senyap.
+        $kawasanKod = trim((string) ($extracted['kawasan_kod'] ?? ''));
+        $kawasanKodUpper = mb_strtoupper($kawasanKod);
+        $kawasanType = match (true) {
+            str_starts_with($kawasanKodUpper, 'N.') => Borang14Form::KAWASAN_DUN,
+            str_starts_with($kawasanKodUpper, 'P.') => Borang14Form::KAWASAN_PARLIMEN,
+            default => null,
+        };
+        if ($kawasanType === null) {
+            return ['ok' => false, 'fail' => self::fail(
+                'Kod kawasan "' . ($extracted['kawasan_kod'] ?? '') . '" tidak dikenali daripada scoresheet — '.
+                'dijangka bermula dengan "N." (DUN) atau "P." (Parlimen). Sila semak fail atau baca semula.'
+            )];
+        }
+
         // Kod DM '129/15/01' -> Parlimen 129. Nama Parlimen jarang ada pada sheet.
         $parlimenKod = trim((string) ($extracted['parlimen_kod'] ?? ''));
         if ($parlimenKod === '') {
             return ['ok' => false, 'fail' => self::fail('Kod Parlimen tidak dapat dibaca dari scoresheet.')];
         }
 
-        $namaDun = trim((string) ($extracted['kawasan_nama'] ?? ''));
-        if ($namaDun === '') {
+        // Nama kerusi yang sedang direkodkan: nama DUN untuk sheet DUN, ATAU
+        // nama Parlimen itu sendiri untuk sheet Parlimen (tiada DUN di bawahnya).
+        $namaKawasan = trim((string) ($extracted['kawasan_nama'] ?? ''));
+        if ($namaKawasan === '') {
             return ['ok' => false, 'fail' => self::fail('Nama kawasan tidak dapat dibaca dari scoresheet.')];
         }
 
-        return ['ok' => true, 'negeri' => $negeri, 'parlimenKod' => $parlimenKod, 'namaDun' => $namaDun];
+        return ['ok' => true, 'negeri' => $negeri, 'kawasanType' => $kawasanType, 'parlimenKod' => $parlimenKod, 'namaKawasan' => $namaKawasan];
     }
 
     /**
@@ -72,35 +93,57 @@ class KawasanResolver
      * tiada baris ditulis — jika Bandar tiada, andaikan Kadun di bawahnya juga
      * tiada (kadun bergantung kepada bandar_id) tanpa membuat pertanyaan sia-sia.
      */
-    private static function match(Negeri $negeri, string $parlimenKod, string $namaDun, ?string $kawasanKod, bool $write): array
+    private static function match(Negeri $negeri, string $kawasanType, string $parlimenKod, string $namaKawasan, ?string $kawasanKod, bool $write): array
     {
         $created = [];
-        $namaParlimen = 'P.' . $parlimenKod;   // placeholder — jangan teka nama sebenar
 
+        // Padan Parlimen pada KOD, bukan nama placeholder — bandar SUDAH disemai
+        // untuk sesetengah negeri (cth Johor 56 DUN, Pulau Pinang 40 DUN) di bawah
+        // NAMA SEBENAR ("Kluang", dsb.). Padanan nama placeholder 'P.<kod>' tidak
+        // akan pernah sepadan dengan nama sebenar itu, jadi ia mesti dipadankan
+        // melalui kod_parlimen (dilingkupkan kepada negeri yang sudah dipadan).
+        // Konvensyen kod_parlimen sedia ada (lihat seeder Johor/Penang) ialah
+        // 'P' + nombor TANPA titik (cth 'P160') — parlimen_kod hasil ekstrak
+        // pula nombor bare sahaja ('160'), jadi digabung dahulu sebelum padan.
+        $kodParlimenPenuh = 'P' . $parlimenKod;
         $bandar = Bandar::where('negeri_id', $negeri->id)
-            ->whereRaw('UPPER(nama) = ?', [mb_strtoupper($namaParlimen)])
+            ->whereRaw('UPPER(kod_parlimen) = ?', [mb_strtoupper($kodParlimenPenuh)])
             ->first();
 
         if (! $bandar) {
-            $created[] = ['jenis' => 'parlimen', 'nama' => $namaParlimen];
+            // Hanya kembali kepada mencipta placeholder 'P.<kod>' apabila BENAR-BENAR
+            // tiada baris dengan kod ini — bukan tekaan pertama.
+            $namaPlaceholder = 'P.' . $parlimenKod;
+            $created[] = ['jenis' => 'parlimen', 'nama' => $namaPlaceholder];
             if ($write) {
                 $bandar = Bandar::create([
-                    'nama' => $namaParlimen,
-                    'kod_parlimen' => $parlimenKod,
+                    'nama' => $namaPlaceholder,
+                    'kod_parlimen' => $kodParlimenPenuh,
                     'negeri_id' => $negeri->id,
                 ]);
             }
         }
 
+        // Sheet Parlimen (tiada DUN di bawahnya) — selesai di sini.
+        if ($kawasanType === Borang14Form::KAWASAN_PARLIMEN) {
+            return [
+                'ok' => true,
+                'kawasan_type' => Borang14Form::KAWASAN_PARLIMEN,
+                'kawasan_id' => $bandar?->id,
+                'created' => $created,
+                'error' => null,
+            ];
+        }
+
         $kadun = $bandar
-            ? Kadun::where('bandar_id', $bandar->id)->whereRaw('UPPER(nama) = ?', [mb_strtoupper($namaDun)])->first()
+            ? Kadun::where('bandar_id', $bandar->id)->whereRaw('UPPER(nama) = ?', [mb_strtoupper($namaKawasan)])->first()
             : null;
 
         if (! $kadun) {
-            $created[] = ['jenis' => 'dun', 'nama' => $namaDun];
+            $created[] = ['jenis' => 'dun', 'nama' => $namaKawasan];
             if ($write) {
                 $kadun = Kadun::create([
-                    'nama' => $namaDun,
+                    'nama' => $namaKawasan,
                     'kod_dun' => $kawasanKod,
                     'bandar_id' => $bandar->id,
                 ]);
@@ -110,7 +153,7 @@ class KawasanResolver
         return [
             'ok' => true,
             'kawasan_type' => Borang14Form::KAWASAN_DUN,
-            'kawasan_id' => $kadun->id ?? null,
+            'kawasan_id' => $kadun?->id,
             'created' => $created,
             'error' => null,
         ];

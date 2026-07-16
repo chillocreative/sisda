@@ -77,7 +77,9 @@ class Borang14SubmenuTest extends TestCase
         $this->assertTrue($res['ok']);
         $this->assertSame('dun', $res['kawasan_type']);
         $this->assertDatabaseHas('kadun', ['nama' => 'JUASSEH']);
-        $this->assertDatabaseHas('bandar', ['nama' => 'P.129', 'kod_parlimen' => '129']);
+        // kod_parlimen mesti ikut konvensyen seeder sedia ada ('P' + nombor, tiada
+        // titik — cth 'P160') supaya padanan kod (bukan nama) berfungsi konsisten.
+        $this->assertDatabaseHas('bandar', ['nama' => 'P.129', 'kod_parlimen' => 'P129']);
     }
 
     public function test_publish_moves_draft_into_senarai(): void
