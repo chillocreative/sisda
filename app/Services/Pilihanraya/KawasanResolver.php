@@ -103,21 +103,33 @@ class KawasanResolver
         // akan pernah sepadan dengan nama sebenar itu, jadi ia mesti dipadankan
         // melalui kod_parlimen (dilingkupkan kepada negeri yang sudah dipadan).
         // Konvensyen kod_parlimen sedia ada (lihat seeder Johor/Penang) ialah
-        // 'P' + nombor TANPA titik (cth 'P160') — parlimen_kod hasil ekstrak
-        // pula nombor bare sahaja ('160'), jadi digabung dahulu sebelum padan.
-        $kodParlimenPenuh = 'P' . $parlimenKod;
+        // 'P' + nombor TANPA titik DAN TANPA sifar hadapan (cth 'P41', 'P160') —
+        // tetapi parlimen_kod hasil ekstrak disalin verbatim daripada segmen kod DM
+        // ("041/12/03" -> "041"), jadi ia BOLEH datang dengan sifar hadapan untuk
+        // kerusi bernombor < 100. Tanpa normalisasi, 'P041' tidak akan sepadan
+        // dengan 'P41' yang disemai — mencipta placeholder pertindihan bagi
+        // SETIAP kerusi bernombor < 100 (cth semua 13 kerusi Pulau Pinang).
+        // Normalisasi (buang sifar hadapan) sebelum padan DAN sebelum cipta supaya
+        // kod yang baru dicipta juga kanonik untuk muat naik akan datang.
+        $kodNormalisasi = self::normaliseParlimenKod($parlimenKod);
+        $kodParlimenPenuh = 'P' . $kodNormalisasi;
         $bandar = Bandar::where('negeri_id', $negeri->id)
             ->whereRaw('UPPER(kod_parlimen) = ?', [mb_strtoupper($kodParlimenPenuh)])
             ->first();
 
         if (! $bandar) {
             // Hanya kembali kepada mencipta placeholder 'P.<kod>' apabila BENAR-BENAR
-            // tiada baris dengan kod ini — bukan tekaan pertama.
-            $namaPlaceholder = 'P.' . $parlimenKod;
-            $created[] = ['jenis' => 'parlimen', 'nama' => $namaPlaceholder];
+            // tiada baris dengan kod ini — bukan tekaan pertama. Sheet Parlimen
+            // membawa nama sebenar kerusi (kawasan_nama); sheet DUN pula hanya
+            // tahu KOD Parlimen induknya, bukan nama sebenar — kekal guna
+            // placeholder 'P.<kod>' untuk kes itu supaya kita tidak menekanya.
+            $namaBandarBaharu = $kawasanType === Borang14Form::KAWASAN_PARLIMEN
+                ? $namaKawasan
+                : 'P.' . $kodNormalisasi;
+            $created[] = ['jenis' => 'parlimen', 'nama' => $namaBandarBaharu];
             if ($write) {
                 $bandar = Bandar::create([
-                    'nama' => $namaPlaceholder,
+                    'nama' => $namaBandarBaharu,
                     'kod_parlimen' => $kodParlimenPenuh,
                     'negeri_id' => $negeri->id,
                 ]);
@@ -157,6 +169,19 @@ class KawasanResolver
             'created' => $created,
             'error' => null,
         ];
+    }
+
+    /**
+     * Buang sifar hadapan daripada kod Parlimen mentah ("041" -> "41", "0041" -> "41")
+     * supaya ia sepadan dengan konvensyen kod_parlimen sedia ada ('P41', bukan 'P041').
+     * Sifar tulen ("0" atau "000") dikekalkan sebagai "0" — tiada kerusi bernombor 0
+     * wujud, tetapi rentetan kosong tidak sepatutnya terhasil daripada ltrim().
+     */
+    private static function normaliseParlimenKod(string $kodMentah): string
+    {
+        $kod = ltrim($kodMentah, '0');
+
+        return $kod === '' ? '0' : $kod;
     }
 
     private static function fail(string $error): array

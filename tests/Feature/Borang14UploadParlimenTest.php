@@ -114,4 +114,27 @@ class Borang14UploadParlimenTest extends TestCase
 
         $this->assertSame('parlimen', $dry->json('kawasan_type'), 'Dry run must surface the resolved seat type so the confirm panel can show it before writing.');
     }
+
+    /**
+     * Finding (Minor): a Parlimen-level sheet DOES carry its own real name in
+     * kawasan_nama (unlike a DUN sheet, which only knows its parent Parlimen by
+     * kod, never by name). The resolver used to always name a newly-created
+     * Parlimen 'P.<kod>', throwing away that real name even when it was known —
+     * so the confirm panel would show "Parlimen JUASSEH" while the DB row was
+     * actually named "P.129".
+     */
+    public function test_new_parlimen_bandar_is_named_after_the_sheets_real_seat_name(): void
+    {
+        $this->mockExtractor($this->parlimenFixture());
+        $user = $this->user('0123450024');
+
+        $token = $this->dryRunRequest($user)->assertOk()->json('token');
+
+        $this->actingAs($user)
+            ->post(route('pilihanraya.borang-14.upload'), ['token' => $token])
+            ->assertOk();
+
+        $this->assertDatabaseHas('bandar', ['nama' => 'JUASSEH', 'kod_parlimen' => 'P129']);
+        $this->assertDatabaseMissing('bandar', ['nama' => 'P.129']);
+    }
 }
