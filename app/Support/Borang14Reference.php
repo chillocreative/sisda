@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Bandar;
 use App\Models\Kadun;
 use Illuminate\Support\Facades\DB;
 
@@ -34,6 +35,23 @@ class Borang14Reference
         }
 
         return self::deriveFromDpt($kadunId);
+    }
+
+    /**
+     * Struktur rujukan untuk kerusi Parlimen. daerah_mengundi.bandar_id sudah
+     * menunjuk ke Parlimen secara langsung, jadi DM dikumpul terus daripada
+     * pangkalan_data_pengundi tanpa join melalui kadun.
+     *
+     * @return array<string,mixed>|null
+     */
+    public static function forBandar(int $bandarId): ?array
+    {
+        $bandar = Bandar::with('negeri')->find($bandarId);
+        if (! $bandar) {
+            return null;
+        }
+
+        return self::deriveFromDptForBandar($bandar);
     }
 
     public static function hasData(int $kadunId): bool
@@ -90,6 +108,53 @@ class Borang14Reference
             'negeri' => $kadun->bandar->negeri->nama ?? '',
             'parlimen' => $kadun->bandar->nama ?? '',
             'dun' => $kadun->nama,
+            'daerah_mengundi' => $daerahMengundi,
+            'undi_awal' => ['berdaftar' => 0],
+            'undi_pos' => ['berdaftar' => 0],
+            'source' => 'dpt_estimate',
+        ];
+    }
+
+    /** @return array<string,mixed>|null */
+    private static function deriveFromDptForBandar(Bandar $bandar): ?array
+    {
+        $rows = DB::table('pangkalan_data_pengundi')
+            ->whereRaw('UPPER(parlimen) = ?', [strtoupper($bandar->nama)])
+            ->where(function ($q) {
+                $q->where('is_deceased', false)->orWhereNull('is_deceased');
+            })
+            ->select('daerah_mengundi', 'lokaliti')
+            ->get();
+
+        if ($rows->isEmpty()) {
+            return null;
+        }
+
+        // Group by DM -> Lokaliti (treated as Pusat Mengundi); the row count
+        // per group becomes that Pusat Mengundi's Berdaftar.
+        $grouped = [];
+        foreach ($rows as $r) {
+            $dm = trim((string) $r->daerah_mengundi) ?: 'TIADA DAERAH MENGUNDI';
+            $lokaliti = trim((string) $r->lokaliti) ?: 'TIADA LOKALITI';
+            $grouped[$dm][$lokaliti] = ($grouped[$dm][$lokaliti] ?? 0) + 1;
+        }
+
+        $daerahMengundi = [];
+        foreach ($grouped as $dm => $lokalitiCounts) {
+            $pusatMengundi = [];
+            foreach ($lokalitiCounts as $lokaliti => $count) {
+                $pusatMengundi[] = [
+                    'nama' => $lokaliti,
+                    'saluran' => [['no' => 1, 'berdaftar' => $count]],
+                ];
+            }
+            $daerahMengundi[] = ['nama' => $dm, 'pusat_mengundi' => $pusatMengundi];
+        }
+
+        return [
+            'negeri' => $bandar->negeri->nama ?? '',
+            'parlimen' => $bandar->nama,
+            'dun' => null,
             'daerah_mengundi' => $daerahMengundi,
             'undi_awal' => ['berdaftar' => 0],
             'undi_pos' => ['berdaftar' => 0],
