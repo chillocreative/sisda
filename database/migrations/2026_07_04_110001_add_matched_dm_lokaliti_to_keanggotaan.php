@@ -3,6 +3,7 @@
 use App\Services\Keanggotaan\MemberMatchService;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -23,8 +24,13 @@ return new class extends Migration
         }
 
         // Backfill existing members by re-running the roll cross-check (file
-        // fields preserved).
-        app(MemberMatchService::class)->syncTable('keanggotaan', keepFileFields: true);
+        // fields preserved). The sync uses MySQL-only raw SQL (REGEXP,
+        // CURDATE, ...); skip it on sqlite (test suite via RefreshDatabase),
+        // where every RefreshDatabase run starts from an empty table anyway
+        // so there is nothing to backfill.
+        if (DB::connection()->getDriverName() !== 'sqlite') {
+            app(MemberMatchService::class)->syncTable('keanggotaan', keepFileFields: true);
+        }
     }
 
     public function down(): void
