@@ -192,6 +192,112 @@ class Borang14PdfTest extends TestCase
         $res->assertStatus(404);
     }
 
+    /** Renders the blade DIRECTLY (bypassing dompdf) and returns a table's rows as plain cell-text arrays. */
+    private function tableRows(string $html, int $tableIndex = 0): array
+    {
+        libxml_use_internal_errors(true);
+        $dom = new \DOMDocument();
+        $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html);
+        libxml_clear_errors();
+        $xpath = new \DOMXPath($dom);
+        $table = $xpath->query('//table')->item($tableIndex);
+
+        $rows = [];
+        foreach ($xpath->query('.//tr', $table) as $tr) {
+            $cells = [];
+            foreach ($xpath->query('./td|./th', $tr) as $cell) {
+                $cells[] = trim(preg_replace('/\s+/', ' ', $cell->textContent));
+            }
+            $rows[] = $cells;
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Finding 6 (Important): the PDF never got slots 90/91 (Ditolak/Tidak
+     * Dimasukkan) columns, so its "Jumlah Keluar" summed only party undi
+     * while the on-screen Borang14Form.jsx sums undi + C + D — the SAME
+     * published form printed a turnout figure that disagreed with the screen
+     * by C+D. The PDF must gain both columns and match the screen's formula.
+     */
+    public function test_pdf_gains_ditolak_tidak_dimasukkan_columns_and_matches_screen_jumlah_keluar_formula(): void
+    {
+        $reference = [
+            'negeri' => 'Negeri Ujian', 'parlimen' => 'Parlimen Ujian', 'dun' => 'Dun Ujian',
+            'daerah_mengundi' => [[
+                'nama' => 'DM Ujian',
+                'pusat_mengundi' => [[
+                    'nama' => 'PM Ujian', 'jumlah_berdaftar' => 20,
+                    'saluran' => [['no' => 1, 'berdaftar' => 20]],
+                ]],
+            ]],
+            'undi_awal' => ['berdaftar' => 0], 'undi_pos' => ['berdaftar' => 0],
+            'source' => 'dpt_estimate',
+        ];
+        // Party undi: 6 + 4 = 10 (Jumlah Undian). Ditolak (C) = 2, Tidak
+        // Dimasukkan (D) = 1. Screen's Jumlah Keluar = undi + C + D = 13.
+        $votes = ['PM Ujian|1|1' => 6, 'PM Ujian|1|2' => 4, 'PM Ujian|1|90' => 2, 'PM Ujian|1|91' => 1];
+
+        $html = view('pdf.borang14', [
+            'reference' => $reference, 'penjuru' => 2, 'penjuruLabel' => '1 vs 1',
+            'parties' => [['slot' => 1, 'nama' => 'PARTI A'], ['slot' => 2, 'nama' => 'PARTI B']],
+            'votes' => $votes, 'logo' => null, 'isBulohKasap' => false,
+        ])->render();
+
+        $rows = $this->tableRows($html, 0);
+
+        $this->assertSame(
+            ['Saluran', 'PARTI A', 'PARTI B', 'Ditolak (C)', 'Tak Dimasukkan (D)', 'Jumlah Undian', 'Jumlah Keluar', 'Berdaftar', '% Turnout', 'Tak Keluar', '% Tak Keluar'],
+            $rows[0],
+        );
+
+        // undian = 6+4 = 10; keluar = 10+2+1 = 13 (matches Borang14Form.jsx's
+        // `keluar = undian + ditolak + tidakMasuk`); berdaftar=20 known ->
+        // takKeluar = 20-13 = 7; %turnout = 65.0%; %takKeluar = 35.0%.
+        $this->assertSame(['Saluran 1', '6', '4', '2', '1', '10', '13', '20', '65.0%', '7', '35.0%'], $rows[1]);
+    }
+
+    /**
+     * Finding 6 (second part): berdaftar ?? 0 and Tak Keluar with no max(0, …)
+     * guard. Once scoresheet-only seats reach the PDF (finding 4), berdaftar
+     * is genuinely UNKNOWN (the scoresheet has no registered-voter column —
+     * column (A) is ballots in the box), so printing 0 is a lie and
+     * "Tak Keluar" can go negative. Unknown berdaftar must print '—', never 0
+     * — while a genuinely-zero Ditolak/Tidak Dimasukkan must still print 0.
+     */
+    public function test_pdf_prints_dash_not_zero_for_unknown_berdaftar_and_never_shows_negative_tak_keluar(): void
+    {
+        $reference = [
+            'negeri' => 'Negeri Ujian', 'parlimen' => 'Parlimen Ujian', 'dun' => 'Dun Ujian',
+            'daerah_mengundi' => [[
+                'nama' => 'DM Ujian',
+                'pusat_mengundi' => [[
+                    'nama' => 'PM Ujian', 'jumlah_berdaftar' => null,
+                    'saluran' => [['no' => 1, 'berdaftar' => null]],
+                ]],
+            ]],
+            'undi_awal' => ['berdaftar' => null], 'undi_pos' => ['berdaftar' => null],
+            'source' => 'scoresheet',
+        ];
+        // No Ditolak/Tidak Dimasukkan votes given — those cells are a REAL
+        // zero and must still print "0", not "—".
+        $votes = ['PM Ujian|1|1' => 6, 'PM Ujian|1|2' => 4];
+
+        $html = view('pdf.borang14', [
+            'reference' => $reference, 'penjuru' => 2, 'penjuruLabel' => '1 vs 1',
+            'parties' => [['slot' => 1, 'nama' => 'PARTI A'], ['slot' => 2, 'nama' => 'PARTI B']],
+            'votes' => $votes, 'logo' => null, 'isBulohKasap' => false,
+        ])->render();
+
+        $rows = $this->tableRows($html, 0);
+
+        // Real zeros (Ditolak, Tidak Dimasukkan) print "0"; unknown berdaftar
+        // (and everything derived from it — % Turnout, Tak Keluar, % Tak Keluar)
+        // prints '—', never a fabricated 0 or a negative number.
+        $this->assertSame(['Saluran 1', '6', '4', '0', '0', '10', '10', '—', '—', '—', '—'], $rows[1]);
+    }
+
     public function test_senarai_returns_kawasan_and_geography_ids(): void
     {
         $negeri = Negeri::create(['nama' => 'Negeri Ujian']);
