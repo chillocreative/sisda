@@ -150,9 +150,16 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
         if (isBulohKasap) {
             return [{ label: 'UNDI AWAL & POS', berdaftar: awal?.berdaftar != null || pos?.berdaftar != null ? (awal?.berdaftar ?? 0) + (pos?.berdaftar ?? 0) : null }];
         }
+        // Key off the REAL saluran string carried in reference.undi_awal/undi_pos.label
+        // (set by referenceFromStructure() for scoresheet-sourced forms) —
+        // votes are stored under that exact string, so a hardcoded literal
+        // here would silently show 0 votes whenever the AI reads anything
+        // other than the exact 'UNDI AWAL'/'UNDI POS' text. Curated/DPT
+        // references carry no such label — fall back to the same literal the
+        // frontend has always used for those (unaffected by this fix).
         const rows = [];
-        if (awal) rows.push({ label: 'UNDI AWAL', berdaftar: awal.berdaftar ?? null });
-        if (pos) rows.push({ label: 'UNDI POS', berdaftar: pos.berdaftar ?? null });
+        if (awal) rows.push({ label: awal.label || 'UNDI AWAL', berdaftar: awal.berdaftar ?? null });
+        if (pos) rows.push({ label: pos.label || 'UNDI POS', berdaftar: pos.berdaftar ?? null });
         return rows;
     }, [reference, isBulohKasap]);
 

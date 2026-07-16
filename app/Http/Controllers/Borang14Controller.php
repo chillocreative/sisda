@@ -242,11 +242,19 @@ class Borang14Controller extends Controller
             $saluran = (string) ($r['saluran'] ?? '');
 
             if ($pusat === '') {
-                $label = strtoupper($saluran);
-                if (str_contains($label, 'AWAL')) {
-                    $undiAwal = ['berdaftar' => null];
-                } elseif (str_contains($label, 'POS')) {
-                    $undiPos = ['berdaftar' => null];
+                // Carry the REAL saluran string through as 'label' — votes are
+                // stored keyed on this exact string (putVote() uses
+                // $row['saluran']), so the frontend must key off it too rather
+                // than a hardcoded 'UNDI POS'/'UNDI AWAL' constant. If the AI
+                // ever emits something other than the exact literal (e.g. an
+                // extra suffix), a hardcoded key would silently show 0 votes
+                // and any edit would write an orphan row under a key nothing
+                // reads.
+                $upper = strtoupper($saluran);
+                if (str_contains($upper, 'AWAL')) {
+                    $undiAwal = ['berdaftar' => null, 'label' => $saluran];
+                } elseif (str_contains($upper, 'POS')) {
+                    $undiPos = ['berdaftar' => null, 'label' => $saluran];
                 }
 
                 continue;
@@ -317,6 +325,19 @@ class Borang14Controller extends Controller
         $votesByCell = $form->votes()->get(['pusat', 'saluran', 'slot', 'undi'])
             ->groupBy(fn ($v) => $v->pusat.'|'.$v->saluran);
 
+        // Feed validateBalance() the REAL frozen values from the sheet's own
+        // extraction — the printed 'jumlah_undian' total and the actual
+        // 'calon' list — NOT values re-derived from the live undi array
+        // itself. Rebuilding both from the same live array made
+        // 'jumlah_undian' and 'calon_count' compare a number against itself
+        // (mathematically unreachable); only 'balance' could ever fire. Now:
+        //   - jumlah_undian: live vote sum vs the sheet's own printed total —
+        //     fires when entered figures no longer add up to what was printed.
+        //   - calon_count: live candidate slot count (nCalon) vs the sheet's
+        //     own candidate list — fires if the extraction's column count
+        //     diverges from the currently configured penjuru.
+        $calon = $structure['calon'] ?? array_fill(0, $nCalon, '');
+
         $liveRows = collect($structure['rows'])->map(function ($r) use ($votesByCell, $nCalon) {
             $pusat = (string) ($r['pusat'] ?? '');
             $saluran = (string) ($r['saluran'] ?? '');
@@ -333,14 +354,14 @@ class Borang14Controller extends Controller
                 'saluran' => $saluran,
                 'a' => (int) ($r['a'] ?? 0),
                 'undi' => $undi,
-                'jumlah_undian' => array_sum($undi),
+                'jumlah_undian' => (int) ($r['jumlah_undian'] ?? 0),
                 'ditolak' => $slotVal(90),
                 'tidak_dimasukkan' => $slotVal(91),
             ];
         })->all();
 
         $findings = ScoresheetExtractor::validateBalance([
-            'calon' => array_fill(0, $nCalon, ''),
+            'calon' => $calon,
             'rows' => $liveRows,
         ]);
 
