@@ -114,9 +114,20 @@ export default function UploadTab({ onUploaded }) {
             setFile(null);
             setPhase('idle');
         } catch (e) {
-            setError(e.response?.data?.message || 'Muat naik gagal. Cuba semula.');
-            setPending(null);
-            setPhase('idle');
+            // 422 = token sah tidak dijumpai/luput/milik pengguna lain di sisi pelayan
+            // — token memang mati, mesti muat naik semula. Sebarang kegagalan LAIN
+            // (rangkaian terputus, 500 sekejap) TIDAK memusnahkan token yang masih sah
+            // selama 15 minit di cache pelayan — kekalkan `pending` supaya pengguna
+            // boleh cuba "Cipta & teruskan" semula tanpa bayar untuk bacaan AI baharu.
+            const tokenDead = e.response?.status === 422 || !pending;
+            if (tokenDead) {
+                setError(e.response?.data?.message || 'Muat naik gagal. Cuba semula.');
+                setPending(null);
+                setPhase('idle');
+            } else {
+                setError('Penciptaan gagal buat sementara (rangkaian/pelayan). Token masih sah — klik "Cipta & teruskan" sekali lagi untuk cuba semula, tanpa perlu muat naik semula.');
+                setPhase('confirm');
+            }
         }
     };
 
@@ -267,6 +278,34 @@ export default function UploadTab({ onUploaded }) {
                         Dikesan daripada scoresheet: <strong>{pending.negeri}</strong> — <strong>{pending.kawasanNama}</strong>.
                         Sahkan nama ini betul sebelum diteruskan — kawasan baharu akan ditulis ke pangkalan data selepas ini.
                     </div>
+
+                    {pending.needsReview && (
+                        <div className="flex items-start gap-2 text-sm bg-rose-50 border border-rose-300 text-rose-800 rounded-lg px-4 py-3">
+                            <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5" />
+                            <span>
+                                Bacaan ini ditanda <strong>perlu semakan</strong> — kemungkinan nama parti dikesan melalui logo
+                                (bukan teks) atau saluran tidak lengkap. Semak dengan teliti sebelum tekan &quot;Cipta &amp; teruskan&quot;,
+                                atau tekan &quot;Batal&quot; jika bacaan ini kelihatan salah.
+                            </span>
+                        </div>
+                    )}
+
+                    {pending.unbalanced.length > 0 && (
+                        <div className="flex items-start gap-2 text-sm bg-rose-50 border border-rose-300 text-rose-800 rounded-lg px-4 py-3">
+                            <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5" />
+                            <div className="space-y-1">
+                                <div className="font-semibold">Semakan aritmetik gagal ({pending.unbalanced.length})</div>
+                                <ul className="space-y-0.5">
+                                    {pending.unbalanced.map((item, i) => (
+                                        <li key={i}>
+                                            {rowLabel(item)} — {RULE_LABEL[item.rule] || item.rule} ({ruleDetail(item)})
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="flex items-center gap-3 pt-1">
                         <button type="button" onClick={() => commit(pending.token)} disabled={busy} className={t.buttonPrimary}>
                             {phase === 'committing' ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />} Cipta &amp; teruskan

@@ -278,10 +278,7 @@ class Borang14Controller extends Controller
             'filename' => $request->file('fail')->getClientOriginalName(),
         ], now()->addMinutes(self::DRY_RUN_TTL_MINUTES));
 
-        $unbalanced = ScoresheetExtractor::validateBalance($res['data']);
-        $anyGuess = collect($res['data']['calon'] ?? [])->contains(fn ($c) => ! ($c['yakin'] ?? false));
-        $noSaluran = collect($res['data']['rows'] ?? [])
-            ->contains(fn ($r) => ($r['pusat'] ?? '') !== '' && blank($r['saluran'] ?? null));
+        $review = $this->computeNeedsReview($res['data']);
 
         return response()->json([
             'ok' => true,
@@ -289,8 +286,8 @@ class Borang14Controller extends Controller
             'will_create' => $kawasan['created'],
             'negeri' => $res['data']['negeri'] ?? null,
             'kawasan_nama' => $res['data']['kawasan_nama'] ?? null,
-            'needs_review' => $unbalanced !== [] || $anyGuess || $noSaluran,
-            'unbalanced' => $unbalanced,
+            'needs_review' => $review['needs_review'],
+            'unbalanced' => $review['unbalanced'],
         ]);
     }
 
@@ -336,10 +333,7 @@ class Borang14Controller extends Controller
             $form->votes()->delete();
         }
 
-        $unbalanced = ScoresheetExtractor::validateBalance($extractedData);
-        $anyGuess = collect($extractedData['calon'] ?? [])->contains(fn ($c) => ! ($c['yakin'] ?? false));
-        $noSaluran = collect($extractedData['rows'] ?? [])
-            ->contains(fn ($r) => ($r['pusat'] ?? '') !== '' && blank($r['saluran'] ?? null));
+        $review = $this->computeNeedsReview($extractedData);
 
         $form->fill([
             'penjuru' => max(2, count($extractedData['calon'] ?? [])),
@@ -349,7 +343,7 @@ class Borang14Controller extends Controller
             'status' => 'draft',
             'source' => 'scoresheet',
             'source_filename' => $cached['filename'],
-            'needs_review' => $unbalanced !== [] || $anyGuess || $noSaluran,
+            'needs_review' => $review['needs_review'],
         ])->save();
 
         foreach ($extractedData['rows'] as $r) {
@@ -367,7 +361,7 @@ class Borang14Controller extends Controller
             'ok' => true,
             'form_id' => $form->id,
             'created' => $kawasan['created'],
-            'unbalanced' => $unbalanced,
+            'unbalanced' => $review['unbalanced'],
             'needs_review' => $form->needs_review,
         ]);
     }
@@ -375,6 +369,23 @@ class Borang14Controller extends Controller
     private function dryRunCacheKey(string $token): string
     {
         return 'borang14:upload-dry-run:' . $token;
+    }
+
+    /**
+     * Satu-satunya tempat "needs_review" dikira — dikongsi antara dry run dan commit
+     * supaya kedua-dua langkah tidak boleh terpesong (drift) antara satu sama lain.
+     */
+    private function computeNeedsReview(array $extractedData): array
+    {
+        $unbalanced = ScoresheetExtractor::validateBalance($extractedData);
+        $anyGuess = collect($extractedData['calon'] ?? [])->contains(fn ($c) => ! ($c['yakin'] ?? false));
+        $noSaluran = collect($extractedData['rows'] ?? [])
+            ->contains(fn ($r) => ($r['pusat'] ?? '') !== '' && blank($r['saluran'] ?? null));
+
+        return [
+            'unbalanced' => $unbalanced,
+            'needs_review' => $unbalanced !== [] || $anyGuess || $noSaluran,
+        ];
     }
 
     /** Satu baris per sel. Baris Undi Pos/Awal guna pusat=''. */
