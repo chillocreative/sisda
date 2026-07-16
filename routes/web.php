@@ -445,6 +445,10 @@ Route::middleware(['auth', 'admin'])->prefix('pilihanraya')->name('pilihanraya.'
     Route::post('/borang-14/vote', [\App\Http\Controllers\Borang14Controller::class, 'saveVote'])->name('borang-14.vote')->middleware('throttle:120,1');
     Route::post('/borang-14/reset', [\App\Http\Controllers\Borang14Controller::class, 'reset'])->name('borang-14.reset')->middleware('throttle:20,1');
     Route::get('/borang-14/pdf', [\App\Http\Controllers\Borang14Controller::class, 'pdf'])->name('borang-14.pdf');
+    Route::post('/borang-14/upload', [\App\Http\Controllers\Borang14Controller::class, 'upload'])->name('borang-14.upload')->middleware('throttle:10,1');
+    Route::post('/borang-14/publish', [\App\Http\Controllers\Borang14Controller::class, 'publish'])->name('borang-14.publish')->middleware('throttle:30,1');
+    Route::post('/borang-14/revert', [\App\Http\Controllers\Borang14Controller::class, 'revert'])->name('borang-14.revert')->middleware('throttle:10,1');
+    Route::get('/borang-14/senarai', [\App\Http\Controllers\Borang14Controller::class, 'senarai'])->name('borang-14.senarai');
 
     // War Room tab data (lazy-loaded, cached aggregates)
     Route::get('/api/overview', [\App\Http\Controllers\PilihanrayaController::class, 'overview'])->name('api.overview');
