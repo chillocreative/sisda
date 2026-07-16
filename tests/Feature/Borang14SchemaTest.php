@@ -51,4 +51,24 @@ class Borang14SchemaTest extends TestCase
 
         $this->assertSame(2, DB::table('borang14_forms')->count());
     }
+
+    public function test_snapshot_cascades_when_form_deleted(): void
+    {
+        $formId = DB::table('borang14_forms')->insertGetId([
+            'kawasan_type' => 'dun', 'kawasan_id' => 41, 'jenis_pr' => 'prn',
+            'tahun' => 2022, 'penjuru' => 3, 'status' => 'draft', 'source' => 'manual',
+            'needs_review' => false, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('borang14_snapshots')->insert([
+            'borang14_form_id' => $formId,
+            'structure' => json_encode(['a' => 1]),
+            'votes' => json_encode([]),
+            'reason' => 'before_scoresheet_overwrite',
+            'created_at' => now(),
+        ]);
+
+        DB::table('borang14_forms')->where('id', $formId)->delete();
+
+        $this->assertSame(0, DB::table('borang14_snapshots')->count());
+    }
 }
