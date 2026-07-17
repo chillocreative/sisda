@@ -220,21 +220,49 @@ class MobileVoterSearchTest extends TestCase
         // Finding 6: the errors envelope must carry the validator's real
         // per-field message, not a fixed "at least 3 characters" string
         // for every kind of failure (e.g. q missing, or q[]=x).
+        //
+        // Re-review Finding A: these must be Bahasa Melayu, not Laravel's
+        // English defaults — this project has no lang/ directory and
+        // config/app.php locale is 'en', so per-field messages must be
+        // supplied explicitly to the validator or they silently regress
+        // to English. Assert the literal BM strings so that can't happen
+        // again unnoticed.
         Sanctum::actingAs($this->makeUser('user'));
 
-        $missing = $this->getJson('/api/mobile/voters/search')
+        $this->getJson('/api/mobile/voters/search')
             ->assertStatus(422)
             ->assertJsonPath('success', false)
-            ->json();
-        $this->assertNotEmpty($missing['errors']['q']);
+            ->assertJsonPath('errors.q.0', 'Sila masukkan kata carian.');
 
-        $arrayForm = $this->getJson('/api/mobile/voters/search?q[]=x')
+        $this->getJson('/api/mobile/voters/search?q=Ah')
             ->assertStatus(422)
             ->assertJsonPath('success', false)
-            ->json();
-        $this->assertNotEmpty($arrayForm['errors']['q']);
-        // Must differ from the min:3 message — it's a type failure, not a length one.
-        $this->assertNotSame($missing['errors']['q'], $arrayForm['errors']['q']);
+            ->assertJsonPath('errors.q.0', 'Sila masukkan sekurang-kurangnya 3 aksara.');
+
+        $this->getJson('/api/mobile/voters/search?q[]=x')
+            ->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('errors.q.0', 'Kata carian tidak sah.');
+    }
+
+    public function test_search_matches_literal_underscore_in_name_under_sqlite_and_mysql(): void
+    {
+        // Re-review Finding B: MySQL's LIKE defaults to '\' as its escape
+        // character, so escapeLike()'s '\_' correctly means a literal
+        // underscore there. SQLite has NO default escape character, so
+        // without an explicit ESCAPE clause '\_' is a literal backslash
+        // followed by a still-live '_' wildcard — CI (SQLite) would pass
+        // this search for the wrong reason while diverging from
+        // production (MySQL). An explicit ESCAPE clause must be honoured
+        // identically by both drivers.
+        Sanctum::actingAs($this->makeUser('user'));
+        DataPengundi::factory()->create(['nama' => 'Ali_Bin', 'kadun' => 'BULOH KASAP']);
+        DataPengundi::factory()->create(['nama' => 'AliXBin', 'kadun' => 'BULOH KASAP']);
+
+        $this->getJson('/api/mobile/voters/search?q=Ali_Bin')
+            ->assertOk()
+            ->assertJsonCount(1, 'voters')
+            ->assertJsonPath('voters.0.nama', 'Ali_Bin');
     }
 
     public function test_show_returns_masked_voter_for_a_user_viewer(): void

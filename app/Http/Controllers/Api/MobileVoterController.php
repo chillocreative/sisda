@@ -24,7 +24,11 @@ class MobileVoterController extends Controller
      */
     public function search(Request $request): JsonResponse
     {
-        $validator = validator($request->all(), ['q' => 'required|string|min:3']);
+        $validator = validator($request->all(), ['q' => 'required|string|min:3'], [
+            'q.required' => 'Sila masukkan kata carian.',
+            'q.string' => 'Kata carian tidak sah.',
+            'q.min' => 'Sila masukkan sekurang-kurangnya 3 aksara.',
+        ]);
 
         if ($validator->fails()) {
             return response()->json([
@@ -41,7 +45,7 @@ class MobileVoterController extends Controller
         VoterScopeService::apply($query, $user);
 
         $query->where(function ($sub) use ($q, $canUnmask) {
-            $sub->where('nama', 'like', '%'.$this->escapeLike($q).'%');
+            $sub->whereRaw('nama LIKE ? ESCAPE ?', ['%'.$this->escapeLike($q).'%', '\\']);
 
             // Finding 2: for viewers who cannot already see ICs, `no_ic`
             // must only ever be matched on a full, exact 12-digit value.
@@ -56,7 +60,7 @@ class MobileVoterController extends Controller
             // the original substring behaviour since there's nothing to
             // leak from them.
             if ($canUnmask) {
-                $sub->orWhere('no_ic', 'like', '%'.$this->escapeLike($q).'%');
+                $sub->orWhereRaw('no_ic LIKE ? ESCAPE ?', ['%'.$this->escapeLike($q).'%', '\\']);
             } elseif (preg_match('/^\d{12}$/', $q) === 1) {
                 $sub->orWhere('no_ic', $q);
             }
@@ -116,7 +120,15 @@ class MobileVoterController extends Controller
      * Without this, `%` and `_` in `q` let a caller widen or short-circuit
      * the search (e.g. q=%%% matches every in-scope row), defeating the
      * min:3 gate and, combined with Finding 2, seeding the IC oracle.
-     * Works identically under SQLite (CI) and MySQL (production).
+     *
+     * Every call site pairs this with an explicit `LIKE ? ESCAPE '\\'`
+     * clause rather than Eloquent's `where(..., 'like', ...)`. MySQL
+     * defaults its LIKE escape character to `\` already, but SQLite (the
+     * CI driver) has no default escape character at all, so a bare
+     * `where('col', 'like', ...)` would leave `\_` as a literal backslash
+     * followed by a still-live `_` wildcard under SQLite while behaving
+     * correctly under MySQL — a silent cross-driver divergence. The
+     * explicit ESCAPE clause is honoured identically by both.
      */
     private function escapeLike(string $value): string
     {
