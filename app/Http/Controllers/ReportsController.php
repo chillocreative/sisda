@@ -50,20 +50,7 @@ class ReportsController extends Controller
         // reachable from the view modal and the edit page.
         $filterQuery = HasilCulaan::query();
 
-        // User / Super User Restriction: Records in their KADUN OR records they submitted
-        if ($user->isUser() || $user->isSuperUser()) {
-            $filterQuery->where(function ($q) use ($user) {
-                $q->where('kadun', $user->kadun->nama ?? '__none__')
-                  ->orWhere('submitted_by', $user->id);
-            });
-        }
-        // Admin Restriction: Records in their Parlimen OR records they submitted
-        elseif ($user->isAdmin()) {
-            $filterQuery->where(function ($q) use ($user) {
-                $q->where('bandar', $user->bandar->nama ?? '__none__')
-                  ->orWhere('submitted_by', $user->id);
-            });
-        }
+        \App\Services\VoterScopeService::apply($filterQuery, $user);
 
         // Distinct dropdown options, scoped to what this viewer can see
         // (role restriction applied, but NOT the column filters).
@@ -872,20 +859,7 @@ class ReportsController extends Controller
         $user = auth()->user();
         $query = DataPengundi::with('submittedBy');
 
-        // User / Super User Restriction: Records in their KADUN OR records they submitted
-        if ($user->isUser() || $user->isSuperUser()) {
-            $query->where(function ($q) use ($user) {
-                $q->where('kadun', $user->kadun->nama ?? '__none__')
-                  ->orWhere('submitted_by', $user->id);
-            });
-        }
-        // Admin Restriction: Records in their Parlimen OR records they submitted
-        elseif ($user->isAdmin()) {
-            $query->where(function ($q) use ($user) {
-                $q->where('bandar', $user->bandar->nama ?? '__none__')
-                  ->orWhere('submitted_by', $user->id);
-            });
-        }
+        \App\Services\VoterScopeService::apply($query, $user);
 
         // Date range filter
         if ($request->has('date_from') && $request->date_from) {
