@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Models\AnalisaScenario;
 use App\Services\Pilihanraya\ElectionComparisonService;
+use App\Services\Pilihanraya\ScoresheetExtractor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use ReflectionMethod;
 use Tests\TestCase;
@@ -194,5 +195,86 @@ class AnalisaElectionComparisonServiceTest extends TestCase
         $sorotan = $report['perbandingan_senario'][0]['sorotan'];
         $this->assertStringNotContainsString('—%.', $sorotan);
         $this->assertStringNotContainsString('0%.', $sorotan);
+    }
+
+    /* ----------------------------------------------------------------
+     |  Finding 2 — the upload path sends `pemilih => 0`, not a missing key.
+     |  These cases test what actually arrives from real uploads, not a
+     |  shape that never occurs.
+     * ---------------------------------------------------------------- */
+
+    /**
+     * `pemilih => 0` is what a real real "unknown" scoresheet totals looked
+     * like BEFORE the Finding 1 fix (ScoresheetExtractor coerced null to 0).
+     * scenarioSummary() itself has always treated an explicit 0 as a KNOWN
+     * (if unusual) zero, not as "unknown" — proving the bug was entirely
+     * upstream in the extractor, not in this service.
+     */
+    public function test_scenario_summary_with_pemilih_zero_is_treated_as_a_known_zero_not_unknown(): void
+    {
+        $s = $this->scenario([
+            'pemilih' => 0,
+            'undi' => ['PN' => 6000, 'PH' => 5000],
+            'ditolak' => 100,
+            'parties' => ['PN', 'PH'],
+        ]);
+
+        $summary = $this->callPrivate('scenarioSummary', [$s]);
+
+        $this->assertSame(0, $summary['pemilih_berdaftar'], 'An explicit 0 must be kept as a known 0, distinguishable from null.');
+    }
+
+    /**
+     * End-to-end-ish regression for the reported bug: run ScoresheetExtractor's
+     * OWN sanitize() output (the AI upload path, with no "JUMLAH PEMILIH"
+     * header anywhere on the sheet — the common case for SPR scoresheets)
+     * through scenarioSummary()/deltas() exactly as AnalisaComparisonController
+     * ::storeScenario() stores it into `parsed_totals`. Before the Finding 1
+     * fix this produced pemilih_berdaftar: 0 and a fabricated
+     * "-100%" registered-voter delta against a real prior count.
+     */
+    public function test_upload_sourced_scenario_with_no_header_pemilih_does_not_fabricate_100_percent_delta(): void
+    {
+        $ref = new ReflectionMethod(ScoresheetExtractor::class, 'sanitize');
+        $ref->setAccessible(true);
+        $extracted = $ref->invoke(app(ScoresheetExtractor::class), [
+            'parties' => ['PN', 'PH'],
+            'rows' => [
+                ['kawasan' => 'KAMPONG TENGKEK', 'pemilih' => null, 'keluar' => 11000, 'ditolak' => 100,
+                    'undi' => ['PN' => 6500, 'PH' => 5200]],
+            ],
+            'totals' => ['pemilih' => null, 'keluar' => null, 'ditolak' => null, 'undi' => []],
+        ]);
+
+        // This is exactly the shape AnalisaComparisonController::storeScenario()
+        // writes into AnalisaScenario::parsed_totals — no massaging in between.
+        $unknown = $this->scenario($extracted['totals'], $extracted['rows'], 'PRN 2023', '2023-01-01');
+        $known = $this->scenario([
+            'pemilih' => 13408, 'undi' => ['PN' => 6000, 'PH' => 5000], 'parties' => ['PN', 'PH'],
+        ], [], 'PRN 2018', '2018-05-09');
+
+        $summaries = [
+            $this->callPrivate('scenarioSummary', [$known]),
+            $this->callPrivate('scenarioSummary', [$unknown]),
+        ];
+
+        // Guard the fixture itself: the extractor must have produced null,
+        // not 0, or this test would not actually exercise the regression.
+        $this->assertNull($summaries[1]['pemilih_berdaftar']);
+
+        $deltas = $this->callPrivate('deltas', [$summaries]);
+        $this->assertNull($deltas[0]['perubahan_pemilih']);
+        $this->assertNull($deltas[0]['perubahan_pemilih_pct']);
+
+        $fallback = $this->callPrivate('fallbackReport', [[
+            'kawasan' => ['nama' => 'JUASSEH'],
+            'roll_semasa' => ['tersedia' => false],
+            'saluran_semasa' => ['tersedia' => false],
+            'senario' => $summaries,
+            'perubahan' => $deltas,
+        ]]);
+        $bullet = $fallback['pengundi_baru_lama']['bullet_points'][0];
+        $this->assertStringNotContainsString('-100%', $bullet);
+        $this->assertStringNotContainsString('13,408', $bullet);
     }
 }

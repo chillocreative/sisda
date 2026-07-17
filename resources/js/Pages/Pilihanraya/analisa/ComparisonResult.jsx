@@ -151,17 +151,30 @@ export default function ComparisonResult({ comparison }) {
                     {perubahan.length > 0 && (
                         <div className="mt-4 flex flex-wrap gap-2">
                             {perubahan.map((d, i) => {
-                                const up = d.perubahan_pemilih >= 0;
+                                // `perubahan_pemilih` is null whenever the registered-voter
+                                // count is unknown for at least one side (e.g. an SPR
+                                // scoresheet with no "JUMLAH PEMILIH" header) — `null >= 0`
+                                // is TRUE in JS, so this must be checked explicitly.
+                                // Rendering a green ▲ "+— pemilih" for an unknown figure
+                                // would be a fabricated claim; show a neutral, honest label.
+                                const diketahui = d.perubahan_pemilih !== null && d.perubahan_pemilih !== undefined;
+                                const up = diketahui && d.perubahan_pemilih >= 0;
                                 return (
                                     <div key={i} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-600">
                                         <span>{d.dari}</span>
                                         <ArrowRight className="h-3 w-3 text-slate-400" />
                                         <span>{d.ke}</span>
-                                        <span className={`inline-flex items-center gap-1 font-semibold ${up ? 'text-emerald-600' : 'text-red-600'}`}>
-                                            {up ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                                            {signed(d.perubahan_pemilih)} pemilih
-                                            {d.perubahan_pemilih_pct !== null && ` (${d.perubahan_pemilih_pct >= 0 ? '+' : ''}${d.perubahan_pemilih_pct}%)`}
-                                        </span>
+                                        {diketahui ? (
+                                            <span className={`inline-flex items-center gap-1 font-semibold ${up ? 'text-emerald-600' : 'text-red-600'}`}>
+                                                {up ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                                                {signed(d.perubahan_pemilih)} pemilih
+                                                {d.perubahan_pemilih_pct !== null && ` (${d.perubahan_pemilih_pct >= 0 ? '+' : ''}${d.perubahan_pemilih_pct}%)`}
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-1 font-semibold text-slate-500">
+                                                — pemilih tidak diketahui
+                                            </span>
+                                        )}
                                     </div>
                                 );
                             })}
