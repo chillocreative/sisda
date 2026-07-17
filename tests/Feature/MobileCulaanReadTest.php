@@ -16,6 +16,7 @@ class MobileCulaanReadTest extends TestCase
     use RefreshDatabase;
 
     private Kadun $kadun;
+
     private Bandar $bandar;
 
     protected function setUp(): void
