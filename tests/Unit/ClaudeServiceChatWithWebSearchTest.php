@@ -135,4 +135,69 @@ class ClaudeServiceChatWithWebSearchTest extends TestCase
         $this->assertSame([], $result['citations']);
         $this->assertSame(0, AiUsageLog::where('context', 'analisa_comparison')->count());
     }
+
+    public function test_non2xx_on_resume_turn_salvages_prior_turn_text_and_still_returns_ok(): void
+    {
+        $this->activateClaude();
+
+        $callCount = 0;
+        Http::fake(function () use (&$callCount) {
+            $callCount++;
+
+            if ($callCount === 1) {
+                return Http::response($this->pauseTurnResponse(), 200);
+            }
+
+            // Turn 2 gets rate-limited — a 429 mid-loop is a plausible,
+            // retryable Anthropic response, not an exception.
+            return Http::response(['type' => 'error', 'error' => ['type' => 'rate_limit_error', 'message' => 'Rate limited']], 429);
+        });
+
+        $result = $this->service()->chatWithWebSearch(
+            systemPrompt: 'Anda pembantu analisa pilihan raya.',
+            userPrompt: 'Bandingkan senario PRU.',
+            context: 'analisa_comparison',
+        );
+
+        $this->assertSame(2, $callCount, 'Second turn must actually have been attempted (resume happened).');
+
+        $this->assertTrue($result['ok'], 'A non-2xx mid-loop must not discard the narrative already gathered.');
+        $this->assertNotNull($result['content']);
+        $this->assertStringContainsString('Analisa awal', $result['content']);
+
+        $this->assertSame(1, $result['searches']);
+        $this->assertCount(1, $result['citations']);
+        $this->assertSame('https://example.com/spr-a', $result['citations'][0]['url']);
+
+        $this->assertArrayHasKey('partial', $result, 'Caller needs to be able to tell the loop ended early.');
+        $this->assertTrue($result['partial']);
+
+        // The real token spend from the completed first turn must be recorded,
+        // even though the second turn was rate-limited.
+        $this->assertSame(1, AiUsageLog::where('context', 'analisa_comparison')->count());
+        $log = AiUsageLog::where('context', 'analisa_comparison')->first();
+        $this->assertSame(500, $log->input_tokens);
+        $this->assertSame(200, $log->output_tokens);
+    }
+
+    public function test_non2xx_on_very_first_turn_with_nothing_accumulated_returns_ok_false(): void
+    {
+        $this->activateClaude();
+
+        Http::fake(function () {
+            return Http::response(['type' => 'error', 'error' => ['type' => 'rate_limit_error', 'message' => 'Rate limited']], 429);
+        });
+
+        $result = $this->service()->chatWithWebSearch(
+            systemPrompt: 'Anda pembantu analisa pilihan raya.',
+            userPrompt: 'Bandingkan senario PRU.',
+            context: 'analisa_comparison',
+        );
+
+        $this->assertFalse($result['ok'], 'Genuinely nothing gathered must still report failure, not a fake success.');
+        $this->assertNull($result['content']);
+        $this->assertNotNull($result['error']);
+        $this->assertSame([], $result['citations']);
+        $this->assertSame(0, AiUsageLog::where('context', 'analisa_comparison')->count());
+    }
 }

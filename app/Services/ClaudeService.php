@@ -186,7 +186,16 @@ class ClaudeService
                         $error = $response->json('error.message') ?? $response->body();
                         Log::error('Claude web-search call failed', ['status' => $response->status(), 'error' => $error]);
 
-                        return ['ok' => false, 'content' => null, 'citations' => [], 'searches' => $searches, 'raw' => $response->json(), 'error' => $error, 'partial' => false];
+                        // A non-2xx mid-loop (e.g. 429/529 on turn 2+) is just as
+                        // recoverable as a thrown timeout: record it and fall
+                        // through to the same salvage path instead of discarding
+                        // narrative/citations/usage already gathered from turns
+                        // that completed before it. Deliberately leave $lastRaw
+                        // untouched — it stays null on a first-turn failure (no
+                        // real response was ever parsed), which is what gates
+                        // logUsage() below.
+                        $lastError = $error;
+                        break;
                     }
 
                     $json = $response->json();
