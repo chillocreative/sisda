@@ -659,70 +659,7 @@ class ReportsController extends Controller
             'kecenderungan_politik.required' => 'Sila pilih Kecenderungan Politik.',
         ]);
 
-        // Process pemilik_rumah Lain-lain
-        if ($validated['pemilik_rumah'] === 'Lain-lain' && !empty($validated['pemilik_rumah_lain'])) {
-            $validated['pemilik_rumah'] = $validated['pemilik_rumah_lain'];
-        }
-        unset($validated['pemilik_rumah_lain']);
-
-        // Process jenis_pekerjaan checkbox array (Kerajaan/Swasta) into comma-separated string
-        if (isset($validated['jenis_pekerjaan']) && is_array($validated['jenis_pekerjaan'])) {
-            $sektorKerajaan = $validated['jenis_pekerjaan'];
-            if (in_array('Lain-lain', $sektorKerajaan) && !empty($validated['jenis_pekerjaan_lain'])) {
-                $sektorKerajaan = array_filter($sektorKerajaan, fn($item) => $item !== 'Lain-lain');
-                $sektorKerajaan[] = $validated['jenis_pekerjaan_lain'];
-            }
-            $validated['jenis_pekerjaan'] = implode(', ', $sektorKerajaan);
-            $validated['jenis_pekerjaan_lain'] = null;
-        }
-
-        // Process checkbox arrays into comma-separated strings
-        if (isset($validated['jenis_sumbangan']) && is_array($validated['jenis_sumbangan'])) {
-            $jenisSumbangan = $validated['jenis_sumbangan'];
-            $hasLainLain = count(array_filter($jenisSumbangan, fn($item) => stripos($item, 'lain') !== false)) > 0;
-            if ($hasLainLain && !empty($validated['jenis_sumbangan_lain'])) {
-                $jenisSumbangan = array_filter($jenisSumbangan, fn($item) => stripos($item, 'lain') === false);
-                $jenisSumbangan[] = $validated['jenis_sumbangan_lain'];
-            }
-            $validated['jenis_sumbangan'] = implode(', ', $jenisSumbangan);
-        }
-
-        if (isset($validated['tujuan_sumbangan']) && is_array($validated['tujuan_sumbangan'])) {
-            $tujuanSumbangan = $validated['tujuan_sumbangan'];
-            $hasLainLain = count(array_filter($tujuanSumbangan, fn($item) => stripos($item, 'lain') !== false)) > 0;
-            if ($hasLainLain && !empty($validated['tujuan_sumbangan_lain'])) {
-                $tujuanSumbangan = array_filter($tujuanSumbangan, fn($item) => stripos($item, 'lain') === false);
-                $tujuanSumbangan[] = $validated['tujuan_sumbangan_lain'];
-            }
-            $validated['tujuan_sumbangan'] = implode(', ', $tujuanSumbangan);
-        }
-
-        if (isset($validated['bantuan_lain']) && is_array($validated['bantuan_lain'])) {
-            $bantuanLain = $validated['bantuan_lain'];
-            $hasLainLain = count(array_filter($bantuanLain, fn($item) => stripos($item, 'lain') !== false)) > 0;
-            if ($hasLainLain && !empty($validated['bantuan_lain_lain'])) {
-                $bantuanLain = array_filter($bantuanLain, fn($item) => stripos($item, 'lain') === false);
-                $bantuanLain[] = $validated['bantuan_lain_lain'];
-            }
-            $validated['bantuan_lain'] = implode(', ', $bantuanLain);
-        }
-
-        if (isset($validated['perkeso_bantuan']) && is_array($validated['perkeso_bantuan'])) {
-            $perkesoBantuan = $validated['perkeso_bantuan'];
-            $hasLainLain = count(array_filter($perkesoBantuan, fn($item) => stripos($item, 'lain') !== false)) > 0;
-            if ($hasLainLain && !empty($validated['perkeso_bantuan_lain'])) {
-                $perkesoBantuan = array_filter($perkesoBantuan, fn($item) => stripos($item, 'lain') === false);
-                $perkesoBantuan[] = $validated['perkeso_bantuan_lain'];
-            }
-            $validated['perkeso_bantuan'] = implode(', ', $perkesoBantuan);
-        }
-
-        if (isset($validated['zpp_jenis_bantuan']) && is_array($validated['zpp_jenis_bantuan'])) {
-            $validated['zpp_jenis_bantuan'] = implode(', ', $validated['zpp_jenis_bantuan']);
-        }
-
-        // Remove the _lain fields as they're not in the database
-        unset($validated['jenis_sumbangan_lain'], $validated['tujuan_sumbangan_lain'], $validated['bantuan_lain_lain'], $validated['perkeso_bantuan_lain']);
+        $validated = \App\Services\CulaanPayloadNormalizer::normalize($validated);
 
         // Handle file upload
         if ($request->hasFile('kad_pengenalan')) {
