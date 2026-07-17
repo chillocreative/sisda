@@ -485,6 +485,21 @@ Ditulis di dalam `DB::transaction()` — `HasilCulaan::create()`,
 `EditHistory::log()`, dan `VoterSyncService::syncFromHasilCulaan()` (yang
 menyebar medan kongsi ke `data_pengundi`) semuanya atau tiada langsung.
 
+**Penting — skop penyebaran:** setiap penyerahan hanya menyebar medan yang
+**benar-benar dihantarnya**. `VoterSyncService::extract()` menyalin satu
+medan kongsi hanya jika medan itu wujud pada `getAttributes()` rekod
+`HasilCulaan` yang baru dicipta — iaitu tepat apa yang dihantar oleh
+permintaan tersebut, bukan setiap lajur dalam jadual. Medan yang tidak
+dihantar (contohnya `keahlian_parti`, `mpkk`, `nota`, `is_deceased`) kekal
+**tidak disentuh** pada baris `data_pengundi` sedia ada — ia TIDAK ditulis
+ganti dengan `NULL`/`false`. Ini disengajakan: laluan cipta ini memadankan
+laluan web (`ReportsController.php:460`), yang menghantar rekod yang baru
+dicipta terus ke `VoterSyncService::syncFromHasilCulaan()` tanpa `->fresh()`.
+Jangan tambah `->fresh()` di sini — itu akan menyebabkan setiap medan kongsi
+(kebanyakannya `NULL` pada penyerahan minimum) ditulis ganti ke atas rekod
+pengundi sedia ada, termasuk memulihkan semula (`is_deceased` -> `false`)
+seorang pengundi yang telah ditanda meninggal dunia.
+
 ### Request body
 
 Divalidasi oleh `App\Http\Requests\StoreMobileCulaanRequest`.

@@ -6,6 +6,7 @@ use App\Models\Bandar;
 use App\Models\HasilCulaan;
 use App\Models\Kadun;
 use App\Models\Negeri;
+use App\Models\TujuanSumbangan;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -70,6 +71,214 @@ class MobileCulaanReadTest extends TestCase
         $this->getJson('/api/mobile/culaan/options')
             ->assertOk()
             ->assertJsonPath('options.pekerjaan', ['Kerajaan', 'Swasta', 'Bekerja Sendiri', 'Tidak Bekerja']);
+    }
+
+    /**
+     * Finding 3 (final-review, MINOR): only options.pekerjaan's VALUES were
+     * ever locked down; the other five lists were checked with
+     * assertJsonStructure, which only asserts the KEYS exist — any of the
+     * actual string values could silently drift (or, per the finding, be
+     * wrong from day one — the plan's own taxonomy was hand-invented and
+     * wrong on 3 of 6 lists before being corrected by transcribing
+     * Create.jsx verbatim) and no test would notice.
+     *
+     * This locks jenis_sumbangan, bantuan_lain and pemilik_rumah as fixed
+     * snapshots (they are hardcoded literal arrays in the controller, same
+     * as pekerjaan). jenis_pekerjaan is also hardcoded but is a nested,
+     * pekerjaan-keyed structure (see options()'s docblock) — asserted here
+     * as a full snapshot rather than picking one branch, since drift in any
+     * category under any pekerjaan is exactly the risk this finding flags.
+     */
+    public function test_hardcoded_taxonomy_lists_match_the_web_forms_exact_values(): void
+    {
+        Sanctum::actingAs($this->makeUser());
+
+        $options = $this->getJson('/api/mobile/culaan/options')
+            ->assertOk()
+            ->json('options');
+
+        $this->assertSame([
+            'Barangan Keperluan Dapur',
+            'Hamper / Sumbangan Perayaan',
+            'Wang Tunai / Kewangan',
+            'Bantuan Perumahan (baik pulih)',
+            'Bantuan Perumahan (bina baharu)',
+            'Bantuan Pendidikan (yuran / kelengkapan sekolah)',
+            'Bantuan Perubatan / Kesihatan',
+            'Bantuan Perniagaan / Ekonomi (modal / peralatan)',
+            'Bantuan Bencana / Kecemasan',
+            'Lain-lain',
+        ], $options['jenis_sumbangan']);
+
+        $this->assertSame([
+            'Jabatan Kebajikan Masyarakat (JKM)',
+            'i-Sejahtera',
+            'Zakat Pulau Pinang (ZPP)',
+            'PERKESO',
+            'Tiada',
+            'Lain-lain',
+        ], $options['bantuan_lain']);
+
+        $this->assertSame(['Sendiri', 'Sewa', 'Keluarga', 'Lain-lain'], $options['pemilik_rumah']);
+
+        $lainLain = ['category' => 'Lain-lain', 'items' => ['Lain-lain']];
+
+        $this->assertSame([
+            'Kerajaan' => [
+                [
+                    'category' => 'Jenis Perkhidmatan',
+                    'items' => [
+                        'Perkhidmatan Awam Persekutuan (Kementerian / Jabatan)',
+                        'Perkhidmatan Awam Negeri',
+                        'Pihak Berkuasa Tempatan (PBT)',
+                    ],
+                ],
+                [
+                    'category' => 'Agensi & Badan',
+                    'items' => [
+                        'Badan Berkanun (MARA, LHDN, KWSP, dll)',
+                        'Syarikat Berkaitan Kerajaan (GLC)',
+                    ],
+                ],
+                [
+                    'category' => 'Keselamatan & Penguatkuasaan',
+                    'items' => [
+                        'Angkatan Tentera Malaysia (ATM)',
+                        'Polis Diraja Malaysia (PDRM)',
+                        'Agensi Penguatkuasaan (APMM, JPJ, Imigresen, dll)',
+                    ],
+                ],
+                [
+                    'category' => 'Pendidikan & Kesihatan',
+                    'items' => [
+                        'Pendidikan Awam (Guru Sekolah Kerajaan)',
+                        'Pendidikan Tinggi Awam (Pensyarah IPTA)',
+                        'Kesihatan Awam (Hospital / Klinik Kerajaan)',
+                    ],
+                ],
+                $lainLain,
+            ],
+            'Swasta' => [
+                [
+                    'category' => 'Korporat & Profesional',
+                    'items' => [
+                        'Syarikat Korporat / Multinasional',
+                        'Profesional (Jurutera, Akauntan, Arkitek, dll)',
+                        'Eksekutif / Pengurusan',
+                    ],
+                ],
+                [
+                    'category' => 'Perdagangan & Perkhidmatan',
+                    'items' => [
+                        'Peruncitan / Jualan (Retail)',
+                        'Perkhidmatan (Servis – bengkel, salon, dll)',
+                        'Perhotelan & Pelancongan',
+                    ],
+                ],
+                [
+                    'category' => 'Industri & Teknikal',
+                    'items' => [
+                        'Perkilangan / Industri',
+                        'Pembinaan / Kontraktor',
+                        'Logistik & Pengangkutan',
+                    ],
+                ],
+                [
+                    'category' => 'Sektor Moden',
+                    'items' => [
+                        'Teknologi Maklumat / Digital',
+                        'Kewangan / Perbankan / Insurans',
+                    ],
+                ],
+                [
+                    'category' => 'Sosial & Lain-lain',
+                    'items' => [
+                        'Pendidikan Swasta',
+                        'Kesihatan Swasta',
+                    ],
+                ],
+                $lainLain,
+            ],
+            'Bekerja Sendiri' => [
+                [
+                    'category' => 'Perniagaan & Jualan',
+                    'items' => [
+                        'Peniaga Kecil (gerai, pasar, online)',
+                        'Usahawan / Pemilik Syarikat',
+                        'E-dagang (Shopee, TikTok Shop, dll)',
+                    ],
+                ],
+                [
+                    'category' => 'Perkhidmatan',
+                    'items' => [
+                        'Freelance (design, IT, content creator, dll)',
+                        'Servis (bengkel, tukang, plumbing, wiring, dll)',
+                        'Ejen (insurans, hartanah, dll)',
+                    ],
+                ],
+                [
+                    'category' => 'Pengangkutan & Gig Economy',
+                    'items' => [
+                        'Pemandu e-hailing (Grab, dll)',
+                        'Rider penghantaran (Foodpanda, GrabFood, dll)',
+                        'Lori / Van persendirian',
+                    ],
+                ],
+                [
+                    'category' => 'Sektor Asas',
+                    'items' => [
+                        'Pertanian',
+                        'Penternakan',
+                        'Perikanan',
+                    ],
+                ],
+                $lainLain,
+            ],
+            'Tidak Bekerja' => [
+                [
+                    'category' => 'Status',
+                    'items' => [
+                        'Pelajar Sekolah',
+                        'Pelajar IPT (IPTA / IPTS)',
+                        'Suri Rumah',
+                        'Pesara Kerajaan',
+                        'Pesara Swasta',
+                        'Tidak Bekerja / Menganggur',
+                    ],
+                ],
+                $lainLain,
+            ],
+        ], $options['jenis_pekerjaan']);
+    }
+
+    /**
+     * Finding 3 continued: tujuan_sumbangan is the one list that is
+     * genuinely dynamic (TujuanSumbangan::pluck('nama'), ordered by
+     * sort_order — see options()'s docblock), so it cannot be pinned to a
+     * fixed snapshot the way the other five can without the test itself
+     * drifting from Master Data. Instead this seeds known rows and asserts
+     * the endpoint reflects exactly what was seeded, in sort_order — i.e.
+     * it asserts the SOURCE (real DB query, correctly ordered) rather than
+     * a hardcoded value list.
+     */
+    public function test_tujuan_sumbangan_reflects_master_data_in_sort_order(): void
+    {
+        Sanctum::actingAs($this->makeUser());
+
+        // 2026_04_08_000001_update_tujuan_sumbangan_items.php seeds this
+        // table directly during migrate(), so a fresh RefreshDatabase run
+        // already has rows in it. Clear them so this test's snapshot is
+        // exactly and only what it seeded — asserting the live SOURCE
+        // (real query, real ordering), not a value list frozen in the test.
+        TujuanSumbangan::query()->delete();
+
+        TujuanSumbangan::create(['nama' => 'Kesihatan', 'sort_order' => 2]);
+        TujuanSumbangan::create(['nama' => 'Pendidikan', 'sort_order' => 1]);
+        TujuanSumbangan::create(['nama' => 'Kecemasan', 'sort_order' => 3]);
+
+        $this->getJson('/api/mobile/culaan/options')
+            ->assertOk()
+            ->assertJsonPath('options.tujuan_sumbangan', ['Pendidikan', 'Kesihatan', 'Kecemasan']);
     }
 
     public function test_mine_returns_only_records_submitted_by_the_caller(): void

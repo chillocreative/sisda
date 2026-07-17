@@ -8,6 +8,7 @@ use App\Models\EditHistory;
 use App\Models\HasilCulaan;
 use App\Models\TujuanSumbangan;
 use App\Services\CulaanPayloadNormalizer;
+use App\Services\VoterColorService;
 use App\Services\VoterDataMasker;
 use App\Services\VoterSyncService;
 use Illuminate\Database\QueryException;
@@ -52,6 +53,10 @@ class MobileCulaanController extends Controller
         $payload = CulaanPayloadNormalizer::normalize($validated);
         $payload['submitted_by'] = $user->id;
         $payload['sumber'] = 'mobile';
+        // Mirrors ReportsController.php:455 exactly, including how
+        // VoterColorService::determine() handles absent inputs (never
+        // coerced here — "unknown is not zero").
+        $payload['voter_color'] = VoterColorService::determine($payload['keahlian_parti'] ?? null, $payload['kecenderungan_politik'] ?? null);
 
         // The create fans out through VoterSyncService across two tables.
         // CLAUDE.md flags the HTTP layer as transaction-free; this path is not.
@@ -59,7 +64,16 @@ class MobileCulaanController extends Controller
             $record = DB::transaction(function () use ($payload) {
                 $record = HasilCulaan::create($payload);
                 EditHistory::log('hasil_culaan', $record->id, 'created (mobile)');
-                VoterSyncService::syncFromHasilCulaan($record->fresh());
+                // Deliberately NOT ->fresh(): syncFromHasilCulaan()/extract()
+                // copies a shared field only if it is present in
+                // getAttributes(). Right after create(), that's exactly (and
+                // only) what this mobile submission actually sent — matching
+                // ReportsController.php:460's web create path, which also
+                // passes $record, not fresh(). fresh() re-reads every column
+                // from the DB (mostly NULL on a minimal submission) and would
+                // blanket-wipe an existing voter's enriched fields —
+                // including silently resurrecting anyone marked deceased.
+                VoterSyncService::syncFromHasilCulaan($record);
 
                 return $record;
             });

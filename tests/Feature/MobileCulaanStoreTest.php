@@ -975,4 +975,119 @@ class MobileCulaanStoreTest extends TestCase
         // one, and it did not get treated as a replay of the first either.
         $this->assertSame(1, HasilCulaan::where('idempotency_key', 'realkey')->count());
     }
+
+    /**
+     * BLOCKER 1 (final-review): the controller used to call
+     * VoterSyncService::syncFromHasilCulaan($record->fresh()) after create().
+     * fresh() re-reads every column from the DB, so ALL of
+     * VoterSyncService::SHARED_FIELDS are present in getAttributes() — most
+     * of them NULL on a minimal mobile submission — and extract()'s
+     * array_key_exists() check then copies every one of those NULLs onto
+     * the existing data_pengundi row for that IC, silently wiping fields
+     * the mobile submission never sent. is_deceased resetting to false is
+     * the sharpest edge: it resurrects a voter the office had marked
+     * deceased. The web create path (ReportsController.php:460) passes
+     * $record, not fresh(), and does not have this bug.
+     *
+     * Fix: drop ->fresh() so the mobile create path copies only the fields
+     * this specific submission actually set, exactly like the web path.
+     *
+     * Mutation-check: restoring ->fresh() in MobileCulaanController::store()
+     * makes this test fail (every asserted field reverts to null/false).
+     */
+    public function test_a_minimal_mobile_submission_does_not_wipe_an_existing_enriched_voter_record(): void
+    {
+        Sanctum::actingAs($this->makeUser());
+
+        DataPengundi::factory()->create([
+            'no_ic' => '800101015555',
+            'nama' => 'Ahmad bin Ali (Sedia Ada)',
+            'kadun' => 'BULOH KASAP',
+            'parlimen' => 'SEGAMAT',
+            'voter_color' => 'hitam',
+            'status_pengundi' => 'Aktif',
+            'keahlian_parti' => 'UMNO',
+            'kecenderungan_politik' => 'BN',
+            'mpkk' => 'MPKK SATU',
+            'lokaliti' => 'LOKALITI SATU',
+            'nota' => 'Nota penting',
+            'is_deceased' => true,
+        ]);
+
+        // A minimal Culaan submission for the SAME IC from the phone — no
+        // party/tendency/mpkk/lokaliti/nota/is_deceased fields sent at all.
+        $this->postJson('/api/mobile/culaan', $this->payload())
+            ->assertStatus(201)
+            ->assertJsonPath('success', true);
+
+        $voter = DataPengundi::where('no_ic', '800101015555')->firstOrFail();
+
+        $this->assertSame('Aktif', $voter->status_pengundi, 'status_pengundi must survive a minimal submission.');
+        $this->assertSame('UMNO', $voter->keahlian_parti, 'keahlian_parti must survive a minimal submission.');
+        $this->assertSame('BN', $voter->kecenderungan_politik, 'kecenderungan_politik must survive a minimal submission.');
+        $this->assertSame('MPKK SATU', $voter->mpkk, 'mpkk must survive a minimal submission.');
+        $this->assertSame('LOKALITI SATU', $voter->lokaliti, 'lokaliti must survive a minimal submission.');
+        $this->assertSame('Nota penting', $voter->nota, 'nota must survive a minimal submission.');
+        $this->assertTrue($voter->is_deceased, 'is_deceased must NOT be silently reset to false — that resurrects a deceased voter.');
+    }
+
+    /**
+     * BLOCKER 2 (final-review): every web Culaan write computes voter_color
+     * via VoterColorService::determine() (ReportsController.php:455, :666,
+     * :1116) before HasilCulaan::create(). MobileCulaanController::store()
+     * used to skip this entirely, so a mobile POST carrying an unambiguous
+     * combination (PKR / PH -> 'putih') stored voter_color = NULL on both
+     * hasil_culaan and data_pengundi — silently misclassifying the voter as
+     * 'kelabu'/'belum_dicula' across the election analytics and Keanggotaan
+     * dashboards (Pilihanraya/ElectionAnalyticsService.php COALESCE(NULLIF(...),
+     * 'belum_dicula') and KeanggotaanController.php's whereNull bucket).
+     *
+     * Fix: mirror ReportsController.php:455 exactly before create().
+     */
+    public function test_voter_color_is_computed_on_the_mobile_path_matching_the_web(): void
+    {
+        Sanctum::actingAs($this->makeUser());
+
+        $expected = \App\Services\VoterColorService::determine('PKR', 'PH');
+        $this->assertSame('putih', $expected, 'Sanity: PKR/PH is the unambiguous putih case the finding describes.');
+
+        $response = $this->postJson('/api/mobile/culaan', $this->payload([
+            'keahlian_parti' => 'PKR',
+            'kecenderungan_politik' => 'PH',
+        ]))->assertStatus(201);
+
+        $this->assertDatabaseHas('hasil_culaan', [
+            'no_ic' => '800101015555',
+            'voter_color' => 'putih',
+        ]);
+        $this->assertDatabaseHas('data_pengundi', [
+            'no_ic' => '800101015555',
+            'voter_color' => 'putih',
+        ]);
+    }
+
+    /**
+     * BLOCKER 2 continued: the null-input case must match
+     * VoterColorService::determine()'s actual, defined behaviour for absent
+     * inputs (both classifyParti(null) and classifyKecenderungan(null)
+     * return 'kelabu', and neither branch is 'hitam' or 'putih', so
+     * determine(null, null) === 'kelabu') — NOT coerced to null or left
+     * unset. This is "unknown is not zero" cutting the other way: the
+     * server-computed classification itself has a defined value for
+     * "no signal", distinct from the column being genuinely absent.
+     */
+    public function test_voter_color_for_absent_political_fields_matches_determine_nulls_behaviour(): void
+    {
+        Sanctum::actingAs($this->makeUser());
+
+        $expected = \App\Services\VoterColorService::determine(null, null);
+        $this->assertSame('kelabu', $expected, "Sanity: determine()'s actual behaviour for absent inputs.");
+
+        $this->postJson('/api/mobile/culaan', $this->payload())->assertStatus(201);
+
+        $this->assertDatabaseHas('hasil_culaan', [
+            'no_ic' => '800101015555',
+            'voter_color' => 'kelabu',
+        ]);
+    }
 }

@@ -50,7 +50,7 @@ class CulaanPayloadNormalizerTest extends TestCase
         $this->assertArrayNotHasKey('pemilik_rumah_lain', $out);
     }
 
-    public function test_lain_option_dropped_when_free_text_is_empty(): void
+    public function test_lain_option_is_kept_when_free_text_is_empty(): void
     {
         $out = CulaanPayloadNormalizer::normalize([
             'jenis_sumbangan' => ['Tunai', 'Lain-lain'],
