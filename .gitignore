@@ -28,6 +28,7 @@ Thumbs.db
 # Arahan projek dan spec design — dikongsi, bukan fail tempatan.
 !CLAUDE.md
 !docs/superpowers/specs/*.md
+!docs/superpowers/plans/*.md
 
 # Database dumps — never commit (contains live voter data)
 *.sql
