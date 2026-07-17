@@ -12,6 +12,7 @@ class HasilCulaan extends Model
     protected $table = 'hasil_culaan';
 
     protected $fillable = [
+        'idempotency_key',
         'nama',
         'no_ic',
         'umur',
