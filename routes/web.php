@@ -289,6 +289,7 @@ Route::middleware('auth')->group(function () {
 
     // Debug: test Lokaliti API directly
     Route::get('/debug-lokaliti', function (\Illuminate\Http\Request $request) {
+        abort_unless(auth()->user()->isSuperAdmin(), 403);
         $dm = $request->input('dm', 'BERTAM PERDANA');
         $messages = [];
         $messages[] = "Looking up DM: '{$dm}'";
@@ -323,6 +324,7 @@ Route::middleware('auth')->group(function () {
 
     // Diagnostic: check Lokaliti linkage for a DM
     Route::get('/check-lokaliti', function () {
+        abort_unless(auth()->user()->isSuperAdmin(), 403);
         set_time_limit(0);
         $messages = [];
 
@@ -539,6 +541,13 @@ Route::prefix('api/mobile')->withoutMiddleware([\Illuminate\Foundation\Http\Midd
         // any single caller can make per minute.
         Route::get('/voters/search', [\App\Http\Controllers\Api\MobileVoterController::class, 'search'])->middleware('throttle:30,1');
         Route::get('/voters/{ic}', [\App\Http\Controllers\Api\MobileVoterController::class, 'show'])->middleware('throttle:30,1');
+
+        // throttle:60,1 — a write endpoint, but the offline-first client is
+        // expected to burst-drain a queue of drafts the instant signal
+        // returns. 30/min (the read-lookup limit) would 429 a field agent's
+        // legitimate backlog after a dead zone; 60/min still bounds abuse
+        // while giving a queue of ~20+ drafts room to drain in one go.
+        Route::post('/culaan', [\App\Http\Controllers\Api\MobileCulaanController::class, 'store'])->middleware('throttle:60,1');
     });
 });
 
