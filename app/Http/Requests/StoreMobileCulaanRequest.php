@@ -46,7 +46,13 @@ class StoreMobileCulaanRequest extends FormRequest
             'lokaliti' => 'nullable|string|max:255',
 
             'has_sumbangan' => 'boolean',
-            'locked_source_id' => 'nullable|integer|exists:data_pengundi,id',
+            // No `exists:data_pengundi,id` here: that check is itself an
+            // unscoped existence oracle (a 422 reveals whether an arbitrary
+            // ID exists anywhere in the table) and it shadows the scoped 409
+            // in MobileCulaanController::store() by firing first. The
+            // controller's VoterScopeService-backed lookup is the only
+            // check on this field.
+            'locked_source_id' => 'nullable|integer',
 
             'bil_isi_rumah' => $req('integer|min:1'),
             'pendapatan_isi_rumah' => 'nullable|numeric|min:0',

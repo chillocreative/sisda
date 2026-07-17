@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Bandar;
+use App\Models\DataPengundi;
 use App\Models\HasilCulaan;
 use App\Models\Kadun;
 use App\Models\Negeri;
@@ -180,5 +181,141 @@ class MobileCulaanStoreTest extends TestCase
         ]))
             ->assertStatus(422)
             ->assertJsonPath('errors.bil_isi_rumah.0', 'Sila masukkan bilangan isi rumah.');
+    }
+
+    /**
+     * A masked-create payload: sensitive fields carry '****' placeholders
+     * and locked_source_id points at the record they should be swapped in
+     * from. Mirrors the shape the Flutter client sends when re-submitting
+     * a locked (masked) voter it found via search.
+     *
+     * Only the SENSITIVE_FIELDS whose StoreMobileCulaanRequest rule accepts
+     * a bare string can actually carry the '****' placeholder through
+     * validation: no_ic (digits:12), umur (integer) and
+     * pendapatan_isi_rumah (numeric) reject '****' outright and 422 before
+     * the controller ever sees them — a pre-existing quirk of this
+     * validate-then-swap ordering (unlike ReportsController::hasilCulaanStore,
+     * which merges the swap into the request before validating), and not
+     * something this fix touches. no_tel/bangsa/alamat/poskod/negeri/bandar
+     * are plain string rules and mask through fine, which is enough to
+     * exercise both the leak and the swap.
+     */
+    private function maskedPayload(int $lockedSourceId, array $overrides = []): array
+    {
+        return $this->payload(array_merge([
+            'no_tel' => '****',
+            'bangsa' => '****',
+            'alamat' => '****',
+            'poskod' => '****',
+            'negeri' => '****',
+            'bandar' => '****',
+            'locked_source_id' => $lockedSourceId,
+        ], $overrides));
+    }
+
+    public function test_locked_source_id_outside_the_users_kadun_returns_409_and_creates_nothing(): void
+    {
+        $caller = $this->makeUser();
+        Sanctum::actingAs($caller);
+
+        $stranger = DataPengundi::factory()->create([
+            'no_ic' => '900202025555',
+            'no_tel' => '0199998888',
+            'alamat' => 'Rumah Rahsia, Kampung Lain',
+            'kadun' => 'KADUN LAIN', // outside the caller's scope
+        ]);
+
+        $response = $this->postJson('/api/mobile/culaan', $this->maskedPayload($stranger->id))
+            ->assertStatus(409)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('errors.locked_source_id.0', 'Rekod sumber tidak lagi wujud. Sila cari semula pengundi ini.');
+
+        // The core write guarantee: an out-of-scope source must not result
+        // in ANY row being written, masked or otherwise.
+        $this->assertDatabaseCount('hasil_culaan', 0);
+    }
+
+    public function test_locked_source_id_outside_scope_never_leaks_the_strangers_pii(): void
+    {
+        $caller = $this->makeUser();
+        Sanctum::actingAs($caller);
+
+        $stranger = DataPengundi::factory()->create([
+            'no_ic' => '900202029999',
+            'no_tel' => '0177776666',
+            'alamat' => 'Rumah Rahsia, Kampung Lain',
+            'kadun' => 'KADUN LAIN',
+            'parlimen' => 'SEGAMAT',
+        ]);
+
+        $this->postJson('/api/mobile/culaan', $this->maskedPayload($stranger->id))
+            ->assertStatus(409);
+
+        // The actual security property: the stranger's real sensitive
+        // values must never have been copied into a new hasil_culaan row
+        // (there must be none at all — the write never happened)...
+        $this->assertDatabaseCount('hasil_culaan', 0);
+        $this->assertDatabaseMissing('hasil_culaan', ['no_ic' => '900202029999']);
+        $this->assertDatabaseMissing('hasil_culaan', ['no_tel' => '0177776666']);
+        $this->assertDatabaseMissing('hasil_culaan', ['alamat' => 'Rumah Rahsia, Kampung Lain']);
+
+        // ...and the stranger's own pre-existing data_pengundi row must be
+        // untouched: still exactly one row, with its own kadun intact
+        // rather than overwritten by the attacker's fan-out via
+        // VoterSyncService (which never ran, because the create never ran).
+        $this->assertDatabaseCount('data_pengundi', 1);
+        $this->assertDatabaseHas('data_pengundi', [
+            'id' => $stranger->id,
+            'no_tel' => '0177776666',
+            'alamat' => 'Rumah Rahsia, Kampung Lain',
+            'kadun' => 'KADUN LAIN',
+        ]);
+    }
+
+    public function test_locked_source_id_inside_scope_still_swaps_in_the_real_values(): void
+    {
+        $caller = $this->makeUser();
+        Sanctum::actingAs($caller);
+
+        $inScope = DataPengundi::factory()->create([
+            'no_ic' => '850303035555',
+            'no_tel' => '0122223333',
+            'alamat' => 'No 5, Jalan Dalam Skop',
+            'poskod' => '86000',
+            'negeri' => 'JOHOR',
+            'bandar' => 'SEGAMAT',
+            'kadun' => 'BULOH KASAP', // inside the caller's own kadun
+            'umur' => 40,
+            'bangsa' => 'Cina',
+        ]);
+
+        $this->postJson('/api/mobile/culaan', $this->maskedPayload($inScope->id))
+            ->assertStatus(201)
+            ->assertJsonPath('success', true);
+
+        // The masked-create flow must still work end to end: the real
+        // values were swapped in and actually persisted, not just echoed.
+        // no_ic itself is the caller's own typed value (payload()'s
+        // default) since that field cannot carry the '****' placeholder
+        // through validation — see maskedPayload()'s docblock.
+        $this->assertDatabaseHas('hasil_culaan', [
+            'no_ic' => '800101015555',
+            'no_tel' => '0122223333',
+            'alamat' => 'No 5, Jalan Dalam Skop',
+            'poskod' => '86000',
+            'bangsa' => 'Cina',
+        ]);
+    }
+
+    public function test_nonexistent_locked_source_id_returns_the_same_409_as_out_of_scope(): void
+    {
+        Sanctum::actingAs($this->makeUser());
+
+        $this->postJson('/api/mobile/culaan', $this->maskedPayload(999999))
+            ->assertStatus(409)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('errors.locked_source_id.0', 'Rekod sumber tidak lagi wujud. Sila cari semula pengundi ini.');
+
+        $this->assertDatabaseCount('hasil_culaan', 0);
     }
 }
