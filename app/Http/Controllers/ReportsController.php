@@ -11,6 +11,7 @@ use App\Models\EditHistory;
 use App\Models\Lokaliti;
 use App\Services\VoterColorService;
 use App\Services\VoterDataMasker;
+use App\Services\VoterScopeService;
 use App\Services\VoterSyncService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -350,7 +351,9 @@ class ReportsController extends Controller
         // record so validation runs against the truth and the new record
         // inherits the protected data without the current user ever seeing it.
         if ($request->filled('locked_source_id')) {
-            $source = DataPengundi::find($request->input('locked_source_id'));
+            $sourceQuery = DataPengundi::where('id', $request->input('locked_source_id'));
+            VoterScopeService::apply($sourceQuery, $user);
+            $source = $sourceQuery->first();
             if ($source) {
                 foreach (VoterDataMasker::SENSITIVE_FIELDS as $field) {
                     if ($request->input($field) === VoterDataMasker::MASK) {
@@ -860,7 +863,9 @@ class ReportsController extends Controller
         // Masked-create flow: unmask sensitive fields against the source
         // record before validating, mirroring hasilCulaanStore().
         if ($request->filled('locked_source_id')) {
-            $source = DataPengundi::find($request->input('locked_source_id'));
+            $sourceQuery = DataPengundi::where('id', $request->input('locked_source_id'));
+            VoterScopeService::apply($sourceQuery, $user);
+            $source = $sourceQuery->first();
             if ($source) {
                 foreach (VoterDataMasker::SENSITIVE_FIELDS as $field) {
                     if ($request->input($field) === VoterDataMasker::MASK) {
@@ -899,8 +904,18 @@ class ReportsController extends Controller
             }
         }
 
-        $existingDataPengundi = DataPengundi::where('no_ic', $validated['no_ic'])->get();
-        $existingHasilCulaan = HasilCulaan::where('no_ic', $validated['no_ic'])->get();
+        // Scope both lookups to what this user is allowed to see/edit: a
+        // caller may only mark deceased what VoterScopeService says is
+        // theirs (own Kadun/Bandar or their own submissions). This does not
+        // depend on the caller volunteering `parlimen` above, unlike the
+        // legacy check.
+        $dpQuery = DataPengundi::where('no_ic', $validated['no_ic']);
+        VoterScopeService::apply($dpQuery, $user);
+        $existingDataPengundi = $dpQuery->get();
+
+        $hcQuery = HasilCulaan::where('no_ic', $validated['no_ic']);
+        VoterScopeService::apply($hcQuery, $user);
+        $existingHasilCulaan = $hcQuery->get();
 
         // If any existing record exists for this IC, mark them all deceased
         // and let the sync service propagate the flag across both tables.
@@ -925,21 +940,51 @@ class ReportsController extends Controller
             return redirect()->route('reports.data-pengundi.index')->with('success', 'Rekod telah ditandakan sebagai kematian');
         }
 
+        // Nothing matched in scope. Before creating a new record, check
+        // whether this IC exists anywhere at all: if it does, the caller is
+        // reaching outside their kawasan and must not be allowed to plant a
+        // phantom deceased row for someone else's real IC — VoterSyncService
+        // propagates is_deceased by no_ic with no scope, so a phantom row
+        // here could later flip the real out-of-scope voter deceased too.
+        // Refuse silently with the exact same success response as the
+        // genuine path above, so this cannot be used to probe which ICs
+        // exist in the system.
+        $existsAnywhere = DataPengundi::where('no_ic', $validated['no_ic'])->exists()
+            || HasilCulaan::where('no_ic', $validated['no_ic'])->exists();
+        if ($existsAnywhere) {
+            return redirect()->route('reports.data-pengundi.index')->with('success', 'Rekod telah ditandakan sebagai kematian');
+        }
+
         // Otherwise create a minimal DataPengundi marked deceased. Required
         // schema columns get safe defaults so the create succeeds even when
         // the voter database lookup did not pre-fill every field.
         $record = DataPengundi::create([
-            'nama' => $validated['nama'] ?: 'Tidak Diketahui',
+            // `?? 'default'` (null-coalesce), not `?:` (Elvis): a nullable
+            // field the caller omitted entirely is simply absent from
+            // $validated, and `?:` reads the array key before checking it
+            // exists, throwing "Undefined array key" on a minimal payload
+            // — which used to make the exists-vs-new-IC response split
+            // 500-vs-302, an oracle over which ICs exist (see the guard
+            // comment above). `??` short-circuits on a missing key, so a
+            // bare `no_ic`-only post no longer 500s either way. Stored
+            // values for the legitimate full-payload path are unchanged:
+            // an omitted field never reaches $validated at all, and
+            // Illuminate's ConvertEmptyStringsToNull middleware turns a
+            // submitted empty string into null before validation runs, so
+            // the only "empty" value that can actually land in $validated
+            // for these string fields is null — which `?:` and `??` treat
+            // identically.
+            'nama' => $validated['nama'] ?? 'Tidak Diketahui',
             'no_ic' => $validated['no_ic'],
             'umur' => $validated['umur'] ?? 0,
-            'no_tel' => $validated['no_tel'] ?: '-',
-            'bangsa' => $validated['bangsa'] ?: '-',
-            'alamat' => $validated['alamat'] ?: '-',
-            'poskod' => $validated['poskod'] ?: '-',
-            'negeri' => $validated['negeri'] ?: '-',
-            'bandar' => $validated['bandar'] ?: '-',
-            'parlimen' => $validated['parlimen'] ?: '-',
-            'kadun' => $validated['kadun'] ?: '-',
+            'no_tel' => $validated['no_tel'] ?? '-',
+            'bangsa' => $validated['bangsa'] ?? '-',
+            'alamat' => $validated['alamat'] ?? '-',
+            'poskod' => $validated['poskod'] ?? '-',
+            'negeri' => $validated['negeri'] ?? '-',
+            'bandar' => $validated['bandar'] ?? '-',
+            'parlimen' => $validated['parlimen'] ?? '-',
+            'kadun' => $validated['kadun'] ?? '-',
             'mpkk' => $validated['mpkk'] ?? null,
             'daerah_mengundi' => $validated['daerah_mengundi'] ?? null,
             'lokaliti' => $validated['lokaliti'] ?? null,
