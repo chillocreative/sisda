@@ -5,11 +5,15 @@ import '../culaan/rekod_saya_screen.dart';
 import '../home/home_screen.dart';
 import '../perlu_perhatian/perlu_perhatian_screen.dart';
 import '../sync/draft_counts_provider.dart';
+import '../webview/web_screens.dart';
 
 const _labelUtama = 'Utama';
 const _labelCulaan = 'Culaan';
 const _labelPerluPerhatian = 'Perlu Perhatian';
 const _labelProfil = 'Profil';
+const _labelDashboard = 'Dashboard';
+const _labelLaporan = 'Laporan';
+const _labelDataPengundi = 'Data Pengundi';
 
 /// The app's logged-in root: a 4-tab bottom nav shell over Utama, Culaan,
 /// Perlu Perhatian and Profil, preserving each tab's state via
@@ -97,12 +101,13 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
   }
 }
 
-/// Placeholder — deliberately NOT wired to WebViewScreen(path: '/profile')
-/// here. WebViewController's platform channel isn't available under
-/// flutter_test (no WebViewPlatform.instance registered), so embedding it
-/// directly in MainShell would make every shell widget test require a
-/// platform mock. Task 8's WebView helper is expected to fill this body in
-/// (and to supply the test-time platform stub if it adds coverage there).
+/// The Profil tab: the "WebView tail" entry point. It never embeds
+/// `WebViewScreen` directly in the tree — the IndexedStack builds all four
+/// tab bodies up front, and `WebViewScreen`'s `WebViewController` needs a
+/// platform channel unavailable under `flutter_test`. Instead each row
+/// `Navigator.push`es a `WebViewScreen` on demand via the `web_screens.dart`
+/// helpers, so the heavy web screens (Dashboard, Laporan, Data Pengundi,
+/// Profil) stay reachable without ever being mounted eagerly.
 class _ProfilTab extends StatelessWidget {
   const _ProfilTab();
 
@@ -110,8 +115,30 @@ class _ProfilTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text(_labelProfil)),
-      body: const Center(
-        child: Text('Profil akan tersedia tidak lama lagi.'),
+      body: ListView(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.person_outline),
+            title: const Text(_labelProfil),
+            onTap: () => openProfil(context),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.dashboard_outlined),
+            title: const Text(_labelDashboard),
+            onTap: () => openDashboard(context),
+          ),
+          ListTile(
+            leading: const Icon(Icons.bar_chart_outlined),
+            title: const Text(_labelLaporan),
+            onTap: () => openLaporan(context),
+          ),
+          ListTile(
+            leading: const Icon(Icons.groups_outlined),
+            title: const Text(_labelDataPengundi),
+            onTap: () => openDataPengundi(context),
+          ),
+        ],
       ),
     );
   }
