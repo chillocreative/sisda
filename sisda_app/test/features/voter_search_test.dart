@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mocktail/mocktail.dart';
@@ -45,5 +47,25 @@ void main() {
     expect(s.error, isNotEmpty);
     expect(s.error, isNot(contains('Server Error'))); // never leak rawMessage
     expect(s.results, isEmpty);
+  });
+
+  test('an out-of-order (stale) response does not overwrite the latest results', () async {
+    final slow = Completer<List<Voter>>();
+    final fast = Completer<List<Voter>>();
+    when(() => api.searchVoters('Ahmad')).thenAnswer((_) => slow.future);
+    when(() => api.searchVoters('Ahmadi')).thenAnswer((_) => fast.future);
+
+    final c = container();
+    final n = c.read(voterSearchControllerProvider.notifier);
+    final f1 = n.searchNow('Ahmad'); // issued first
+    final f2 = n.searchNow('Ahmadi'); // issued second (latest)
+
+    fast.complete([Voter.fromJson({'id': 2, 'nama': 'Ahmadi'})]); // latest resolves first
+    await f2;
+    slow.complete([Voter.fromJson({'id': 1, 'nama': 'Ahmad'})]); // stale resolves later
+    await f1;
+
+    final s = c.read(voterSearchControllerProvider);
+    expect(s.results.map((v) => v.nama), ['Ahmadi']); // latest wins; stale ignored
   });
 }

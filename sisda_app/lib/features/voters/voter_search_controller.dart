@@ -24,20 +24,26 @@ class VoterSearchState {
 /// debounce `Timer` (see VoterSearchScreen), keeping this class free of
 /// real delays so it stays synchronously testable.
 class VoterSearchController extends Notifier<VoterSearchState> {
+  int _generation = 0;
+
   @override
   VoterSearchState build() => const VoterSearchState();
 
   Future<void> searchNow(String q) async {
     final trimmed = q.trim();
     if (trimmed.length < 3) {
+      _generation++; // a too-short call also supersedes any in-flight search
       state = const VoterSearchState(tooShort: true, results: []);
       return;
     }
+    final gen = ++_generation;
     state = const VoterSearchState(loading: true);
     try {
       final results = await ref.read(mobileApiProvider).searchVoters(trimmed);
+      if (gen != _generation) return; // superseded — drop stale results
       state = VoterSearchState(results: results);
     } on ApiException catch (e) {
+      if (gen != _generation) return; // superseded — drop stale error
       state = VoterSearchState(error: e.firstError(), results: const []);
     }
   }
