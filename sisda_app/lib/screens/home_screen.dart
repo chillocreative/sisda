@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../theme/app_theme.dart';
-import '../services/api_service.dart';
+import '../providers.dart';
 import '../services/ocr_service.dart';
 import 'webview_screen.dart';
 import 'login_screen.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _currentIndex = 0;
   bool _isScanning = false;
   bool _inWebView = false;
@@ -122,8 +123,8 @@ class _HomeScreenState extends State<HomeScreen> {
             IconButton(
               icon: const Icon(Icons.logout_rounded, color: Colors.white),
               onPressed: () async {
-                await ApiService.logout();
-                if (mounted) Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const LoginScreen()));
+                await ref.read(authControllerProvider.notifier).logout();
+                if (context.mounted) Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const LoginScreen()));
               },
             ),
           ],
@@ -158,8 +159,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 IconButton(
                   icon: const Icon(Icons.logout_rounded, color: Colors.white),
                   onPressed: () async {
-                    await ApiService.logout();
-                    if (mounted) Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const LoginScreen()));
+                    await ref.read(authControllerProvider.notifier).logout();
+                    if (context.mounted) Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const LoginScreen()));
                   },
                 ),
               ]),

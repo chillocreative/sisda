@@ -123,4 +123,15 @@ class MobileApi implements CulaanApi {
   Future<void> submitCulaan(Map<String, dynamic> payload) => _post('/api/mobile/culaan', payload);
 
   Future<void> logout() => _post('/api/mobile/logout', {});
+
+  /// One-time token for WebView session auth. Contract §7: bare {token},
+  /// no `success` key, so we read it straight off the decoded body.
+  Future<String?> webAuthToken() async {
+    final body = await _post('/api/mobile/web-auth-token', {});
+    return body is Map ? body['token'] as String? : null;
+  }
+
+  /// Pure string builder — no HTTP call.
+  String webAuthUrl(String webToken, String redirect) =>
+      '${_config.baseUrl}/mobile-web-auth?token=$webToken&redirect=${Uri.encodeComponent(redirect)}';
 }

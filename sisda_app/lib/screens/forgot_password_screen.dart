@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_theme.dart';
-import '../services/api_service.dart';
+import '../providers.dart';
 
-class ForgotPasswordScreen extends StatefulWidget {
+class ForgotPasswordScreen extends ConsumerStatefulWidget {
   const ForgotPasswordScreen({super.key});
   @override
-  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+  ConsumerState<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
 }
 
-class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
+class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _telephoneController = TextEditingController();
   bool _isLoading = false;
@@ -20,12 +21,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     setState(() { _isLoading = true; _errorMessage = null; _successMessage = null; });
 
     try {
-      final result = await ApiService.forgotPassword(_telephoneController.text.trim());
-      if (result['success'] == true) {
-        final msg = result['message'] ?? 'Kata laluan baharu telah dihantar ke WhatsApp anda.';
-        setState(() { _successMessage = msg; });
+      final message = await ref.read(authControllerProvider.notifier)
+          .forgotPassword(_telephoneController.text.trim());
+      if (message != null) {
+        setState(() { _successMessage = message; });
       } else {
-        setState(() { _errorMessage = result['errors']?['telephone']?[0] ?? 'Nombor telefon tidak dijumpai.'; });
+        final authState = ref.read(authControllerProvider).value;
+        setState(() { _errorMessage = authState?.errorMessage ?? 'Nombor telefon tidak dijumpai.'; });
       }
     } catch (e) {
       setState(() { _errorMessage = 'Ralat sambungan. Sila semak internet.'; });

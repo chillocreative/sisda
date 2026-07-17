@@ -1,10 +1,24 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import '../../models/culaan_draft.dart';
 import '../../models/sync_status.dart';
 
 part 'database.g.dart';
+
+/// Opens the real on-device database lazily, inside the app documents
+/// directory — the filesystem is untouched until a query actually runs, so
+/// tests that use AppDatabase.forTesting() never hit it.
+LazyDatabase openAppDatabaseConnection() {
+  return LazyDatabase(() async {
+    final dir = await getApplicationDocumentsDirectory();
+    final file = File(p.join(dir.path, 'sisda_drafts.sqlite'));
+    return NativeDatabase.createInBackground(file);
+  });
+}
 
 /// The ONLY table on device. Stores Culaan drafts — never voter PII.
 /// `fieldsJson` holds the culaan payload as JSON; `status` is the SyncStatus

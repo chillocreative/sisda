@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-import '../services/api_service.dart';
+import '../providers.dart';
 
-class WebViewScreen extends StatefulWidget {
+class WebViewScreen extends ConsumerStatefulWidget {
   final String path;
   final bool embedded;
 
   const WebViewScreen({super.key, required this.path, this.embedded = false});
 
   @override
-  State<WebViewScreen> createState() => _WebViewScreenState();
+  ConsumerState<WebViewScreen> createState() => _WebViewScreenState();
 }
 
-class _WebViewScreenState extends State<WebViewScreen> {
+class _WebViewScreenState extends ConsumerState<WebViewScreen> {
   late WebViewController _controller;
   bool _isLoading = true;
   String _currentPath = '';
@@ -30,7 +31,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
     if (oldWidget.path != widget.path) {
       _currentPath = widget.path;
       // Session already established from initial load, navigate directly
-      _controller.loadRequest(Uri.parse('${ApiService.baseUrl}$_currentPath'));
+      _controller.loadRequest(Uri.parse('${ref.read(apiConfigProvider).baseUrl}$_currentPath'));
     }
   }
 
@@ -57,10 +58,11 @@ class _WebViewScreenState extends State<WebViewScreen> {
   }
 
   Future<void> _loadWithAuth() async {
+    final api = ref.read(mobileApiProvider);
     try {
-      final webToken = await ApiService.getWebAuthToken();
+      final webToken = await api.webAuthToken();
       if (webToken != null && mounted) {
-        final url = ApiService.getWebAuthUrl(webToken, _currentPath);
+        final url = api.webAuthUrl(webToken, _currentPath);
         _controller.loadRequest(Uri.parse(url));
         return;
       }
@@ -68,7 +70,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
 
     // Fallback: load directly (will show login page if not authenticated)
     if (mounted) {
-      _controller.loadRequest(Uri.parse('${ApiService.baseUrl}$_currentPath'));
+      _controller.loadRequest(Uri.parse('${ref.read(apiConfigProvider).baseUrl}$_currentPath'));
     }
   }
 
@@ -86,7 +88,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
               if (await _controller.canGoBack()) {
                 _controller.goBack();
               } else {
-                if (mounted) Navigator.of(context).pop();
+                if (context.mounted) Navigator.of(context).pop();
               }
             }),
           ),
