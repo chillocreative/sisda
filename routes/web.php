@@ -531,6 +531,11 @@ Route::prefix('api/mobile')->withoutMiddleware([\Illuminate\Foundation\Http\Midd
     // Authenticated routes (requires Sanctum token)
     Route::post('/web-auth-token', [\App\Http\Controllers\Api\MobileAuthController::class, 'webAuthToken'])->middleware('auth:sanctum');
     Route::post('/logout', [\App\Http\Controllers\Api\MobileAuthController::class, 'logout'])->middleware('auth:sanctum');
+
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/voters/search', [\App\Http\Controllers\Api\MobileVoterController::class, 'search']);
+        Route::get('/voters/{ic}', [\App\Http\Controllers\Api\MobileVoterController::class, 'show']);
+    });
 });
 
 // Mobile WebView auto-login via one-time token
