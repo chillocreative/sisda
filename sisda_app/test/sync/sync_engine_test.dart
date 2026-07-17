@@ -81,7 +81,20 @@ void main() {
     api.onSubmit = (_) => const ApiException(status: 401, errors: {});
     final out = await engine.syncNow(now: now);
     expect(out.needsReauth, isTrue);
-    expect((await db.getDraft('k1'))!.status, SyncStatus.queued);
+    final d = await db.getDraft('k1');
+    expect(d!.status, SyncStatus.queued);
+    expect(d.attempts, 0); // auth must NOT count as an attempt
+    expect(d.nextRetryAt, isNull); // auth must NOT apply time-backoff
+  });
+
+  test('transient (ApiException with null status) keeps the draft queued and increments attempts', () async {
+    await queue('k1');
+    api.onSubmit = (_) => const ApiException(status: null, errors: {});
+    final out = await engine.syncNow(now: now);
+    expect(out.stillQueued, 1);
+    final d = await db.getDraft('k1');
+    expect(d!.status, SyncStatus.queued);
+    expect(d.attempts, 1);
   });
 
   test('LOST-RESPONSE RETRY: the same key is re-sent unchanged; server replay returns 2xx; draft deleted', () async {
