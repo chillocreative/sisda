@@ -163,6 +163,105 @@ class Borang14InheritStructureTest extends TestCase
         $this->assertNull($res->json('form'), 'A 2026 form must not silently exist/be created merely by reading structure.');
     }
 
+    /**
+     * Finding 3 (warisi-fix): the test above only covers the case where NO
+     * 2026 form exists yet, so $votes is trivially an empty collection — it
+     * would NOT catch a regression that started reading votes from the
+     * SOURCE form once a 2026 form does exist. This covers that case: BOTH
+     * a source election (with structure AND votes) and a target election
+     * (its own form, its own DIFFERENT votes at the very SAME cell key) —
+     * the target must return only its own vote (77), never the source's
+     * (300) for that identical (pusat, saluran, slot) key.
+     */
+    public function test_inheritance_does_not_leak_votes_from_source_when_target_form_already_has_its_own_votes(): void
+    {
+        [, , $kadun] = $this->seedGeography();
+        $this->createSourceForm('dun', $kadun->id, 2023); // status published; SK Juasseh|1|1 = 300
+
+        // Target (2026) has its OWN form already (e.g. from keying votes on
+        // the inherited grid) but no OWN structure — so structure must still
+        // be inherited from the source, while votes must come from the
+        // target row only.
+        $target = Borang14Form::create([
+            'kawasan_type' => 'dun', 'kawasan_id' => $kadun->id,
+            'jenis_pr' => 'prn', 'tahun' => 2026, 'penjuru' => 2, 'status' => 'draft', 'parties' => [],
+        ]);
+        $target->votes()->create(['pusat' => 'SK Juasseh', 'saluran' => '1', 'slot' => 1, 'undi' => 77]);
+
+        $res = $this->actingAs($this->user())->getJson(route('pilihanraya.borang-14.data', [
+            'kawasan_type' => 'dun', 'kawasan_id' => $kadun->id, 'jenis_pr' => 'prn', 'tahun' => 2026,
+        ]));
+
+        $res->assertOk();
+        $this->assertSame(
+            ['SK Juasseh|1|1' => 77],
+            $res->json('votes'),
+            'Must return only the TARGET election own votes at this cell, never the source election value (300).',
+        );
+        $this->assertNotNull($res->json('form'), 'The target form DOES exist here — unlike the no-form case above.');
+        $this->assertSame(['tahun' => 2023, 'jenis_pr' => 'prn'], $res->json('inherited_from'), 'Structure must still be inherited even though the target already has its own votes.');
+    }
+
+    /**
+     * Finding 2 (warisi-fix): the source-form query had no `status` filter,
+     * so an abandoned draft — or a scoresheet flagged needs_review because
+     * the AI misread it — could become the structure a new election
+     * inherits. This asserts a PUBLISHED source is preferred over a more
+     * recent DRAFT one.
+     */
+    public function test_prefers_published_source_over_a_more_recent_draft(): void
+    {
+        [, , $kadun] = $this->seedGeography();
+        $this->createSourceForm('dun', $kadun->id, 2018, 'prn'); // published (helper default), older
+
+        // More recent, but an ABANDONED/unreviewed draft — must lose to the
+        // older published election, not win purely on recency.
+        Borang14Form::create([
+            'kawasan_type' => 'dun', 'kawasan_id' => $kadun->id,
+            'jenis_pr' => 'prn', 'tahun' => 2023, 'penjuru' => 2, 'status' => 'draft',
+            'source' => 'scoresheet',
+            'structure' => [
+                'calon' => [['nama' => 'X'], ['nama' => 'Y']],
+                'rows' => [[
+                    'pusat' => 'PM DRAF', 'dm' => 'DM DRAF', 'saluran' => '1',
+                    'a' => 1, 'undi' => [1, 0], 'jumlah_undian' => 1, 'ditolak' => 0, 'tidak_dimasukkan' => 0,
+                ]],
+            ],
+        ]);
+
+        $res = $this->actingAs($this->user())->getJson(route('pilihanraya.borang-14.data', [
+            'kawasan_type' => 'dun', 'kawasan_id' => $kadun->id, 'jenis_pr' => 'prn', 'tahun' => 2026,
+        ]));
+
+        $res->assertOk();
+        $this->assertSame(['tahun' => 2018, 'jenis_pr' => 'prn'], $res->json('inherited_from'), 'The PUBLISHED 2018 election must win over the more recent but still-draft 2023 upload.');
+        $this->assertSame('DM Juasseh', $res->json('reference.daerah_mengundi.0.nama'), 'Must inherit the published election structure, not the draft.');
+    }
+
+    /**
+     * Finding 2, other half: a seat whose ONLY prior election is still a
+     * draft must still inherit SOMETHING rather than show "belum tersedia"
+     * — published is PREFERRED, not REQUIRED outright (see report for the
+     * reasoning).
+     */
+    public function test_falls_back_to_a_draft_source_when_no_published_source_exists(): void
+    {
+        [, , $kadun] = $this->seedGeography();
+        Borang14Form::create([
+            'kawasan_type' => 'dun', 'kawasan_id' => $kadun->id,
+            'jenis_pr' => 'prn', 'tahun' => 2023, 'penjuru' => 2, 'status' => 'draft',
+            'source' => 'scoresheet', 'structure' => $this->sourceStructure(),
+        ]);
+
+        $res = $this->actingAs($this->user())->getJson(route('pilihanraya.borang-14.data', [
+            'kawasan_type' => 'dun', 'kawasan_id' => $kadun->id, 'jenis_pr' => 'prn', 'tahun' => 2026,
+        ]));
+
+        $res->assertOk();
+        $this->assertTrue($res->json('hasData'), 'With no published prior election, the only draft available must still be inherited.');
+        $this->assertSame(['tahun' => 2023, 'jenis_pr' => 'prn'], $res->json('inherited_from'));
+    }
+
     public function test_inherited_berdaftar_stays_null(): void
     {
         [, , $kadun] = $this->seedGeography();

@@ -86,47 +86,7 @@ class Borang14Controller extends Controller
                 ->first();
         }
 
-        $isParlimen = $kawasanType === Borang14Form::KAWASAN_PARLIMEN;
-        $reference = $isParlimen
-            ? Borang14Reference::forBandar($kawasanId)
-            : Borang14Reference::forKadun($kawasanId);
-
-        // Newly-created (scoresheet-sourced) kawasan have no curated reference JSON
-        // and no DPT roll uploaded yet — fall back to the scoresheet's own structure
-        // so the tables still render instead of silently showing "no data".
-        if (! $reference && $form?->structure) {
-            $reference = $this->referenceFromStructure($form->structure, $form->kawasan());
-        }
-
-        // On counting night for a NEW election there IS no scoresheet — it's the
-        // OUTPUT, not the input — so a brand-new (kawasan, jenis_pr, tahun) has
-        // neither a curated reference nor a structure of its own. Pusat Mengundi
-        // & Saluran are essentially stable between elections, so inherit them
-        // from the most recent OTHER election of the SAME seat rather than
-        // showing "belum tersedia" for something that's really just missing a
-        // scoresheet. Curated JSON / DPT (above) and this election's own
-        // structure (above) both still win over this — inheritance is the LAST
-        // resort. Votes are never inherited: $votes below is read only from
-        // $form (this election's own row), which stays null/empty here.
-        $inheritedFrom = null;
-        if (! $reference) {
-            $sourceForm = Borang14Form::forKawasan($kawasanType, $kawasanId)
-                ->whereNotNull('structure')
-                ->when($form, fn ($q) => $q->where('id', '!=', $form->id))
-                // Tie-break: most recently CREATED row wins among same-tahun
-                // duplicates (e.g. a PRN and a PRK both held in the same year
-                // for the same seat) — the newer upload is more likely to
-                // reflect the seat's current channel layout than an older one
-                // entered earlier that year.
-                ->orderByDesc('tahun')
-                ->orderByDesc('created_at')
-                ->first();
-
-            if ($sourceForm) {
-                $reference = $this->referenceFromStructure($sourceForm->structure, $sourceForm->kawasan());
-                $inheritedFrom = ['tahun' => $sourceForm->tahun, 'jenis_pr' => $sourceForm->jenis_pr];
-            }
-        }
+        ['reference' => $reference, 'inherited_from' => $inheritedFrom] = $this->resolveReference($kawasanType, $kawasanId, $form);
 
         $votes = $form
             ? $form->votes()->get(['pusat', 'saluran', 'slot', 'undi'])
@@ -257,6 +217,76 @@ class Borang14Controller extends Controller
         $form?->votes()->delete();
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * SATU tempat sahaja untuk rantaian fallback rujukan struktur — dikongsi
+     * oleh data() DAN pdf() supaya kedua-duanya tidak boleh terpesong
+     * (drift) antara satu sama lain. Susunan keutamaan:
+     *   1) Borang14Reference::forKadun()/forBandar() — JSON kurasi atau roll DPT.
+     *   2) Struktur borang INI sendiri (referenceFromStructure()).
+     *   3) Pilihan raya LAIN yang paling baru bagi kerusi yang SAMA
+     *      ("warisi") — pilihan terakhir sahaja, kerana pada malam
+     *      pengiraan pilihan raya BAHARU tiada scoresheet lagi (ia OUTPUT,
+     *      bukan INPUT). Undi TIDAK PERNAH diwarisi — hanya pokok kosong
+     *      Pusat Mengundi/Saluran.
+     *
+     * Sumber warisan PILIH status 'published' berbanding draf/belum disemak
+     * apabila kedua-duanya wujud (rujuk laporan warisi-fix-report.md untuk
+     * sebab), tetapi tidak MEWAJIBKAN published — kerusi yang hanya ada satu
+     * draf sejarah tetap mewarisi draf itu, bukan "belum tersedia".
+     *
+     * @return array{reference: array|null, inherited_from: array{tahun:int, jenis_pr:string}|null}
+     */
+    private function resolveReference(string $kawasanType, int $kawasanId, ?Borang14Form $form): array
+    {
+        $isParlimen = $kawasanType === Borang14Form::KAWASAN_PARLIMEN;
+        $reference = $isParlimen
+            ? Borang14Reference::forBandar($kawasanId)
+            : Borang14Reference::forKadun($kawasanId);
+
+        // Newly-created (scoresheet-sourced) kawasan have no curated reference JSON
+        // and no DPT roll uploaded yet — fall back to the scoresheet's own structure
+        // so the tables still render instead of silently showing "no data".
+        if (! $reference && $form?->structure) {
+            $reference = $this->referenceFromStructure($form->structure, $form->kawasan());
+        }
+
+        // On counting night for a NEW election there IS no scoresheet — it's the
+        // OUTPUT, not the input — so a brand-new (kawasan, jenis_pr, tahun) has
+        // neither a curated reference nor a structure of its own. Pusat Mengundi
+        // & Saluran are essentially stable between elections, so inherit them
+        // from the most recent OTHER election of the SAME seat rather than
+        // showing "belum tersedia" for something that's really just missing a
+        // scoresheet. Curated JSON / DPT (above) and this election's own
+        // structure (above) both still win over this — inheritance is the LAST
+        // resort. Votes are never inherited: callers read votes only from
+        // $form (this election's own row), never from the source form here.
+        $inheritedFrom = null;
+        if (! $reference) {
+            $sourceQuery = Borang14Form::forKawasan($kawasanType, $kawasanId)
+                ->whereNotNull('structure')
+                ->when($form, fn ($q) => $q->where('id', '!=', $form->id));
+
+            // Prefer a PUBLISHED source over a draft/needs-review one — an
+            // abandoned draft, or a scoresheet the AI misread and flagged
+            // needs_review, should not become the structure a fresh election
+            // silently inherits, even if it happens to be more recent than
+            // the last published election. Only fall back to the best
+            // available draft when NO published election of this seat
+            // exists at all, so a seat whose only history is still in
+            // progress gets something rather than "belum tersedia".
+            $sourceForm = (clone $sourceQuery)->published()
+                    ->orderByDesc('tahun')->orderByDesc('created_at')->first()
+                ?? $sourceQuery->orderByDesc('tahun')->orderByDesc('created_at')->first();
+
+            if ($sourceForm) {
+                $reference = $this->referenceFromStructure($sourceForm->structure, $sourceForm->kawasan());
+                $inheritedFrom = ['tahun' => $sourceForm->tahun, 'jenis_pr' => $sourceForm->jenis_pr];
+            }
+        }
+
+        return ['reference' => $reference, 'inherited_from' => $inheritedFrom];
     }
 
     /**
@@ -448,23 +478,19 @@ class Borang14Controller extends Controller
         $isParlimen = $validated['kawasan_type'] === Borang14Form::KAWASAN_PARLIMEN;
         $kawasanId = (int) $validated['kawasan_id'];
 
-        $reference = $isParlimen
-            ? Borang14Reference::forBandar($kawasanId)
-            : Borang14Reference::forKadun($kawasanId);
-
         $form = Borang14Form::where('kawasan_type', $validated['kawasan_type'])
             ->where('kawasan_id', $kawasanId)
             ->where('jenis_pr', $validated['jenis_pr'])
             ->where('tahun', $validated['tahun'])
             ->first();
 
-        // Same fallback as data(): a seat created from an upload has no curated
-        // reference JSON and no DPT roll uploaded yet, so build the reference
-        // straight from the scoresheet's own frozen structure instead of 404ing
-        // on every seat this feature creates.
-        if (! $reference && $form?->structure) {
-            $reference = $this->referenceFromStructure($form->structure, $form->kawasan());
-        }
+        // Same fallback chain as data() (curated JSON/DPT -> this form's own
+        // structure -> inherited from the seat's most recent other election)
+        // via ONE shared helper — a form created purely by keying votes
+        // (saveParties()/saveVote()) never writes its own structure, so
+        // without inheritance here "Muat Turun PDF" 404s even though the
+        // on-screen grid renders fine off the inherited structure.
+        ['reference' => $reference, 'inherited_from' => $inheritedFrom] = $this->resolveReference($validated['kawasan_type'], $kawasanId, $form);
 
         $seatLabel = $isParlimen ? 'Parlimen' : 'DUN';
         abort_if(! $reference, 404, "Data Borang 14 belum tersedia untuk {$seatLabel} ini.");
@@ -494,6 +520,7 @@ class Borang14Controller extends Controller
             'parties'   => $parties,
             'votes'     => $votes,
             'logo'      => $logo,
+            'inheritedFrom' => $inheritedFrom,
             // Buloh Kasap's Undi Awal/Pos merge is a DUN-only exception — a
             // Parlimen that happens to share id 41 must never trigger it.
             'isBulohKasap' => ! $isParlimen && $kawasanId === self::BULOH_KASAP_KADUN_ID,

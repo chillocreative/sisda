@@ -98,6 +98,9 @@
         @if (($reference['source'] ?? null) === 'dpt_estimate')
             <div class="sub" style="color:#b45309;">Pusat Mengundi &amp; Berdaftar dianggarkan daripada data DPT (ikut Lokaliti) &mdash; bukan pecahan Saluran rasmi gazet SPR.</div>
         @endif
+        @if ($inheritedFrom ?? null)
+            <div class="sub" style="color:#b45309;">Struktur saluran diwarisi daripada {{ strtoupper($inheritedFrom['jenis_pr']) }} {{ $inheritedFrom['tahun'] }} &mdash; bilangan pengundi berdaftar tidak diketahui untuk pilihan raya ini.</div>
+        @endif
     </div>
 
     <div class="legend">
