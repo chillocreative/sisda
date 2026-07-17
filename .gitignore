@@ -25,3 +25,7 @@ Thumbs.db
 *.zip
 *.md
 !sisda.md
+
+# Database dumps — never commit (contains live voter data)
+*.sql
+*.sql.gz
