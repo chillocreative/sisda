@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\DataPengundi;
+use App\Models\HasilCulaan;
 use App\Services\VoterDataMasker;
 use App\Services\VoterScopeService;
 use Illuminate\Contracts\Validation\Validator;
@@ -59,7 +60,35 @@ class StoreMobileCulaanRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
+        // Idempotency replay MUST short-circuit before source resolution
+        // and before rules(), not just before the controller's create().
+        // The masked-create swap below resolves locked_source_id against
+        // the CURRENT state of data_pengundi; a replayed key whose source
+        // has since been deleted (or edited out of scope) would otherwise
+        // hit the 409 "Rekod sumber tidak lagi wujud" branch below instead
+        // of returning the original 201 — misclassifying a submission that
+        // already landed as a permanent failure. That is exactly the
+        // offline-first scenario this endpoint exists for: phone submits,
+        // response lost in a dead zone, source cleaned up server-side,
+        // phone retries on reconnect. A replayed key must return the
+        // original record regardless of whether the source still exists,
+        // whether the payload would still validate, or whether the
+        // Parlimen check would still pass.
+        $this->shortCircuitIfReplay();
+
         if (! $this->filled('locked_source_id')) {
+            return;
+        }
+
+        // locked_source_id has not been through rules() yet (prepareForValidation()
+        // runs first), so the `integer` rule has not fired. Feeding an array
+        // straight into DataPengundi::where('id', ...) merges it into the
+        // query bindings: SQLite quietly yields a 404-style miss (verified),
+        // but PDO MySQL typically raises HY093 "Invalid parameter number" ->
+        // QueryException -> an actionable rejection surfacing as a 500 the
+        // client will retry forever. Guard before the query and let the
+        // honest `integer` rule produce a 422 instead.
+        if (! is_scalar($this->input('locked_source_id'))) {
             return;
         }
 
@@ -81,6 +110,46 @@ class StoreMobileCulaanRequest extends FormRequest
             }
         }
         $this->merge($merge);
+    }
+
+    /**
+     * If idempotency_key matches a record the CALLER already submitted,
+     * short-circuit with that record's original 201 and never reach
+     * validation, source resolution, or the controller at all.
+     *
+     * Scoped to submitted_by = current user: an unscoped lookup lets a
+     * second user replay (or merely collide on) a key they did not
+     * originate and receive the first user's record id/no_ic — bypassing
+     * the controller's Parlimen check in the process, since this runs
+     * before it. See MobileCulaanController::store()'s QueryException
+     * catch for the other half of this fix: when a key collides with a
+     * DIFFERENT user's row, this scoped lookup finds nothing, the normal
+     * create flow proceeds, and the unique index on idempotency_key fires
+     * — that path returns 409, never the foreign owner's record.
+     *
+     * The response is run through VoterDataMasker::maskedIdAndIc() (Finding
+     * 1): the caller sent '****' for a locked record because they cannot
+     * see the real value — replaying their own key must not become a way
+     * to read it back out.
+     */
+    private function shortCircuitIfReplay(): void
+    {
+        if (! $this->filled('idempotency_key')) {
+            return;
+        }
+
+        $existing = HasilCulaan::where('idempotency_key', $this->input('idempotency_key'))
+            ->where('submitted_by', $this->user()->id)
+            ->first();
+
+        if (! $existing) {
+            return;
+        }
+
+        throw new HttpResponseException(response()->json([
+            'success' => true,
+            'culaan' => VoterDataMasker::maskedIdAndIc($existing, $this->user()),
+        ], 201));
     }
 
     public function rules(): array

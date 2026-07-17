@@ -432,4 +432,267 @@ class MobileCulaanStoreTest extends TestCase
 
         $this->assertDatabaseCount('hasil_culaan', 0);
     }
+
+    /**
+     * Finding 1 (CRITICAL): the 201 response used to echo the record's real
+     * no_ic even for a masked-create submitted by a 'user'-role caller who
+     * was never shown it — collapsing the IC-oracle protection
+     * (MobileVoterController.php:56-66) back to a single request: search by
+     * name -> read id -> POST masked-create -> read the real IC out of the
+     * 201. The response must be run through VoterDataMasker so a caller who
+     * cannot unmask gets '****' back, exactly what they sent.
+     */
+    public function test_masked_create_response_masks_no_ic_for_a_user_caller(): void
+    {
+        $caller = $this->makeUser('user');
+        Sanctum::actingAs($caller);
+
+        $inScope = DataPengundi::factory()->create([
+            'no_ic' => '900101019999',
+            'no_tel' => '0111112222',
+            'kadun' => 'BULOH KASAP',
+        ]);
+
+        $response = $this->postJson('/api/mobile/culaan', $this->maskedPayload($inScope->id, [
+            'no_ic' => '900101019999', // caller's own typed value; not masked in this request
+        ]))
+            ->assertStatus(201)
+            ->assertJsonPath('success', true);
+
+        // The real IC was swapped into storage (masked-create still works)...
+        $this->assertDatabaseHas('hasil_culaan', ['no_ic' => '900101019999']);
+
+        // ...but the response the caller (role 'user') receives must not
+        // disclose it, because a 'user'-role submission is always locked
+        // and a 'user'-role viewer can never unmask their own submission
+        // (VoterDataMasker::canUnmask requires admin/super_user/super_admin
+        // — this is consistent with how ReportsController/DashboardController
+        // treat every other read of a locked record).
+        $response->assertJsonPath('culaan.no_ic', '****');
+    }
+
+    /**
+     * Finding 1 continued: a record is only "locked" when its submitter's
+     * role is 'user' (VoterDataMasker::isLocked). An admin-role caller's OWN
+     * submission is never locked in the first place, so their 201 response
+     * legitimately carries the real no_ic — this is the "unmasking viewer"
+     * case the finding asks to confirm one way or the other.
+     */
+    public function test_admin_callers_own_submission_is_not_locked_so_response_shows_real_no_ic(): void
+    {
+        $admin = $this->makeUser('admin');
+        Sanctum::actingAs($admin);
+
+        $this->postJson('/api/mobile/culaan', $this->payload(['no_ic' => '811111112222']))
+            ->assertStatus(201)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('culaan.no_ic', '811111112222');
+    }
+
+    /**
+     * Finding 2 (IMPORTANT): the idempotency replay lookup used to be
+     * unscoped, so a second user submitting a colliding key received the
+     * FIRST user's record id/no_ic outright, and because the short-circuit
+     * fired before the Parlimen check, the 403 was bypassed too. The
+     * replayed key must never disclose a record the caller does not own.
+     *
+     * This scenario also mismatches B's submitted parlimen against B's own
+     * Bandar (SEGAMAT, A's parlimen) so the pre-fix bypass of the 403 check
+     * would have been visible had it still existed.
+     */
+    public function test_cross_user_idempotency_replay_never_returns_another_users_record_and_403_still_applies(): void
+    {
+        $negeriB = Negeri::create(['nama' => 'PERAK']);
+        $bandarB = Bandar::create(['nama' => 'IPOH', 'negeri_id' => $negeriB->id]);
+        $kadunB = Kadun::create(['nama' => 'KLEBANG', 'bandar_id' => $bandarB->id]);
+        $userB = User::factory()->create([
+            'role' => 'user',
+            'status' => 'approved',
+            'telephone' => '01'.fake()->unique()->numerify('########'),
+            'negeri_id' => $negeriB->id,
+            'bandar_id' => $bandarB->id,
+            'kadun_id' => $kadunB->id,
+        ]);
+
+        $sharedKey = 'shared-key-123';
+
+        Sanctum::actingAs($this->makeUser());
+        $first = $this->postJson('/api/mobile/culaan', $this->payload(['idempotency_key' => $sharedKey]))
+            ->assertStatus(201);
+        $originalId = $first->json('culaan.id');
+
+        Sanctum::actingAs($userB);
+        // B's own Parlimen is IPOH, but this payload (mirroring A's) claims
+        // SEGAMAT. Pre-fix, the unscoped replay short-circuit ran before the
+        // Parlimen check and returned A's record with a 201 anyway.
+        $second = $this->postJson('/api/mobile/culaan', $this->payload(['idempotency_key' => $sharedKey]));
+
+        $second->assertStatus(403);
+        $this->assertNotSame($originalId, $second->json('culaan.id'));
+        $this->assertSame(1, HasilCulaan::where('idempotency_key', $sharedKey)->count());
+    }
+
+    /**
+     * Finding 2 continued: when B's own payload legitimately passes the
+     * Parlimen check (i.e. the create actually proceeds), the collision
+     * surfaces via hasil_culaan's real unique index on idempotency_key. The
+     * QueryException backstop must not resolve that into A's row — it must
+     * return a scoped 409, not disclose A's record to B.
+     */
+    public function test_cross_user_idempotency_key_collision_returns_409_not_the_other_users_record(): void
+    {
+        $negeriB = Negeri::create(['nama' => 'PERAK']);
+        $bandarB = Bandar::create(['nama' => 'IPOH', 'negeri_id' => $negeriB->id]);
+        $kadunB = Kadun::create(['nama' => 'KLEBANG', 'bandar_id' => $bandarB->id]);
+        $userB = User::factory()->create([
+            'role' => 'user',
+            'status' => 'approved',
+            'telephone' => '01'.fake()->unique()->numerify('########'),
+            'negeri_id' => $negeriB->id,
+            'bandar_id' => $bandarB->id,
+            'kadun_id' => $kadunB->id,
+        ]);
+
+        $sharedKey = 'shared-key-456';
+
+        Sanctum::actingAs($this->makeUser());
+        $first = $this->postJson('/api/mobile/culaan', $this->payload(['idempotency_key' => $sharedKey]))
+            ->assertStatus(201);
+        $originalId = $first->json('culaan.id');
+
+        Sanctum::actingAs($userB);
+        $second = $this->postJson('/api/mobile/culaan', $this->payload([
+            'idempotency_key' => $sharedKey,
+            'no_ic' => '822222223333',
+            'parlimen' => 'IPOH', // B's own Parlimen — clears the 403 check
+            'bandar' => 'IPOH',
+            'kadun' => 'KLEBANG',
+        ]));
+
+        $second->assertStatus(409)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('errors.idempotency_key.0', 'Kunci idempotency ini telah digunakan oleh pengguna lain.');
+
+        $this->assertNotSame($originalId, $second->json('culaan.id'));
+        $this->assertSame(1, HasilCulaan::where('idempotency_key', $sharedKey)->count());
+        $this->assertDatabaseMissing('hasil_culaan', ['no_ic' => '822222223333']);
+    }
+
+    /**
+     * Finding 3 (IMPORTANT): moving the masked-create swap into
+     * prepareForValidation() put source resolution ahead of the replay
+     * short-circuit, so a replay whose source had since been deleted
+     * returned a 409 "Rekod sumber tidak lagi wujud" instead of the
+     * original 201 — misclassifying a submission that had already landed
+     * as a permanent failure. The replay check must run before source
+     * resolution so this returns the ORIGINAL record regardless of whether
+     * the source still exists.
+     */
+    public function test_replay_after_source_deleted_returns_the_original_record_not_409(): void
+    {
+        Sanctum::actingAs($this->makeUser());
+
+        $source = DataPengundi::factory()->create([
+            'no_ic' => '900404045555',
+            'no_tel' => '0144445555',
+            'kadun' => 'BULOH KASAP',
+        ]);
+
+        $payload = $this->maskedPayload($source->id, ['idempotency_key' => 'replay-after-delete']);
+
+        $first = $this->postJson('/api/mobile/culaan', $payload)->assertStatus(201);
+        $originalId = $first->json('culaan.id');
+
+        $source->delete();
+
+        $second = $this->postJson('/api/mobile/culaan', $payload);
+
+        $second->assertStatus(201)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('culaan.id', $originalId);
+
+        $this->assertSame(1, HasilCulaan::where('idempotency_key', 'replay-after-delete')->count());
+    }
+
+    /**
+     * Finding 4 (IMPORTANT): DB::transaction() wraps create + EditHistory::log
+     * + VoterSyncService's fan-out, but nothing asserted atomicity. Force a
+     * failure AFTER the hasil_culaan row is physically inserted (via the
+     * model's 'created' event, which fires synchronously inside create()
+     * and therefore still inside the open transaction) and prove BOTH the
+     * hasil_culaan row and the data_pengundi row VoterSyncService would have
+     * fanned out to are rolled back — not just the fan-out.
+     *
+     * Mutation-checked manually: removing DB::transaction() from
+     * MobileCulaanController::store() makes this test fail (the
+     * hasil_culaan row survives the later exception).
+     */
+    public function test_a_failure_after_create_rolls_back_the_whole_transaction(): void
+    {
+        Sanctum::actingAs($this->makeUser());
+
+        HasilCulaan::created(function () {
+            throw new \RuntimeException('Forced fan-out failure for atomicity test.');
+        });
+
+        $this->postJson('/api/mobile/culaan', $this->payload())->assertStatus(500);
+
+        $this->assertDatabaseCount('hasil_culaan', 0);
+        $this->assertDatabaseCount('data_pengundi', 0);
+    }
+
+    /**
+     * Finding 5 (MINOR): prepareForValidation() runs before rules(), so
+     * feeding an array into locked_source_id used to reach
+     * DataPengundi::where('id', $array) before the `integer` rule could
+     * reject it — SQLite quietly 409s, but PDO MySQL typically raises
+     * HY093 -> QueryException -> 500, an actionable rejection surfacing as
+     * a transient failure the client retries forever. The guard must let
+     * the honest `integer` validation rule 422 it instead.
+     */
+    public function test_locked_source_id_as_an_array_returns_422_not_a_query_error(): void
+    {
+        Sanctum::actingAs($this->makeUser());
+
+        $this->postJson('/api/mobile/culaan', $this->payload(['locked_source_id' => ['1', '2']]))
+            ->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonStructure(['errors' => ['locked_source_id']]);
+
+        $this->assertDatabaseCount('hasil_culaan', 0);
+    }
+
+    /**
+     * Finding 6 (MINOR): the original replay test passes even if the scoped
+     * early-return lookup (StoreMobileCulaanRequest::shortCircuitIfReplay())
+     * is mutated away, because the QueryException unique-index backstop in
+     * the controller rescues it. That means the test cannot tell which
+     * mechanism is actually working. Pin the PRIMARY path: a same-user
+     * replay must never even reach HasilCulaan::create() — if it falls
+     * through to the backstop, create() IS attempted (and its INSERT then
+     * fails on the unique index), so counting attempts via the model's
+     * 'creating' event (which fires before the INSERT runs, so it counts
+     * even a failed attempt — unlike DB::listen, which Laravel never fires
+     * for a query that throws) tells the two paths apart.
+     */
+    public function test_idempotency_replay_is_caught_by_the_scoped_lookup_before_create_is_attempted(): void
+    {
+        Sanctum::actingAs($this->makeUser());
+        $payload = $this->payload();
+
+        $this->postJson('/api/mobile/culaan', $payload)->assertStatus(201);
+
+        $createAttempts = 0;
+        HasilCulaan::creating(function () use (&$createAttempts) {
+            $createAttempts++;
+        });
+
+        $this->postJson('/api/mobile/culaan', $payload)->assertStatus(201);
+
+        $this->assertSame(
+            0,
+            $createAttempts,
+            'A same-user replay must be caught by the scoped prepareForValidation() lookup before HasilCulaan::create() is ever attempted — falling through to the unique-constraint backstop means the primary path silently broke.'
+        );
+    }
 }
