@@ -69,13 +69,12 @@ class ScoresheetExtractor
         // Claude as a native document/image so it reads the scoresheet itself
         // (this handles scanned PDFs and photographed sheets, not just text).
         if ($this->isImage($file)) {
-            $ext = strtolower($file->getClientOriginalExtension());
-            return $this->fromMedia($file, 'image', self::IMAGE_MEDIA[$ext] ?? 'image/jpeg');
+            return $this->fromMedia($file);
         }
         if ($this->isPdf($file)) {
             // Native document read first; fall back to text extraction if the
             // configured model can't take documents.
-            return $this->fromMedia($file, 'document', 'application/pdf')
+            return $this->fromMedia($file)
                 ?? $this->fromPdfText($file);
         }
 
@@ -108,20 +107,12 @@ class ScoresheetExtractor
      * the most reliable path for PDFs and photos. Returns null on any failure
      * so the caller can fall back or surface the standard error.
      */
-    private function fromMedia(UploadedFile $file, string $blockType, string $mediaType): ?array
+    private function fromMedia(UploadedFile $file): ?array
     {
-        $bytes = @file_get_contents($file->getRealPath());
-        if ($bytes === false || $bytes === '') {
+        $content = $this->buildContentBlocks($file);
+        if ($content === null) {
             return null;
         }
-
-        $content = [
-            [
-                'type' => $blockType,
-                'source' => ['type' => 'base64', 'media_type' => $mediaType, 'data' => base64_encode($bytes)],
-            ],
-            ['type' => 'text', 'text' => 'Baca scoresheet dalam fail ini dan ekstrak pertandingan DUN (negeri) mengikut arahan sistem. Balas JSON sahaja.'],
-        ];
 
         $result = $this->claude->chat(self::SYSTEM, $content, 6000, 180, 'scoresheet_extract', $this->claude->documentModel());
         if (! $result['ok']) {
@@ -129,6 +120,41 @@ class ScoresheetExtractor
         }
 
         return $this->sanitize($this->claude->extractJson($result['content']));
+    }
+
+    /**
+     * Build the base64 document/image content block(s) for a PDF or photographed
+     * scoresheet. Shared by extract() (via fromMedia()) and extractDetailed() so
+     * both paths send the file to Claude identically. Returns null when the file
+     * is neither an image nor a PDF, or when it can't be read from disk.
+     *
+     * @return array<int, array<string, mixed>>|null
+     */
+    private function buildContentBlocks(UploadedFile $file): ?array
+    {
+        if ($this->isImage($file)) {
+            $ext = strtolower($file->getClientOriginalExtension());
+            $blockType = 'image';
+            $mediaType = self::IMAGE_MEDIA[$ext] ?? 'image/jpeg';
+        } elseif ($this->isPdf($file)) {
+            $blockType = 'document';
+            $mediaType = 'application/pdf';
+        } else {
+            return null;
+        }
+
+        $bytes = @file_get_contents($file->getRealPath());
+        if ($bytes === false || $bytes === '') {
+            return null;
+        }
+
+        return [
+            [
+                'type' => $blockType,
+                'source' => ['type' => 'base64', 'media_type' => $mediaType, 'data' => base64_encode($bytes)],
+            ],
+            ['type' => 'text', 'text' => 'Baca scoresheet dalam fail ini dan ekstrak pertandingan DUN (negeri) mengikut arahan sistem. Balas JSON sahaja.'],
+        ];
     }
 
     /** Fallback for PDFs: extract the text layer and read that instead. */
@@ -307,5 +333,157 @@ class ScoresheetExtractor
             'source' => 'ai',
             'contest' => trim((string) ($json['contest'] ?? '')) ?: null,
         ];
+    }
+
+    /**
+     * Prompt kedua: kekalkan Pusat Mengundi + Saluran (lajur 3 & 4) yang SYSTEM sengaja buang.
+     * Borang SPR 760 Pin. 1/99 susunan lajur kiri -> kanan:
+     *   Bil | No. Kod Daerah Mengundi | Nama Pusat Mengundi | No. Tempat Mengundi (Saluran)
+     *   | Jumlah kertas undi dalam peti (A) | [satu lajur per CALON] | Jumlah undian oleh pemilih
+     *   | Bilangan kertas undi ditolak (C) | Jumlah kertas undi tidak dimasukkan ke peti (D)
+     */
+    private const SYSTEM_DETAILED = <<<'TXT'
+You read Malaysian SPR "HELAIAN MATA (SCORE SHEET)", Borang SPR 760, and return JSON only.
+
+COLUMN ORDER (left to right, fixed):
+  Bil | No. Kod Daerah Mengundi | Nama Pusat Mengundi | No. Tempat Mengundi (Saluran)
+  | Jumlah kertas undi yang patut berada di dalam peti undi (A)
+  | one column PER CANDIDATE under "Bilangan undian oleh pemilih bagi setiap orang calon"
+  | Jumlah undian oleh pemilih | Bilangan kertas undi yang ditolak (C)
+  | Jumlah kertas undi ... tidak dimasukkan ke dalam peti undi (D)
+
+RULES:
+1. PRESERVE "Nama Pusat Mengundi" and "No. Tempat Mengundi (Saluran)" on EVERY row.
+   Do NOT aggregate per Daerah Mengundi. One JSON row per saluran row on the sheet.
+2. "undi" is a POSITIONAL ARRAY aligned to "calon" left-to-right. Never reorder, merge,
+   skip, or shift a column — not even when a small 3-digit value sits between larger ones.
+   The count of numbers in "undi" MUST equal the count of entries in "calon" on every row.
+3. Rows before the "UNDI BIASA" section header (e.g. "UNDI POS", "UNDI AWAL") have no
+   Pusat Mengundi and no Saluran. Emit them as {"pusat":"","saluran":"UNDI POS"} etc.
+   Only emit a row that actually appears — never fabricate a missing UNDI AWAL/POS row.
+4. Candidate columns are headed by a PERSON'S NAME with a party LOGO IMAGE. Set
+   "parti_tekaan" only if the coalition is unambiguous from visible text; otherwise null
+   with "yakin": false. Never guess from the candidate's name.
+5. "jumlah_pemilih" is the "JUMLAH PEMILIH" figure at the TOP of the sheet. It is NOT
+   column (A). There is NO registered-voter ("berdaftar") figure per saluran — never invent one.
+6. IGNORE diagonal watermarks ("DRAFT", "JPRP") and footer text.
+7. Copy every number verbatim. Never compute, estimate, or invent.
+8. Read the seat from the header: "BAHAGIAN PILIHAN RAYA NEGERI : N.15 JUASSEH" ->
+   kawasan_kod "N.15", kawasan_nama "JUASSEH". Kod DM "129 / 15 / 01" encodes
+   Parlimen 129 / DUN 15 / DM 01 -> parlimen_kod "129".
+
+Return ONLY this JSON:
+{"negeri":str,"kawasan_kod":str,"kawasan_nama":str,"parlimen_kod":str|null,
+ "jumlah_pemilih":int,
+ "calon":[{"nama":str,"parti_tekaan":str|null,"yakin":bool}],
+ "rows":[{"dm_kod":str|null,"dm":str|null,"pusat":str,"saluran":str,
+          "a":int,"undi":[int],"jumlah_undian":int,"ditolak":int,"tidak_dimasukkan":int}],
+ "jumlah":{"a":int,"undi":[int],"jumlah_undian":int,"ditolak":int,"tidak_dimasukkan":int}}
+TXT;
+
+    /**
+     * Baca scoresheet dengan mengekalkan Pusat Mengundi + Saluran.
+     * Guna semula penghantaran media milik extract() — PDF/imej dihantar native ke Claude.
+     */
+    public function extractDetailed(UploadedFile $file): array
+    {
+        $content = $this->buildContentBlocks($file);   // kaedah sedia ada yang dipakai extract()
+        if ($content === null) {
+            return ['ok' => false, 'data' => null, 'error' => 'Format fail tidak disokong.'];
+        }
+
+        $res = $this->claude->chat(
+            self::SYSTEM_DETAILED,
+            $content,
+            maxTokens: 8000,
+            timeout: 180,
+            context: 'scoresheet_extract_detailed',
+            model: $this->claude->documentModel(),
+        );
+
+        if (! ($res['ok'] ?? false)) {
+            return ['ok' => false, 'data' => null, 'error' => $res['error'] ?? 'Bacaan AI gagal.'];
+        }
+
+        $data = $this->claude->extractJson($res['content'] ?? '');
+        if (! is_array($data) || empty($data['rows'])) {
+            return ['ok' => false, 'data' => null, 'error' => 'AI tidak memulangkan baris yang sah.'];
+        }
+
+        return ['ok' => true, 'data' => $data, 'error' => null];
+    }
+
+    /**
+     * Silang-semak setiap baris (dan baris JUMLAH/grand-total) terhadap TIGA peraturan:
+     *
+     *   - calon_count:    count(undi) == count(calon) — `undi` ialah ARRAY POSISI yang
+     *                      MESTI selaras 1-ke-1 dengan senarai `calon`; ketidakpadanan
+     *                      bilangan ialah tanda pasti lajur calon tersalah jajar/hilang.
+     *   - jumlah_undian:  jumlah_undian == sum(undi) — jumlah setiap baris mesti sama
+     *                      dengan jumlah nilai undi bagi baris itu.
+     *   - balance:        (A) == sum(undi) + ditolak + tidak_dimasukkan.
+     *                      Disahkan pada sheet Juasseh sebenar: 4471+4549+87+15 == 9122.
+     *
+     * @return array<int, array{rule:string, index:int|string, pusat:string, saluran:string,
+     *                           jangka?:int, dapat?:int, expected?:int, actual?:int}>
+     */
+    public static function validateBalance(array $data): array
+    {
+        $bad = [];
+        $expectedCalon = count($data['calon'] ?? []);
+
+        $check = function ($r, $index) use (&$bad, $expectedCalon) {
+            $undi = $r['undi'] ?? [];
+            $pusat = (string) ($r['pusat'] ?? '');
+            $saluran = (string) ($r['saluran'] ?? '');
+
+            $actualCalon = count($undi);
+            if ($actualCalon !== $expectedCalon) {
+                $bad[] = [
+                    'rule' => 'calon_count',
+                    'index' => $index,
+                    'pusat' => $pusat,
+                    'saluran' => $saluran,
+                    'expected' => $expectedCalon,
+                    'actual' => $actualCalon,
+                ];
+            }
+
+            $sumUndi = array_sum($undi);
+            $jumlahUndian = (int) ($r['jumlah_undian'] ?? 0);
+            if ($jumlahUndian !== $sumUndi) {
+                $bad[] = [
+                    'rule' => 'jumlah_undian',
+                    'index' => $index,
+                    'pusat' => $pusat,
+                    'saluran' => $saluran,
+                    'jangka' => $sumUndi,
+                    'dapat' => $jumlahUndian,
+                ];
+            }
+
+            $jangka = $sumUndi + (int) ($r['ditolak'] ?? 0) + (int) ($r['tidak_dimasukkan'] ?? 0);
+            $dapat = (int) ($r['a'] ?? 0);
+            if ($jangka !== $dapat) {
+                $bad[] = [
+                    'rule' => 'balance',
+                    'index' => $index,
+                    'pusat' => $pusat,
+                    'saluran' => $saluran,
+                    'jangka' => $jangka,
+                    'dapat' => $dapat,
+                ];
+            }
+        };
+
+        foreach (($data['rows'] ?? []) as $i => $r) {
+            $check($r, $i);
+        }
+
+        if (! empty($data['jumlah'])) {
+            $check($data['jumlah'], 'jumlah');
+        }
+
+        return $bad;
     }
 }

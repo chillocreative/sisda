@@ -26,4 +26,9 @@ class Bandar extends Model
     {
         return $this->hasMany(Kadun::class);
     }
+
+    public function daerahMengundi()
+    {
+        return $this->hasMany(DaerahMengundi::class);
+    }
 }

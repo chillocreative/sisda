@@ -1,0 +1,22 @@
+{
+  "negeri": "NEGERI SEMBILAN",
+  "kawasan_kod": "N.15",
+  "kawasan_nama": "JUASSEH",
+  "parlimen_kod": "129",
+  "jumlah_pemilih": 13408,
+  "calon": [
+    { "nama": "EDDIN SYAZLEE BIN SHITH", "parti_tekaan": "PN", "yakin": true },
+    { "nama": "PUAN SRI BIBI SHARLIZA", "parti_tekaan": null, "yakin": false }
+  ],
+  "rows": [
+    { "dm_kod": null, "dm": null, "pusat": "", "saluran": "UNDI POS",
+      "a": 203, "undi": [98, 73], "jumlah_undian": 171, "ditolak": 18, "tidak_dimasukkan": 14 },
+    { "dm_kod": "129/15/01", "dm": "KAMPONG TENGKEK", "pusat": "SEKOLAH KEBANGSAAN TENGKEK",
+      "saluran": "1", "a": 127, "undi": [48, 76], "jumlah_undian": 124, "ditolak": 3, "tidak_dimasukkan": 0 },
+    { "dm_kod": "129/15/01", "dm": "KAMPONG TENGKEK", "pusat": "SEKOLAH KEBANGSAAN TENGKEK",
+      "saluran": "2", "a": 211, "undi": [102, 108], "jumlah_undian": 210, "ditolak": 1, "tidak_dimasukkan": 0 },
+    { "dm_kod": "129/15/09", "dm": "PEKAN JUASSEH", "pusat": "SEKOLAH KEBANGSAAN PUSAT JUASSEH",
+      "saluran": "2", "a": 170, "undi": [65, 103], "jumlah_undian": 168, "ditolak": 1, "tidak_dimasukkan": 1 }
+  ],
+  "jumlah": { "a": 9122, "undi": [4471, 4549], "jumlah_undian": 9020, "ditolak": 87, "tidak_dimasukkan": 15 }
+}
