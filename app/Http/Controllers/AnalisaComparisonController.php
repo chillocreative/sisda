@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\AnalisaComparison;
 use App\Models\AnalisaScenario;
 use App\Models\Bandar;
+use App\Models\Borang14Form;
 use App\Models\Kadun;
+use App\Services\Pilihanraya\Borang14ScenarioMapper;
 use App\Services\Pilihanraya\ElectionComparisonService;
 use App\Services\Pilihanraya\ScoresheetExtractor;
 use App\Support\Pdf;
@@ -117,6 +119,64 @@ class AnalisaComparisonController extends Controller
         return response()->json(['comparison' => $this->comparisonPayload($comparison->fresh())]);
     }
 
+    /** Borang 14 yang layak untuk kerusi comparison ini. */
+    public function borang14Tersedia(AnalisaComparison $comparison)
+    {
+        $forms = $this->formsForComparison($comparison)
+            ->orderByDesc('tahun')->orderBy('jenis_pr')
+            ->get()
+            ->map(fn (Borang14Form $f) => [
+                'id' => $f->id,
+                'label' => mb_strtoupper($f->jenis_pr).' '.$f->tahun,
+                'tahun' => $f->tahun,
+                'jenis_pr' => $f->jenis_pr,
+                'status' => $f->status,
+                'penjuru' => $f->penjuru,
+                // Borang tanpa nama parti tidak boleh dipeta — tandakan supaya user tahu.
+                'sedia' => collect($f->parties ?? [])->contains(fn ($p) => trim((string) ($p['nama'] ?? '')) !== ''),
+            ]);
+
+        return response()->json(['forms' => $forms]);
+    }
+
+    public function storeScenarioFromBorang14(Request $request, AnalisaComparison $comparison, Borang14ScenarioMapper $mapper)
+    {
+        $data = $request->validate(['form_id' => 'required|integer|exists:borang14_forms,id']);
+
+        if ($comparison->scenarios()->count() >= 3) {
+            return response()->json(['message' => 'Maksimum 3 senario setiap perbandingan.'], 422);
+        }
+
+        // Kerusi mesti padan — jangan bergantung pada tapisan frontend sahaja.
+        $form = $this->formsForComparison($comparison)->where('borang14_forms.id', $data['form_id'])->first();
+        if (! $form) {
+            return response()->json(['message' => 'Borang 14 ini bukan untuk kawasan perbandingan ini.'], 422);
+        }
+
+        try {
+            $mapped = $mapper->map($form);
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        $position = (int) $comparison->scenarios()->max('position') + 1;
+
+        $comparison->scenarios()->create([
+            'position' => $position,
+            'label' => mb_strtoupper($form->jenis_pr).' '.$form->tahun,
+            // Borang 14 simpan tahun sahaja. 1 Jan menjaga isihan; UI papar label, bukan tarikh ini.
+            'election_date' => $form->tahun.'-01-01',
+            'source_filename' => 'Borang 14 — '.mb_strtoupper($form->jenis_pr).' '.$form->tahun,
+            'parsed_rows' => $mapped['rows'],
+            'parsed_totals' => $mapped['totals'],
+            'row_count' => count($mapped['rows']),
+        ]);
+
+        $comparison->update(['status' => 'draft']);
+
+        return response()->json(['comparison' => $this->comparisonPayload($comparison->fresh('scenarios'))]);
+    }
+
     public function destroyScenario(AnalisaComparison $comparison, AnalisaScenario $scenario)
     {
         abort_unless($scenario->analisa_comparison_id === $comparison->id, 404);
@@ -153,6 +213,14 @@ class AnalisaComparisonController extends Controller
             'result' => ElectionComparisonService::sanitizeComparison($comparison->ai_result),
             'facts' => $comparison->fact_payload ?? [],
         ], 'analisa-perbandingan-'.$comparison->id.'.pdf', 'a4', 'portrait');
+    }
+
+    /** Query borang yang sejajar dengan kerusi comparison. */
+    private function formsForComparison(AnalisaComparison $comparison)
+    {
+        return $comparison->level === 'parlimen'
+            ? Borang14Form::forKawasan(Borang14Form::KAWASAN_PARLIMEN, (int) $comparison->bandar_id)
+            : Borang14Form::forKawasan(Borang14Form::KAWASAN_DUN, (int) $comparison->kadun_id);
     }
 
     /* ----------------------------------------------------------------
