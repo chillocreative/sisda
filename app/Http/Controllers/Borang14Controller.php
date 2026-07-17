@@ -98,12 +98,42 @@ class Borang14Controller extends Controller
             $reference = $this->referenceFromStructure($form->structure, $form->kawasan());
         }
 
+        // On counting night for a NEW election there IS no scoresheet — it's the
+        // OUTPUT, not the input — so a brand-new (kawasan, jenis_pr, tahun) has
+        // neither a curated reference nor a structure of its own. Pusat Mengundi
+        // & Saluran are essentially stable between elections, so inherit them
+        // from the most recent OTHER election of the SAME seat rather than
+        // showing "belum tersedia" for something that's really just missing a
+        // scoresheet. Curated JSON / DPT (above) and this election's own
+        // structure (above) both still win over this — inheritance is the LAST
+        // resort. Votes are never inherited: $votes below is read only from
+        // $form (this election's own row), which stays null/empty here.
+        $inheritedFrom = null;
+        if (! $reference) {
+            $sourceForm = Borang14Form::forKawasan($kawasanType, $kawasanId)
+                ->whereNotNull('structure')
+                ->when($form, fn ($q) => $q->where('id', '!=', $form->id))
+                // Tie-break: most recently CREATED row wins among same-tahun
+                // duplicates (e.g. a PRN and a PRK both held in the same year
+                // for the same seat) — the newer upload is more likely to
+                // reflect the seat's current channel layout than an older one
+                // entered earlier that year.
+                ->orderByDesc('tahun')
+                ->orderByDesc('created_at')
+                ->first();
+
+            if ($sourceForm) {
+                $reference = $this->referenceFromStructure($sourceForm->structure, $sourceForm->kawasan());
+                $inheritedFrom = ['tahun' => $sourceForm->tahun, 'jenis_pr' => $sourceForm->jenis_pr];
+            }
+        }
+
         $votes = $form
             ? $form->votes()->get(['pusat', 'saluran', 'slot', 'undi'])
                 ->mapWithKeys(fn ($v) => [$this->cellKey($v->pusat, $v->saluran, $v->slot) => $v->undi])
             : collect();
 
-        return response()->json([
+        $payload = [
             'reference' => $reference,
             'hasData'   => $reference !== null,
             'parties'   => $form->parties ?? [],
@@ -120,7 +150,17 @@ class Borang14Controller extends Controller
                 ['kawasan_type' => $kawasanType, 'kawasan_id' => $kawasanId, 'jenis_pr' => $jenisPr, 'tahun' => $tahun],
                 $this->resolveIds($kawasanType, $kawasanId),
             ),
-        ]);
+        ];
+
+        // Deliberately OMITTED (not merely null) when nothing was inherited —
+        // an inherited structure must be visible, never silent, but the key's
+        // very presence is also how the frontend decides whether to render the
+        // "diwarisi" notice at all.
+        if ($inheritedFrom) {
+            $payload['inherited_from'] = $inheritedFrom;
+        }
+
+        return response()->json($payload);
     }
 
     /** Persist the chosen party names for a (kawasan, jenis PR, tahun) scenario. */
