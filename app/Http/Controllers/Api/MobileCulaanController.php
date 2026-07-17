@@ -10,6 +10,7 @@ use App\Models\HasilCulaan;
 use App\Services\CulaanPayloadNormalizer;
 use App\Services\VoterDataMasker;
 use App\Services\VoterSyncService;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 
@@ -70,13 +71,32 @@ class MobileCulaanController extends Controller
 
         // The create fans out through VoterSyncService across two tables.
         // CLAUDE.md flags the HTTP layer as transaction-free; this path is not.
-        $record = DB::transaction(function () use ($payload) {
-            $record = HasilCulaan::create($payload);
-            EditHistory::log('hasil_culaan', $record->id, 'created (mobile)');
-            VoterSyncService::syncFromHasilCulaan($record->fresh());
+        try {
+            $record = DB::transaction(function () use ($payload) {
+                $record = HasilCulaan::create($payload);
+                EditHistory::log('hasil_culaan', $record->id, 'created (mobile)');
+                VoterSyncService::syncFromHasilCulaan($record->fresh());
 
-            return $record;
-        });
+                return $record;
+            });
+        } catch (QueryException $e) {
+            // Backstop for the check-then-act race: two requests carrying the
+            // same key both passed the lookup above before either had
+            // written, and the loser hits hasil_culaan's unique index on
+            // idempotency_key. Rather than surface that as a 500 the client
+            // cannot act on, treat it exactly like an ordinary replay and
+            // return whichever row actually won. Any other integrity
+            // violation is a real bug and must still surface.
+            $winner = HasilCulaan::where('idempotency_key', $payload['idempotency_key'])->first();
+            if (! $winner) {
+                throw $e;
+            }
+
+            return response()->json([
+                'success' => true,
+                'culaan' => ['id' => $winner->id, 'no_ic' => $winner->no_ic],
+            ], 201);
+        }
 
         return response()->json([
             'success' => true,
