@@ -143,4 +143,40 @@ class AnalisaBorang14ScenarioTest extends TestCase
             ])
             ->assertStatus(422);
     }
+
+    public function test_borang14_and_upload_scenarios_coexist(): void
+    {
+        [, $bandar, $kadun] = $this->seedSeat();
+        $form = $this->form($kadun);
+        $c = $this->comparison($bandar, $kadun);
+
+        // senario dari Borang 14
+        $this->actingAs($this->user())
+            ->postJson(route('pilihanraya.analisa.comparisons.scenarios.borang14', $c), ['form_id' => $form->id])
+            ->assertOk();
+
+        // senario "upload" dibina terus dengan bentuk yang sama
+        $c->scenarios()->create([
+            'position' => 2, 'label' => 'PRN 2018', 'election_date' => '2018-05-09',
+            'source_filename' => 'upload.xlsx',
+            'parsed_rows' => [['kawasan' => 'KAMPONG TENGKEK', 'pemilih' => 2000,
+                               'keluar' => 1500, 'ditolak' => 10,
+                               'undi' => ['PERIKATAN NASIONAL' => 700, 'PAKATAN HARAPAN' => 790]]],
+            'parsed_totals' => ['pemilih' => 2000, 'keluar' => 1500, 'ditolak' => 10,
+                                'undi' => ['PERIKATAN NASIONAL' => 700, 'PAKATAN HARAPAN' => 790],
+                                'parties' => ['PERIKATAN NASIONAL', 'PAKATAN HARAPAN']],
+            'row_count' => 1,
+        ]);
+
+        // Kedua-duanya mesti berbentuk serasi untuk ElectionComparisonService.
+        $this->assertSame(2, $c->scenarios()->count());
+        foreach ($c->fresh('scenarios')->scenarios as $s) {
+            $this->assertArrayHasKey('undi', $s->parsed_totals);
+            $this->assertArrayHasKey('parties', $s->parsed_totals);
+            foreach ($s->parsed_rows as $r) {
+                $this->assertArrayHasKey('kawasan', $r);
+                $this->assertArrayHasKey('undi', $r);
+            }
+        }
+    }
 }
