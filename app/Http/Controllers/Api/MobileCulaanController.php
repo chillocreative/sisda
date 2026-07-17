@@ -53,10 +53,28 @@ class MobileCulaanController extends Controller
         $payload = CulaanPayloadNormalizer::normalize($validated);
         $payload['submitted_by'] = $user->id;
         $payload['sumber'] = 'mobile';
-        // Mirrors ReportsController.php:455 exactly, including how
-        // VoterColorService::determine() handles absent inputs (never
-        // coerced here — "unknown is not zero").
-        $payload['voter_color'] = VoterColorService::determine($payload['keahlian_parti'] ?? null, $payload['kecenderungan_politik'] ?? null);
+        // Compute voter_color ONLY when this submission actually carries
+        // political signal. VoterColorService::determine(null, null)
+        // returns a definite 'kelabu' — it answers "what does THIS
+        // submission's signal classify as", not "did this submission
+        // mention politics at all". keahlian_parti/kecenderungan_politik
+        // are plain `nullable` here (unlike the web form's
+        // has_sumbangan=false branch, which never reaches
+        // syncFromHasilCulaan() at all — see ReportsController.php:465), so
+        // mobile routinely omits both. Setting $payload['voter_color']
+        // unconditionally would put it in getAttributes() on every
+        // create(), and VoterSyncService::extract()'s array_key_exists()
+        // gate (see the ->fresh() comment below) propagates anything
+        // present there — so a submission that said nothing about politics
+        // would overwrite a known 'hitam'/'putih' voter_color with 'kelabu'
+        // on the existing data_pengundi row. Leaving the key unset means
+        // the new hasil_culaan row gets voter_color = NULL, which is
+        // honest: this submission recorded no political signal. When there
+        // IS signal (at least one of the two fields present), this mirrors
+        // ReportsController.php:455 exactly.
+        if (($payload['keahlian_parti'] ?? null) !== null || ($payload['kecenderungan_politik'] ?? null) !== null) {
+            $payload['voter_color'] = VoterColorService::determine($payload['keahlian_parti'] ?? null, $payload['kecenderungan_politik'] ?? null);
+        }
 
         // The create fans out through VoterSyncService across two tables.
         // CLAUDE.md flags the HTTP layer as transaction-free; this path is not.

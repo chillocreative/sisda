@@ -994,6 +994,13 @@ class MobileCulaanStoreTest extends TestCase
      *
      * Mutation-check: restoring ->fresh() in MobileCulaanController::store()
      * makes this test fail (every asserted field reverts to null/false).
+     *
+     * voter_color is asserted here too (added alongside the fix for the
+     * regression BLOCKER 2's own fix reintroduced — see the class docblock
+     * above test_a_minimal_submission_does_not_overwrite_an_existing_voter_color_with_kelabu()
+     * for the full story). This was the one seeded field the original
+     * version of this test did not assert, which is exactly why that
+     * regression shipped without failing any test.
      */
     public function test_a_minimal_mobile_submission_does_not_wipe_an_existing_enriched_voter_record(): void
     {
@@ -1029,6 +1036,58 @@ class MobileCulaanStoreTest extends TestCase
         $this->assertSame('LOKALITI SATU', $voter->lokaliti, 'lokaliti must survive a minimal submission.');
         $this->assertSame('Nota penting', $voter->nota, 'nota must survive a minimal submission.');
         $this->assertTrue($voter->is_deceased, 'is_deceased must NOT be silently reset to false — that resurrects a deceased voter.');
+        $this->assertSame('hitam', $voter->voter_color, 'voter_color must survive a minimal submission, not be overwritten with a definite "kelabu" the submission never claimed.');
+    }
+
+    /**
+     * Regression test for the bug B2's OWN fix reintroduced: computing
+     * voter_color unconditionally before create() means it is always
+     * present in getAttributes(), so VoterSyncService::extract()'s
+     * array_key_exists() gate (see the ->fresh() docblock above) always
+     * propagates it — even though this specific submission never mentioned
+     * politics. VoterColorService::determine(null, null) returns a definite
+     * 'kelabu', not "no data", so an omitted political field was silently
+     * downgrading a known BN voter ('hitam') to "undecided" — exactly the
+     * "unknown is not zero" violation CLAUDE.md warns about, just reached
+     * through a different field than usual.
+     *
+     * Fix: only set $payload['voter_color'] when at least one of
+     * keahlian_parti/kecenderungan_politik is actually present in this
+     * submission. When both are absent, the key is left unset entirely, so
+     * it never enters getAttributes() and never propagates.
+     *
+     * Mutation-check: making the injection unconditional again (i.e.
+     * reverting to always computing voter_color) makes this test fail —
+     * $voter->voter_color reverts from 'hitam' to 'kelabu'.
+     */
+    public function test_a_minimal_submission_does_not_overwrite_an_existing_voter_color_with_kelabu(): void
+    {
+        Sanctum::actingAs($this->makeUser());
+
+        DataPengundi::factory()->create([
+            'no_ic' => '800101015555',
+            'kadun' => 'BULOH KASAP',
+            'parlimen' => 'SEGAMAT',
+            'voter_color' => 'hitam',
+            'keahlian_parti' => 'UMNO',
+            'kecenderungan_politik' => 'BN',
+        ]);
+
+        // No keahlian_parti/kecenderungan_politik sent at all.
+        $this->postJson('/api/mobile/culaan', $this->payload())
+            ->assertStatus(201)
+            ->assertJsonPath('success', true);
+
+        $voter = DataPengundi::where('no_ic', '800101015555')->firstOrFail();
+        $this->assertSame('hitam', $voter->voter_color, 'A minimal submission with no political signal must not overwrite a known voter_color with a definite "kelabu".');
+
+        // The new hasil_culaan row itself should honestly record NO signal
+        // (null), rather than a fabricated 'kelabu' classification for a
+        // submission that never mentioned politics.
+        $this->assertDatabaseHas('hasil_culaan', [
+            'no_ic' => '800101015555',
+            'voter_color' => null,
+        ]);
     }
 
     /**
@@ -1067,27 +1126,38 @@ class MobileCulaanStoreTest extends TestCase
     }
 
     /**
-     * BLOCKER 2 continued: the null-input case must match
-     * VoterColorService::determine()'s actual, defined behaviour for absent
-     * inputs (both classifyParti(null) and classifyKecenderungan(null)
-     * return 'kelabu', and neither branch is 'hitam' or 'putih', so
-     * determine(null, null) === 'kelabu') — NOT coerced to null or left
-     * unset. This is "unknown is not zero" cutting the other way: the
-     * server-computed classification itself has a defined value for
-     * "no signal", distinct from the column being genuinely absent.
+     * BLOCKER 2 continued, revised after the follow-up fix below: this test
+     * originally asserted that an absent-political-fields submission stored
+     * a computed 'kelabu' on hasil_culaan, on the theory that
+     * VoterColorService::determine(null, null) === 'kelabu' is the "correct"
+     * classification for no signal. That theory was itself the bug —
+     * 'kelabu' is a DEFINITE claim ("this voter looks undecided"), not "we
+     * don't know". Because voter_color was set unconditionally, it always
+     * entered getAttributes() and always propagated via
+     * VoterSyncService::extract(), so a minimal submission for an IC with a
+     * KNOWN voter_color silently overwrote it with 'kelabu' — see
+     * test_a_minimal_submission_does_not_overwrite_an_existing_voter_color_with_kelabu()
+     * above for the regression this caused and its fix.
+     *
+     * With that fix, a submission carrying no political signal at all does
+     * not set voter_color on the payload, so the new hasil_culaan row gets
+     * NULL — honestly recording "this submission said nothing about
+     * politics" rather than fabricating a classification. determine(null,
+     * null) is still 'kelabu' as a function (asserted below for sanity),
+     * but the controller no longer calls it in this case.
      */
     public function test_voter_color_for_absent_political_fields_matches_determine_nulls_behaviour(): void
     {
         Sanctum::actingAs($this->makeUser());
 
         $expected = \App\Services\VoterColorService::determine(null, null);
-        $this->assertSame('kelabu', $expected, "Sanity: determine()'s actual behaviour for absent inputs.");
+        $this->assertSame('kelabu', $expected, "Sanity: determine()'s actual behaviour for absent inputs — unchanged by the controller fix, since determine() itself is not touched.");
 
         $this->postJson('/api/mobile/culaan', $this->payload())->assertStatus(201);
 
         $this->assertDatabaseHas('hasil_culaan', [
             'no_ic' => '800101015555',
-            'voter_color' => 'kelabu',
+            'voter_color' => null,
         ]);
     }
 }

@@ -486,19 +486,53 @@ Ditulis di dalam `DB::transaction()` — `HasilCulaan::create()`,
 menyebar medan kongsi ke `data_pengundi`) semuanya atau tiada langsung.
 
 **Penting — skop penyebaran:** setiap penyerahan hanya menyebar medan yang
-**benar-benar dihantarnya**. `VoterSyncService::extract()` menyalin satu
-medan kongsi hanya jika medan itu wujud pada `getAttributes()` rekod
-`HasilCulaan` yang baru dicipta — iaitu tepat apa yang dihantar oleh
-permintaan tersebut, bukan setiap lajur dalam jadual. Medan yang tidak
-dihantar (contohnya `keahlian_parti`, `mpkk`, `nota`, `is_deceased`) kekal
-**tidak disentuh** pada baris `data_pengundi` sedia ada — ia TIDAK ditulis
-ganti dengan `NULL`/`false`. Ini disengajakan: laluan cipta ini memadankan
-laluan web (`ReportsController.php:460`), yang menghantar rekod yang baru
-dicipta terus ke `VoterSyncService::syncFromHasilCulaan()` tanpa `->fresh()`.
-Jangan tambah `->fresh()` di sini — itu akan menyebabkan setiap medan kongsi
-(kebanyakannya `NULL` pada penyerahan minimum) ditulis ganti ke atas rekod
-pengundi sedia ada, termasuk memulihkan semula (`is_deceased` -> `false`)
-seorang pengundi yang telah ditanda meninggal dunia.
+**wujud pada payload yang dihantar ke `HasilCulaan::create()`**, bukan setiap
+lajur dalam jadual. `VoterSyncService::extract()` menyalin satu medan kongsi
+hanya jika medan itu wujud pada `getAttributes()` rekod `HasilCulaan` yang
+baru dicipta. Medan yang tidak dihantar oleh klien (contohnya `mpkk`, `nota`,
+`is_deceased`) kekal **tidak disentuh** pada baris `data_pengundi` sedia ada —
+ia TIDAK ditulis ganti dengan `NULL`/`false`. Ini disengajakan: laluan cipta
+ini memadankan laluan web (`ReportsController.php:460`), yang menghantar
+rekod yang baru dicipta terus ke `VoterSyncService::syncFromHasilCulaan()`
+tanpa `->fresh()`. Jangan tambah `->fresh()` di sini — itu akan menyebabkan
+setiap medan kongsi (kebanyakannya `NULL` pada penyerahan minimum) ditulis
+ganti ke atas rekod pengundi sedia ada, termasuk memulihkan semula
+(`is_deceased` -> `false`) seorang pengundi yang telah ditanda meninggal
+dunia.
+
+**`voter_color` ialah pengecualian — ia dikira oleh SERVER, bukan medan yang
+klien hantar.** `keahlian_parti`/`kecenderungan_politik` sendiri memang
+menyebar mengikut peraturan di atas (disebar hanya jika dihantar). Tetapi
+`voter_color` **tidak pernah** berasal dari `$validated` — ia dikira dalam
+controller melalui `VoterColorService::determine($keahlian_parti,
+$kecenderungan_politik)` sebelum `HasilCulaan::create()` dipanggil, meniru
+`ReportsController.php:455`. Klien **tidak sepatutnya menghantar
+`voter_color` langsung** — medan ini bukan sebahagian daripada
+`StoreMobileCulaanRequest::rules()` dan sebarang nilai yang dihantar akan
+diabaikan.
+
+Pengiraan ini **bersyarat**, bukan tanpa syarat: controller hanya menetapkan
+`voter_color` pada payload apabila sekurang-kurangnya SATU daripada
+`keahlian_parti`/`kecenderungan_politik` benar-benar hadir dalam penyerahan
+ini. Sebabnya: `VoterColorService::determine(null, null)` memulangkan
+`'kelabu'` — satu **dakwaan pasti** ("pengundi ini kelihatan belum
+menentukan pilihan"), bukan "tiada data". Jika `voter_color` dikira tanpa
+syarat, ia akan sentiasa wujud pada `getAttributes()` dan sentiasa disebar
+oleh `VoterSyncService::extract()` — walaupun penyerahan itu langsung tidak
+menyebut politik — lalu menulis ganti `voter_color` pengundi yang sudah
+diketahui (cth. `'hitam'`) dengan `'kelabu'` yang tidak berasas.
+
+Kesan praktikal untuk klien:
+
+- **Menghantar sekurang-kurangnya satu medan politik** -> `voter_color`
+  dikira dan disimpan pada kedua-dua `hasil_culaan` dan (melalui penyebaran
+  biasa) `data_pengundi`, sama seperti laluan web.
+- **Meninggalkan KEDUA-DUA medan politik kosong** -> `voter_color` TIDAK
+  ditetapkan pada payload langsung. Baris `hasil_culaan` baharu itu sendiri
+  menyimpan `voter_color = NULL` (jujur — penyerahan ini tidak merekodkan
+  sebarang isyarat politik), DAN `voter_color` sedia ada pada baris
+  `data_pengundi` pengundi itu (jika ada) **kekal tidak disentuh** — bukan
+  ditulis ganti dengan `'kelabu'`.
 
 ### Request body
 
