@@ -289,7 +289,6 @@ Route::middleware('auth')->group(function () {
 
     // Debug: test Lokaliti API directly
     Route::get('/debug-lokaliti', function (\Illuminate\Http\Request $request) {
-        abort_unless(auth()->user()->isSuperAdmin(), 403);
         $dm = $request->input('dm', 'BERTAM PERDANA');
         $messages = [];
         $messages[] = "Looking up DM: '{$dm}'";
@@ -324,7 +323,6 @@ Route::middleware('auth')->group(function () {
 
     // Diagnostic: check Lokaliti linkage for a DM
     Route::get('/check-lokaliti', function () {
-        abort_unless(auth()->user()->isSuperAdmin(), 403);
         set_time_limit(0);
         $messages = [];
 
