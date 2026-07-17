@@ -533,8 +533,12 @@ Route::prefix('api/mobile')->withoutMiddleware([\Illuminate\Foundation\Http\Midd
     Route::post('/logout', [\App\Http\Controllers\Api\MobileAuthController::class, 'logout'])->middleware('auth:sanctum');
 
     Route::middleware('auth:sanctum')->group(function () {
-        Route::get('/voters/search', [\App\Http\Controllers\Api\MobileVoterController::class, 'search']);
-        Route::get('/voters/{ic}', [\App\Http\Controllers\Api\MobileVoterController::class, 'show']);
+        // throttle:30,1 — generous enough for normal field-app lookups (an
+        // agent scanning/typing repeatedly) while bounding the brute-force
+        // IC oracle (Finding 2) and wildcard-enumeration (Finding 5) attempts
+        // any single caller can make per minute.
+        Route::get('/voters/search', [\App\Http\Controllers\Api\MobileVoterController::class, 'search'])->middleware('throttle:30,1');
+        Route::get('/voters/{ic}', [\App\Http\Controllers\Api\MobileVoterController::class, 'show'])->middleware('throttle:30,1');
     });
 });
 
