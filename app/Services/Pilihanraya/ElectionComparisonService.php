@@ -32,7 +32,10 @@ class ElectionComparisonService
         .'CRITICAL NUMBER RULE: every number in your output MUST come verbatim from the supplied `fakta` payload, or '
         .'be a simple percentage/difference derivable from two supplied numbers. NEVER estimate, recall, or search the '
         .'web for vote counts, electorate sizes, turnout, or any figure about this seat — the payload is the sole '
-        .'numeric ground truth. ';
+        .'numeric ground truth. '
+        .'Jika `pemilih_berdaftar` sesuatu senario bernilai null dalam `fakta`, ini bermakna angka itu TIDAK TERSEDIA '
+        .'dalam scoresheet rasmi — JANGAN sekali-kali membuat sebarang dakwaan tentang peratus keluar mengundi atau '
+        .'perubahan bilangan pengundi berdaftar bagi senario tersebut. ';
 
     public function __construct(
         protected ClaudeService $claude,
@@ -209,7 +212,23 @@ class ElectionComparisonService
         $undi = collect($t['undi'] ?? [])->map(fn ($v) => (int) $v)->all();
         $parties = ! empty($t['parties']) ? array_values($t['parties']) : array_keys($undi);
 
-        $pemilih = (float) ($t['pemilih'] ?? 0);
+        // Unknown is NOT zero: an official SPR scoresheet genuinely omits the
+        // registered-voter count (column (A) is ballots in the box, not
+        // registrations), and Borang14ScenarioMapper::totalPemilih() returns
+        // null in that case. Coercing null to 0 here previously told the AI
+        // "registered voters: 0", which fabricated claims like a 100% drop —
+        // see deltas() below where that number actually gets produced.
+        //
+        // A `pemilih` of <= 0 is treated the SAME way, even though the value
+        // is technically "known" (not missing): tiada mana-mana kawasan
+        // mengundi sebenar mempunyai SIFAR pengundi berdaftar, jadi angka
+        // sifar (atau negatif) bukan fakta — ia tanda angka sebenar tidak
+        // diketahui. Ini menutup laluan terakhir untuk dakwaan "-100%" palsu
+        // jika AI menghantar `pemilih: 0` walaupun prompt mengarahkan `null`
+        // bagi angka yang tidak diketahui — sanitize() sepatutnya tidak
+        // sekali-kali mempercayai 0 sebagai angka pengundi berdaftar sebenar.
+        $pemilihRaw = $t['pemilih'] ?? null;
+        $pemilih = ($pemilihRaw !== null && (float) $pemilihRaw > 0) ? (float) $pemilihRaw : null;
         $ditolak = (float) ($t['ditolak'] ?? 0);
         $keluar = (float) ($t['keluar'] ?? 0);
         if ($keluar <= 0) {
@@ -234,7 +253,11 @@ class ElectionComparisonService
             ->take($truncated ? 15 : 100)
             ->map(fn ($r) => [
                 'kawasan' => $r['kawasan'] ?? ($r['dm'] ?? ''),
-                'pemilih' => (int) ($r['pemilih'] ?? 0),
+                // Sama seperti jumlah pemilih senario di atas: pemilih <= 0 bagi
+                // satu-satu kawasan mengundi bukan fakta sebenar — tiada kawasan
+                // mengundi sebenar berdaftar sifar — jadi ia dilayan sebagai
+                // tidak diketahui (null), bukan angka sahih.
+                'pemilih' => (isset($r['pemilih']) && (int) $r['pemilih'] > 0) ? (int) $r['pemilih'] : null,
                 'keluar' => (int) ($r['keluar'] ?? 0),
                 'undi' => collect($r['undi'] ?? [])->map(fn ($v) => (int) $v)->all(),
             ])->values()->all();
@@ -244,9 +267,9 @@ class ElectionComparisonService
             'tarikh' => $scenario->election_date?->format('Y-m-d'),
             'tahun' => $scenario->election_date?->format('Y'),
             'parti' => $parties,
-            'pemilih_berdaftar' => (int) $pemilih,
+            'pemilih_berdaftar' => $pemilih !== null ? (int) $pemilih : null,
             'undi_keluar' => (int) $keluar,
-            'peratus_keluar' => $pemilih > 0 ? round($keluar / $pemilih * 100, 1) : null,
+            'peratus_keluar' => ($pemilih !== null && $pemilih > 0) ? round($keluar / $pemilih * 100, 1) : null,
             'undi' => $undi,
             'peratus_undi' => $peratus,
             'pemenang' => $rankedKeys[0] ?? null,
@@ -263,7 +286,17 @@ class ElectionComparisonService
         for ($i = 1; $i < count($summaries); $i++) {
             $a = $summaries[$i - 1];
             $b = $summaries[$i];
-            $dPemilih = $b['pemilih_berdaftar'] - $a['pemilih_berdaftar'];
+            // Unknown pemilih_berdaftar on EITHER side means the delta is
+            // unknown too — never subtract against a coerced 0. This is
+            // exactly where the fabricated "-100%" turnout claim used to be
+            // produced when an unknown scenario's pemilih had been coerced
+            // to 0 upstream. scenarioSummary() now also collapses any
+            // pemilih <= 0 into null (sifar bukan angka sebenar), so by the
+            // time a summary reaches here, pemilih_berdaftar is guaranteed to
+            // be either null or a genuine positive count — never a stored 0.
+            $dPemilih = ($a['pemilih_berdaftar'] !== null && $b['pemilih_berdaftar'] !== null)
+                ? $b['pemilih_berdaftar'] - $a['pemilih_berdaftar']
+                : null;
 
             $parties = array_values(array_unique(array_merge($a['parti'] ?? [], $b['parti'] ?? [])));
             $ayun = [];
@@ -271,11 +304,19 @@ class ElectionComparisonService
                 $ayun[$p] = round(($b['peratus_undi'][$p] ?? 0) - ($a['peratus_undi'][$p] ?? 0), 1);
             }
 
+            // Peratusan hanya memerlukan $dPemilih !== null: sebaik sahaja
+            // scenarioSummary() memastikan pemilih_berdaftar bukan-null
+            // semestinya > 0 (sifar dilayan sebagai tidak diketahui di atas),
+            // pembahagi di sini tidak boleh lagi menjadi sifar — pengawal
+            // "> 0" yang lama (untuk elak bahagi-dengan-sifar terhadap
+            // pemilih_berdaftar=0 yang "diketahui") sudah tidak boleh dicapai
+            // dan telah dibuang.
             $out[] = [
                 'dari' => $a['label'],
                 'ke' => $b['label'],
                 'perubahan_pemilih' => $dPemilih,
-                'perubahan_pemilih_pct' => $a['pemilih_berdaftar'] > 0 ? round($dPemilih / $a['pemilih_berdaftar'] * 100, 1) : null,
+                'perubahan_pemilih_pct' => $dPemilih !== null
+                    ? round($dPemilih / $a['pemilih_berdaftar'] * 100, 1) : null,
                 'perubahan_peratus_keluar' => ($a['peratus_keluar'] !== null && $b['peratus_keluar'] !== null)
                     ? round($b['peratus_keluar'] - $a['peratus_keluar'], 1) : null,
                 'ayunan_undi' => $ayun,
@@ -486,6 +527,12 @@ class ElectionComparisonService
 
         $growthBullets = [];
         foreach ($deltas as $d) {
+            if ($d['perubahan_pemilih'] === null) {
+                $growthBullets[] = "Daripada {$d['dari']} ke {$d['ke']}: bilangan pengundi berdaftar tidak diketahui "
+                    .'bagi sekurang-kurangnya satu senario (tiada dalam scoresheet rasmi).';
+
+                continue;
+            }
             $arah = $d['perubahan_pemilih'] >= 0 ? 'pertambahan' : 'pengurangan';
             $growthBullets[] = "Daripada {$d['dari']} ke {$d['ke']}: {$arah} ".$n(abs($d['perubahan_pemilih']))
                 .' pengundi berdaftar'.($d['perubahan_pemilih_pct'] !== null ? " ({$d['perubahan_pemilih_pct']}%)" : '').'.';
@@ -520,7 +567,7 @@ class ElectionComparisonService
                 'label' => (string) ($s['label'] ?? ''),
                 'tahun' => (string) ($s['tahun'] ?? ''),
                 'sorotan' => 'Pemenang: '.($s['pemenang'] ?? '—').', majoriti '.$n($s['majoriti'] ?? 0).' undi; peratus keluar '
-                    .($s['peratus_keluar'] ?? '—').'%.',
+                    .($s['peratus_keluar'] !== null ? $s['peratus_keluar'].'%' : 'tiada data').'.',
             ])->take(3)->values()->all(),
             'faktor_perubahan' => [],
             'kesimpulan' => 'Analisis naratif AI tidak dapat dijana — hanya ringkasan berangka dipaparkan.',

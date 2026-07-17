@@ -11,9 +11,16 @@ use Smalot\PdfParser\Parser as PdfParser;
  * Turns an uploaded scoresheet (any layout) into a party-agnostic result set:
  *
  *   ['parties' => ['PAKATAN HARAPAN', ...],
- *    'rows'    => [['kawasan'=>..,'pemilih'=>..,'keluar'=>..,'ditolak'=>..,'undi'=>['PARTI'=>int]], ...],
- *    'totals'  => ['pemilih'=>..,'keluar'=>..,'ditolak'=>..,'undi'=>['PARTI'=>int], 'parties'=>[...]],
+ *    'rows'    => [['kawasan'=>..,'pemilih'=>int|null,'keluar'=>..,'ditolak'=>..,'undi'=>['PARTI'=>int]], ...],
+ *    'totals'  => ['pemilih'=>int|null,'keluar'=>..,'ditolak'=>..,'undi'=>['PARTI'=>int], 'parties'=>[...]],
  *    'source'  => 'deterministic'|'ai', 'contest' => string|null]
+ *
+ * `pemilih` (registered voters) is genuinely absent from many real SPR sheets
+ * (no "JUMLAH PEMILIH" header) — it is `null`, NEVER coerced to 0, both per
+ * row and in `totals`, whenever no row and no printed total carries a figure.
+ * A real printed/summed 0 stays 0; only "nothing was ever known" is null.
+ * Callers (e.g. ElectionComparisonService) rely on this to avoid fabricating
+ * a "-100%" registered-voter swing against an unknown denominator.
  *
  * The parties are read from the SHEET ITSELF — for the standard Buloh Kasap
  * layout via the deterministic ScoresheetParser (free/instant); for any other
@@ -209,11 +216,19 @@ class ScoresheetExtractor
             $undiTotals[$label] = (int) ($totals[$key] ?? 0);
         }
 
+        // `pemilih` (registered voters) is absent on many real sheets — the
+        // ScoresheetParser::normalize() accumulator only ever adds KNOWN row
+        // values, so it cannot itself distinguish "no row had a figure" from
+        // "the figures summed to zero". Use the row-level nulls (already
+        // preserved above) to make that distinction here instead of coercing
+        // to 0 when nothing was ever known.
+        $pemilihKnown = collect($rows)->contains(fn ($r) => $r['pemilih'] !== null);
+
         return [
             'parties' => $parties,
             'rows' => $rows,
             'totals' => [
-                'pemilih' => (int) ($totals['pemilih'] ?? 0),
+                'pemilih' => $pemilihKnown ? (int) ($totals['pemilih'] ?? 0) : null,
                 'keluar' => (int) ($totals['keluar'] ?? 0),
                 'ditolak' => (int) ($totals['ditolak'] ?? 0),
                 'undi' => $undiTotals,
@@ -306,6 +321,15 @@ class ScoresheetExtractor
         $t = is_array($json['totals'] ?? null) ? $json['totals'] : [];
         $undiTotals = $cleanUndi($t['undi'] ?? []);
         $sum = fn ($key) => collect($rows)->sum(fn ($r) => (int) ($r[$key] ?? 0));
+        // `pemilih` (registered voters) is genuinely absent from many real SPR
+        // sheets (no "JUMLAH PEMILIH" header) — sum() must NOT coerce that to
+        // a 0 that reads as "registered voters: zero" downstream. Only sum
+        // the rows that actually carry a figure; if NONE do, stay null.
+        $sumPemilihOrNull = function () use ($rows) {
+            $known = collect($rows)->filter(fn ($r) => $r['pemilih'] !== null);
+
+            return $known->isEmpty() ? null : $known->sum(fn ($r) => (int) $r['pemilih']);
+        };
         $sumUndi = function ($p) use ($rows) {
             return collect($rows)->sum(fn ($r) => (int) ($r['undi'][$p] ?? 0));
         };
@@ -324,7 +348,7 @@ class ScoresheetExtractor
             'parties' => $parties,
             'rows' => $rows,
             'totals' => [
-                'pemilih' => $int($t['pemilih'] ?? null) ?? $sum('pemilih'),
+                'pemilih' => $int($t['pemilih'] ?? null) ?? $sumPemilihOrNull(),
                 'keluar' => $keluar,
                 'ditolak' => $int($t['ditolak'] ?? null) ?? $sum('ditolak'),
                 'undi' => $undiTotals,

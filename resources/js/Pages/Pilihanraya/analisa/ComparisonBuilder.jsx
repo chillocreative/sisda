@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import {
     CheckCircle2, FileSpreadsheet, FolderOpen, Loader2, Plus, Sparkles, Trash2, Upload, X,
@@ -21,8 +21,45 @@ function AddScenarioForm({ comparisonId, position, onAdded }) {
     const [error, setError] = useState(null);
     const [drag, setDrag] = useState(false);
 
-    const submit = async () => {
-        setError(null);
+    // Source picker: an existing Borang 14 form, or the original upload path.
+    const [sumber, setSumber] = useState('upload');   // 'borang14' | 'upload'
+    const [borangList, setBorangList] = useState([]);
+    const [formId, setFormId] = useState('');
+
+    useEffect(() => {
+        let batal = false;
+        axios.get(route('pilihanraya.analisa.comparisons.borang14', comparisonId))
+            .then((res) => {
+                if (batal) return;
+                const senarai = res.data.forms ?? [];
+                setBorangList(senarai);
+                // Default to Borang 14 only when something is actually usable there.
+                setSumber(senarai.some((f) => f.sedia) ? 'borang14' : 'upload');
+            })
+            .catch(() => { if (!batal) setSumber('upload'); });
+        return () => { batal = true; };
+    }, [comparisonId]);
+
+    const submitFromBorang14 = async () => {
+        if (!formId) {
+            setError('Pilih satu Borang 14.');
+            return;
+        }
+        setBusy(true);
+        try {
+            const res = await axios.post(route('pilihanraya.analisa.comparisons.scenarios.borang14', comparisonId), {
+                form_id: Number(formId),
+            });
+            onAdded(res.data.comparison);
+            setFormId('');
+        } catch (e) {
+            setError(e.response?.data?.message || 'Gagal menambah senario.');
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const submitUpload = async () => {
         if (!label.trim() || !date || !file) {
             setError('Isi label, tarikh pilihanraya dan muat naik scoresheet.');
             return;
@@ -46,50 +83,92 @@ function AddScenarioForm({ comparisonId, position, onAdded }) {
         }
     };
 
+    const submit = () => {
+        setError(null);
+        return sumber === 'borang14' ? submitFromBorang14() : submitUpload();
+    };
+
+    const canSubmit = sumber === 'borang14' ? !!formId : !!file;
+
     return (
         <div className="rounded-xl border-2 border-dashed border-slate-300 p-4">
             <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
                 <Plus className="h-4 w-4 text-emerald-500" /> Senario {position}
             </div>
             <div className="space-y-3">
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div>
-                        <label className={t.label}>Label</label>
-                        <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="cth. PRN Johor 2022" className={t.input} />
-                    </div>
-                    <div>
-                        <label className={t.label}>Tarikh Pilihanraya</label>
-                        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={t.input} />
-                    </div>
+                <div className="flex gap-4 text-sm text-slate-700">
+                    <label className="flex items-center gap-1.5">
+                        <input type="radio" checked={sumber === 'borang14'} onChange={() => setSumber('borang14')} />
+                        Pilih dari Borang 14
+                    </label>
+                    <label className="flex items-center gap-1.5">
+                        <input type="radio" checked={sumber === 'upload'} onChange={() => setSumber('upload')} />
+                        Upload scoresheet
+                    </label>
                 </div>
 
-                <div
-                    onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
-                    onDragLeave={() => setDrag(false)}
-                    onDrop={(e) => { e.preventDefault(); setDrag(false); setFile(e.dataTransfer.files?.[0] || null); }}
-                    onClick={() => inputRef.current?.click()}
-                    className={`cursor-pointer rounded-lg border-2 border-dashed px-4 py-5 text-center transition ${
-                        drag ? 'border-emerald-500 bg-emerald-500/5' : 'border-slate-200 hover:border-emerald-400'
-                    }`}
-                >
-                    <input ref={inputRef} type="file" accept=".xlsx,.xls,.csv,.pdf,.jpg,.jpeg,.png,.webp" className="hidden"
-                        onChange={(e) => setFile(e.target.files?.[0] || null)} />
-                    {file ? (
-                        <div className="flex items-center justify-center gap-2 text-sm text-emerald-600">
-                            <FileSpreadsheet className="h-4 w-4" /> {file.name}
+                {borangList.length === 0 && (
+                    <p className={`${t.subtext} text-sm`}>
+                        Tiada Borang 14 untuk kawasan ini. Upload scoresheet di bawah tetap berfungsi.
+                    </p>
+                )}
+
+                {sumber === 'borang14' && borangList.length > 0 && (
+                    <div>
+                        <label className={t.label}>Borang 14</label>
+                        <select value={formId} onChange={(e) => setFormId(e.target.value)} className={t.input}>
+                            <option value="">— Pilih Borang 14 —</option>
+                            {borangList.map((f) => (
+                                <option key={f.id} value={f.id} disabled={!f.sedia}>
+                                    {f.label}{f.status === 'draft' ? ' (draf)' : ''}{f.sedia ? '' : ' — parti belum dipetakan'}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+
+                {sumber === 'upload' && (
+                    <>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <div>
+                                <label className={t.label}>Label</label>
+                                <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="cth. PRN Johor 2022" className={t.input} />
+                            </div>
+                            <div>
+                                <label className={t.label}>Tarikh Pilihanraya</label>
+                                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={t.input} />
+                            </div>
                         </div>
-                    ) : (
-                        <div className="flex flex-col items-center gap-1 text-slate-500">
-                            <Upload className="h-6 w-6" />
-                            <span className="text-sm">Klik atau seret scoresheet (XLSX / XLS / CSV / PDF / imej)</span>
-                            <span className="text-xs text-slate-400">Fail PDF &amp; imej dibaca terus oleh Claude AI</span>
+
+                        <div
+                            onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+                            onDragLeave={() => setDrag(false)}
+                            onDrop={(e) => { e.preventDefault(); setDrag(false); setFile(e.dataTransfer.files?.[0] || null); }}
+                            onClick={() => inputRef.current?.click()}
+                            className={`cursor-pointer rounded-lg border-2 border-dashed px-4 py-5 text-center transition ${
+                                drag ? 'border-emerald-500 bg-emerald-500/5' : 'border-slate-200 hover:border-emerald-400'
+                            }`}
+                        >
+                            <input ref={inputRef} type="file" accept=".xlsx,.xls,.csv,.pdf,.jpg,.jpeg,.png,.webp" className="hidden"
+                                onChange={(e) => setFile(e.target.files?.[0] || null)} />
+                            {file ? (
+                                <div className="flex items-center justify-center gap-2 text-sm text-emerald-600">
+                                    <FileSpreadsheet className="h-4 w-4" /> {file.name}
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center gap-1 text-slate-500">
+                                    <Upload className="h-6 w-6" />
+                                    <span className="text-sm">Klik atau seret scoresheet (XLSX / XLS / CSV / PDF / imej)</span>
+                                    <span className="text-xs text-slate-400">Fail PDF &amp; imej dibaca terus oleh Claude AI</span>
+                                </div>
+                            )}
                         </div>
-                    )}
-                </div>
+                    </>
+                )}
 
                 {error && <div className="flex items-center gap-1.5 text-sm text-red-500"><X className="h-4 w-4" /> {error}</div>}
 
-                <button type="button" onClick={submit} disabled={busy} className={t.buttonPrimary}>
+                <button type="button" onClick={submit} disabled={busy || !canSubmit} className={t.buttonPrimary}>
                     {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                     Tambah Senario
                 </button>
