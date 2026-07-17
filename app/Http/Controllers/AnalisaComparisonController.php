@@ -132,8 +132,14 @@ class AnalisaComparisonController extends Controller
                 'jenis_pr' => $f->jenis_pr,
                 'status' => $f->status,
                 'penjuru' => $f->penjuru,
-                // Borang tanpa nama parti tidak boleh dipeta — tandakan supaya user tahu.
-                'sedia' => collect($f->parties ?? [])->contains(fn ($p) => trim((string) ($p['nama'] ?? '')) !== ''),
+                // Borang tanpa parti dipetakan tidak boleh dipeta — tandakan supaya
+                // user tahu. Import scoresheet mengisi 'nama' dengan nama CALON
+                // sendiri sebagai placeholder (keahlian_parti_id null) sehingga
+                // dipetakan di tab Keyin, jadi 'nama' tidak boleh sendirian jadi
+                // penanda sedia — mesti setiap slot ada keahlian_parti_id, sama
+                // seperti allPartiesMapped KeyinTab.
+                'sedia' => collect($f->parties ?? [])->isNotEmpty()
+                    && collect($f->parties)->every(fn ($p) => ! empty($p['keahlian_parti_id'])),
             ]);
 
         return response()->json(['forms' => $forms]);

@@ -34,9 +34,11 @@ class AnalisaBorang14ScenarioTest extends TestCase
             'kawasan_type' => 'dun', 'kawasan_id' => $kadun->id,
             'jenis_pr' => 'prn', 'tahun' => 2023, 'penjuru' => 2,
             'status' => 'published', 'source' => 'scoresheet',
+            // keahlian_parti_id mesti sudah dipetakan — borang belum dipetakan
+            // (calon sahaja) ditolak mapper, lihat ujian sedia/rejection di bawah.
             'parties' => [
-                ['slot' => 1, 'keahlian_parti_id' => null, 'nama' => 'PERIKATAN NASIONAL'],
-                ['slot' => 2, 'keahlian_parti_id' => null, 'nama' => 'PAKATAN HARAPAN'],
+                ['slot' => 1, 'keahlian_parti_id' => 101, 'nama' => 'PERIKATAN NASIONAL'],
+                ['slot' => 2, 'keahlian_parti_id' => 102, 'nama' => 'PAKATAN HARAPAN'],
             ],
             'structure' => [
                 'jumlah_pemilih' => 13408,
@@ -142,6 +144,63 @@ class AnalisaBorang14ScenarioTest extends TestCase
                 'form_id' => $form->id,
             ])
             ->assertStatus(422);
+    }
+
+    /**
+     * Finding 2: scoresheet import seeds parties[].nama with the CANDIDATE's
+     * own name as a placeholder (keahlian_parti_id null until mapped in
+     * Keyin). `sedia` must require every slot to be mapped, not merely a
+     * non-empty nama, else the AI ends up comparing a candidate's name
+     * against a real party.
+     */
+    public function test_borang14_tersedia_flags_unmapped_form_as_not_ready(): void
+    {
+        [, $bandar, $kadun] = $this->seedSeat();
+        $form = $this->form($kadun);
+        $form->update(['parties' => [
+            ['slot' => 1, 'keahlian_parti_id' => null, 'nama' => 'EDDIN SYAZLEE BIN SHITH'],
+            ['slot' => 2, 'keahlian_parti_id' => null, 'nama' => 'PAKATAN HARAPAN'],
+        ]]);
+        $c = $this->comparison($bandar, $kadun);
+
+        $res = $this->actingAs($this->user())
+            ->getJson(route('pilihanraya.analisa.comparisons.borang14', $c));
+
+        $res->assertOk();
+        $this->assertFalse($res->json('forms.0.sedia'), 'Borang dengan calon belum dipetakan tidak boleh ditandakan sedia.');
+    }
+
+    public function test_borang14_tersedia_flags_fully_mapped_form_as_ready(): void
+    {
+        [, $bandar, $kadun] = $this->seedSeat();
+        $this->form($kadun); // parties sudah dipetakan (keahlian_parti_id diisi) dalam helper form()
+        $c = $this->comparison($bandar, $kadun);
+
+        $res = $this->actingAs($this->user())
+            ->getJson(route('pilihanraya.analisa.comparisons.borang14', $c));
+
+        $res->assertOk();
+        $this->assertTrue($res->json('forms.0.sedia'));
+    }
+
+    /** Mapper-level rejection must surface as a BM 422 message, not a 500. */
+    public function test_creating_scenario_from_unmapped_form_is_rejected(): void
+    {
+        [, $bandar, $kadun] = $this->seedSeat();
+        $form = $this->form($kadun);
+        $form->update(['parties' => [
+            ['slot' => 1, 'keahlian_parti_id' => null, 'nama' => 'EDDIN SYAZLEE BIN SHITH'],
+            ['slot' => 2, 'keahlian_parti_id' => null, 'nama' => 'PAKATAN HARAPAN'],
+        ]]);
+        $c = $this->comparison($bandar, $kadun);
+
+        $res = $this->actingAs($this->user())
+            ->postJson(route('pilihanraya.analisa.comparisons.scenarios.borang14', $c), [
+                'form_id' => $form->id,
+            ]);
+
+        $res->assertStatus(422);
+        $this->assertSame(0, $c->scenarios()->count());
     }
 
     public function test_borang14_and_upload_scenarios_coexist(): void
