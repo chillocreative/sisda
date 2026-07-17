@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../features/shell/main_shell.dart';
 import '../theme/app_theme.dart';
 import '../providers.dart';
-import 'home_screen.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
 
@@ -28,7 +28,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           .login(_telephoneController.text.trim(), _passwordController.text);
       final authState = ref.read(authControllerProvider).value;
       if (authState?.loggedIn == true && mounted) {
-        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
+        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const MainShell()));
       } else {
         setState(() { _errorMessage = authState?.errorMessage ?? 'Log masuk gagal.'; });
       }

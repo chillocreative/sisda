@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers.dart';
+import '../home/home_screen.dart';
 import '../sync/draft_counts_provider.dart';
 
 const _labelUtama = 'Utama';
@@ -50,7 +51,7 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
       body: IndexedStack(
         index: _selectedIndex,
         children: const [
-          _UtamaTab(),
+          HomeScreen(),
           _CulaanTab(),
           _PerluPerhatianTab(),
           _ProfilTab(),
@@ -89,22 +90,6 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
             label: _labelProfil,
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Minimal Utama scaffold so the shell renders. Task 2 replaces this body
-/// with the real home/queue screen.
-class _UtamaTab extends StatelessWidget {
-  const _UtamaTab();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text(_labelUtama)),
-      body: const Center(
-        child: Text('Skrin Utama akan tersedia tidak lama lagi.'),
       ),
     );
   }
