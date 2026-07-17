@@ -2,6 +2,9 @@
 
 namespace App\Http\Requests;
 
+use App\Models\DataPengundi;
+use App\Services\VoterDataMasker;
+use App\Services\VoterScopeService;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -19,6 +22,65 @@ class StoreMobileCulaanRequest extends FormRequest
     public function authorize(): bool
     {
         return true; // Parlimen check runs in the controller; it needs the record.
+    }
+
+    /**
+     * Masked-create: the draft carries '****' placeholders for sensitive
+     * fields the field agent was never shown, plus locked_source_id
+     * pointing at the record to swap the real values in from.
+     *
+     * This MUST run here, before rules() is evaluated, not in the
+     * controller after validated(). Three of the SENSITIVE_FIELDS have
+     * strict rules — no_ic (digits:12), umur (integer),
+     * pendapatan_isi_rumah (numeric) — that '****' itself always fails.
+     * Swapping post-validation left those three fields validated against
+     * the mask, not the truth, so a genuine masked-create with any of
+     * them present 422'd and the controller's swap code was unreachable
+     * for those fields. Mirrors ReportsController::hasilCulaanStore's
+     * merge-before-validate ordering (see that method's docblock), but
+     * keeps this class's scoped VoterScopeService lookup rather than that
+     * method's unscoped DataPengundi::find().
+     *
+     * The lookup MUST be scoped through VoterScopeService, the same rule
+     * MobileVoterController::show() uses. Without it, an arbitrary
+     * locked_source_id would load ANY voter row by ID regardless of the
+     * caller's Kadun/Parlimen, letting a 'user' caller launder a
+     * stranger's real no_ic / no_tel / alamat / poskod / negeri / bandar /
+     * umur / bangsa / pendapatan_isi_rumah into a new record under their
+     * own Parlimen. An admin in the caller's Parlimen could then unmask
+     * it, and VoterSyncService propagates it into data_pengundi — a
+     * cross-Parlimen PII laundering channel plus a data-integrity attack
+     * on the voter roll.
+     *
+     * Missing-vs-out-of-scope MUST return the identical 409 response.
+     * Distinguishing them turns this into an existence oracle over
+     * sequential DataPengundi IDs, the same class of bug just fixed on
+     * MobileVoterController's `q` (see escapeLike()/Finding 2 there).
+     */
+    protected function prepareForValidation(): void
+    {
+        if (! $this->filled('locked_source_id')) {
+            return;
+        }
+
+        $query = DataPengundi::where('id', $this->input('locked_source_id'));
+        VoterScopeService::apply($query, $this->user());
+        $source = $query->first();
+
+        if (! $source) {
+            throw new HttpResponseException(response()->json([
+                'success' => false,
+                'errors' => ['locked_source_id' => ['Rekod sumber tidak lagi wujud. Sila cari semula pengundi ini.']],
+            ], 409));
+        }
+
+        $merge = [];
+        foreach (VoterDataMasker::SENSITIVE_FIELDS as $field) {
+            if ($this->input($field) === VoterDataMasker::MASK) {
+                $merge[$field] = $source->{$field};
+            }
+        }
+        $this->merge($merge);
     }
 
     public function rules(): array

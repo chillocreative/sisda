@@ -4,12 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreMobileCulaanRequest;
-use App\Models\DataPengundi;
 use App\Models\EditHistory;
 use App\Models\HasilCulaan;
 use App\Services\CulaanPayloadNormalizer;
-use App\Services\VoterDataMasker;
-use App\Services\VoterScopeService;
 use App\Services\VoterSyncService;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
@@ -46,44 +43,11 @@ class MobileCulaanController extends Controller
             ], 403);
         }
 
-        // Masked-create: the draft carries '****' placeholders for fields the
-        // user was never shown. Swap in the truth from the source record so
-        // validation ran against the mask but storage gets real values.
-        //
-        // The lookup MUST be scoped through VoterScopeService, the same rule
-        // MobileVoterController::show() uses. Without it, DataPengundi::find()
-        // would load ANY voter row by ID regardless of the caller's Kadun/
-        // Parlimen, letting a 'user' caller launder a stranger's real no_ic /
-        // no_tel / alamat / poskod / negeri / bandar / umur / bangsa /
-        // pendapatan_isi_rumah into a new record under their own Parlimen
-        // (the parlimen check above reads the caller's own submitted value,
-        // not the source record's). An admin in the caller's Parlimen could
-        // then unmask it, and VoterSyncService propagates it into
-        // data_pengundi — a cross-Parlimen PII laundering channel plus a
-        // data-integrity attack on the voter roll.
-        //
-        // Missing-vs-out-of-scope MUST return the identical 409 response.
-        // Distinguishing them turns this into an existence oracle over
-        // sequential DataPengundi IDs, the same class of bug just fixed on
-        // MobileVoterController's `q` (see escapeLike()/Finding 2 there).
-        if (! empty($validated['locked_source_id'])) {
-            $sourceQuery = DataPengundi::where('id', $validated['locked_source_id']);
-            VoterScopeService::apply($sourceQuery, $user);
-            $source = $sourceQuery->first();
-
-            if (! $source) {
-                return response()->json([
-                    'success' => false,
-                    'errors' => ['locked_source_id' => ['Rekod sumber tidak lagi wujud. Sila cari semula pengundi ini.']],
-                ], 409);
-            }
-            foreach (VoterDataMasker::SENSITIVE_FIELDS as $field) {
-                if (($validated[$field] ?? null) === VoterDataMasker::MASK) {
-                    $validated[$field] = $source->{$field};
-                }
-            }
-        }
-
+        // Masked-create: '****' placeholders and the scoped locked_source_id
+        // swap are resolved in StoreMobileCulaanRequest::prepareForValidation(),
+        // BEFORE rules() runs — see that method's docblock for why the
+        // ordering matters and why the lookup must stay scoped through
+        // VoterScopeService. $validated already carries real values here.
         unset($validated['has_sumbangan'], $validated['locked_source_id']);
 
         $payload = CulaanPayloadNormalizer::normalize($validated);

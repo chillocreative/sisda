@@ -318,4 +318,118 @@ class MobileCulaanStoreTest extends TestCase
 
         $this->assertDatabaseCount('hasil_culaan', 0);
     }
+
+    /**
+     * Regression test for the plan bug: the masked-create swap used to run
+     * in the controller AFTER $request->validated(), so no_ic (digits:12),
+     * umur (integer) and pendapatan_isi_rumah (numeric) — the three
+     * SENSITIVE_FIELDS whose rules reject a bare '****' — 422'd before the
+     * swap code ever ran. The fix moves the swap into
+     * StoreMobileCulaanRequest::prepareForValidation(), which runs before
+     * rules() are evaluated, so validation sees the real values.
+     *
+     * This is the one masked-create test that exercises ALL of
+     * SENSITIVE_FIELDS as '****', including the three strict ones the
+     * other tests in this file deliberately avoid (see maskedPayload()'s
+     * docblock) precisely because they used to break under the old
+     * ordering.
+     *
+     * Note on pendapatan_isi_rumah: the masked-create source is always a
+     * DataPengundi row (both here and in ReportsController::hasilCulaanStore),
+     * and the data_pengundi table has no pendapatan_isi_rumah column at all
+     * (see 2025_11_22_021510_create_data_pengundi_table.php — it's only
+     * ever a hasil_culaan column). So $source->pendapatan_isi_rumah is
+     * always null, and swapping it in correctly stores null, not a
+     * fabricated figure — consistent with CLAUDE.md's "unknown is not
+     * zero" rule. This is a pre-existing schema quirk, unrelated to and
+     * unchanged by this fix; it just means this field can never actually
+     * carry a "real value" through the swap the way no_ic/umur do.
+     */
+    public function test_masked_create_swaps_in_the_strict_sensitive_fields_and_succeeds(): void
+    {
+        $caller = $this->makeUser();
+        Sanctum::actingAs($caller);
+
+        $inScope = DataPengundi::factory()->create([
+            'no_ic' => '900101015555',
+            'umur' => 33,
+            'no_tel' => '0133334444',
+            'bangsa' => 'India',
+            'alamat' => 'No 9, Jalan Skop Penuh',
+            'poskod' => '86100',
+            'negeri' => 'JOHOR',
+            'bandar' => 'SEGAMAT',
+            'kadun' => 'BULOH KASAP', // inside the caller's own kadun
+        ]);
+
+        $payload = $this->maskedPayload($inScope->id, [
+            'no_ic' => '****',
+            'umur' => '****',
+            'pendapatan_isi_rumah' => '****',
+        ]);
+
+        $this->postJson('/api/mobile/culaan', $payload)
+            ->assertStatus(201)
+            ->assertJsonPath('success', true);
+
+        $this->assertDatabaseHas('hasil_culaan', [
+            'no_ic' => '900101015555',
+            'umur' => 33,
+            'pendapatan_isi_rumah' => null,
+            'no_tel' => '0133334444',
+            'bangsa' => 'India',
+            'alamat' => 'No 9, Jalan Skop Penuh',
+            'poskod' => '86100',
+        ]);
+    }
+
+    /**
+     * Requirement 2: moving the swap into prepareForValidation() must not
+     * regress the IDOR fix. An out-of-scope locked_source_id must still
+     * 409 with the identical message even when the strict fields
+     * (no_ic/umur/pendapatan_isi_rumah) are also masked — those are
+     * exactly the fields a real attack would want swapped in.
+     */
+    public function test_masked_create_with_strict_fields_outside_scope_still_returns_the_same_409(): void
+    {
+        Sanctum::actingAs($this->makeUser());
+
+        $stranger = DataPengundi::factory()->create([
+            'no_ic' => '900303035555',
+            'umur' => 50,
+            'kadun' => 'KADUN LAIN', // outside the caller's scope
+        ]);
+
+        $payload = $this->maskedPayload($stranger->id, [
+            'no_ic' => '****',
+            'umur' => '****',
+            'pendapatan_isi_rumah' => '****',
+        ]);
+
+        $this->postJson('/api/mobile/culaan', $payload)
+            ->assertStatus(409)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('errors.locked_source_id.0', 'Rekod sumber tidak lagi wujud. Sila cari semula pengundi ini.');
+
+        $this->assertDatabaseCount('hasil_culaan', 0);
+    }
+
+    /**
+     * Requirement 3: without a locked_source_id there is no authority to
+     * swap anything in, so a bare '****' for no_ic must still fail
+     * validation exactly like any other malformed value — it must not
+     * become a magic bypass just because it happens to match the mask
+     * constant.
+     */
+    public function test_masked_no_ic_without_locked_source_id_still_returns_422(): void
+    {
+        Sanctum::actingAs($this->makeUser());
+
+        $this->postJson('/api/mobile/culaan', $this->payload(['no_ic' => '****']))
+            ->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('errors.no_ic.0', 'Nombor IC mesti 12 digit.');
+
+        $this->assertDatabaseCount('hasil_culaan', 0);
+    }
 }
