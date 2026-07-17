@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers.dart';
 import '../home/home_screen.dart';
+import '../perlu_perhatian/perlu_perhatian_screen.dart';
 import '../sync/draft_counts_provider.dart';
 
 const _labelUtama = 'Utama';
@@ -53,7 +54,7 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
         children: const [
           HomeScreen(),
           _CulaanTab(),
-          _PerluPerhatianTab(),
+          PerluPerhatianScreen(),
           _ProfilTab(),
         ],
       ),
@@ -107,23 +108,6 @@ class _CulaanTab extends StatelessWidget {
       appBar: AppBar(title: const Text(_labelCulaan)),
       body: const Center(
         child: Text('Senarai Culaan akan tersedia tidak lama lagi.'),
-      ),
-    );
-  }
-}
-
-/// Placeholder — a later task replaces this body with the real Perlu
-/// Perhatian screen (failed-draft list + "Betulkan" re-entry into
-/// CulaanFormScreen).
-class _PerluPerhatianTab extends StatelessWidget {
-  const _PerluPerhatianTab();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text(_labelPerluPerhatian)),
-      body: const Center(
-        child: Text('Senarai draf yang gagal akan tersedia tidak lama lagi.'),
       ),
     );
   }
