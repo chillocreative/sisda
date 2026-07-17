@@ -23,7 +23,7 @@ class PerluPerhatianScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final db = ref.watch(appDatabaseProvider);
+    final db = ref.read(appDatabaseProvider);
     final draftsAsync = ref.watch(_failedDraftsProvider);
 
     return Scaffold(
@@ -41,7 +41,12 @@ class PerluPerhatianScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(child: Text('$error')),
+        error: (error, stack) => const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Text('Ralat memuatkan senarai. Sila cuba lagi.', textAlign: TextAlign.center),
+          ),
+        ),
       ),
     );
   }
@@ -61,7 +66,8 @@ class _FailedDraftCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final nama = draft.fields['nama'] as String? ?? 'Pengundi';
+    final rawNama = draft.fields['nama'];
+    final nama = rawNama is String ? rawNama : 'Pengundi';
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(

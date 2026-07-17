@@ -56,14 +56,24 @@ Future<IcLookupResult> resolveIc(String ic, MobileApi api) async {
 Future<void> startScanAndLookup(BuildContext context, WidgetRef ref) async {
   final messenger = ScaffoldMessenger.of(context);
 
-  // Emulator-tested only (ImagePicker is a platform plugin) — not covered
-  // by `flutter test`.
-  final picker = ImagePicker();
-  final image = await picker.pickImage(source: ImageSource.camera, imageQuality: 90);
-  if (image == null) return;
+  // Emulator-tested only (ImagePicker/MLKit are platform plugins) — not
+  // covered by `flutter test`. A camera-permission denial or OCR failure
+  // throws here; caught below so it never surfaces Flutter's default
+  // (English) error screen.
+  final String? ic;
+  try {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: ImageSource.camera, imageQuality: 90);
+    if (image == null) return;
 
-  final kpData = await OcrService.extractFromImage(File(image.path));
-  final ic = kpData.icNumber;
+    final kpData = await OcrService.extractFromImage(File(image.path));
+    ic = kpData.icNumber;
+  } catch (_) {
+    messenger.showSnackBar(const SnackBar(
+        content: Text('Tidak dapat mengakses kamera atau membaca gambar. Sila cuba lagi.')));
+    return;
+  }
+
   if (ic == null) {
     messenger.showSnackBar(const SnackBar(
         content: Text('Tidak dapat membaca No. IC dari gambar. Sila cuba lagi.')));

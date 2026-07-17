@@ -99,7 +99,8 @@ class _RecordTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final nama = record['nama'] as String? ?? '—';
+    final rawNama = record['nama'];
+    final nama = rawNama is String ? rawNama : '—';
     final noIc = record['no_ic'] as String?;
     return ListTile(
       title: Text(nama),

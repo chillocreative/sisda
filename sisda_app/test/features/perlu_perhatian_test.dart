@@ -109,4 +109,36 @@ void main() {
 
     await disposeAndDrainTimers(tester);
   });
+
+  testWidgets('Batal in the confirm dialog keeps the draft',
+      (tester) async {
+    final db = AppDatabase.forTesting();
+    addTearDown(db.close);
+    await seedThreeDrafts(db);
+
+    await pumpScreen(tester, db);
+
+    // Scope to the card for f1 (reason1) so we tap its own Buang button.
+    final card1 = find.ancestor(
+      of: find.text(reason1),
+      matching: find.byType(Card),
+    );
+    expect(card1, findsOneWidget);
+
+    await tester.tap(find.descendant(of: card1, matching: find.text('Buang')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Buang culaan ini?'), findsOneWidget);
+
+    final dialog = find.byType(AlertDialog);
+    await tester
+        .tap(find.descendant(of: dialog, matching: find.text('Batal')));
+    await tester.pumpAndSettle();
+
+    expect(find.text(reason1), findsOneWidget);
+    expect(find.text(reason2), findsOneWidget);
+    expect(await db.getDraft('f1'), isNotNull);
+
+    await disposeAndDrainTimers(tester);
+  });
 }
