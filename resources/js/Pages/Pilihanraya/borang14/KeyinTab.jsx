@@ -8,6 +8,8 @@ import {
     toBlocks, cellKey, BULOH_KASAP_KADUN_ID,
 } from '../components/Borang14Form';
 
+const JENIS_LABEL = { pru: 'PRU', prn: 'PRN', prk: 'PRK' };
+
 export default function KeyinTab({ negeriList, parlimenList, kadunList, partiList, penjuruOptions, prefill = null }) {
     const { t } = usePilihanrayaTheme();
 
@@ -22,6 +24,11 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
     const [parties, setParties] = useState([]); // [{slot, keahlian_parti_id, nama, calon?}]
     const [reference, setReference] = useState(null);
     const [hasData, setHasData] = useState(true);
+    // { tahun, jenis_pr } when the current structure was inherited from another
+    // election of the same seat (no scoresheet uploaded yet this round); null
+    // whenever the reference came from curated JSON/DPT or this election's own
+    // structure. Must never be silent — see the banner below.
+    const [inheritedFrom, setInheritedFrom] = useState(null);
     const [votes, setVotes] = useState({});
     const [form, setForm] = useState(null); // { id, status, source, needs_review, crosscheck_issues, penjuru }
     const [loading, setLoading] = useState(false);
@@ -61,6 +68,7 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                     });
                     setReference(data.reference);
                     setHasData(data.hasData);
+                    setInheritedFrom(data.inherited_from || null);
                     setVotes(data.votes || {});
                     setForm(data.form || null);
                     setPublishedOk(false);
@@ -87,7 +95,7 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
     // Fetch reference + saved data whenever the chosen kawasan/jenis/tahun changes.
     // Also syncs penjuru from a loaded draft so a scoresheet upload lands ready-to-edit.
     useEffect(() => {
-        if (!geographyComplete) { setReference(null); setHasData(true); setVotes({}); setForm(null); return undefined; }
+        if (!geographyComplete) { setReference(null); setHasData(true); setInheritedFrom(null); setVotes({}); setForm(null); return undefined; }
         let cancelled = false;
         setLoading(true);
         setSelectedPusat('');
@@ -99,6 +107,7 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                 if (cancelled) return;
                 setReference(data.reference);
                 setHasData(data.hasData);
+                setInheritedFrom(data.inherited_from || null);
                 setVotes(data.votes || {});
                 setForm(data.form || null);
                 if (data.parties?.length) {
@@ -374,10 +383,20 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                         </div>
                     )}
 
-                    {reference.source === 'scoresheet' && (
+                    {reference.source === 'scoresheet' && !inheritedFrom && (
                         <div className={`${t.banner} flex items-center gap-2 mb-4`}>
                             <Info className="h-4 w-4 shrink-0" />
                             <span>Struktur Pusat Mengundi &amp; Saluran diambil terus daripada scoresheet yang dimuat naik — kawasan ini belum ada rujukan SPR rasmi/data DPT, jadi Berdaftar tidak diketahui.</span>
+                        </div>
+                    )}
+
+                    {inheritedFrom && (
+                        <div className={`${t.banner} flex items-center gap-2 mb-4`}>
+                            <Info className="h-4 w-4 shrink-0" />
+                            <span>
+                                Struktur Pusat Mengundi &amp; Saluran diwarisi daripada {JENIS_LABEL[inheritedFrom.jenis_pr] ?? inheritedFrom.jenis_pr} {inheritedFrom.tahun}
+                                {' '}kerana kawasan ini belum ada scoresheet/rujukan SPR untuk pilihan raya semasa. Sahkan Pusat Mengundi masih sama sebelum isi undi — Berdaftar tidak diketahui.
+                            </span>
                         </div>
                     )}
 

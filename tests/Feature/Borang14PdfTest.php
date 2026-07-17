@@ -177,6 +177,74 @@ class Borang14PdfTest extends TestCase
         $this->assertStringContainsString('application/pdf', $res->headers->get('content-type'));
     }
 
+    /**
+     * Finding 1 (warisi-fix): data() gained a THIRD fallback — inherit the
+     * structure from the most recent OTHER election of the same seat when
+     * neither curated JSON/DPT nor this election's own scoresheet structure
+     * exists. pdf() never got that third fallback, so a user who keys votes
+     * on an inherited grid (saveParties/saveVote — which never write
+     * form.structure) got a 404 "Data Borang 14 belum tersedia" the moment
+     * they clicked "Muat Turun PDF", even though the on-screen grid worked
+     * fine. pdf() must resolve the SAME chain as data().
+     */
+    public function test_pdf_falls_back_to_inherited_structure_for_a_freshly_keyed_election(): void
+    {
+        $negeri = Negeri::create(['nama' => 'Negeri Ujian']);
+        $bandar = Bandar::create(['nama' => 'Parlimen Ujian', 'negeri_id' => $negeri->id]);
+        $kadun = Kadun::create(['nama' => 'Juasseh Ujian', 'bandar_id' => $bandar->id]);
+        // Deliberately no seedDpt() / curated reference — this seat only has
+        // a PRIOR election's scoresheet-derived structure to inherit from.
+
+        // The source (2023) election: has its OWN structure from a scoresheet upload.
+        $source = Borang14Form::create([
+            'kawasan_type' => 'dun', 'kawasan_id' => $kadun->id,
+            'jenis_pr' => 'prn', 'tahun' => 2023, 'penjuru' => 2, 'status' => 'published',
+            'source' => 'scoresheet',
+            'structure' => [
+                'calon' => [['nama' => 'Calon A'], ['nama' => 'Calon B']],
+                'rows' => [[
+                    'pusat' => 'SK Juasseh', 'dm' => 'DM Juasseh', 'saluran' => '1',
+                    'a' => 500, 'undi' => [300, 190], 'jumlah_undian' => 490,
+                    'ditolak' => 5, 'tidak_dimasukkan' => 5,
+                ]],
+            ],
+        ]);
+        $source->votes()->create(['pusat' => 'SK Juasseh', 'saluran' => '1', 'slot' => 1, 'undi' => 300]);
+        $source->votes()->create(['pusat' => 'SK Juasseh', 'saluran' => '1', 'slot' => 2, 'undi' => 190]);
+
+        // The TARGET (2026) election: a user keyed votes on the inherited
+        // grid via saveParties()/saveVote(), which NEVER write form.structure
+        // — exactly reproducing the bug (structure stays null on this row).
+        $target = Borang14Form::create([
+            'kawasan_type' => 'dun', 'kawasan_id' => $kadun->id,
+            'jenis_pr' => 'prn', 'tahun' => 2026, 'penjuru' => 2, 'status' => 'draft',
+            'parties' => [['slot' => 1, 'nama' => 'Parti A'], ['slot' => 2, 'nama' => 'Parti B']],
+        ]);
+        $target->votes()->create(['pusat' => 'SK Juasseh', 'saluran' => '1', 'slot' => 1, 'undi' => 10]);
+        $target->votes()->create(['pusat' => 'SK Juasseh', 'saluran' => '1', 'slot' => 2, 'undi' => 5]);
+
+        $res = $this->actingAs($this->adminUser())->get(route('pilihanraya.borang-14.pdf', [
+            'kawasan_type' => 'dun', 'kawasan_id' => $kadun->id,
+            'jenis_pr' => 'prn', 'tahun' => 2026, 'penjuru' => 2,
+        ]));
+
+        $res->assertOk();
+        $this->assertStringContainsString('application/pdf', $res->headers->get('content-type'));
+
+        // The PDF must carry the SAME provenance disclosure as the screen —
+        // a printed Borang 14 that silently presents a 2023 layout as 2026's
+        // official structure is a trust failure on paper.
+        $parser = new PdfParser();
+        $text = $parser->parseContent($res->getContent())->getText();
+        $this->assertStringContainsString('diwarisi', $text);
+        $this->assertStringContainsString('PRN 2023', $text);
+
+        // And the votes printed must be the TARGET's own (10/5), never the
+        // source election's (300/190) — no vote leakage across elections.
+        $this->assertStringContainsString('10', $text);
+        $this->assertStringNotContainsString('300', $text);
+    }
+
     public function test_pdf_still_404s_when_there_is_genuinely_no_data(): void
     {
         $negeri = Negeri::create(['nama' => 'Negeri Ujian']);
