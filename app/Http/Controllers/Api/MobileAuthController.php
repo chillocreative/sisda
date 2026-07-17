@@ -21,6 +21,11 @@ class MobileAuthController extends Controller
         $request->validate([
             'telephone' => 'required|string',
             'password' => 'required|string',
+        ], [
+            'telephone.required' => 'Nombor telefon diperlukan.',
+            'telephone.string' => 'Nombor telefon tidak sah.',
+            'password.required' => 'Kata laluan diperlukan.',
+            'password.string' => 'Kata laluan tidak sah.',
         ]);
 
         $throttleKey = Str::lower($request->telephone).'|'.$request->ip();
@@ -91,6 +96,29 @@ class MobileAuthController extends Controller
             'negeri_id' => 'required|exists:negeri,id',
             'bandar_id' => 'required|exists:bandar,id',
             'kadun_id' => 'required|exists:kadun,id',
+        ], [
+            'name.required' => 'Nama diperlukan.',
+            'name.string' => 'Nama tidak sah.',
+            'name.max' => 'Nama tidak boleh melebihi 255 aksara.',
+            'telephone.required' => 'Nombor telefon diperlukan.',
+            'telephone.string' => 'Nombor telefon tidak sah.',
+            'telephone.max' => 'Nombor telefon tidak boleh melebihi 255 aksara.',
+            'telephone.unique' => 'Nombor telefon ini telah didaftarkan.',
+            'email.string' => 'Emel tidak sah.',
+            'email.lowercase' => 'Emel mestilah dalam huruf kecil.',
+            'email.email' => 'Format emel tidak sah.',
+            'email.max' => 'Emel tidak boleh melebihi 255 aksara.',
+            'email.unique' => 'Emel ini telah didaftarkan.',
+            'password.required' => 'Kata laluan diperlukan.',
+            'password.string' => 'Kata laluan tidak sah.',
+            'password.min' => 'Kata laluan mestilah sekurang-kurangnya 8 aksara.',
+            'password.confirmed' => 'Pengesahan kata laluan tidak sepadan.',
+            'negeri_id.required' => 'Sila pilih negeri.',
+            'negeri_id.exists' => 'Negeri yang dipilih tidak sah.',
+            'bandar_id.required' => 'Sila pilih bandar/parlimen.',
+            'bandar_id.exists' => 'Bandar/Parlimen yang dipilih tidak sah.',
+            'kadun_id.required' => 'Sila pilih DUN.',
+            'kadun_id.exists' => 'DUN yang dipilih tidak sah.',
         ]);
 
         User::create([
