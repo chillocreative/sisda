@@ -16,7 +16,7 @@ class LoginResult {
 ///  - most endpoints: {"success": bool, ...}
 ///  - geography: bare JSON arrays
 ///  - 401/429 middleware, register/login-missing-field: bare {"message":...} (English)
-/// The client reads errors.<field> and NEVER surfaces `message` to users.
+/// The client reads `errors.<field>` and NEVER surfaces `message` to users.
 class MobileApi implements CulaanApi {
   final http.Client _client;
   final ApiConfig _config;
@@ -36,7 +36,7 @@ class MobileApi implements CulaanApi {
           queryParameters: query?.map((k, v) => MapEntry(k, '$v')));
 
   /// Decodes a response body, throwing ApiException for any non-2xx.
-  /// Parses errors.<field> when present; otherwise an empty errors map (so
+  /// Parses `errors.<field>` when present; otherwise an empty errors map (so
   /// ApiException.firstError falls back to BM).
   dynamic _decode(http.Response res) {
     final body = res.body.isEmpty ? null : jsonDecode(res.body);

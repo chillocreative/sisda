@@ -108,6 +108,47 @@ void main() {
     expect(await db.getDraft('k1'), isNull);
   });
 
+  test('FINDING 1: auth clears a stale backoff timer left by an earlier transient failure', () async {
+    await queue('k1');
+    final t0 = now;
+
+    // Step 1: a transient (429) failure sets a backoff timer.
+    api.onSubmit = (_) => const ApiException(status: 429, errors: {});
+    final afterTransient = await engine.syncNow(now: t0);
+    expect(afterTransient.stillQueued, 1);
+    final afterTransientDraft = await db.getDraft('k1');
+    expect(afterTransientDraft!.attempts, 1);
+    expect(afterTransientDraft.nextRetryAt, isNotNull);
+    final backoffUntil = afterTransientDraft.nextRetryAt!;
+    expect(backoffUntil.isAfter(t0), isTrue);
+
+    // Step 2: drain again once eligible (now >= backoffUntil), this time
+    // hitting 401 auth. This alone shows the auth branch runs and does not
+    // bump attempts, but doesn't yet prove the stale timer is gone — the
+    // draft was eligible for this call regardless of the bug.
+    api.onSubmit = (_) => const ApiException(status: 401, errors: {});
+    final afterAuth = await engine.syncNow(now: backoffUntil);
+    expect(afterAuth.needsReauth, isTrue);
+    final afterAuthDraft = await db.getDraft('k1');
+    expect(afterAuthDraft!.status, SyncStatus.queued);
+    expect(afterAuthDraft.attempts, 1); // auth must NOT count as an attempt
+    expect(afterAuthDraft.nextRetryAt, isNull); // stale timer cleared
+
+    // Step 3: THE REAL PROOF. Drain again at a time strictly BEFORE the
+    // original backoff deadline. queuedReadyToSync excludes any draft whose
+    // nextRetryAt is still in the future, so if the auth branch had left the
+    // stale timer in place (the bug), this call would skip the draft
+    // entirely and nothing would be submitted. Because the timer was
+    // cleared, the draft is eligible the instant the user re-authenticates,
+    // not only once the old timer would have elapsed.
+    final beforeOriginalBackoff = t0.add(const Duration(milliseconds: 500));
+    expect(beforeOriginalBackoff.isBefore(backoffUntil), isTrue);
+    api.onSubmit = (_) => null; // 2xx
+    final afterEarlyRetry = await engine.syncNow(now: beforeOriginalBackoff);
+    expect(afterEarlyRetry.synced, 1);
+    expect(await db.getDraft('k1'), isNull);
+  });
+
   test('a draft whose nextRetryAt is in the future is skipped', () async {
     await db.upsertDraft(CulaanDraft.newDraft(idempotencyKey: 'later', now: now)
         .copyWith(status: SyncStatus.queued, nextRetryAt: now.add(const Duration(minutes: 5))));

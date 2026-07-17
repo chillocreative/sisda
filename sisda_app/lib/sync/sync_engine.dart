@@ -80,8 +80,13 @@ class SyncEngine {
         ));
       case FailureBucket.auth:
         // Stay queued, do NOT count as an attempt or back off — the retry is
-        // gated on re-login, not on time. Draft survives logout.
-        await _store.upsertDraft(d.copyWith(status: SyncStatus.queued, updatedAt: now));
+        // gated on re-login, not on time. Draft survives logout. Clear any
+        // stale nextRetryAt left over from an earlier transient failure, or
+        // queuedReadyToSync would keep skipping this draft until that old
+        // timer elapses even though it's eligible the instant the user
+        // re-authenticates.
+        await _store.upsertDraft(d.copyWith(
+            status: SyncStatus.queued, nextRetryAt: null, updatedAt: now));
       case FailureBucket.permanent:
         await _store.upsertDraft(d.copyWith(
           status: SyncStatus.failed,

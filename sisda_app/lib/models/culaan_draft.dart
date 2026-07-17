@@ -58,14 +58,19 @@ class CulaanDraft {
     return payload;
   }
 
+  // Sentinel so callers can explicitly pass `null` to CLEAR nextRetryAt /
+  // failureReason, distinct from "not passed = keep existing". A plain
+  // `?? this.x` default can't tell those two cases apart.
+  static const _unset = Object();
+
   CulaanDraft copyWith({
     Map<String, dynamic>? fields,
     bool? hasSumbangan,
     int? lockedSourceId,
     SyncStatus? status,
     int? attempts,
-    DateTime? nextRetryAt,
-    String? failureReason,
+    Object? nextRetryAt = _unset,
+    Object? failureReason = _unset,
     DateTime? updatedAt,
   }) =>
       CulaanDraft(
@@ -75,8 +80,12 @@ class CulaanDraft {
         lockedSourceId: lockedSourceId ?? this.lockedSourceId,
         status: status ?? this.status,
         attempts: attempts ?? this.attempts,
-        nextRetryAt: nextRetryAt ?? this.nextRetryAt,
-        failureReason: failureReason ?? this.failureReason,
+        nextRetryAt: identical(nextRetryAt, _unset)
+            ? this.nextRetryAt
+            : nextRetryAt as DateTime?,
+        failureReason: identical(failureReason, _unset)
+            ? this.failureReason
+            : failureReason as String?,
         createdAt: createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
       );
