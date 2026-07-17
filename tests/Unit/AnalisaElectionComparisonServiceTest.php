@@ -198,30 +198,66 @@ class AnalisaElectionComparisonServiceTest extends TestCase
     }
 
     /* ----------------------------------------------------------------
-     |  Finding 2 — the upload path sends `pemilih => 0`, not a missing key.
-     |  These cases test what actually arrives from real uploads, not a
-     |  shape that never occurs.
+     |  Residual finding — sanitize() must not trust an AI-emitted `0`.
+     |  `pemilih => 0` is what a real "unknown" scoresheet totals looked like
+     |  BEFORE the earlier fix (ScoresheetExtractor coerced null to 0), AND it
+     |  is exactly what a non-compliant AI response can still emit today even
+     |  though the prompt instructs `null` for an unknown figure. No real
+     |  polling area has zero registered voters, so scenarioSummary() now
+     |  treats `pemilih <= 0` as unknown (null) — closing the last path to a
+     |  fabricated "-100%" registered-voter claim.
      * ---------------------------------------------------------------- */
 
-    /**
-     * `pemilih => 0` is what a real real "unknown" scoresheet totals looked
-     * like BEFORE the Finding 1 fix (ScoresheetExtractor coerced null to 0).
-     * scenarioSummary() itself has always treated an explicit 0 as a KNOWN
-     * (if unusual) zero, not as "unknown" — proving the bug was entirely
-     * upstream in the extractor, not in this service.
-     */
-    public function test_scenario_summary_with_pemilih_zero_is_treated_as_a_known_zero_not_unknown(): void
+    public function test_scenario_summary_with_pemilih_zero_is_treated_as_unknown_not_a_real_zero(): void
     {
         $s = $this->scenario([
             'pemilih' => 0,
             'undi' => ['PN' => 6000, 'PH' => 5000],
             'ditolak' => 100,
             'parties' => ['PN', 'PH'],
+        ], [
+            ['kawasan' => 'KAMPONG TENGKEK', 'pemilih' => 0, 'keluar' => 1500, 'undi' => ['PN' => 700, 'PH' => 790]],
         ]);
 
         $summary = $this->callPrivate('scenarioSummary', [$s]);
 
-        $this->assertSame(0, $summary['pemilih_berdaftar'], 'An explicit 0 must be kept as a known 0, distinguishable from null.');
+        $this->assertNull($summary['pemilih_berdaftar'], 'An AI-emitted 0 must be treated as unknown, not a real registered-voter count of zero.');
+        $this->assertNull($summary['peratus_keluar'], 'Cannot compute a turnout percentage against an unknown (zero-collapsed) denominator.');
+        $this->assertNull($summary['kawasan'][0]['pemilih'], 'Row-level pemilih=0 must also collapse to unknown, for the same reason.');
+    }
+
+    public function test_deltas_emit_no_registered_voter_change_when_pemilih_zero_is_involved(): void
+    {
+        $known = $this->scenario([
+            'pemilih' => 13408, 'undi' => ['PN' => 6000, 'PH' => 5000], 'parties' => ['PN', 'PH'],
+        ], [], 'PRN 2018', '2018-05-09');
+        $zero = $this->scenario([
+            'pemilih' => 0, 'undi' => ['PN' => 6500, 'PH' => 5200], 'parties' => ['PN', 'PH'],
+        ], [], 'PRN 2023', '2023-01-01');
+
+        $summaries = [
+            $this->callPrivate('scenarioSummary', [$known]),
+            $this->callPrivate('scenarioSummary', [$zero]),
+        ];
+
+        // Guard the fixture: pemilih=0 must have collapsed to null, or this
+        // test would not exercise the regression at all.
+        $this->assertNull($summaries[1]['pemilih_berdaftar']);
+
+        $deltas = $this->callPrivate('deltas', [$summaries]);
+        $this->assertNull($deltas[0]['perubahan_pemilih'], 'No registered-voter delta may be published against an AI-emitted 0.');
+        $this->assertNull($deltas[0]['perubahan_pemilih_pct']);
+
+        $fallback = $this->callPrivate('fallbackReport', [[
+            'kawasan' => ['nama' => 'JUASSEH'],
+            'roll_semasa' => ['tersedia' => false],
+            'saluran_semasa' => ['tersedia' => false],
+            'senario' => $summaries,
+            'perubahan' => $deltas,
+        ]]);
+        $bullet = $fallback['pengundi_baru_lama']['bullet_points'][0];
+        $this->assertStringNotContainsString('-100%', $bullet);
+        $this->assertStringNotContainsString('13,408', $bullet);
     }
 
     /**
