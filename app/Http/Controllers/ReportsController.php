@@ -211,16 +211,22 @@ class ReportsController extends Controller
             'hasil_culaan_id' => 'nullable|integer',
         ]);
 
+        $viewer = auth()->user();
+
         $ic = $request->input('ic');
         if (! $ic && $request->filled('source_id')) {
-            $source = DataPengundi::find($request->input('source_id'));
+            $sourceQuery = DataPengundi::where('id', $request->input('source_id'));
+            VoterScopeService::apply($sourceQuery, $viewer);
+            $source = $sourceQuery->first();
             if (! $source) {
                 return response()->json([]);
             }
             $ic = $source->no_ic;
         }
         if (! $ic && $request->filled('hasil_culaan_id')) {
-            $source = HasilCulaan::find($request->input('hasil_culaan_id'));
+            $sourceQuery = HasilCulaan::where('id', $request->input('hasil_culaan_id'));
+            VoterScopeService::apply($sourceQuery, $viewer);
+            $source = $sourceQuery->first();
             if (! $source) {
                 return response()->json([]);
             }
@@ -230,10 +236,11 @@ class ReportsController extends Controller
             return response()->json([]);
         }
 
-        $viewer = auth()->user();
+        $recordsQuery = HasilCulaan::with('submittedBy:id,name,role')
+            ->where('no_ic', $ic);
+        VoterScopeService::apply($recordsQuery, $viewer);
 
-        $records = HasilCulaan::with('submittedBy:id,name,role')
-            ->where('no_ic', $ic)
+        $records = $recordsQuery
             ->orderBy('created_at', 'desc')
             ->get(['id', 'nama', 'no_ic', 'umur', 'no_tel', 'bangsa', 'alamat', 'poskod', 'negeri', 'bandar', 'parlimen', 'kadun', 'mpkk', 'daerah_mengundi', 'lokaliti', 'bil_isi_rumah', 'pendapatan_isi_rumah', 'pekerjaan', 'jenis_pekerjaan', 'pemilik_rumah', 'jenis_sumbangan', 'tujuan_sumbangan', 'status_sumbangan', 'no_rujukan', 'tarikh_sumbangan', 'jumlah_dipohon', 'jumlah_dilulus', 'jumlah_dibayar', 'bantuan_lain', 'jumlah_wang_tunai', 'keahlian_parti', 'kecenderungan_politik', 'kad_pengenalan', 'nota', 'submitted_by', 'created_at'])
             ->map(function ($record) use ($viewer) {

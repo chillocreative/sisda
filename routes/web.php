@@ -186,7 +186,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/reports/hasil-culaan/{hasilCulaan}', [\App\Http\Controllers\ReportsController::class, 'hasilCulaanDestroy'])->name('reports.hasil-culaan.destroy');
     Route::post('/reports/hasil-culaan/bulk-delete', [\App\Http\Controllers\ReportsController::class, 'hasilCulaanBulkDelete'])->name('reports.hasil-culaan.bulk-delete');
     Route::get('/reports/hasil-culaan/export', [\App\Http\Controllers\ReportsController::class, 'exportHasilCulaan'])->name('reports.hasil-culaan.export');
-    Route::get('/api/hasil-culaan/by-ic', [\App\Http\Controllers\ReportsController::class, 'hasilCulaanByIc'])->name('api.hasil-culaan.by-ic');
+    Route::get('/api/hasil-culaan/by-ic', [\App\Http\Controllers\ReportsController::class, 'hasilCulaanByIc'])->name('api.hasil-culaan.by-ic')->middleware('throttle:60,1');
     Route::post('/reports/hasil-culaan/{hasilCulaan}/toggle-deceased', [\App\Http\Controllers\ReportsController::class, 'hasilCulaanToggleDeceased'])->name('reports.hasil-culaan.toggle-deceased');
     Route::post('/reports/hasil-culaan/store-deceased', [\App\Http\Controllers\ReportsController::class, 'hasilCulaanStoreDeceased'])->name('reports.hasil-culaan.store-deceased');
 
