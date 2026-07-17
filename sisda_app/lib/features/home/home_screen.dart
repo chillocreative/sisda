@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers.dart';
 import '../culaan/culaan_form_screen.dart';
 import '../sync/draft_counts_provider.dart';
 import '../voters/ic_scan.dart';
@@ -22,24 +23,32 @@ class HomeScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text(_labelUtama)),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const _SearchBar(),
-          if (queued > 0) ...[
-            const SizedBox(height: 12),
-            _QueueStrip(queued: queued),
-          ],
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const CulaanFormScreen()),
+      body: RefreshIndicator(
+        // Wiring layer only — DateTime.now() must never leak into sync/.
+        // draftCountsProvider watches the local DB directly, so it picks up
+        // whatever the sync drains without a separate reload step.
+        onRefresh: () =>
+            ref.read(syncEngineProvider).syncNow(now: DateTime.now()),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          children: [
+            const _SearchBar(),
+            if (queued > 0) ...[
+              const SizedBox(height: 12),
+              _QueueStrip(queued: queued),
+            ],
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CulaanFormScreen()),
+              ),
+              icon: const Icon(Icons.add),
+              label: const Text(_labelBorangBaru),
             ),
-            icon: const Icon(Icons.add),
-            label: const Text(_labelBorangBaru),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

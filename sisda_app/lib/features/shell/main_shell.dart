@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers.dart';
+import '../culaan/rekod_saya_screen.dart';
 import '../home/home_screen.dart';
 import '../perlu_perhatian/perlu_perhatian_screen.dart';
 import '../sync/draft_counts_provider.dart';
@@ -53,7 +54,7 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
         index: _selectedIndex,
         children: const [
           HomeScreen(),
-          _CulaanTab(),
+          RekodSayaScreen(),
           PerluPerhatianScreen(),
           _ProfilTab(),
         ],
@@ -91,23 +92,6 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
             label: _labelProfil,
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Placeholder — a later task (Plan 2b-ii / the Culaan list task) replaces
-/// this body with the real Culaan tab (list + entry points into
-/// CulaanFormScreen).
-class _CulaanTab extends StatelessWidget {
-  const _CulaanTab();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text(_labelCulaan)),
-      body: const Center(
-        child: Text('Senarai Culaan akan tersedia tidak lama lagi.'),
       ),
     );
   }
