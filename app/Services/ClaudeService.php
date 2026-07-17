@@ -107,9 +107,18 @@ class ClaudeService
      * We concatenate every text block for `content` and collect {title,url}
      * from each search result into `citations`.
      *
+     * A per-call HTTP timeout/connection failure, or running out of the
+     * optional wall-clock `$deadlineSeconds` budget, ends the loop early but
+     * salvages whatever narrative/citations/usage earlier turns already
+     * produced — it does not discard them. `ok` is true whenever there is
+     * ANY text to return, even from a loop that ended early; it is false
+     * only when nothing was gathered at all. `partial` tells the caller the
+     * loop ended before Claude reported a real stop_reason, so the result
+     * may be incomplete.
+     *
      * Returns:
      *   ['ok'=>bool,'content'=>string|null,'citations'=>array,'searches'=>int,
-     *    'raw'=>array|null,'error'=>string|null]
+     *    'raw'=>array|null,'error'=>string|null,'partial'=>bool]
      */
     public function chatWithWebSearch(
         string $systemPrompt,
@@ -123,7 +132,7 @@ class ClaudeService
         $config = ClaudeSetting::current();
 
         if (! $config || ! $config->is_active || empty($config->api_key)) {
-            return ['ok' => false, 'content' => null, 'citations' => [], 'searches' => 0, 'raw' => null, 'error' => 'claude_disabled'];
+            return ['ok' => false, 'content' => null, 'citations' => [], 'searches' => 0, 'raw' => null, 'error' => 'claude_disabled', 'partial' => false];
         }
 
         $messages = [['role' => 'user', 'content' => $userPrompt]];
@@ -144,6 +153,14 @@ class ClaudeService
         $searches = 0;
         $usage = ['input_tokens' => 0, 'output_tokens' => 0, 'cache_creation_input_tokens' => 0, 'cache_read_input_tokens' => 0];
         $lastRaw = null;
+        $lastError = null;
+
+        // Whether the loop ended before Claude reported a real stop_reason
+        // (anything other than "pause_turn"). Flipped false only on that
+        // clean completion; every other exit — deadline, mid-turn timeout,
+        // or the 4-turn cap — leaves it true so the caller can tell the
+        // narrative may be incomplete.
+        $partial = true;
 
         $startedAt = microtime(true);
 
@@ -155,66 +172,96 @@ class ClaudeService
             for ($turn = 0; $turn < 4; $turn++) {
                 $payload['messages'] = $messages;
 
-                $response = Http::timeout($timeout)
-                    ->withHeaders([
-                        'x-api-key' => $config->api_key,
-                        'anthropic-version' => self::ANTHROPIC_VERSION,
-                    ])
-                    ->acceptJson()
-                    ->asJson()
-                    ->post(self::API_URL, $payload);
+                try {
+                    $response = Http::timeout($timeout)
+                        ->withHeaders([
+                            'x-api-key' => $config->api_key,
+                            'anthropic-version' => self::ANTHROPIC_VERSION,
+                        ])
+                        ->acceptJson()
+                        ->asJson()
+                        ->post(self::API_URL, $payload);
 
-                if (! $response->successful()) {
-                    $error = $response->json('error.message') ?? $response->body();
-                    Log::error('Claude web-search call failed', ['status' => $response->status(), 'error' => $error]);
+                    if (! $response->successful()) {
+                        $error = $response->json('error.message') ?? $response->body();
+                        Log::error('Claude web-search call failed', ['status' => $response->status(), 'error' => $error]);
 
-                    return ['ok' => false, 'content' => null, 'citations' => [], 'searches' => $searches, 'raw' => $response->json(), 'error' => $error];
-                }
-
-                $json = $response->json();
-                $lastRaw = $json;
-                $content = $json['content'] ?? [];
-
-                foreach ((is_array($content) && array_is_list($content) ? $content : []) as $block) {
-                    if (! is_array($block)) {
-                        continue;
+                        // A non-2xx mid-loop (e.g. 429/529 on turn 2+) is just as
+                        // recoverable as a thrown timeout: record it and fall
+                        // through to the same salvage path instead of discarding
+                        // narrative/citations/usage already gathered from turns
+                        // that completed before it. Deliberately leave $lastRaw
+                        // untouched — it stays null on a first-turn failure (no
+                        // real response was ever parsed), which is what gates
+                        // logUsage() below.
+                        $lastError = $error;
+                        break;
                     }
-                    if (($block['type'] ?? '') === 'text') {
-                        $text .= $block['text'] ?? '';
-                    } elseif (($block['type'] ?? '') === 'web_search_tool_result') {
-                        // Errored search → content is an object, not a list; skip it.
-                        $results = $block['content'] ?? [];
-                        if (is_array($results) && array_is_list($results)) {
-                            foreach ($results as $r) {
-                                if (is_array($r) && ($r['type'] ?? '') === 'web_search_result' && ! empty($r['url'])) {
-                                    $citations[$r['url']] = ['tajuk' => (string) ($r['title'] ?? $r['url']), 'url' => (string) $r['url']];
+
+                    $json = $response->json();
+                    $lastRaw = $json;
+                    $content = $json['content'] ?? [];
+
+                    foreach ((is_array($content) && array_is_list($content) ? $content : []) as $block) {
+                        if (! is_array($block)) {
+                            continue;
+                        }
+                        if (($block['type'] ?? '') === 'text') {
+                            $text .= $block['text'] ?? '';
+                        } elseif (($block['type'] ?? '') === 'web_search_tool_result') {
+                            // Errored search → content is an object, not a list; skip it.
+                            $results = $block['content'] ?? [];
+                            if (is_array($results) && array_is_list($results)) {
+                                foreach ($results as $r) {
+                                    if (is_array($r) && ($r['type'] ?? '') === 'web_search_result' && ! empty($r['url'])) {
+                                        $citations[$r['url']] = ['tajuk' => (string) ($r['title'] ?? $r['url']), 'url' => (string) $r['url']];
+                                    }
                                 }
                             }
                         }
                     }
-                }
 
-                $u = $json['usage'] ?? [];
-                $usage['input_tokens'] += (int) ($u['input_tokens'] ?? 0);
-                $usage['output_tokens'] += (int) ($u['output_tokens'] ?? 0);
-                $usage['cache_creation_input_tokens'] += (int) ($u['cache_creation_input_tokens'] ?? 0);
-                $usage['cache_read_input_tokens'] += (int) ($u['cache_read_input_tokens'] ?? 0);
-                $searches += (int) ($u['server_tool_use']['web_search_requests'] ?? 0);
+                    $u = $json['usage'] ?? [];
+                    $usage['input_tokens'] += (int) ($u['input_tokens'] ?? 0);
+                    $usage['output_tokens'] += (int) ($u['output_tokens'] ?? 0);
+                    $usage['cache_creation_input_tokens'] += (int) ($u['cache_creation_input_tokens'] ?? 0);
+                    $usage['cache_read_input_tokens'] += (int) ($u['cache_read_input_tokens'] ?? 0);
+                    $searches += (int) ($u['server_tool_use']['web_search_requests'] ?? 0);
 
-                if (($json['stop_reason'] ?? '') !== 'pause_turn') {
+                    if (($json['stop_reason'] ?? '') !== 'pause_turn') {
+                        $partial = false;
+                        break;
+                    }
+
+                    // Out of wall-clock budget → stop resuming and use what we have.
+                    if ($deadlineSeconds !== null && (microtime(true) - $startedAt) >= $deadlineSeconds) {
+                        break;
+                    }
+
+                    // Resume: append the assistant turn and re-post unchanged.
+                    $messages[] = ['role' => 'assistant', 'content' => $content];
+                } catch (\Throwable $e) {
+                    // A per-call HTTP timeout/connection failure on turn 2+ is
+                    // just as recoverable as running out of wall-clock budget:
+                    // log it and fall through to the same salvage path instead
+                    // of letting the outer catch discard everything gathered
+                    // from turns already completed.
+                    Log::error('Claude web-search call exception (turn '.$turn.'): '.$e->getMessage());
+                    $lastError = $e->getMessage();
                     break;
                 }
-
-                // Out of wall-clock budget → stop resuming and use what we have.
-                if ($deadlineSeconds !== null && (microtime(true) - $startedAt) >= $deadlineSeconds) {
-                    break;
-                }
-
-                // Resume: append the assistant turn and re-post unchanged.
-                $messages[] = ['role' => 'assistant', 'content' => $content];
             }
 
-            $this->logUsage($lastRaw['model'] ?? $config->model, $usage, $context, $searches);
+            // Only log real spend: skip when no response was ever parsed
+            // (e.g. the very first call itself timed out), since there is
+            // no usage to record and no model id to attribute it to.
+            if ($lastRaw !== null) {
+                $this->logUsage($lastRaw['model'] ?? $config->model, $usage, $context, $searches);
+            }
+
+            if ($text === '') {
+                return ['ok' => false, 'content' => null, 'citations' => array_values($citations), 'searches' => $searches, 'raw' => $lastRaw, 'error' => $lastError ?? 'no_content', 'partial' => $partial];
+            }
 
             return [
                 'ok' => true,
@@ -223,11 +270,22 @@ class ClaudeService
                 'searches' => $searches,
                 'raw' => $lastRaw,
                 'error' => null,
+                'partial' => $partial,
             ];
         } catch (\Throwable $e) {
             Log::error('Claude web-search exception: '.$e->getMessage());
 
-            return ['ok' => false, 'content' => null, 'citations' => [], 'searches' => $searches, 'raw' => null, 'error' => $e->getMessage()];
+            // Even a genuinely unexpected failure (malformed response, JSON
+            // error) shouldn't destroy narrative/citations already gathered
+            // from turns that completed before it — same salvage principle
+            // as the per-turn timeout above.
+            if ($text !== '') {
+                $this->logUsage($lastRaw['model'] ?? $config->model, $usage, $context, $searches);
+
+                return ['ok' => true, 'content' => $text, 'citations' => array_values($citations), 'searches' => $searches, 'raw' => $lastRaw, 'error' => null, 'partial' => true];
+            }
+
+            return ['ok' => false, 'content' => null, 'citations' => [], 'searches' => $searches, 'raw' => null, 'error' => $e->getMessage(), 'partial' => false];
         }
     }
 
