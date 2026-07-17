@@ -82,4 +82,32 @@ void main() {
     await api.searchVoters('abc');
     expect(seenAuth, 'Bearer TKN');
   });
+
+  test('transport-level throw (no HTTP response) becomes ApiException(status: null), classified as network error', () async {
+    final client = MockClient((req) async => throw Exception('SocketException: no signal'));
+    final api = MobileApi(client: client, config: ApiConfig(baseUrl: 'http://x'));
+    try {
+      await api.searchVoters('abc');
+      fail('expected throw');
+    } on ApiException catch (e) {
+      expect(e.status, isNull);
+      expect(e.isNetworkError, isTrue);
+    }
+  });
+
+  test('forgotPassword: 200 with success:false (WhatsApp send failed) throws ApiException; 200 with success:true returns the message', () async {
+    const bmMessage = 'Penghantaran kata laluan melalui WhatsApp gagal. Sila hubungi pentadbir sistem.';
+    final failing = apiReturning(200, jsonEncode({'success': false, 'message': bmMessage}));
+    try {
+      await failing.forgotPassword('0123456789');
+      fail('expected throw');
+    } on ApiException catch (e) {
+      expect(e.firstError(), bmMessage);
+    }
+
+    final succeeding = apiReturning(200,
+        jsonEncode({'success': true, 'message': 'Kata laluan baharu telah dihantar melalui WhatsApp.'}));
+    final message = await succeeding.forgotPassword('0123456789');
+    expect(message, 'Kata laluan baharu telah dihantar melalui WhatsApp.');
+  });
 }
