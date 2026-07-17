@@ -617,11 +617,15 @@ class MobileCulaanStoreTest extends TestCase
     /**
      * Finding 4 (IMPORTANT): DB::transaction() wraps create + EditHistory::log
      * + VoterSyncService's fan-out, but nothing asserted atomicity. Force a
-     * failure AFTER the hasil_culaan row is physically inserted (via the
-     * model's 'created' event, which fires synchronously inside create()
-     * and therefore still inside the open transaction) and prove BOTH the
-     * hasil_culaan row and the data_pengundi row VoterSyncService would have
-     * fanned out to are rolled back — not just the fan-out.
+     * failure right after the hasil_culaan row is physically inserted (via
+     * the model's 'created' event, which fires synchronously inside
+     * create() and therefore still inside the open transaction) and prove
+     * that row is rolled back.
+     *
+     * This variant fails BEFORE VoterSyncService::syncFromHasilCulaan() runs
+     * at all, so it only proves the hasil_culaan half — see
+     * test_a_failure_during_the_fan_out_rolls_back_both_tables() below for
+     * the half that actually exercises the fan-out.
      *
      * Mutation-checked manually: removing DB::transaction() from
      * MobileCulaanController::store() makes this test fail (the
@@ -639,6 +643,47 @@ class MobileCulaanStoreTest extends TestCase
 
         $this->assertDatabaseCount('hasil_culaan', 0);
         $this->assertDatabaseCount('data_pengundi', 0);
+    }
+
+    /**
+     * Finding D (cleanup round, MINOR): the test above forces its failure
+     * from HasilCulaan::created, which fires before
+     * VoterSyncService::syncFromHasilCulaan() is ever called — so
+     * data_pengundi never gets a single insert attempt, and its
+     * assertDatabaseCount('data_pengundi', 0) is vacuously true regardless
+     * of whether the transaction actually works. It was previously
+     * documented as proving the fan-out rolls back, which was false.
+     *
+     * This variant forces the failure from DataPengundi::created instead —
+     * the event VoterSyncService::syncFromHasilCulaan()'s
+     * DataPengundi::create() call fires, still synchronously inside the
+     * same open transaction — so the fan-out actually runs, actually
+     * inserts a row, and that insert is the one being rolled back. This is
+     * the assertion the old docblock claimed to make.
+     *
+     * Mutation-checked manually: removing DB::transaction() from
+     * MobileCulaanController::store() makes this test fail on the
+     * data_pengundi assertion specifically (asserted first, below, for
+     * exactly that reason) — the fan-out row it just inserted survives the
+     * later exception instead of being rolled back with it. (The
+     * hasil_culaan row would also survive without the transaction, but
+     * that half is already covered by the sibling test above; asserting
+     * data_pengundi first here is what makes THIS test's failure legible as
+     * "the fan-out didn't roll back" rather than being masked by the
+     * earlier test's assertion order.)
+     */
+    public function test_a_failure_during_the_fan_out_rolls_back_both_tables(): void
+    {
+        Sanctum::actingAs($this->makeUser());
+
+        DataPengundi::created(function () {
+            throw new \RuntimeException('Forced fan-out failure for atomicity test.');
+        });
+
+        $this->postJson('/api/mobile/culaan', $this->payload())->assertStatus(500);
+
+        $this->assertDatabaseCount('data_pengundi', 0);
+        $this->assertDatabaseCount('hasil_culaan', 0);
     }
 
     /**
@@ -694,5 +739,240 @@ class MobileCulaanStoreTest extends TestCase
             $createAttempts,
             'A same-user replay must be caught by the scoped prepareForValidation() lookup before HasilCulaan::create() is ever attempted — falling through to the unique-constraint backstop means the primary path silently broke.'
         );
+    }
+
+    /**
+     * Finding A (IMPORTANT, cleanup round): assertJsonStructure(['errors' =>
+     * ['locked_source_id']]) — the shape of the old test for the array
+     * case — is language-blind: it passes identically whether the message
+     * is BM or Laravel's English default ("The locked source id field must
+     * be an integer."). That blind spot is exactly how a real regression
+     * shipped: a `nullable|integer` rule with no messages() entry.
+     *
+     * This asserts the actual text a field agent would see, matching the
+     * literal BM messages() now defines for the four fields the finding
+     * named as previously missing coverage.
+     */
+    public function test_finding_a_named_fields_return_bahasa_melayu_not_english(): void
+    {
+        Sanctum::actingAs($this->makeUser());
+
+        // locked_source_id: array -> `integer` rule. Deliberately does not
+        // name the field in the message (see StoreMobileCulaanRequest's
+        // messages() docblock) — it's an internal wiring field, never
+        // something a field agent typed.
+        $this->postJson('/api/mobile/culaan', $this->payload(['locked_source_id' => ['1', '2']]))
+            ->assertStatus(422)
+            ->assertJsonPath('errors.locked_source_id.0', 'Rekod yang dirujuk tidak sah. Sila cari semula pengundi ini.');
+
+        // has_sumbangan: not a recognised boolean value -> `boolean` rule.
+        $this->postJson('/api/mobile/culaan', $this->payload(['has_sumbangan' => 'entahlah']))
+            ->assertStatus(422)
+            ->assertJsonPath('errors.has_sumbangan.0', 'Status sumbangan tidak sah.');
+
+        // nota: array -> `string` rule.
+        $this->postJson('/api/mobile/culaan', $this->payload(['nota' => ['x']]))
+            ->assertStatus(422)
+            ->assertJsonPath('errors.nota.0', 'Nota tidak sah.');
+
+        // pendapatan_isi_rumah: non-numeric -> `numeric` rule.
+        $this->postJson('/api/mobile/culaan', $this->payload(['pendapatan_isi_rumah' => 'bukan-nombor']))
+            ->assertStatus(422)
+            ->assertJsonPath('errors.pendapatan_isi_rumah.0', 'Pendapatan isi rumah tidak sah.');
+    }
+
+    /**
+     * Finding A (IMPORTANT, cleanup round) — the actual regression net.
+     *
+     * A single request cannot trip both "required" (field absent) and a
+     * type/format rule (field present but wrong) on the same field, so this
+     * sweeps in two passes:
+     *
+     *  1. An empty payload with has_sumbangan=true (so the has_sumbangan-
+     *     conditional fields become `required` too) trips every `required`
+     *     rule in rules().
+     *  2. A payload where every field is present but of a deliberately
+     *     wrong type/shape trips every `string`, `integer`, `numeric`,
+     *     `array`, `boolean`, `in` and `digits` rule in rules().
+     *
+     * Both passes assert, over EVERY message in the response, that none of
+     * them match Laravel's English default shape ("The :attribute field
+     * ..."). This is deliberately not a fixed list of fields: if a future
+     * rule is added to rules() without a matching messages() entry, pass 1
+     * or 2 will produce an English string for it and this test fails —
+     * that's the point.
+     */
+    public function test_every_validation_rule_produces_a_bahasa_melayu_message(): void
+    {
+        Sanctum::actingAs($this->makeUser());
+
+        $englishDefaultShape = '/^The .+ field /i';
+
+        // Pass 1: every `required` rule, including the has_sumbangan-
+        // conditional ones (has_sumbangan=true makes them required).
+        $requiredSweep = $this->postJson('/api/mobile/culaan', [
+            'has_sumbangan' => true,
+        ])->assertStatus(422);
+
+        $requiredErrors = $requiredSweep->json('errors');
+        $this->assertNotEmpty($requiredErrors, 'Expected the near-empty payload to fail validation on multiple fields.');
+        foreach ($requiredErrors as $field => $messages) {
+            foreach ($messages as $message) {
+                $this->assertDoesNotMatchRegularExpression(
+                    $englishDefaultShape,
+                    $message,
+                    "Field '{$field}' produced an English default message: \"{$message}\". Add a BM entry to StoreMobileCulaanRequest::messages()."
+                );
+            }
+        }
+        // Sanity: this must have actually covered every base-required field
+        // plus every has_sumbangan-conditional one, not silently 200'd.
+        foreach ([
+            'nama', 'no_ic', 'umur', 'no_tel', 'bangsa', 'alamat', 'poskod',
+            'negeri', 'bandar', 'parlimen', 'kadun', 'idempotency_key',
+            'bil_isi_rumah', 'pekerjaan', 'jenis_pekerjaan', 'pemilik_rumah',
+            'jenis_sumbangan', 'tujuan_sumbangan', 'bantuan_lain',
+        ] as $expectedField) {
+            $this->assertArrayHasKey($expectedField, $requiredErrors, "Expected a 'required' failure for '{$expectedField}'.");
+        }
+
+        // Pass 2: every field present, but wrong-typed. has_sumbangan is
+        // itself given an invalid value, so the $req()-conditional fields
+        // fall back to their `nullable` branch — still validated for type
+        // when present, just not `required`.
+        $wrongTypePayload = $this->payload([
+            'idempotency_key' => ['a', 'b'],
+            'nama' => ['x'],
+            'no_ic' => 'BUKANDIGIT123',
+            'umur' => 'bukan-nombor',
+            'no_tel' => ['x'],
+            'bangsa' => ['x'],
+            'alamat' => ['x'],
+            'poskod' => ['x'],
+            'negeri' => ['x'],
+            'bandar' => ['x'],
+            'parlimen' => ['x'],
+            'kadun' => ['x'],
+            'mpkk' => ['x'],
+            'daerah_mengundi' => ['x'],
+            'lokaliti' => ['x'],
+            'has_sumbangan' => 'entahlah',
+            'locked_source_id' => ['1', '2'],
+            'bil_isi_rumah' => 'bukan-nombor',
+            'pendapatan_isi_rumah' => 'bukan-nombor',
+            'pekerjaan' => 'Pilihan Tidak Wujud',
+            'jenis_pekerjaan' => 'bukan-array',
+            'jenis_pekerjaan_lain' => ['x'],
+            'pemilik_rumah' => ['x'],
+            'pemilik_rumah_lain' => ['x'],
+            'jenis_sumbangan' => 'bukan-array',
+            'jenis_sumbangan_lain' => ['x'],
+            'tujuan_sumbangan' => 'bukan-array',
+            'tujuan_sumbangan_lain' => ['x'],
+            'bantuan_lain' => 'bukan-array',
+            'bantuan_lain_lain' => ['x'],
+            'perkeso_bantuan' => 'bukan-array',
+            'perkeso_bantuan_lain' => ['x'],
+            'zpp_jenis_bantuan' => 'bukan-array',
+            'isejahtera_program' => ['x'],
+            'bkb_program' => ['x'],
+            'jumlah_bantuan_tunai' => 'bukan-nombor',
+            'jumlah_wang_tunai' => 'bukan-nombor',
+            'keahlian_parti' => ['x'],
+            'kecenderungan_politik' => ['x'],
+            'status_pengundi' => ['x'],
+            'nota' => ['x'],
+        ]);
+
+        $wrongTypeSweep = $this->postJson('/api/mobile/culaan', $wrongTypePayload)
+            ->assertStatus(422);
+
+        $wrongTypeErrors = $wrongTypeSweep->json('errors');
+        $this->assertNotEmpty($wrongTypeErrors, 'Expected the wrong-type payload to fail validation on multiple fields.');
+        foreach ($wrongTypeErrors as $field => $messages) {
+            foreach ($messages as $message) {
+                $this->assertDoesNotMatchRegularExpression(
+                    $englishDefaultShape,
+                    $message,
+                    "Field '{$field}' produced an English default message: \"{$message}\". Add a BM entry to StoreMobileCulaanRequest::messages()."
+                );
+            }
+        }
+        foreach (array_keys($wrongTypePayload) as $expectedField) {
+            if ($expectedField === 'no_ic') {
+                continue; // BUKANDIGIT123 trips `digits`, already covered elsewhere.
+            }
+            $this->assertArrayHasKey($expectedField, $wrongTypeErrors, "Expected a type-validation failure for '{$expectedField}'.");
+        }
+
+        $this->assertDatabaseCount('hasil_culaan', 0);
+    }
+
+    /**
+     * Finding A continued: `max` rules are exercised separately since
+     * tripping them requires a present, correctly-typed, over-length value
+     * rather than a wrong type — a different payload shape than the sweep
+     * above.
+     */
+    public function test_max_length_rules_produce_a_bahasa_melayu_message(): void
+    {
+        Sanctum::actingAs($this->makeUser());
+
+        $englishDefaultShape = '/^The .+ field /i';
+
+        $overLongPayload = $this->payload([
+            'idempotency_key' => str_repeat('a', 65),
+            'mpkk' => str_repeat('a', 256),
+            'status_pengundi' => str_repeat('a', 256),
+            'daerah_mengundi' => str_repeat('a', 256),
+        ]);
+
+        $response = $this->postJson('/api/mobile/culaan', $overLongPayload)->assertStatus(422);
+
+        $response->assertJsonPath('errors.idempotency_key.0', 'Kunci idempotency terlalu panjang.');
+        $response->assertJsonPath('errors.mpkk.0', 'MPKK tidak boleh melebihi 255 aksara.');
+        $response->assertJsonPath('errors.status_pengundi.0', 'Status pengundi tidak boleh melebihi 255 aksara.');
+        $response->assertJsonPath('errors.daerah_mengundi.0', 'Daerah mengundi tidak boleh melebihi 255 aksara.');
+
+        foreach ($response->json('errors') as $field => $messages) {
+            foreach ($messages as $message) {
+                $this->assertDoesNotMatchRegularExpression($englishDefaultShape, $message);
+            }
+        }
+    }
+
+    /**
+     * Finding B (MINOR, cleanup round): idempotency_key reaches
+     * shortCircuitIfReplay()'s where() clause before rules() runs — the same
+     * class of bug the locked_source_id is_scalar guard fixed, left
+     * unguarded for the field that round's refactor relocated ahead of
+     * validation. Probed pre-fix: ['realkey', 'x'] flattened to 'realkey' in
+     * the query (Builder::flattenValue()) and returned a 201 replay of the
+     * existing 'realkey' row, where validation should have produced an
+     * honest 422 on the `string` rule instead.
+     */
+    public function test_idempotency_key_as_an_array_returns_422_not_a_replay(): void
+    {
+        $user = $this->makeUser();
+        Sanctum::actingAs($user);
+
+        $existing = $this->postJson('/api/mobile/culaan', $this->payload(['idempotency_key' => 'realkey']))
+            ->assertStatus(201);
+        $existingId = $existing->json('culaan.id');
+
+        $response = $this->postJson('/api/mobile/culaan', $this->payload([
+            'idempotency_key' => ['realkey', 'x'],
+            'no_ic' => '811119992222',
+        ]));
+
+        $response->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('errors.idempotency_key.0', 'Kunci idempotency tidak sah.');
+
+        $this->assertNotSame($existingId, $response->json('culaan.id'));
+        $this->assertDatabaseMissing('hasil_culaan', ['no_ic' => '811119992222']);
+        // Only the original row exists — the array did not create a second
+        // one, and it did not get treated as a replay of the first either.
+        $this->assertSame(1, HasilCulaan::where('idempotency_key', 'realkey')->count());
     }
 }

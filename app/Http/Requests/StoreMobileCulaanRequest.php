@@ -82,12 +82,14 @@ class StoreMobileCulaanRequest extends FormRequest
 
         // locked_source_id has not been through rules() yet (prepareForValidation()
         // runs first), so the `integer` rule has not fired. Feeding an array
-        // straight into DataPengundi::where('id', ...) merges it into the
-        // query bindings: SQLite quietly yields a 404-style miss (verified),
-        // but PDO MySQL typically raises HY093 "Invalid parameter number" ->
-        // QueryException -> an actionable rejection surfacing as a 500 the
-        // client will retry forever. Guard before the query and let the
-        // honest `integer` rule produce a 422 instead.
+        // straight into DataPengundi::where('id', $array) does not error or
+        // mismatch bindings — Builder::flattenValue() (Arr::flatten then
+        // head()) silently takes ONLY the array's first element as the
+        // lookup value. So an array here would silently query the ID the
+        // caller happened to put first, not the ID they actually meant,
+        // and come back with a misleading 409 ("Rekod sumber tidak lagi
+        // wujud") for what is really a malformed request. Guard before the
+        // query and let the honest `integer` rule produce a 422 instead.
         if (! is_scalar($this->input('locked_source_id'))) {
             return;
         }
@@ -131,10 +133,23 @@ class StoreMobileCulaanRequest extends FormRequest
      * 1): the caller sent '****' for a locked record because they cannot
      * see the real value — replaying their own key must not become a way
      * to read it back out.
+     *
+     * idempotency_key has not been through rules() yet either, for the same
+     * reason locked_source_id has not (see the is_scalar guard below it):
+     * this runs inside prepareForValidation(), before rules() is evaluated.
+     * An array here would silently flatten to its first element in the
+     * where() clause (Builder::flattenValue()) and could match some OTHER
+     * key's row, turning a malformed request into a spurious replay instead
+     * of the honest `string` 422 the request actually deserves. Guard
+     * before the query.
      */
     private function shortCircuitIfReplay(): void
     {
         if (! $this->filled('idempotency_key')) {
+            return;
+        }
+
+        if (! is_scalar($this->input('idempotency_key'))) {
             return;
         }
 
@@ -215,12 +230,25 @@ class StoreMobileCulaanRequest extends FormRequest
     }
 
     /**
-     * Bahasa Melayu messages for the rules a field agent can actually trip:
-     * the required fields, digits:12 on no_ic, and the has_sumbangan-
-     * conditional fields. Laravel's default messages are English (there is
-     * no lang/ directory; config/app.php sets locale => en) and the mobile
-     * client's classifier needs BM strings, not just the success/errors
-     * envelope shape.
+     * Bahasa Melayu messages for every rule in rules(), not just the ones a
+     * field agent is likely to trip in normal use. Laravel's default
+     * messages are English (there is no lang/ directory; config/app.php
+     * sets locale => en), so ANY rule without an entry here silently emits
+     * an English string like "The locked source id field must be an
+     * integer." — a real regression that shipped once already (the
+     * locked_source_id.integer rule had no message) and is the reason this
+     * file now covers every field.rule pair rules() can produce, including
+     * ones only reachable via malformed/adversarial input, not just the
+     * happy-path required fields.
+     *
+     * locked_source_id is deliberately worded without the field name: it is
+     * an internal wiring field the phone sets automatically for a
+     * masked-create swap, never something a field agent typed, so the
+     * message describes the record, not the field.
+     *
+     * See MobileCulaanStoreTest::test_every_validation_rule_produces_a_bahasa_melayu_message()
+     * for the regression net: it trips every rule this file defines and
+     * fails if any of them falls through to Laravel's English default.
      */
     public function messages(): array
     {
@@ -234,6 +262,7 @@ class StoreMobileCulaanRequest extends FormRequest
             'nama.max' => 'Nama tidak boleh melebihi 255 aksara.',
 
             'no_ic.required' => 'Sila masukkan nombor IC.',
+            'no_ic.string' => 'Nombor IC tidak sah.',
             'no_ic.digits' => 'Nombor IC mesti 12 digit.',
 
             'umur.required' => 'Sila masukkan umur.',
@@ -242,41 +271,126 @@ class StoreMobileCulaanRequest extends FormRequest
             'umur.max' => 'Umur tidak sah.',
 
             'no_tel.required' => 'Sila masukkan nombor telefon.',
+            'no_tel.string' => 'Nombor telefon tidak sah.',
+            'no_tel.max' => 'Nombor telefon tidak boleh melebihi 255 aksara.',
 
             'bangsa.required' => 'Sila masukkan bangsa.',
+            'bangsa.string' => 'Bangsa tidak sah.',
+            'bangsa.max' => 'Bangsa tidak boleh melebihi 255 aksara.',
 
             'alamat.required' => 'Sila masukkan alamat.',
+            'alamat.string' => 'Alamat tidak sah.',
 
             'poskod.required' => 'Sila masukkan poskod.',
+            'poskod.string' => 'Poskod tidak sah.',
+            'poskod.max' => 'Poskod tidak boleh melebihi 255 aksara.',
 
             'negeri.required' => 'Sila masukkan negeri.',
+            'negeri.string' => 'Negeri tidak sah.',
+            'negeri.max' => 'Negeri tidak boleh melebihi 255 aksara.',
 
             'bandar.required' => 'Sila masukkan bandar.',
+            'bandar.string' => 'Bandar tidak sah.',
+            'bandar.max' => 'Bandar tidak boleh melebihi 255 aksara.',
 
             'parlimen.required' => 'Sila masukkan Parlimen.',
+            'parlimen.string' => 'Parlimen tidak sah.',
+            'parlimen.max' => 'Parlimen tidak boleh melebihi 255 aksara.',
 
             'kadun.required' => 'Sila masukkan DUN.',
+            'kadun.string' => 'DUN tidak sah.',
+            'kadun.max' => 'DUN tidak boleh melebihi 255 aksara.',
+
+            'mpkk.string' => 'MPKK tidak sah.',
+            'mpkk.max' => 'MPKK tidak boleh melebihi 255 aksara.',
+
+            'daerah_mengundi.string' => 'Daerah mengundi tidak sah.',
+            'daerah_mengundi.max' => 'Daerah mengundi tidak boleh melebihi 255 aksara.',
+
+            'lokaliti.string' => 'Lokaliti tidak sah.',
+            'lokaliti.max' => 'Lokaliti tidak boleh melebihi 255 aksara.',
+
+            'has_sumbangan.boolean' => 'Status sumbangan tidak sah.',
+
+            // Deliberately does not name the field — see the class docblock
+            // above this method.
+            'locked_source_id.integer' => 'Rekod yang dirujuk tidak sah. Sila cari semula pengundi ini.',
 
             'bil_isi_rumah.required' => 'Sila masukkan bilangan isi rumah.',
             'bil_isi_rumah.integer' => 'Bilangan isi rumah tidak sah.',
             'bil_isi_rumah.min' => 'Bilangan isi rumah tidak sah.',
 
+            'pendapatan_isi_rumah.numeric' => 'Pendapatan isi rumah tidak sah.',
+            'pendapatan_isi_rumah.min' => 'Pendapatan isi rumah tidak sah.',
+
             'pekerjaan.required' => 'Sila pilih pekerjaan.',
             'pekerjaan.in' => 'Pekerjaan yang dipilih tidak sah.',
 
             'jenis_pekerjaan.required' => 'Sila pilih sekurang-kurangnya satu Jenis Pekerjaan.',
+            'jenis_pekerjaan.array' => 'Jenis Pekerjaan tidak sah.',
             'jenis_pekerjaan.min' => 'Sila pilih sekurang-kurangnya satu Jenis Pekerjaan.',
+            'jenis_pekerjaan.*.string' => 'Jenis Pekerjaan yang dipilih tidak sah.',
+            'jenis_pekerjaan.*.max' => 'Jenis Pekerjaan yang dipilih tidak sah.',
+
+            'jenis_pekerjaan_lain.string' => 'Jenis pekerjaan lain tidak sah.',
+            'jenis_pekerjaan_lain.max' => 'Jenis pekerjaan lain tidak boleh melebihi 255 aksara.',
 
             'pemilik_rumah.required' => 'Sila pilih Pemilik Rumah.',
+            'pemilik_rumah.string' => 'Pemilik Rumah tidak sah.',
+            'pemilik_rumah.max' => 'Pemilik Rumah tidak sah.',
+
+            'pemilik_rumah_lain.string' => 'Pemilik rumah lain tidak sah.',
+            'pemilik_rumah_lain.max' => 'Pemilik rumah lain tidak boleh melebihi 255 aksara.',
 
             'jenis_sumbangan.required' => 'Sila pilih sekurang-kurangnya satu Jenis Sumbangan.',
+            'jenis_sumbangan.array' => 'Jenis Sumbangan tidak sah.',
             'jenis_sumbangan.min' => 'Sila pilih sekurang-kurangnya satu Jenis Sumbangan.',
 
+            'jenis_sumbangan_lain.string' => 'Jenis sumbangan lain tidak sah.',
+            'jenis_sumbangan_lain.max' => 'Jenis sumbangan lain tidak boleh melebihi 255 aksara.',
+
             'tujuan_sumbangan.required' => 'Sila pilih sekurang-kurangnya satu Tujuan Sumbangan.',
+            'tujuan_sumbangan.array' => 'Tujuan Sumbangan tidak sah.',
             'tujuan_sumbangan.min' => 'Sila pilih sekurang-kurangnya satu Tujuan Sumbangan.',
 
+            'tujuan_sumbangan_lain.string' => 'Tujuan sumbangan lain tidak sah.',
+            'tujuan_sumbangan_lain.max' => 'Tujuan sumbangan lain tidak boleh melebihi 255 aksara.',
+
             'bantuan_lain.required' => 'Sila pilih sekurang-kurangnya satu Bantuan Lain Yang Telah Diterima.',
+            'bantuan_lain.array' => 'Bantuan Lain Yang Telah Diterima tidak sah.',
             'bantuan_lain.min' => 'Sila pilih sekurang-kurangnya satu Bantuan Lain Yang Telah Diterima.',
+
+            'bantuan_lain_lain.string' => 'Bantuan lain (lain-lain) tidak sah.',
+            'bantuan_lain_lain.max' => 'Bantuan lain (lain-lain) tidak boleh melebihi 255 aksara.',
+
+            'perkeso_bantuan.array' => 'Bantuan PERKESO tidak sah.',
+            'perkeso_bantuan_lain.string' => 'Bantuan PERKESO (lain-lain) tidak sah.',
+            'perkeso_bantuan_lain.max' => 'Bantuan PERKESO (lain-lain) tidak boleh melebihi 255 aksara.',
+
+            'zpp_jenis_bantuan.array' => 'Jenis bantuan ZPP tidak sah.',
+
+            'isejahtera_program.string' => 'Program i-Sejahtera tidak sah.',
+            'isejahtera_program.max' => 'Program i-Sejahtera tidak boleh melebihi 255 aksara.',
+
+            'bkb_program.string' => 'Program BKB tidak sah.',
+            'bkb_program.max' => 'Program BKB tidak boleh melebihi 255 aksara.',
+
+            'jumlah_bantuan_tunai.numeric' => 'Jumlah bantuan tunai tidak sah.',
+            'jumlah_bantuan_tunai.min' => 'Jumlah bantuan tunai tidak sah.',
+
+            'jumlah_wang_tunai.numeric' => 'Jumlah wang tunai tidak sah.',
+            'jumlah_wang_tunai.min' => 'Jumlah wang tunai tidak sah.',
+
+            'keahlian_parti.string' => 'Keahlian parti tidak sah.',
+            'keahlian_parti.max' => 'Keahlian parti tidak boleh melebihi 255 aksara.',
+
+            'kecenderungan_politik.string' => 'Kecenderungan politik tidak sah.',
+            'kecenderungan_politik.max' => 'Kecenderungan politik tidak boleh melebihi 255 aksara.',
+
+            'status_pengundi.string' => 'Status pengundi tidak sah.',
+            'status_pengundi.max' => 'Status pengundi tidak boleh melebihi 255 aksara.',
+
+            'nota.string' => 'Nota tidak sah.',
         ];
     }
 
