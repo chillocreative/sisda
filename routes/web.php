@@ -533,6 +533,32 @@ Route::prefix('api/mobile')->withoutMiddleware([\Illuminate\Foundation\Http\Midd
     // Authenticated routes (requires Sanctum token)
     Route::post('/web-auth-token', [\App\Http\Controllers\Api\MobileAuthController::class, 'webAuthToken'])->middleware('auth:sanctum');
     Route::post('/logout', [\App\Http\Controllers\Api\MobileAuthController::class, 'logout'])->middleware('auth:sanctum');
+
+    Route::middleware('auth:sanctum')->group(function () {
+        // throttle:30,1 — generous enough for normal field-app lookups (an
+        // agent scanning/typing repeatedly) while bounding the brute-force
+        // IC oracle (Finding 2) and wildcard-enumeration (Finding 5) attempts
+        // any single caller can make per minute.
+        Route::get('/voters/search', [\App\Http\Controllers\Api\MobileVoterController::class, 'search'])->middleware('throttle:30,1');
+        Route::get('/voters/{ic}', [\App\Http\Controllers\Api\MobileVoterController::class, 'show'])->middleware('throttle:30,1');
+
+        // Registered above the POST /culaan route (and above where any future
+        // GET /culaan/{id} wildcard would live) so a wildcard can never
+        // swallow these two literal paths — the mistake Task 4 hit on
+        // /voters/{ic}. throttle:30,1 matches the voters/* read-lookup
+        // limit: these are read-only GETs (form config, own-record list),
+        // not the offline-queue burst-drain that justifies /culaan POST's
+        // higher 60,1.
+        Route::get('/culaan/options', [\App\Http\Controllers\Api\MobileCulaanController::class, 'options'])->middleware('throttle:30,1');
+        Route::get('/culaan/mine', [\App\Http\Controllers\Api\MobileCulaanController::class, 'mine'])->middleware('throttle:30,1');
+
+        // throttle:60,1 — a write endpoint, but the offline-first client is
+        // expected to burst-drain a queue of drafts the instant signal
+        // returns. 30/min (the read-lookup limit) would 429 a field agent's
+        // legitimate backlog after a dead zone; 60/min still bounds abuse
+        // while giving a queue of ~20+ drafts room to drain in one go.
+        Route::post('/culaan', [\App\Http\Controllers\Api\MobileCulaanController::class, 'store'])->middleware('throttle:60,1');
+    });
 });
 
 // Mobile WebView auto-login via one-time token

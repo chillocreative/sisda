@@ -84,6 +84,24 @@ class VoterDataMasker
     }
 
     /**
+     * Convenience for endpoints (e.g. mobile Culaan create) that only ever
+     * echo `id` and `no_ic` back to the caller. Runs the record through
+     * mask() first: a caller who sent '****' because they cannot unmask a
+     * locked record must get '****' back, not the real IC just because
+     * they happen to be the one who submitted (or replayed) the request.
+     * See MobileCulaanController's docblock for the disclosure this closes.
+     */
+    public static function maskedIdAndIc($record, ?User $viewer): array
+    {
+        $masked = self::mask($record, $viewer);
+
+        return [
+            'id' => $masked['id'] ?? null,
+            'no_ic' => $masked['no_ic'] ?? null,
+        ];
+    }
+
+    /**
      * Drop sensitive fields from a validated payload when the viewer is not
      * allowed to overwrite them. Call before Model::update(). Keeps the
      * existing DB value intact for every field the viewer may not touch.

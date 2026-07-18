@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_theme.dart';
-import '../services/api_service.dart';
+import '../providers.dart';
 
-class RegisterScreen extends StatefulWidget {
+class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _telephoneController = TextEditingController();
@@ -20,7 +21,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
   String? _errorMessage;
-  Map<String, dynamic>? _fieldErrors;
 
   List<dynamic> _negeriList = [];
   List<dynamic> _bandarList = [];
@@ -36,23 +36,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _loadNegeriList() async {
-    final list = await ApiService.getNegeriList();
-    if (mounted) setState(() => _negeriList = list);
+    try {
+      final list = await ref.read(mobileApiProvider).negeriList();
+      if (mounted) setState(() => _negeriList = list);
+    } catch (_) {
+      // dropdown population is best-effort; leave list empty on failure
+    }
   }
 
   Future<void> _onNegeriChanged(int? val) async {
     setState(() { _selectedNegeri = val; _selectedBandar = null; _selectedKadun = null; _bandarList = []; _kadunList = []; });
     if (val != null) {
-      final list = await ApiService.getBandarByNegeri(val);
-      if (mounted) setState(() => _bandarList = list);
+      try {
+        final list = await ref.read(mobileApiProvider).bandarByNegeri(val);
+        if (mounted) setState(() => _bandarList = list);
+      } catch (_) {}
     }
   }
 
   Future<void> _onBandarChanged(int? val) async {
     setState(() { _selectedBandar = val; _selectedKadun = null; _kadunList = []; });
     if (val != null) {
-      final list = await ApiService.getKadunByBandar(val);
-      if (mounted) setState(() => _kadunList = list);
+      try {
+        final list = await ref.read(mobileApiProvider).kadunByBandar(val);
+        if (mounted) setState(() => _kadunList = list);
+      } catch (_) {}
     }
   }
 
@@ -63,27 +71,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    setState(() { _isLoading = true; _errorMessage = null; _fieldErrors = null; });
+    setState(() { _isLoading = true; _errorMessage = null; });
 
     try {
-      final result = await ApiService.register(
-        name: _nameController.text.trim(),
-        telephone: _telephoneController.text.trim(),
-        email: _emailController.text.trim().isNotEmpty ? _emailController.text.trim() : null,
-        password: _passwordController.text,
-        passwordConfirmation: _confirmPasswordController.text,
-        negeriId: _selectedNegeri!,
-        bandarId: _selectedBandar!,
-        kadunId: _selectedKadun!,
-      );
+      await ref.read(authControllerProvider.notifier).register({
+        'name': _nameController.text.trim(),
+        'telephone': _telephoneController.text.trim(),
+        if (_emailController.text.trim().isNotEmpty) 'email': _emailController.text.trim(),
+        'password': _passwordController.text,
+        'password_confirmation': _confirmPasswordController.text,
+        'negeri_id': _selectedNegeri,
+        'bandar_id': _selectedBandar,
+        'kadun_id': _selectedKadun,
+      });
 
-      if (result['success'] == true && mounted) {
+      final authState = ref.read(authControllerProvider).value;
+      if (authState?.errorMessage == null && mounted) {
         _showSuccessDialog();
       } else {
-        setState(() {
-          _fieldErrors = result['errors'] as Map<String, dynamic>?;
-          _errorMessage = _fieldErrors?.values.expand((e) => e is List ? e : [e]).join('\n');
-        });
+        setState(() { _errorMessage = authState?.errorMessage; });
       }
     } catch (e) {
       setState(() { _errorMessage = 'Ralat sambungan. Sila semak internet.'; });
@@ -224,7 +230,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                         // Negeri
                         DropdownButtonFormField<int>(
-                          value: _selectedNegeri,
+                          initialValue: _selectedNegeri,
                           decoration: const InputDecoration(labelText: 'Negeri', prefixIcon: Icon(Icons.location_on_outlined)),
                           items: _negeriList.map((n) => DropdownMenuItem<int>(value: n['id'], child: Text(n['nama'] ?? ''))).toList(),
                           onChanged: _onNegeriChanged,
@@ -234,7 +240,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                         // Bandar
                         DropdownButtonFormField<int>(
-                          value: _selectedBandar,
+                          initialValue: _selectedBandar,
                           decoration: const InputDecoration(labelText: 'Bandar / Parlimen', prefixIcon: Icon(Icons.location_city_outlined)),
                           items: _bandarList.map((b) => DropdownMenuItem<int>(value: b['id'], child: Text(b['nama'] ?? ''))).toList(),
                           onChanged: (v) => setState(() { _selectedBandar = v; _onBandarChanged(v); }),
@@ -244,7 +250,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                         // KADUN
                         DropdownButtonFormField<int>(
-                          value: _selectedKadun,
+                          initialValue: _selectedKadun,
                           decoration: const InputDecoration(labelText: 'KADUN', prefixIcon: Icon(Icons.how_to_vote_outlined)),
                           items: _kadunList.map((k) => DropdownMenuItem<int>(value: k['id'], child: Text(k['nama'] ?? ''))).toList(),
                           onChanged: (v) => setState(() => _selectedKadun = v),

@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../features/shell/main_shell.dart';
 import '../theme/app_theme.dart';
-import '../services/api_service.dart';
-import 'home_screen.dart';
+import '../providers.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _telephoneController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -23,11 +24,13 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() { _isLoading = true; _errorMessage = null; });
     try {
-      final result = await ApiService.login(_telephoneController.text.trim(), _passwordController.text);
-      if (result['success'] == true && mounted) {
-        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
+      await ref.read(authControllerProvider.notifier)
+          .login(_telephoneController.text.trim(), _passwordController.text);
+      final authState = ref.read(authControllerProvider).value;
+      if (authState?.loggedIn == true && mounted) {
+        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const MainShell()));
       } else {
-        setState(() { _errorMessage = result['errors']?['telephone']?[0] ?? 'Log masuk gagal.'; });
+        setState(() { _errorMessage = authState?.errorMessage ?? 'Log masuk gagal.'; });
       }
     } catch (e) {
       setState(() { _errorMessage = 'Ralat sambungan. Sila semak internet.'; });

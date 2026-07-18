@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../features/auth/auth_controller.dart';
+import '../features/shell/main_shell.dart';
 import '../theme/app_theme.dart';
-import '../services/api_service.dart';
+import '../providers.dart';
 import 'login_screen.dart';
-import 'home_screen.dart';
 
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
 
@@ -25,12 +27,17 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 
   Future<void> _checkSession() async {
-    await ApiService.loadSavedSession();
-    await Future.delayed(const Duration(seconds: 3));
+    // authControllerProvider's build() restores any saved session from
+    // shared_preferences; wait for it alongside the minimum splash delay.
+    final results = await Future.wait([
+      Future.delayed(const Duration(seconds: 3)),
+      ref.read(authControllerProvider.future),
+    ]);
     if (!mounted) return;
 
-    if (ApiService.token != null) {
-      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
+    final authState = results[1] as AuthState;
+    if (authState.loggedIn) {
+      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const MainShell()));
     } else {
       Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const LoginScreen()));
     }
