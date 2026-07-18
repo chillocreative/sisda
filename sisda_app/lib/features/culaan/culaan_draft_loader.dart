@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 import '../../data/local/database.dart';
 import '../../models/culaan_draft.dart';
 import '../../models/voter.dart';
+import 'culaan_form_spec.dart' show kSensitiveFields;
 
 /// Injectable so widget tests get deterministic idempotency keys.
 final idGeneratorProvider =
@@ -40,6 +41,18 @@ Future<CulaanDraft> loadOrCreateDraft({
     for (final k in _prefillKeys) {
       final v = prefillVoter.field(k); // '' when absent; '****' when masked
       if (v.isNotEmpty) seeded[k] = v;
+    }
+    // Masked-create only: a sensitive field the server omitted entirely
+    // (absent or empty, rather than sent as '****') must still be seeded
+    // with the mask literal. Otherwise the locked/read-only field displays
+    // '****' in the UI forever while the completeness check sees it as
+    // empty, soft-locking Hantar with no way for the agent to fill it in.
+    // '****' + lockedSourceId is exactly what the server substitutes from
+    // the authoritative source row, so this is never a fabricated value.
+    for (final k in _prefillKeys) {
+      if (kSensitiveFields.contains(k)) {
+        seeded.putIfAbsent(k, () => '****');
+      }
     }
     draft = draft.copyWith(
       fields: seeded,
