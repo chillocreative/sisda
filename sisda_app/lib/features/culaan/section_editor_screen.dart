@@ -17,7 +17,7 @@ class SectionEditorScreen extends ConsumerStatefulWidget {
     super.key,
     required this.section,
     required this.initialFields,
-    this.locked = false,
+    required this.locked,
   });
 
   @override
