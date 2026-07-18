@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/culaan_draft.dart';
+import '../../models/sync_status.dart';
 import '../../models/voter.dart';
 import '../../providers.dart';
 import 'culaan_draft_loader.dart';
@@ -85,9 +86,10 @@ class _CulaanFormScreenState extends ConsumerState<CulaanFormScreen> {
   SectionSpec _section(String key) =>
       sectionsFor(true).firstWhere((s) => s.key == key);
 
-  // --- Task 7 replaces this body with the real enqueue+sync path. ---
   Future<void> _submit() async {
-    final missing = incompleteRequiredSections(_fields, _draft!.hasSumbangan);
+    final draft = _draft;
+    if (draft == null) return;
+    final missing = incompleteRequiredSections(_fields, draft.hasSumbangan);
     if (missing.isNotEmpty) {
       final names = missing.map((s) => s.title).join(', ');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -95,7 +97,19 @@ class _CulaanFormScreenState extends ConsumerState<CulaanFormScreen> {
       );
       return;
     }
-    // Real submit wired in Task 7.
+    final now = DateTime.now();
+    final queued = draft.copyWith(
+      status: SyncStatus.queued,
+      failureReason: null, // clear any prior failure → leaves Perlu Perhatian
+      updatedAt: now,
+    );
+    await ref.read(appDatabaseProvider).upsertDraft(queued);
+    await ref.read(syncEngineProvider).syncNow(now: DateTime.now());
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Culaan disimpan. Ia akan dihantar bila ada talian.')),
+    );
+    Navigator.of(context).pop();
   }
 
   @override

@@ -99,4 +99,57 @@ void main() {
     expect(saved!.lockedSourceId, 9);
     await _drain(tester);
   });
+
+  testWidgets('Hantar with missing required fields shows BM message, does NOT enqueue', (tester) async {
+    await pump(tester);
+    await tester.tap(find.text('Hantar'));
+    await tester.pump();
+    expect(find.textContaining('Sila lengkapkan'), findsOneWidget);
+    verifyNever(() => sync.syncNow(now: any(named: 'now')));
+    final saved = await db.getDraft('TEST-KEY');
+    expect(saved!.status, SyncStatus.draft); // still a draft, not queued
+    await _drain(tester);
+  });
+
+  testWidgets('Hantar with a complete form enqueues (queued) and triggers syncNow', (tester) async {
+    await db.upsertDraft(CulaanDraft.newDraft(idempotencyKey: 'C1', now: now).copyWith(
+      status: SyncStatus.failed,
+      failureReason: 'Di luar Parlimen anda.',
+      fields: {
+        'nama': 'Ali', 'no_ic': '800101015555', 'umur': '44', 'no_tel': '0121234567',
+        'bangsa': 'Melayu', 'alamat': 'Jln 1', 'poskod': '13200', 'negeri': 'P. Pinang',
+        'bandar': 'Kepala Batas', 'parlimen': 'P.044', 'kadun': 'N.11',
+      },
+    ));
+    await pump(tester, draftKey: 'C1');
+    await tester.tap(find.text('Hantar'));
+    await tester.pump();
+    final saved = await db.getDraft('C1');
+    expect(saved!.status, SyncStatus.queued);
+    expect(saved.failureReason, isNull); // cleared on re-submit (leaves Perlu Perhatian)
+    verify(() => sync.syncNow(now: any(named: 'now'))).called(1);
+    await _drain(tester);
+  });
+
+  testWidgets('toggling Ada Sumbangan OFF strips Isi Rumah/Bantuan keys but keeps core fields', (tester) async {
+    await db.upsertDraft(CulaanDraft.newDraft(idempotencyKey: 'C2', now: now).copyWith(
+      hasSumbangan: true,
+      fields: {
+        'nama': 'Ali', 'no_ic': '800101015555', 'umur': '44', 'no_tel': '0121234567',
+        'bangsa': 'Melayu', 'alamat': 'Jln 1', 'poskod': '13200', 'negeri': 'P. Pinang',
+        'bandar': 'Kepala Batas', 'parlimen': 'P.044', 'kadun': 'N.11',
+        'bil_isi_rumah': '4', 'pekerjaan': 'Kerajaan', 'jenis_sumbangan': ['Barangan'],
+      },
+    ));
+    await pump(tester, draftKey: 'C2');
+    await tester.tap(find.byType(SwitchListTile));
+    await tester.pump();
+    final saved = await db.getDraft('C2');
+    expect(saved!.hasSumbangan, isFalse);
+    expect(saved.fields.containsKey('bil_isi_rumah'), isFalse);
+    expect(saved.fields.containsKey('pekerjaan'), isFalse);
+    expect(saved.fields.containsKey('jenis_sumbangan'), isFalse);
+    expect(saved.fields['nama'], 'Ali');
+    await _drain(tester);
+  });
 }
