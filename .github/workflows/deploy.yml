@@ -66,6 +66,9 @@ jobs:
                 # 5b. Seed Johor electoral hierarchy (idempotent — updateOrCreate)
                 php artisan db:seed --class=JohorSeeder --force --no-interaction
 
+                # 5c. Seed Negeri Sembilan Parlimen + DUN (idempotent, name-reconciling)
+                php artisan db:seed --class=NegeriSembilanSeeder --force --no-interaction
+
                 # 6. Re-cache for production
                 php artisan config:cache
                 php artisan route:cache
