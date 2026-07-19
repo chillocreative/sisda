@@ -260,7 +260,7 @@ class MemberMatchService
                 ) d WHERE d.rn = 1
             ) c ON c.no_ic = k.no_ic
             SET k.voter_color = c.voter_color,
-                k.is_dicula = (c.voter_color = 'hitam')
+                k.is_dicula = COALESCE(c.voter_color = 'hitam', 0)
             {$scopeK}
         ", $bind);
     }
