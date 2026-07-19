@@ -3,7 +3,7 @@ import { Head, useForm, router } from '@inertiajs/react';
 import { useState, useRef, useEffect } from 'react';
 import { Upload, Loader2, CheckCircle, XCircle, X, Power, PowerOff, Trash2, Database, AlertTriangle } from 'lucide-react';
 
-export default function Index({ batches, flash }) {
+export default function Index({ batches, flash, negeriList = [], parlimenList = [], kadunList = [] }) {
     const [confirmDelete, setConfirmDelete] = useState(null);
     const [selected, setSelected] = useState([]);
     const [activating, setActivating] = useState(false);
@@ -15,7 +15,14 @@ export default function Index({ batches, flash }) {
     const { data, setData, post, processing, errors, reset } = useForm({
         fail: null,
         is_oku: false,
+        assign_negeri_id: '',
+        assign_parlimen_id: '',
+        assign_kadun_id: '',
     });
+
+    // Cascading options for the optional seat picker.
+    const parlimenOptions = parlimenList.filter((p) => String(p.negeri_id) === String(data.assign_negeri_id));
+    const kadunOptions = kadunList.filter((k) => String(k.bandar_id) === String(data.assign_parlimen_id));
 
     const fileInputRef = useRef(null);
 
@@ -162,6 +169,40 @@ export default function Index({ batches, flash }) {
                             />
                             <span>Senarai pengundi <strong>OKU</strong> — tandakan jika fail ini mengandungi pengundi berstatus OKU. Pengundi dalam senarai ini akan ditanda OKU di Data Pengundi.</span>
                         </label>
+
+                        {/* Optional seat assignment — for files with no Negeri/Parlimen/Kadun columns */}
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-3">
+                            <p className="text-sm font-medium text-slate-700">Tetapkan kawasan <span className="font-normal text-slate-500">(pilihan)</span></p>
+                            <p className="text-xs text-slate-500">Guna jika fail <strong>tiada lajur Negeri/Parlimen/Kadun</strong> (cth. senarai penyokong satu DUN). Setiap baris yang tiada kawasan akan ditandakan kawasan yang dipilih, supaya data kelihatan dalam War Room. Biarkan kosong jika fail sudah ada lajur kawasan.</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <select
+                                    value={data.assign_negeri_id}
+                                    onChange={(e) => { setData('assign_negeri_id', e.target.value); setData('assign_parlimen_id', ''); setData('assign_kadun_id', ''); }}
+                                    className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-slate-400"
+                                >
+                                    <option value="">Negeri —</option>
+                                    {negeriList.map((n) => <option key={n.id} value={n.id}>{n.nama}</option>)}
+                                </select>
+                                <select
+                                    value={data.assign_parlimen_id}
+                                    onChange={(e) => { setData('assign_parlimen_id', e.target.value); setData('assign_kadun_id', ''); }}
+                                    disabled={!data.assign_negeri_id}
+                                    className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-slate-400 disabled:bg-slate-100 disabled:text-slate-400"
+                                >
+                                    <option value="">Parlimen —</option>
+                                    {parlimenOptions.map((p) => <option key={p.id} value={p.id}>{p.nama}</option>)}
+                                </select>
+                                <select
+                                    value={data.assign_kadun_id}
+                                    onChange={(e) => setData('assign_kadun_id', e.target.value)}
+                                    disabled={!data.assign_parlimen_id}
+                                    className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-slate-400 disabled:bg-slate-100 disabled:text-slate-400"
+                                >
+                                    <option value="">Kadun —</option>
+                                    {kadunOptions.map((k) => <option key={k.id} value={k.id}>{k.nama}</option>)}
+                                </select>
+                            </div>
+                        </div>
 
                         <div className="flex items-center gap-3">
                             <button

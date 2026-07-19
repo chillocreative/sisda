@@ -17,6 +17,9 @@ class UploadBatch extends Model
         'is_oku',
         'ai_used',
         'ai_detail',
+        'assign_negeri',
+        'assign_parlimen',
+        'assign_kadun',
         'uploaded_by',
     ];
 

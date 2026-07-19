@@ -52,6 +52,13 @@ class ProcessVoterUpload implements ShouldQueue
             $this->importFile($absPath, $ext, basename($this->zipPath));
         }
 
+        // If the uploader assigned this file to a seat (files with no geography
+        // columns, e.g. a single-seat supporter list), stamp those names onto
+        // any row the import left blank — otherwise the roll is invisible to the
+        // War Room's seat filters. Runs before syncMasterData so the master
+        // tables pick up the stamped geography too.
+        $this->applyAssignedSeat($batch);
+
         $totalRecords = PangkalanDataPengundi::where('upload_batch_id', $this->batchId)->count();
         // Additive activation: multiple batches can be active at once
         // (e.g. one roll per parliament), so completing an upload no
@@ -220,6 +227,26 @@ class ProcessVoterUpload implements ShouldQueue
         }
 
         return $inserted;
+    }
+
+    /**
+     * Stamp the batch's assigned seat onto rows the import left blank. Only the
+     * columns the uploader actually assigned are touched, and only where the row
+     * is currently null/empty — real geography in the file is never overwritten.
+     */
+    private function applyAssignedSeat(UploadBatch $batch): void
+    {
+        $assign = array_filter([
+            'negeri' => $batch->assign_negeri,
+            'parlimen' => $batch->assign_parlimen,
+            'kadun' => $batch->assign_kadun,
+        ], fn ($v) => filled($v));
+
+        foreach ($assign as $col => $val) {
+            PangkalanDataPengundi::where('upload_batch_id', $this->batchId)
+                ->where(fn ($q) => $q->whereNull($col)->orWhere($col, ''))
+                ->update([$col => $val]);
+        }
     }
 
     /**

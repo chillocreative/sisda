@@ -24,6 +24,11 @@ class UploadDatabaseController extends Controller
 
         return Inertia::render('UploadDatabase/Index', [
             'batches' => $batches,
+            // Seat lists for the optional "assign this file to a seat" picker —
+            // used when a file has no Negeri/Parlimen/Kadun columns of its own.
+            'negeriList' => \App\Models\Negeri::orderBy('nama')->get(['id', 'nama']),
+            'parlimenList' => \App\Models\Bandar::orderBy('nama')->get(['id', 'nama', 'negeri_id']),
+            'kadunList' => \App\Models\Kadun::orderBy('nama')->get(['id', 'nama', 'bandar_id']),
             'flash' => [
                 'success' => session('success'),
                 'error' => session('error'),
@@ -36,7 +41,16 @@ class UploadDatabaseController extends Controller
         $request->validate([
             'fail' => 'required|file|mimes:zip,xlsx,xls,csv,pdf|max:102400',
             'is_oku' => 'boolean',
+            'assign_negeri_id' => 'nullable|integer',
+            'assign_parlimen_id' => 'nullable|integer',
+            'assign_kadun_id' => 'nullable|integer',
         ]);
+
+        // Resolve the optional seat picker to the master-data NAME strings the
+        // War Room filters match on (same convention as resolveFilters()).
+        $assignNegeri = $request->filled('assign_negeri_id') ? \App\Models\Negeri::find($request->integer('assign_negeri_id'))?->nama : null;
+        $assignParlimen = $request->filled('assign_parlimen_id') ? \App\Models\Bandar::find($request->integer('assign_parlimen_id'))?->nama : null;
+        $assignKadun = $request->filled('assign_kadun_id') ? \App\Models\Kadun::find($request->integer('assign_kadun_id'))?->nama : null;
 
         $file = $request->file('fail');
         $timestamp = now()->format('YmdHis');
@@ -50,6 +64,9 @@ class UploadDatabaseController extends Controller
             'status' => 'processing',
             'is_active' => false,
             'is_oku' => $request->boolean('is_oku'),
+            'assign_negeri' => $assignNegeri,
+            'assign_parlimen' => $assignParlimen,
+            'assign_kadun' => $assignKadun,
             'uploaded_by' => auth()->id(),
         ]);
 
