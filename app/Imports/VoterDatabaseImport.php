@@ -39,9 +39,6 @@ class VoterDatabaseImport implements ToCollection, WithChunkReading
     /** Field => column index (null per field ⇒ content detection for it). */
     private ?array $map = null;
 
-    /** Whether a real header row has been located yet — once true the map is locked. */
-    private bool $headerFound = false;
-
     private array $buffer = [];
 
     /** How many rows this importer actually wrote — lets the job decide whether
@@ -64,20 +61,21 @@ class VoterDatabaseImport implements ToCollection, WithChunkReading
     {
         $rows = $rows->map(fn ($r) => array_values(is_array($r) ? $r : $r->toArray()))->all();
 
-        // Look for the header afresh on each chunk/sheet UNTIL a real one is
-        // found. Multi-sheet exports often lead with a metadata cover sheet that
-        // has no header; locking an empty map from it would drop every real
-        // column (Daerah Mengundi, Race, geography) on the actual data sheet.
+        // Re-detect the header on every chunk. detectHeader only matches a row
+        // that literally NAMES the IC/Nama columns, so it fires at the top of
+        // each sheet (and after any title rows) but never on data rows. This
+        // makes multi-sheet workbooks work even when each sheet has a DIFFERENT
+        // column layout — every sheet gets its own correct mapping — and a
+        // metadata cover sheet with no header simply falls through to content
+        // detection. Without this, sheet 2's rows are read through sheet 1's
+        // map and every column lands in the wrong field.
         $start = 0;
-        if (! $this->headerFound) {
-            [$idx, $map] = self::detectHeader($rows);
-            if ($idx !== null) {
-                $this->map = $map;
-                $this->headerFound = true;
-                $start = $idx + 1; // skip any title rows + the header row itself
-            }
+        [$idx, $map] = self::detectHeader($rows);
+        if ($idx !== null) {
+            $this->map = $map;
+            $start = $idx + 1; // skip any title rows + the header row itself
         }
-        // Until a header is found, fall back to content detection (IC + name).
+        // Before any header is seen, fall back to content detection (IC + name).
         $this->map ??= array_fill_keys(array_keys(self::ALIASES), null);
 
         for ($i = $start, $n = count($rows); $i < $n; $i++) {

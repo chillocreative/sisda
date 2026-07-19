@@ -65,6 +65,39 @@ class VoterImportMultiSheetTest extends TestCase
         $this->assertSame('PEREMPUAN', $row->jantina);          // Female → PEREMPUAN
     }
 
+    public function test_two_data_sheets_with_different_layouts_each_use_own_mapping(): void
+    {
+        // Batch-18 shape: a full DPT sheet, then a subset sheet with a DIFFERENT
+        // column order. Reading sheet 2 through sheet 1's map scrambles columns
+        // (e.g. a polling-centre name landing in `parlimen`); each sheet must map
+        // itself.
+        $import = new VoterDatabaseImport($this->batchId());
+
+        // Sheet A — NamaDUN present at col 4.
+        $import->collection(new Collection([
+            ['NoKp', 'Nama', 'NamaParlimen', 'NamaDM', 'NamaDUN', 'Negeri'],
+            ['641218016241', 'MOHD SAFRI BIN ALI', 'SEGAMAT', 'MENSUDOT LAMA', 'BULOH KASAP', 'JOHOR'],
+        ]));
+
+        // Sheet B — different layout, no NamaDUN; col 5 is a polling-centre name.
+        $import->collection(new Collection([
+            ['NoKp', 'Nama', 'NamaLokaliti', 'NamaParlimen', 'NamaDM', 'NamaPusatMengundi'],
+            ['680121016415', 'ZULKEPLY BIN SAMAD', 'KG MENSUDUT', 'SEGAMAT', 'MENSUDOT LAMA', 'SEKOLAH KEBANGSAAN X'],
+        ]));
+
+        $a = PangkalanDataPengundi::where('no_ic', '641218016241')->first();
+        $this->assertSame('SEGAMAT', $a->parlimen);
+        $this->assertSame('MENSUDOT LAMA', $a->daerah_mengundi);
+        $this->assertSame('BULOH KASAP', $a->kadun);
+
+        $b = PangkalanDataPengundi::where('no_ic', '680121016415')->first();
+        $this->assertSame('SEGAMAT', $b->parlimen);            // its OWN NamaParlimen, not the school
+        $this->assertNotSame('SEKOLAH KEBANGSAAN X', $b->parlimen);
+        $this->assertSame('MENSUDOT LAMA', $b->daerah_mengundi);
+        $this->assertSame('KG MENSUDUT', $b->lokaliti);
+        $this->assertNull($b->kadun);                          // sheet B has no NamaDUN column
+    }
+
     public function test_single_sheet_with_header_on_row_zero_still_works(): void
     {
         $import = new VoterDatabaseImport($this->batchId());
