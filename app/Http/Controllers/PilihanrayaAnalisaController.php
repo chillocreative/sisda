@@ -73,7 +73,7 @@ class PilihanrayaAnalisaController extends Controller
     {
         $kawasanList = $this->kawasanListFromMaster();
         $selected = collect($kawasanList)->firstWhere('id', $request->query('kawasan'))
-            ?: ($kawasanList[0] ?? null);
+            ?: $this->defaultKawasan($kawasanList);
 
         [, $totals] = $selected
             ? $this->kaumDmForDun($selected['dun'])
@@ -119,7 +119,7 @@ class PilihanrayaAnalisaController extends Controller
     {
         $kawasanList = $this->kawasanListFromMaster();
         $selected = collect($kawasanList)->firstWhere('id', $request->query('kawasan'))
-            ?: ($kawasanList[0] ?? null);
+            ?: $this->defaultKawasan($kawasanList);
 
         [$rows, $totals] = $selected
             ? $this->kaumDmForDun($selected['dun'])
@@ -178,6 +178,33 @@ class PilihanrayaAnalisaController extends Controller
                 ->sortBy(fn ($k) => $k['parlimen'].'|'.$k['dun'])
                 ->values()->all();
         });
+    }
+
+    /**
+     * Pick the landing seat when no ?kawasan is given: the first master seat
+     * that actually has roll data, so the page opens on real numbers instead of
+     * an empty alphabetical-first DUN. Falls back to the first seat.
+     */
+    private function defaultKawasan(array $kawasanList): ?array
+    {
+        if ($kawasanList === []) {
+            return null;
+        }
+
+        $withData = Cache::remember('kaumdm:duns_with_data:'.md5(implode(',', UploadBatch::activeIds())), 300, function () {
+            return $this->rollSource(DB::table('pangkalan_data_pengundi'))
+                ->whereNotNull('kadun')->where('kadun', '!=', '')
+                ->distinct()->pluck('kadun')
+                ->map(fn ($k) => mb_strtoupper(trim($k)))->flip()->all();
+        });
+
+        foreach ($kawasanList as $k) {
+            if (isset($withData[mb_strtoupper($k['dun'])])) {
+                return $k;
+            }
+        }
+
+        return $kawasanList[0];
     }
 
     /**
