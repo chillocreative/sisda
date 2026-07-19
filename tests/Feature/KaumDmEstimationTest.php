@@ -86,4 +86,30 @@ class KaumDmEstimationTest extends TestCase
         $this->assertSame(2, $totals['jumlah']);   // only the 2 active TESTDUN rows
         $this->assertSame(2, $totals['melayu']);
     }
+
+    public function test_bangsa_column_takes_precedence_over_name_estimate(): void
+    {
+        $uid = \App\Models\User::factory()->create(['telephone' => '0190003'])->id;
+        $batch = UploadBatch::create(['nama_fail' => 'r', 'fail_path' => 'r', 'jumlah_rekod' => 0, 'status' => 'completed', 'is_active' => true, 'uploaded_by' => $uid]);
+
+        $mk = fn ($ic, $nama, $bangsa = null) => PangkalanDataPengundi::create([
+            'upload_batch_id' => $batch->id, 'no_ic' => $ic, 'nama' => $nama,
+            'kadun' => 'TESTDUN', 'daerah_mengundi' => 'DM', 'bangsa' => $bangsa,
+        ]);
+
+        $mk('850101010001', 'SAFIAH JAALAM', 'MELAYU');  // name→Cina, but bangsa MELAYU wins
+        $mk('850101010002', 'AHMAD BIN X', 'CINA');      // name→Melayu, but bangsa CINA wins
+        $mk('850101010003', 'SITI BT OMAR', null);       // no bangsa → name "BT" → Melayu
+        $mk('850101010004', 'SOMEONE', 'INDIA');         // bangsa INDIA
+
+        $method = new ReflectionMethod(PilihanrayaAnalisaController::class, 'kaumDmForDun');
+        $method->setAccessible(true);
+        [, $totals] = $method->invoke(app(PilihanrayaAnalisaController::class), 'TESTDUN');
+
+        $this->assertSame(2, $totals['melayu']);  // SAFIAH (bangsa) + SITI BT (name fallback)
+        $this->assertSame(1, $totals['cina']);    // AHMAD BIN X — bangsa overrides the BIN name
+        $this->assertSame(1, $totals['india']);
+        $this->assertSame(0, $totals['lain']);
+        $this->assertSame(4, $totals['jumlah']);
+    }
 }

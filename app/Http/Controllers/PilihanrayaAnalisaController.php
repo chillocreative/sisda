@@ -163,18 +163,34 @@ class PilihanrayaAnalisaController extends Controller
         $cacheKey = 'kaumdm:rows:'.md5(implode(',', UploadBatch::activeIds()).'|'.$upperDun);
 
         return Cache::remember($cacheKey, 300, function () use ($upperDun) {
+            // Prefer the roll's actual Race column (`bangsa`, from DPPR exports).
+            // Only when it is blank do we fall back to the name-pattern estimate
+            // (BIN/BINTI/BT/BTE = Melayu; A/L·A/P·S/O·D/O = India; ANAK = Lain;
+            // else = Cina). $class resolves each voter to M/C/I/L.
+            $b = "UPPER(TRIM(COALESCE(bangsa, '')))";
             $pad = "CONCAT(' ', UPPER(nama), ' ')";
-            $melayu = "({$pad} LIKE '% BIN %' OR {$pad} LIKE '% BINTI %')";
-            $india = "(UPPER(nama) LIKE '%A/L%' OR UPPER(nama) LIKE '%A/P%' OR UPPER(nama) LIKE '%S/O%' OR UPPER(nama) LIKE '%D/O%')";
-            $lain = "({$pad} LIKE '% ANAK %')";
+            $nMelayu = "({$pad} LIKE '% BIN %' OR {$pad} LIKE '% BINTI %' OR {$pad} LIKE '% BT %' OR {$pad} LIKE '% BTE %')";
+            $nIndia = "(UPPER(nama) LIKE '%A/L%' OR UPPER(nama) LIKE '%A/P%' OR UPPER(nama) LIKE '%S/O%' OR UPPER(nama) LIKE '%D/O%')";
+            $nLain = "({$pad} LIKE '% ANAK %')";
+
+            $class = "CASE
+                WHEN {$b} IN ('MELAYU', 'MALAY') THEN 'M'
+                WHEN {$b} IN ('CINA', 'CHINESE') THEN 'C'
+                WHEN {$b} IN ('INDIA', 'INDIAN') THEN 'I'
+                WHEN {$b} <> '' THEN 'L'
+                WHEN {$nMelayu} THEN 'M'
+                WHEN {$nIndia} THEN 'I'
+                WHEN {$nLain} THEN 'L'
+                ELSE 'C'
+            END";
 
             $grouped = $this->rollSource(DB::table('pangkalan_data_pengundi'))
                 ->whereRaw('UPPER(kadun) = ?', [$upperDun])
                 ->selectRaw("
                     COALESCE(NULLIF(TRIM(daerah_mengundi), ''), '(Tiada DM)') AS dm,
-                    SUM(CASE WHEN {$melayu} THEN 1 ELSE 0 END) AS melayu,
-                    SUM(CASE WHEN NOT ({$melayu}) AND ({$india}) THEN 1 ELSE 0 END) AS india,
-                    SUM(CASE WHEN NOT ({$melayu}) AND NOT ({$india}) AND ({$lain}) THEN 1 ELSE 0 END) AS lain,
+                    SUM(CASE WHEN ({$class}) = 'M' THEN 1 ELSE 0 END) AS melayu,
+                    SUM(CASE WHEN ({$class}) = 'I' THEN 1 ELSE 0 END) AS india,
+                    SUM(CASE WHEN ({$class}) = 'L' THEN 1 ELSE 0 END) AS lain,
                     COUNT(*) AS jumlah
                 ")
                 ->groupBy('dm')

@@ -169,9 +169,9 @@ function KaumTable({ rows, totals }) {
                 </table>
             </DragScroll>
             <p className={`${t.subtext} text-xs mt-4`}>
-                Nota: Kaum dianggar daripada corak nama pengundi (BIN/BINTI = Melayu; A/L, A/P, S/O, D/O = India;
-                ANAK = Lain-lain; selebihnya = Cina). Angka sebenar mungkin berbeza sedikit kerana nama mualaf,
-                kahwin campur dan Bumiputera lain.
+                Nota: Kaum diambil daripada lajur <strong>Bangsa</strong> dalam pangkalan data pengundi jika ada.
+                Bagi rekod tanpa bangsa, kaum dianggar daripada corak nama (BIN/BINTI/BT = Melayu; A/L, A/P, S/O, D/O = India;
+                ANAK = Lain-lain; selebihnya = Cina) — angka anggaran mungkin berbeza sedikit.
             </p>
         </div>
     );
@@ -228,7 +228,7 @@ export default function KaumDm({ context, rows: baseRows, totals: baseTotals }) 
             <Head title="Pilihanraya — Kaum Mengikut DM" />
             <PilihanrayaShell
                 title="Analisa Kaum Mengikut Daerah Mengundi"
-                subtitle={`${context.dun} · ${context.parlimen}, ${context.negeri} — anggaran corak nama`}
+                subtitle={`${context.dun} · ${context.parlimen}, ${context.negeri} — kaum ikut lajur Bangsa (anggaran nama jika kosong)`}
             >
                 <FilterBarCard>
                     <KawasanSelect list={context.kawasanList} value={kawasan} onChange={handleKawasan} />
