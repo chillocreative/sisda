@@ -9,7 +9,6 @@ use App\Models\Keanggotaan;
 use App\Models\KeanggotaanBatch;
 use App\Models\UploadBatch;
 use App\Services\Pilihanraya\ElectionAnalyticsService;
-use App\Support\Pilihanraya\JohorElectionData;
 use App\Support\Pilihanraya\ScoresheetParser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -26,16 +25,6 @@ use Inertia\Inertia;
  */
 class PilihanrayaAnalisaController extends Controller
 {
-    private function context(): array
-    {
-        return [
-            'dun' => JohorElectionData::DUN,
-            'parlimen' => JohorElectionData::PARLIMEN,
-            'negeri' => JohorElectionData::NEGERI,
-            'kawasanList' => JohorElectionData::kawasanList(),
-        ];
-    }
-
     public function keputusan(Request $request, ElectionAnalyticsService $analytics)
     {
         $lists = $analytics->filterLists();
@@ -72,11 +61,49 @@ class PilihanrayaAnalisaController extends Controller
             ])->all();
     }
 
+    /**
+     * "Minima Untuk PH Menang" — a what-if calculator. The three sensitivity
+     * tables are computed live in the browser from the assumptions; the only
+     * seat-specific facts are the Melayu/Cina/India voter counts, which now come
+     * from the live roll (bangsa-first, same as Kaum Mengikut DM) for the chosen
+     * seat instead of the hardcoded Buloh Kasap dataset. Turnout / support / 2022
+     * figures stay editable assumptions with sensible seeds.
+     */
     public function minima(Request $request)
     {
+        $kawasanList = $this->kawasanListFromMaster();
+        $selected = collect($kawasanList)->firstWhere('id', $request->query('kawasan'))
+            ?: ($kawasanList[0] ?? null);
+
+        [, $totals] = $selected
+            ? $this->kaumDmForDun($selected['dun'])
+            : [[], ['melayu' => 0, 'cina' => 0, 'india' => 0, 'lain' => 0, 'jumlah' => 0]];
+
         return Inertia::render('Pilihanraya/Minima', [
-            'context' => $this->context(),
-            'minima' => JohorElectionData::minima(),
+            'context' => [
+                'dun' => $selected['dun'] ?? '—',
+                'parlimen' => $selected['parlimen'] ?? '—',
+                'negeri' => $selected['negeri'] ?? '—',
+                'kawasanList' => $kawasanList,
+                'selectedId' => $selected['id'] ?? null,
+            ],
+            'minima' => [
+                'andaian' => [
+                    // Seat-specific facts from the roll.
+                    'pengundi_melayu' => $totals['melayu'],
+                    'pengundi_cina' => $totals['cina'],
+                    'pengundi_india' => $totals['india'],
+                    // Editable assumptions (generic seeds).
+                    'turnout_melayu' => 0.68,
+                    'sokongan_ph_cina' => 0.90,
+                    'sokongan_ph_india' => 0.40,
+                    // Jadual 3 — 2022 result seeds; editable per seat (defaults
+                    // are Buloh Kasap's actual 2022 tally, adjust for others).
+                    'melayu_ph_2022' => 379,
+                    'melayu_bn_2022' => 7933,
+                    'undi_pn_2022' => 2999,
+                ],
+            ],
         ]);
     }
 

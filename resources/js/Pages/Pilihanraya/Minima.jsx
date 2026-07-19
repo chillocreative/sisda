@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import {
     Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer,
     Tooltip, XAxis, YAxis,
@@ -16,10 +16,6 @@ import { PARTY, STATUS_STYLES, fmt, pct } from './analisa/shared';
 const TURNOUTS_J1 = [0.5, 0.6, 0.7, 0.75, 0.8, 0.85, 0.9];
 const SOKONGAN_J2 = [0.15, 0.2, 0.25, 0.27, 0.3, 0.35];
 const SCENARIOS_J3 = [[0.9, 0, 0.1], [0.7, 0.1, 0.2], [0.6, 0.15, 0.25], [0.5, 0.2, 0.3], [0.4, 0.25, 0.35], [0.3, 0.3, 0.4]];
-// Undi Melayu & undi PN kekal pada paras sebenar 2022 (tidak berubah dgn andaian C/I).
-const MELAYU_PH_2022 = 378.6;
-const MELAYU_BN_2022 = 7932.6;
-const UNDI_PN = 2999;
 
 const statusSM = (s) => (s >= 0.275 ? 'SANGAT SUKAR' : s >= 0.18 ? 'SUKAR' : s >= 0.08 ? 'BOLEH DICAPAI' : 'MUDAH');
 const statusTCI = (t) => (t > 0.85 ? 'TIDAK REALISTIK' : t > 0.78 ? 'SUKAR' : 'BOLEH DICAPAI');
@@ -43,11 +39,12 @@ function computeJadual2(a) {
     });
 }
 function computeJadual3(a) {
-    const basePH = MELAYU_PH_2022 + a.C * a.tTarget * a.sC + a.I * a.tTarget * a.sI;
-    const baseBN = MELAYU_BN_2022 + a.C * a.tTarget * (1 - a.sC) + a.I * a.tTarget * (1 - a.sI);
+    // Undi Melayu kekal pada paras sebenar 2022 (mPH2022/mBN2022, boleh diubah per kawasan).
+    const basePH = a.mPH2022 + a.C * a.tTarget * a.sC + a.I * a.tTarget * a.sI;
+    const baseBN = a.mBN2022 + a.C * a.tTarget * (1 - a.sC) + a.I * a.tTarget * (1 - a.sI);
     return SCENARIOS_J3.map(([bn, ph, tak]) => {
-        const undiPH = basePH + UNDI_PN * ph;
-        const undiBN = baseBN + UNDI_PN * bn;
+        const undiPH = basePH + a.undiPN * ph;
+        const undiBN = baseBN + a.undiPN * bn;
         return { pn_bn: bn, pn_ph: ph, pn_tak_keluar: tak, undi_ph: undiPH, undi_bn: undiBN, keputusan: undiPH > undiBN ? 'PH MENANG' : 'BN MENANG' };
     });
 }
@@ -103,6 +100,14 @@ function AndaianEditor({ a, set, reset }) {
                 <EditField label="Sokongan PH — Cina" value={Math.round(a.sC * 1000) / 10} onChange={setPct('sC')} suffix="%" step={0.5} max={100} />
                 <EditField label="Sokongan PH — India" value={Math.round(a.sI * 1000) / 10} onChange={setPct('sI')} suffix="%" step={0.5} max={100} />
                 <EditField label="Turnout Sasaran C+I (Jadual 3)" value={Math.round(a.tTarget * 1000) / 10} onChange={setPct('tTarget')} suffix="%" step={0.5} max={100} />
+            </div>
+            <p className={`${t.subtext} text-xs mt-4 mb-2`}>
+                Keputusan 2022 kawasan ini (untuk Jadual 3) — nilai lalai ialah tally sebenar Buloh Kasap; sila ubah untuk kawasan lain.
+            </p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <EditField label="Undi PH Melayu 2022" value={a.mPH2022} onChange={setNum('mPH2022')} step={1} />
+                <EditField label="Undi BN Melayu 2022" value={a.mBN2022} onChange={setNum('mBN2022')} step={1} />
+                <EditField label="Jumlah Undi PN 2022" value={a.undiPN} onChange={setNum('undiPN')} step={1} />
             </div>
         </div>
     );
@@ -253,15 +258,40 @@ export default function Minima({ context, minima }) {
     const initial = {
         M: src.pengundi_melayu, C: src.pengundi_cina, I: src.pengundi_india,
         tM: src.turnout_melayu, sC: src.sokongan_ph_cina, sI: src.sokongan_ph_india, tTarget: 0.75,
+        mPH2022: src.melayu_ph_2022, mBN2022: src.melayu_bn_2022, undiPN: src.undi_pn_2022,
     };
-    const [kawasan, setKawasan] = useState(context.kawasanList?.[0]?.id ?? '');
+    const [kawasan, setKawasan] = useState(context.selectedId ?? '');
     const [a, setA] = useState(initial);
     const set = (key, val) => setA((s) => ({ ...s, [key]: val }));
     const reset = () => setA(initial);
 
+    const hasKawasan = (context.kawasanList?.length ?? 0) > 0;
+
+    // Changing the DUN refetches its real voter counts from the server.
+    const handleKawasan = (id) => {
+        setKawasan(id);
+        router.get(route('pilihanraya.minima'), { kawasan: id }, {
+            only: ['context', 'minima'],
+            preserveScroll: true,
+        });
+    };
+
     const j1 = useMemo(() => computeJadual1(a), [a]);
     const j2 = useMemo(() => computeJadual2(a), [a]);
     const j3 = useMemo(() => computeJadual3(a), [a]);
+
+    if (!hasKawasan) {
+        return (
+            <AuthenticatedLayout>
+                <Head title="Pilihanraya — Minima Untuk Menang" />
+                <PilihanrayaShell title="Minima Untuk PH Menang" subtitle="pertandingan 1 lawan 1 (PH vs BN)">
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 text-amber-800 px-4 py-6 text-center">
+                        Tiada kawasan (Parlimen/DUN) dalam sistem lagi. Muat naik dan aktifkan pangkalan data pengundi di Upload Database.
+                    </div>
+                </PilihanrayaShell>
+            </AuthenticatedLayout>
+        );
+    }
 
     return (
         <AuthenticatedLayout>
@@ -271,7 +301,7 @@ export default function Minima({ context, minima }) {
                 subtitle={`${context.dun} · ${context.parlimen}, ${context.negeri} — pertandingan 1 lawan 1 (PH vs BN)`}
             >
                 <FilterBarCard>
-                    <KawasanSelect list={context.kawasanList} value={kawasan} onChange={setKawasan} />
+                    <KawasanSelect list={context.kawasanList} value={kawasan} onChange={handleKawasan} />
                     <div className="text-sm">
                         <span className="block text-xs opacity-60 mb-1">Model</span>
                         <span className="font-semibold">Pertandingan 1 lawan 1 (PH vs BN)</span>
