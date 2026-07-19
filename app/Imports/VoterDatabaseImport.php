@@ -39,10 +39,8 @@ class VoterDatabaseImport implements ToCollection, WithChunkReading
     /** Field => column index (null per field ⇒ content detection for it). */
     private ?array $map = null;
 
-    /** Absolute row counter across chunks, so header/title rows are skipped once. */
-    private int $rowOffset = 0;
-
-    private int $headerIdx = -1;
+    /** Whether a real header row has been located yet — once true the map is locked. */
+    private bool $headerFound = false;
 
     private array $buffer = [];
 
@@ -66,19 +64,24 @@ class VoterDatabaseImport implements ToCollection, WithChunkReading
     {
         $rows = $rows->map(fn ($r) => array_values(is_array($r) ? $r : $r->toArray()))->all();
 
-        // Detect the header from the first chunk (which contains any title rows).
-        if ($this->map === null) {
+        // Look for the header afresh on each chunk/sheet UNTIL a real one is
+        // found. Multi-sheet exports often lead with a metadata cover sheet that
+        // has no header; locking an empty map from it would drop every real
+        // column (Daerah Mengundi, Race, geography) on the actual data sheet.
+        $start = 0;
+        if (! $this->headerFound) {
             [$idx, $map] = self::detectHeader($rows);
-            $this->map = $map;
-            $this->headerIdx = $idx ?? -1;
-        }
-
-        foreach ($rows as $cells) {
-            $abs = $this->rowOffset++;
-            if ($abs <= $this->headerIdx) {
-                continue; // header + any title rows above it
+            if ($idx !== null) {
+                $this->map = $map;
+                $this->headerFound = true;
+                $start = $idx + 1; // skip any title rows + the header row itself
             }
-            $rec = $this->buildRecord($cells);
+        }
+        // Until a header is found, fall back to content detection (IC + name).
+        $this->map ??= array_fill_keys(array_keys(self::ALIASES), null);
+
+        for ($i = $start, $n = count($rows); $i < $n; $i++) {
+            $rec = $this->buildRecord($rows[$i]);
             if ($rec !== null) {
                 $this->buffer[] = $rec;
                 if (count($this->buffer) >= 500) {
