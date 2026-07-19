@@ -2,32 +2,15 @@
 
 namespace Database\Seeders;
 
-use App\Models\Bandar;
-use App\Models\Kadun;
-use App\Models\Negeri;
-use Illuminate\Database\Seeder;
-
 /**
- * Seeds the complete Negeri Sembilan electoral hierarchy — 8 Parlimen (P126–
- * P133) and 36 DUN (N01–N36), from the current SPR delimitation (verified per
- * federal-constituency on Wikipedia; Juasseh sits under P129 Kuala Pilah, which
- * matches the live DPT roll).
+ * Negeri Sembilan electoral hierarchy — 8 Parlimen (P126–P133) and 36 DUN
+ * (N01–N36), from the current SPR delimitation (verified per federal-
+ * constituency on Wikipedia; Juasseh (N15) sits under P129 Kuala Pilah, which
+ * matches the live DPT roll). Daerah Mengundi come from DPT uploads, not here.
  *
- * Daerah Mengundi (polling districts) are NOT seeded here: they are real SPR
- * DPPR data (hundreds per state) and flow in from voter-roll uploads — exactly
- * how Juasseh's DMs already appeared. Fabricating them would be inventing data.
- *
- * Names are UPPERCASE to match the DPT convention (the importer uppercases
- * negeri/parlimen/kadun) and the N. Sembilan rows already created by
- * syncMasterData from uploads.
- *
- * Duplicate-safe / idempotent: a pre-existing Bandar or Kadun (e.g. created by
- * syncMasterData, which stores a name but no kod_*) is matched BY NAME within
- * the state, then its kod is backfilled and — for a DUN — it is re-pointed to
- * the correct parliament. A DUN wrongly linked to a stray Bandar is thus healed.
- * Safe to run repeatedly.
+ * See {@see StateElectoralSeeder} for the idempotent, duplicate-safe logic.
  */
-class NegeriSembilanSeeder extends Seeder
+class NegeriSembilanSeeder extends StateElectoralSeeder
 {
     /** P-code => [parlimen name, [ [N-code, DUN name], ... ] ] */
     private const DATA = [
@@ -41,41 +24,13 @@ class NegeriSembilanSeeder extends Seeder
         'P133' => ['TAMPIN', [['N34', 'GEMAS'], ['N35', 'GEMENCHEH'], ['N36', 'REPAH']]],
     ];
 
-    public function run(): void
+    protected function negeriName(): string
     {
-        // Attach to the existing Negeri row whatever its case (uploads store
-        // "NEGERI SEMBILAN"); create it only if truly absent.
-        $negeri = Negeri::whereRaw('UPPER(TRIM(nama)) = ?', ['NEGERI SEMBILAN'])->first()
-            ?? Negeri::create(['nama' => 'NEGERI SEMBILAN']);
+        return 'NEGERI SEMBILAN';
+    }
 
-        $parlimen = 0;
-        $dun = 0;
-
-        foreach (self::DATA as $pcode => [$pname, $duns]) {
-            $bandar = Bandar::where('negeri_id', $negeri->id)
-                ->whereRaw('UPPER(TRIM(nama)) = ?', [$pname])->first()
-                ?? Bandar::firstOrNew(['kod_parlimen' => $pcode, 'negeri_id' => $negeri->id]);
-            $bandar->negeri_id = $negeri->id;
-            $bandar->kod_parlimen = $pcode;
-            $bandar->nama = $bandar->nama ?: $pname; // never overwrite an existing name
-            $bandar->save();
-            $parlimen++;
-
-            foreach ($duns as [$ncode, $dname]) {
-                // Match a DUN by name ANYWHERE in this state (it may be linked to
-                // a stray/old parliament) and re-point it correctly.
-                $kadun = Kadun::whereRaw('UPPER(TRIM(nama)) = ?', [$dname])
-                    ->whereHas('bandar', fn ($q) => $q->where('negeri_id', $negeri->id))
-                    ->first()
-                    ?? new Kadun(['nama' => $dname]);
-                $kadun->nama = $kadun->nama ?: $dname;
-                $kadun->kod_dun = $ncode;
-                $kadun->bandar_id = $bandar->id;
-                $kadun->save();
-                $dun++;
-            }
-        }
-
-        $this->command?->info("Negeri Sembilan seeded: {$parlimen} Parlimen, {$dun} DUN. (Daerah Mengundi come from DPT uploads.)");
+    protected function data(): array
+    {
+        return self::DATA;
     }
 }

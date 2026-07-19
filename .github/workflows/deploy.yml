@@ -69,6 +69,9 @@ jobs:
                 # 5c. Seed Negeri Sembilan Parlimen + DUN (idempotent, name-reconciling)
                 php artisan db:seed --class=NegeriSembilanSeeder --force --no-interaction
 
+                # 5d. Seed Pulau Pinang Parlimen + DUN (idempotent, name-reconciling)
+                php artisan db:seed --class=PenangSeeder --force --no-interaction
+
                 # 6. Re-cache for production
                 php artisan config:cache
                 php artisan route:cache
