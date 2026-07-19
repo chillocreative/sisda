@@ -116,14 +116,22 @@ export default function AuthenticatedLayout({ children }) {
             { name: 'User', href: route('users.index'), icon: Users, current: route().current('users.*') }
         ] : []),
 
-        // Upload Database (Super Admin only)
-        ...(user.role === 'super_admin' ? [
-            { name: 'Upload Database', href: route('upload-database.index'), icon: Upload, current: route().current('upload-database.*') },
-            { name: 'Upload DPT', href: route('dpt-upload.index'), icon: Upload, current: route().current('dpt-upload.*') },
-        ] : []),
-        // Upload Culaan (Super Admin and Admin only)
+        // Upload (consolidated) — Super Admin sees all three; Admin sees Upload Culaan only
         ...(user.role === 'super_admin' || user.role === 'admin' ? [
-            { name: 'Upload Culaan', href: route('upload-culaan.index'), icon: Upload, current: route().current('upload-culaan.*') },
+            {
+                name: 'Upload',
+                href: user.role === 'super_admin' ? route('upload-database.index') : route('upload-culaan.index'),
+                icon: Upload,
+                current: route().current('upload-database.*') || route().current('dpt-upload.*') || route().current('upload-culaan.*'),
+                hasSubmenu: true,
+                submenu: [
+                    ...(user.role === 'super_admin' ? [
+                        { name: 'Upload Database', href: route('upload-database.index'), icon: Database },
+                        { name: 'Upload DPT', href: route('dpt-upload.index'), icon: FileSpreadsheet },
+                    ] : []),
+                    { name: 'Upload Culaan', href: route('upload-culaan.index'), icon: Upload },
+                ]
+            }
         ] : []),
         // Keanggotaan (party membership) menu (Super Admin and Admin only)
         ...(user.role === 'super_admin' || user.role === 'admin' ? [
@@ -266,7 +274,9 @@ export default function AuthenticatedLayout({ children }) {
 
     // Automatically open the dropdown based on current route
     useEffect(() => {
-        if (route().current('master-data.*')) {
+        if (route().current('upload-database.*') || route().current('dpt-upload.*') || route().current('upload-culaan.*')) {
+            setOpenDropdown('Upload');
+        } else if (route().current('master-data.*')) {
             setOpenDropdown('Data Induk');
         } else if (route().current('reports.*')) {
             setOpenDropdown('Laporan');
