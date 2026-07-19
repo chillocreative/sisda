@@ -90,7 +90,7 @@ class PilihanrayaAnalisaController extends Controller
      */
     public function kaumDm(Request $request)
     {
-        $kawasanList = $this->rollKawasanList();
+        $kawasanList = $this->kawasanListFromMaster();
         $selected = collect($kawasanList)->firstWhere('id', $request->query('kawasan'))
             ?: ($kawasanList[0] ?? null);
 
@@ -120,22 +120,34 @@ class PilihanrayaAnalisaController extends Controller
             ->where(fn ($w) => $w->whereIn('upload_batch_id', $activeIds ?: [-1])->orWhereNotNull('dpt_upload_id'));
     }
 
-    /** Every Negeri → Parlimen → DUN that actually has roll data, for the picker. */
-    private function rollKawasanList(): array
+    /**
+     * The Parlimen → DUN picker, built from the clean MASTER hierarchy
+     * (Negeri → Bandar = Parlimen → Kadun = DUN) — the same source the War Room
+     * uses. Deriving it from the raw roll columns is wrong: a mis-imported batch
+     * (e.g. an OKU list whose `parlimen` column holds polling-station names)
+     * would pollute the dropdown. The roll is matched to the selected DUN by
+     * name in kaumDmForDun(), so a scrambled batch simply never matches.
+     */
+    private function kawasanListFromMaster(): array
     {
-        return Cache::remember('kaumdm:kawasan:'.md5(implode(',', UploadBatch::activeIds())), 300, function () {
-            return $this->rollSource(DB::table('pangkalan_data_pengundi'))
-                ->select('negeri', 'parlimen', 'kadun')
-                ->whereNotNull('kadun')->where('kadun', '!=', '')
-                ->distinct()->get()
-                ->map(fn ($r) => [
-                    'id' => md5(mb_strtoupper(trim(($r->parlimen ?? '').'|'.$r->kadun))),
-                    'kod' => $r->kadun,
-                    'dun' => $r->kadun,
-                    'parlimen' => $r->parlimen ?: '—',
-                    'negeri' => $r->negeri ?: '—',
-                    'label' => $r->kadun,
-                ])
+        return Cache::remember('kaumdm:kawasan_master', 300, function () {
+            $bandars = Bandar::get(['id', 'nama', 'negeri_id'])->keyBy('id');
+            $negeris = \App\Models\Negeri::get(['id', 'nama'])->keyBy('id');
+
+            return Kadun::orderBy('nama')->get(['id', 'nama', 'bandar_id'])
+                ->map(function ($k) use ($bandars, $negeris) {
+                    $b = $bandars[$k->bandar_id] ?? null;
+                    $n = $b ? ($negeris[$b->negeri_id] ?? null) : null;
+
+                    return [
+                        'id' => (string) $k->id,
+                        'kod' => $k->nama,
+                        'dun' => $k->nama,
+                        'parlimen' => $b?->nama ?? '—',
+                        'negeri' => $n?->nama ?? '—',
+                        'label' => $k->nama,
+                    ];
+                })
                 ->sortBy(fn ($k) => $k['parlimen'].'|'.$k['dun'])
                 ->values()->all();
         });
