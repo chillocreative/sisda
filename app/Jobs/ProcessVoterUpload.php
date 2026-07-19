@@ -6,6 +6,7 @@ use App\Imports\VoterDatabaseImport;
 use App\Models\Lokaliti;
 use App\Models\PangkalanDataPengundi;
 use App\Models\UploadBatch;
+use App\Services\Upload\AiVoterExtractor;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -25,6 +26,12 @@ class ProcessVoterUpload implements ShouldQueue
     public int $tries = 1;
     public int $timeout = 1800;
 
+    /** Whether the AI fallback rescued any file in this upload. */
+    private bool $aiUsed = false;
+
+    /** Per-file AI-fallback trace, stored on the batch for later inspection. */
+    private array $aiDetail = [];
+
     public function __construct(
         private int $batchId,
         private string $zipPath,
@@ -37,13 +44,12 @@ class ProcessVoterUpload implements ShouldQueue
         $ext = strtolower(pathinfo($this->zipPath, PATHINFO_EXTENSION));
 
         // The upload may be a ZIP of files, or a single spreadsheet/PDF. Read
-        // whichever it is — the importer is column-agnostic.
+        // whichever it is — the importer is column-agnostic, and any file the
+        // fast path can't read (0 rows) is escalated to the AI fallback.
         if ($ext === 'zip') {
             $this->importZip($absPath);
-        } elseif ($ext === 'pdf') {
-            $this->importPdf($absPath);
         } else {
-            Excel::import(new VoterDatabaseImport($this->batchId), $absPath);
+            $this->importFile($absPath, $ext, basename($this->zipPath));
         }
 
         $totalRecords = PangkalanDataPengundi::where('upload_batch_id', $this->batchId)->count();
@@ -54,6 +60,8 @@ class ProcessVoterUpload implements ShouldQueue
             'jumlah_rekod' => $totalRecords,
             'status'       => 'completed',
             'is_active'    => true,
+            'ai_used'      => $this->aiUsed,
+            'ai_detail'    => $this->aiDetail !== [] ? $this->aiDetail : null,
         ]);
         \Illuminate\Support\Facades\Cache::forget('pilihanraya:active_batches');
 
@@ -100,10 +108,8 @@ class ProcessVoterUpload implements ShouldQueue
             // Skip macOS metadata duplicates that some zip tools include.
             if (str_starts_with($file->getFilename(), '._')) continue;
             $e = strtolower($file->getExtension());
-            if (in_array($e, ['xlsx', 'xls', 'csv'], true)) {
-                Excel::import(new VoterDatabaseImport($this->batchId), $file->getPathname());
-            } elseif ($e === 'pdf') {
-                $this->importPdf($file->getPathname());
+            if (in_array($e, ['xlsx', 'xls', 'csv', 'pdf'], true)) {
+                $this->importFile($file->getPathname(), $e, $file->getFilename());
             }
         }
 
@@ -111,13 +117,80 @@ class ProcessVoterUpload implements ShouldQueue
     }
 
     /**
+     * Import one file via the fast path; if it reads 0 rows, escalate to the AI
+     * fallback. Applies to a standalone upload and to each file inside a ZIP.
+     */
+    private function importFile(string $path, string $ext, string $filename): void
+    {
+        $ext = strtolower($ext);
+
+        if (in_array($ext, ['xlsx', 'xls', 'csv'], true)) {
+            $import = new VoterDatabaseImport($this->batchId);
+            Excel::import($import, $path);
+            if ($import->rowsDetected() === 0) {
+                $this->aiFallback($path, $ext, $filename);
+            }
+        } elseif ($ext === 'pdf') {
+            if ($this->importPdf($path) === 0) {
+                $this->aiFallback($path, $ext, $filename);
+            }
+        }
+    }
+
+    /**
+     * The fast path found nothing in this file. Let Claude read it (messy
+     * headers / junk rows / freeform / scanned PDF) and insert whatever it can.
+     * Best-effort: a failure is recorded on the batch, never thrown.
+     */
+    private function aiFallback(string $path, string $ext, string $filename): void
+    {
+        try {
+            $result = app(AiVoterExtractor::class)->analyze($path, $ext, $filename);
+        } catch (Throwable $e) {
+            $this->aiDetail[] = ['file' => $filename, 'error' => 'exception:'.$e->getMessage()];
+
+            return;
+        }
+
+        $rows = $result['rows'] ?? [];
+        if ($rows !== []) {
+            $this->aiUsed = true;
+            $now = now();
+            foreach (array_chunk($rows, 500) as $chunk) {
+                PangkalanDataPengundi::insert(array_map(fn ($r) => array_merge($r, [
+                    'upload_batch_id' => $this->batchId,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]), $chunk));
+            }
+        }
+
+        $this->aiDetail[] = [
+            'file' => $filename,
+            'path' => $result['path'] ?? null,
+            'ai_used' => $result['ai_used'] ?? false,
+            'inserted' => count($rows),
+            'skipped' => $result['skipped'] ?? 0,
+            'chunks' => $result['chunks'] ?? 0,
+            'error' => $result['error'] ?? null,
+        ];
+    }
+
+    /**
      * Best-effort PDF extraction: pull every MyKad-shaped IC and the trailing
      * text as the name. PDFs have no reliable column structure, so only IC +
-     * name are captured; spreadsheets remain the complete format.
+     * name are captured; spreadsheets remain the complete format. Returns the
+     * number of rows inserted so the caller can escalate to the AI fallback
+     * when this heuristic finds nothing (e.g. a scanned/image PDF).
      */
-    private function importPdf(string $pdfPath): void
+    private function importPdf(string $pdfPath): int
     {
-        $text = (new Parser)->parseFile($pdfPath)->getText();
+        try {
+            $text = (new Parser)->parseFile($pdfPath)->getText();
+        } catch (Throwable $e) {
+            return 0; // unreadable/scanned — let the AI fallback try vision
+        }
+        $inserted = 0;
         $records = [];
         foreach (preg_split('/\r\n|\r|\n/', $text) as $line) {
             if (! preg_match('/(\d{6}[\s-]?\d{2}[\s-]?\d{4})(.*)/', trim($line), $m)) {
@@ -137,12 +210,16 @@ class ProcessVoterUpload implements ShouldQueue
             ];
             if (count($records) >= 500) {
                 PangkalanDataPengundi::insert($records);
+                $inserted += count($records);
                 $records = [];
             }
         }
         if (! empty($records)) {
             PangkalanDataPengundi::insert($records);
+            $inserted += count($records);
         }
+
+        return $inserted;
     }
 
     /**

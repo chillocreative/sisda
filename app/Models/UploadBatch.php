@@ -15,12 +15,16 @@ class UploadBatch extends Model
         'status',
         'is_active',
         'is_oku',
+        'ai_used',
+        'ai_detail',
         'uploaded_by',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
         'is_oku' => 'boolean',
+        'ai_used' => 'boolean',
+        'ai_detail' => 'array',
     ];
 
     public function pangkalanDataPengundi(): HasMany

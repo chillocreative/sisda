@@ -46,7 +46,16 @@ class VoterDatabaseImport implements ToCollection, WithChunkReading
 
     private array $buffer = [];
 
+    /** How many rows this importer actually wrote — lets the job decide whether
+     *  to escalate to the AI fallback (0 rows ⇒ the fast path could not read it). */
+    private int $inserted = 0;
+
     public function __construct(private int $uploadBatchId) {}
+
+    public function rowsDetected(): int
+    {
+        return $this->inserted;
+    }
 
     public function chunkSize(): int
     {
@@ -85,6 +94,7 @@ class VoterDatabaseImport implements ToCollection, WithChunkReading
     {
         if ($this->buffer !== []) {
             PangkalanDataPengundi::insert($this->buffer);
+            $this->inserted += count($this->buffer);
             $this->buffer = [];
         }
     }
