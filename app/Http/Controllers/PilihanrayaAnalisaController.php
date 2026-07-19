@@ -80,13 +80,122 @@ class PilihanrayaAnalisaController extends Controller
         ]);
     }
 
+    /**
+     * Kaum Mengikut DM — now driven by the live voter roll instead of the
+     * curated Buloh Kasap dataset. The Parlimen → DUN picker is built from every
+     * seat that actually has roll data; the race split per Daerah Mengundi is
+     * ESTIMATED from voter-name patterns (BIN/BINTI = Melayu; A/L·A/P·S/O·D/O =
+     * India; ANAK = Lain-lain; the rest = Cina) — the same method the page's
+     * footnote already declares.
+     */
     public function kaumDm(Request $request)
     {
+        $kawasanList = $this->rollKawasanList();
+        $selected = collect($kawasanList)->firstWhere('id', $request->query('kawasan'))
+            ?: ($kawasanList[0] ?? null);
+
+        [$rows, $totals] = $selected
+            ? $this->kaumDmForDun($selected['dun'])
+            : [[], ['melayu' => 0, 'cina' => 0, 'india' => 0, 'lain' => 0, 'jumlah' => 0]];
+
         return Inertia::render('Pilihanraya/KaumDm', [
-            'context' => $this->context(),
-            'rows' => JohorElectionData::kaumDm(),
-            'totals' => JohorElectionData::kaumDmTotals(),
+            'context' => [
+                'dun' => $selected['dun'] ?? '—',
+                'parlimen' => $selected['parlimen'] ?? '—',
+                'negeri' => $selected['negeri'] ?? '—',
+                'kawasanList' => $kawasanList,
+                'selectedId' => $selected['id'] ?? null,
+            ],
+            'rows' => $rows,
+            'totals' => $totals,
         ]);
+    }
+
+    /** Roll predicate: active upload batches OR any DPT upload (matches the roll used elsewhere). */
+    private function rollSource($query)
+    {
+        $activeIds = UploadBatch::activeIds();
+
+        return $query->where('is_deceased', false)
+            ->where(fn ($w) => $w->whereIn('upload_batch_id', $activeIds ?: [-1])->orWhereNotNull('dpt_upload_id'));
+    }
+
+    /** Every Negeri → Parlimen → DUN that actually has roll data, for the picker. */
+    private function rollKawasanList(): array
+    {
+        return Cache::remember('kaumdm:kawasan:'.md5(implode(',', UploadBatch::activeIds())), 300, function () {
+            return $this->rollSource(DB::table('pangkalan_data_pengundi'))
+                ->select('negeri', 'parlimen', 'kadun')
+                ->whereNotNull('kadun')->where('kadun', '!=', '')
+                ->distinct()->get()
+                ->map(fn ($r) => [
+                    'id' => md5(mb_strtoupper(trim(($r->parlimen ?? '').'|'.$r->kadun))),
+                    'kod' => $r->kadun,
+                    'dun' => $r->kadun,
+                    'parlimen' => $r->parlimen ?: '—',
+                    'negeri' => $r->negeri ?: '—',
+                    'label' => $r->kadun,
+                ])
+                ->sortBy(fn ($k) => $k['parlimen'].'|'.$k['dun'])
+                ->values()->all();
+        });
+    }
+
+    /**
+     * Race split per Daerah Mengundi for one DUN, estimated from name patterns.
+     * @return array{0:array<int,array<string,mixed>>, 1:array<string,int>}
+     */
+    private function kaumDmForDun(string $dun): array
+    {
+        $upperDun = mb_strtoupper(trim($dun));
+        $cacheKey = 'kaumdm:rows:'.md5(implode(',', UploadBatch::activeIds()).'|'.$upperDun);
+
+        return Cache::remember($cacheKey, 300, function () use ($upperDun) {
+            $pad = "CONCAT(' ', UPPER(nama), ' ')";
+            $melayu = "({$pad} LIKE '% BIN %' OR {$pad} LIKE '% BINTI %')";
+            $india = "(UPPER(nama) LIKE '%A/L%' OR UPPER(nama) LIKE '%A/P%' OR UPPER(nama) LIKE '%S/O%' OR UPPER(nama) LIKE '%D/O%')";
+            $lain = "({$pad} LIKE '% ANAK %')";
+
+            $grouped = $this->rollSource(DB::table('pangkalan_data_pengundi'))
+                ->whereRaw('UPPER(kadun) = ?', [$upperDun])
+                ->selectRaw("
+                    COALESCE(NULLIF(TRIM(daerah_mengundi), ''), '(Tiada DM)') AS dm,
+                    SUM(CASE WHEN {$melayu} THEN 1 ELSE 0 END) AS melayu,
+                    SUM(CASE WHEN NOT ({$melayu}) AND ({$india}) THEN 1 ELSE 0 END) AS india,
+                    SUM(CASE WHEN NOT ({$melayu}) AND NOT ({$india}) AND ({$lain}) THEN 1 ELSE 0 END) AS lain,
+                    COUNT(*) AS jumlah
+                ")
+                ->groupBy('dm')
+                ->orderByDesc('jumlah')
+                ->get();
+
+            $rows = $grouped->values()->map(function ($r, $i) {
+                $melayu = (int) $r->melayu;
+                $india = (int) $r->india;
+                $lain = (int) $r->lain;
+                $jumlah = (int) $r->jumlah;
+
+                return [
+                    'bil' => $i + 1,
+                    'dm' => $r->dm,
+                    'melayu' => $melayu,
+                    'cina' => max(0, $jumlah - $melayu - $india - $lain), // Cina = residual
+                    'india' => $india,
+                    'lain' => $lain,
+                    'jumlah' => $jumlah,
+                ];
+            })->all();
+
+            $totals = [
+                'melayu' => array_sum(array_column($rows, 'melayu')),
+                'cina' => array_sum(array_column($rows, 'cina')),
+                'india' => array_sum(array_column($rows, 'india')),
+                'lain' => array_sum(array_column($rows, 'lain')),
+                'jumlah' => array_sum(array_column($rows, 'jumlah')),
+            ];
+
+            return [$rows, $totals];
+        });
     }
 
     /**

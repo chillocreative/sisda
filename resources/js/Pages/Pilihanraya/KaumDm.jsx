@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import {
     Bar, BarChart, CartesianGrid, Cell, LabelList, Legend, Pie, PieChart, ResponsiveContainer,
     Tooltip, XAxis, YAxis,
@@ -189,22 +189,49 @@ function EmptyFilter() {
 }
 
 export default function KaumDm({ context, rows: baseRows, totals: baseTotals }) {
-    const [kawasan, setKawasan] = useState(context.kawasanList?.[0]?.id ?? '');
+    const [kawasan, setKawasan] = useState(context.selectedId ?? '');
     const [dmSel, setDmSel] = useState(() => baseRows.map((r) => r.dm));
+
+    const hasKawasan = (context.kawasanList?.length ?? 0) > 0;
+
+    // Changing the DUN refetches its roll from the server (each seat is computed live).
+    const handleKawasan = (id) => {
+        setKawasan(id);
+        router.get(route('pilihanraya.kaum-dm'), { kawasan: id }, {
+            only: ['context', 'rows', 'totals'],
+            preserveScroll: true,
+        });
+    };
 
     const dmOptions = useMemo(() => baseRows.map((r) => r.dm), [baseRows]);
     const rows = useMemo(() => baseRows.filter((r) => dmSel.includes(r.dm)), [baseRows, dmSel]);
     const totals = useMemo(() => computeKaumTotals(rows), [rows]);
+
+    if (!hasKawasan) {
+        return (
+            <AuthenticatedLayout>
+                <Head title="Pilihanraya — Kaum Mengikut DM" />
+                <PilihanrayaShell
+                    title="Analisa Kaum Mengikut Daerah Mengundi"
+                    subtitle="anggaran daripada corak nama pengundi"
+                >
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 text-amber-800 px-4 py-6 text-center">
+                        Tiada pangkalan data pengundi aktif dengan kawasan (Parlimen/DUN). Muat naik dan aktifkan batch di Upload Database, dan pastikan fail mempunyai lajur kawasan atau tetapkan kawasan semasa upload.
+                    </div>
+                </PilihanrayaShell>
+            </AuthenticatedLayout>
+        );
+    }
 
     return (
         <AuthenticatedLayout>
             <Head title="Pilihanraya — Kaum Mengikut DM" />
             <PilihanrayaShell
                 title="Analisa Kaum Mengikut Daerah Mengundi"
-                subtitle={`${context.dun} · ${context.parlimen}, ${context.negeri} — anggaran DPPR SPR`}
+                subtitle={`${context.dun} · ${context.parlimen}, ${context.negeri} — anggaran corak nama`}
             >
                 <FilterBarCard>
-                    <KawasanSelect list={context.kawasanList} value={kawasan} onChange={setKawasan} />
+                    <KawasanSelect list={context.kawasanList} value={kawasan} onChange={handleKawasan} />
                     <DmFilter options={dmOptions} selected={dmSel} onChange={setDmSel} />
                     <div className="text-sm">
                         <span className="block text-xs opacity-60 mb-1">Paparan</span>
