@@ -1,0 +1,1 @@
+import{r as a}from"./app-BMpJVizF.js";import{y as e}from"./CategoricalChart-BtcqxTQv.js";import{a as o}from"./CartesianChart-BmYQE7AH.js";var i=["axis","item"],m=a.forwardRef((r,t)=>a.createElement(o,{chartName:"BarChart",defaultTooltipEventType:"axis",validateTooltipEventTypes:i,tooltipPayloadSearcher:e,categoricalChartProps:r,ref:t}));export{m as B};

@@ -3,6 +3,7 @@
 namespace App\Imports;
 
 use App\Models\PangkalanDataPengundi;
+use App\Support\MalaysianIc;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
@@ -163,7 +164,10 @@ class VoterDatabaseImport implements ToCollection, WithChunkReading
             'negeri' => $this->upper($this->cell($cells, $this->map['negeri'] ?? null)),
             'bangsa' => $this->upper($this->cell($cells, $this->map['bangsa'] ?? null)),
             'jantina' => $this->normaliseJantina($this->cell($cells, $this->map['jantina'] ?? null)),
-            'tahun_lahir' => $this->str($this->cell($cells, $this->map['tahunlahir'] ?? null)),
+            // Voter exports often carry no birth-year column at all; the IC's
+            // leading YYMMDD is then the only source, so fall back to it.
+            'tahun_lahir' => $this->str($this->cell($cells, $this->map['tahunlahir'] ?? null))
+                ?? ($ic !== null ? (string) (MalaysianIc::voterBirthYear($ic) ?? '') ?: null : null),
             'created_at' => now(),
             'updated_at' => now(),
         ];

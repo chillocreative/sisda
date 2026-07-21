@@ -2,6 +2,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ShieldAlert, Activity, LogIn, Eye, PencilLine, RefreshCw, Check, X, Filter } from 'lucide-react';
 import { useState } from 'react';
+import useDragScroll from '@/Hooks/useDragScroll';
 
 const SEVERITY_STYLES = {
     critical: 'bg-rose-100 text-rose-800 border-rose-200',
@@ -259,12 +260,13 @@ function Pagination({ page }) {
 }
 
 function AlertsTable({ alerts, onAcknowledge, onDelete }) {
+    const scrollRef = useDragScroll();
     if (!alerts.data.length) {
         return <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-sm text-slate-500">Tiada amaran terbuka.</div>;
     }
     return (
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <div className="overflow-x-auto">
+            <div ref={scrollRef} className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                     <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                         <tr>
@@ -318,12 +320,13 @@ function AlertsTable({ alerts, onAcknowledge, onDelete }) {
 }
 
 function LoginsTable({ logins }) {
+    const scrollRef = useDragScroll();
     if (!logins.data.length) {
         return <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-sm text-slate-500">Tiada log masuk untuk tempoh ini.</div>;
     }
     return (
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <div className="overflow-x-auto">
+            <div ref={scrollRef} className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                     <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                         <tr>
@@ -363,12 +366,13 @@ function LoginsTable({ logins }) {
 }
 
 function PageViewsTable({ pageViews }) {
+    const scrollRef = useDragScroll();
     if (!pageViews.data.length) {
         return <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-sm text-slate-500">Tiada lawatan halaman untuk tempoh ini.</div>;
     }
     return (
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <div className="overflow-x-auto">
+            <div ref={scrollRef} className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                     <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                         <tr>
@@ -404,12 +408,13 @@ function PageViewsTable({ pageViews }) {
 }
 
 function EditsTable({ edits }) {
+    const scrollRef = useDragScroll();
     if (!edits.data.length) {
         return <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-sm text-slate-500">Tiada perubahan rekod untuk tempoh ini.</div>;
     }
     return (
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <div className="overflow-x-auto">
+            <div ref={scrollRef} className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                     <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                         <tr>

@@ -6,6 +6,7 @@ use App\Models\DataPengundi;
 use App\Models\HasilCulaan;
 use App\Models\PangkalanDataPengundi;
 use App\Models\UploadBatch;
+use App\Support\MalaysianIc;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -32,24 +33,7 @@ class MemberMatchService
     /** Age from the first 6 IC digits (YYMMDD), same pivot as the front-end forms. */
     public static function ageFromIc(string $ic): ?int
     {
-        if (! preg_match('/^[0-9]{6}/', $ic)) {
-            return null;
-        }
-        $yy = (int) substr($ic, 0, 2);
-        $mm = (int) substr($ic, 2, 2);
-        $dd = (int) substr($ic, 4, 2);
-        $fullYear = $yy <= 25 ? 2000 + $yy : 1900 + $yy;
-        if (! checkdate($mm, $dd, $fullYear)) {
-            return null;
-        }
-        $age = (int) date('Y') - $fullYear;
-        $monthNow = (int) date('n');
-        $dayNow = (int) date('j');
-        if ($monthNow < $mm || ($monthNow === $mm && $dayNow < $dd)) {
-            $age--;
-        }
-
-        return ($age >= 0 && $age <= 150) ? $age : null;
+        return MalaysianIc::age($ic);
     }
 
     /** Gender from the IC's 12th digit (odd = male). */
