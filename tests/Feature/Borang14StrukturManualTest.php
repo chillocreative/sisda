@@ -183,6 +183,37 @@ class Borang14StrukturManualTest extends TestCase
         $this->assertTrue($res->json('boleh_sunting_struktur'));
     }
 
+    public function test_an_inherited_grid_is_editable_and_the_panel_is_seeded_from_it(): void
+    {
+        // PR terdahulu bagi kerusi yang SAMA — grid PR baharu diwarisi
+        // daripadanya, jadi borang baharu itu sendiri tiada structure.
+        $lama = Borang14Form::create([
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->kadun->id,
+            'jenis_pr' => 'prn', 'tahun' => 2023, 'penjuru' => 2,
+            'status' => 'published', 'source' => 'manual', 'parties' => [],
+            'structure' => $this->manualStructure(),
+        ]);
+        $this->assertNotNull($lama->id);
+
+        $res = $this->actingAs($this->user())->getJson(route('pilihanraya.borang-14.data', [
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->kadun->id, 'jenis_pr' => 'prn', 'tahun' => 2027,
+        ]));
+
+        $res->assertOk();
+        $this->assertTrue($res->json('hasData'));
+        // MESTI boleh disunting: sebaik borang 2027 menyimpan struktur
+        // sendiri, cabang warisan tidak berjalan lagi, jadi suntingan itu
+        // benar-benar dipaparkan. Menyekatnya membunuh kes "PR akan datang".
+        $this->assertTrue($res->json('boleh_sunting_struktur'));
+        // Dan panel MESTI disemai daripada grid yang diwarisi, bukan kosong —
+        // panel kosong di atas grid penuh ialah punca pemadaman senyap.
+        $this->assertSame(
+            ['SK TENGKEK', 'SK JEMAPOH'],
+            collect($res->json('struktur.pusat'))->pluck('pusat')->all(),
+        );
+        $this->assertSame(2, $res->json('struktur.pusat.0.saluran_count'));
+    }
+
     public function test_saving_preserves_votes_stored_under_a_non_canonical_postal_label(): void
     {
         // Struktur berbentuk SCORESHEET: label undi pos ialah apa yang dibaca

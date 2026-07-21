@@ -62,6 +62,11 @@ export default function StrukturPanel({ picker, struktur, onSaved, onCancel }) {
         undi_pos: undiPos,
         undi_awal_label: struktur?.undi_awal_label ?? null,
         undi_pos_label: struktur?.undi_pos_label ?? null,
+        // Baris pusat-kosong yang panel tiada kotak untuk mewakilinya
+        // (UNDI TIDAK DIKEMBALIKAN, undi pos yang dipecah dua). Dihantar
+        // balik mentah — menggugurkannya memadam undi di bawahnya, dan
+        // pengguna tiada cara menyelamatkannya kerana ia tidak muncul di UI.
+        lain_lain: struktur?.lain_lain ?? [],
     });
 
     // Laravel 422 membawa mesej generik ("The given data was invalid.") pada

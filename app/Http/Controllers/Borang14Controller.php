@@ -95,7 +95,7 @@ class Borang14Controller extends Controller
                 ->first();
         }
 
-        ['reference' => $reference, 'inherited_from' => $inheritedFrom] = $this->resolveReference($kawasanType, $kawasanId, $form);
+        ['reference' => $reference, 'inherited_from' => $inheritedFrom, 'asal' => $asal] = $this->resolveReference($kawasanType, $kawasanId, $form);
 
         $votes = $form
             ? $form->votes()->get(['pusat', 'saluran', 'slot', 'undi'])
@@ -124,15 +124,18 @@ class Borang14Controller extends Controller
             // struktur scoresheet/warisan yang tiada satu) hidup di SATU
             // tempat sahaja — dua pelaksanaan akan hanyut, dan hanyut di sini
             // bermakna undi dipadam sebagai ganti dipindahkan.
-            'struktur' => $svc->collapse($form?->structure),
-            // DUA syarat, bukan satu: peranan/status DAN asal grid. Grid yang
-            // datang daripada kurasi/DPT/warisan tidak boleh disunting di sini
-            // — panel akan dibuka kosong di atasnya dan simpanan memadam undi.
+            // Disemai daripada rujukan yang DIPAPARKAN apabila borang ini
+            // belum ada struktur sendiri — panel yang dibuka kosong di atas
+            // grid yang penuh undi ialah punca pemadaman senyap.
+            'struktur' => $this->strukturUntukPanel($svc, $form, $reference, $asal),
+            // DUA syarat, bukan satu: peranan/status DAN asal grid. $asal
+            // diguna semula daripada resolveReference() di atas — menyelesaikan
+            // semula di sini bermakna DUA imbasan penuh roll DPT setiap muatan.
             'boleh_sunting_struktur' => $this->bolehSuntingStruktur(
                 $request->user(),
                 $form,
                 ['kawasan_type' => $kawasanType, 'kawasan_id' => $kawasanId],
-            ) && $this->strukturBolehDisunting($kawasanType, (int) $kawasanId, $form),
+            ) && $this->strukturBolehDisunting($asal),
         ];
 
         // Deliberately OMITTED (not merely null) when nothing was inherited —
@@ -274,6 +277,25 @@ class Borang14Controller extends Controller
             'undi_pos'  => 'boolean',
             'undi_awal_label' => 'nullable|string|max:255',
             'undi_pos_label'  => 'nullable|string|max:255',
+            // Baris pusat-kosong yang panel tidak boleh wakili, dibawa balik
+            // mentah supaya undi di bawahnya tidak menjadi yatim.
+            'lain_lain' => 'nullable|array|max:50',
+            'lain_lain.*.row_id'  => 'nullable|string|max:64',
+            'lain_lain.*.dm'      => 'nullable|string|max:255',
+            'lain_lain.*.saluran' => 'nullable|string|max:255',
+        ];
+    }
+
+    /** Mesej pengesahan dalam Bahasa Melayu — teks lalai Laravel dalam Bahasa Inggeris. */
+    private function strukturMessages(): array
+    {
+        return [
+            'pusat.*.pusat.required' => 'Nama Pusat Mengundi wajib diisi.',
+            'pusat.*.dm.required' => 'Daerah Mengundi wajib diisi bagi setiap Pusat Mengundi — analisa melangkau undi yang tiada Daerah Mengundi.',
+            'pusat.*.saluran_count.required' => 'Bilangan saluran wajib diisi.',
+            'pusat.*.saluran_count.min' => 'Setiap Pusat Mengundi mesti ada sekurang-kurangnya 1 saluran.',
+            'pusat.*.saluran_count.max' => 'Bilangan saluran melebihi had 20.',
+            'pusat.max' => 'Terlalu banyak Pusat Mengundi (had 500).',
         ];
     }
 
@@ -295,7 +317,7 @@ class Borang14Controller extends Controller
         $kawasanType = $request->input('kawasan_type');
         $existsTable = $kawasanType === Borang14Form::KAWASAN_PARLIMEN ? 'bandar' : 'kadun';
 
-        $validated = $request->validate($this->strukturRules($existsTable));
+        $validated = $request->validate($this->strukturRules($existsTable), $this->strukturMessages());
 
         // SATU tempat sahaja untuk memangkas nama Pusat/DM — nilai yang
         // dipangkas di sinilah yang disahkan, dibanding, dinamakan semula
@@ -340,6 +362,7 @@ class Borang14Controller extends Controller
             (bool) ($validated['undi_pos'] ?? false),
             $validated['undi_awal_label'] ?? null,
             $validated['undi_pos_label'] ?? null,
+            $validated['lain_lain'] ?? [],
         );
 
         DB::transaction(function () use (&$form, $validated, $baharu, $svc, $request) {
@@ -487,7 +510,7 @@ class Borang14Controller extends Controller
         $kawasanType = $request->input('kawasan_type');
         $existsTable = $kawasanType === Borang14Form::KAWASAN_PARLIMEN ? 'bandar' : 'kadun';
 
-        $validated = $request->validate($this->strukturRules($existsTable));
+        $validated = $request->validate($this->strukturRules($existsTable), $this->strukturMessages());
 
         // Sama seperti simpanStruktur() — SATU tempat sahaja untuk memangkas
         // nama Pusat/DM, supaya nilai yang disahkan/dibanding/dinamakan
@@ -536,6 +559,7 @@ class Borang14Controller extends Controller
             (bool) ($validated['undi_pos'] ?? false),
             $validated['undi_awal_label'] ?? null,
             $validated['undi_pos_label'] ?? null,
+            $validated['lain_lain'] ?? [],
         ));
 
         $hilang = $form->votes()->get(['pusat', 'saluran', 'undi'])
@@ -569,25 +593,59 @@ class Borang14Controller extends Controller
      * itu, jadi struktur yang baru ditaip tidak akan dipaparkan pun —
      * operasi itu kerugian semata-mata.
      *
-     * asal null (tiada rujukan langsung) DIBENARKAN: itulah kebuntuan yang
-     * ciri ini wujud untuk dipecahkan.
+     * HANYA 'kurasi' disekat, dan sebab yang tepat itu penting:
+     *   - 'kurasi'   — JSON kurasi tiada kunci 'source', jadi resolveReference()
+     *                  TIDAK PERNAH merujuk structure borang untuk sumber ini.
+     *                  Struktur yang ditaip tidak akan dipaparkan pun, jadi
+     *                  menyunting di sini kerugian semata-mata.
+     *   - 'dpt'      — structure MENGALAHKAN anggaran DPT (lihat keutamaan di
+     *                  atas), jadi suntingan benar-benar dipaparkan. Inilah
+     *                  cara membaiki anggaran DPT yang menganggap 1 saluran
+     *                  per Pusat — antara sebab ciri ini wujud.
+     *   - 'warisan'  — sebaik borang ini ada structure sendiri, cabang warisan
+     *                  tidak berjalan langsung. Suntingan dipaparkan.
+     *   - 'struktur' / null — struktur borang ini sendiri, atau kebuntuan yang
+     *                  ciri ini wujud untuk dipecahkan.
+     *
+     * Bahaya "panel dibuka kosong di atas grid penuh" bagi 'dpt'/'warisan'
+     * ditutup di tempat lain, dengan MENYEMAI panel daripada rujukan yang
+     * dipaparkan (strukturUntukPanel()), bukan dengan menyekat penyuntingan.
      */
-    private function strukturBolehDisunting(string $kawasanType, int $kawasanId, ?Borang14Form $form): bool
+    private function strukturBolehDisunting(?string $asal): bool
     {
-        $asal = $this->resolveReference($kawasanType, (int) $kawasanId, $form)['asal'];
+        return $asal !== 'kurasi';
+    }
 
-        return $asal === null || $asal === 'struktur';
+    /**
+     * Keadaan permulaan panel: struktur borang INI apabila ada, jika tidak
+     * rujukan yang sedang DIPAPARKAN.
+     *
+     * Menyemai daripada $form->structure sahaja bermakna panel dibuka kosong
+     * setiap kali grid datang daripada DPT atau warisan — dan menyimpan
+     * ketika itu memadam setiap undi yang tidak ditaip semula.
+     */
+    private function strukturUntukPanel(Borang14StrukturService $svc, ?Borang14Form $form, ?array $reference, ?string $asal): array
+    {
+        if ($asal === 'struktur' || ! empty($form?->structure['rows'])) {
+            return $svc->collapse($form?->structure);
+        }
+
+        return $asal === null
+            ? $svc->collapse(null)
+            : $svc->collapseReference($reference);
     }
 
     /** 422 supaya sebabnya boleh dibaca pengguna; guard ini bukan hal kebenaran. */
     private function assertStrukturBolehDisunting(array $validated, ?Borang14Form $form): void
     {
-        if ($this->strukturBolehDisunting($validated['kawasan_type'], (int) $validated['kawasan_id'], $form)) {
+        $asal = $this->resolveReference($validated['kawasan_type'], (int) $validated['kawasan_id'], $form)['asal'];
+
+        if ($this->strukturBolehDisunting($asal)) {
             return;
         }
 
         throw ValidationException::withMessages([
-            'pusat' => 'Struktur kerusi ini datang daripada sumber rasmi (JSON kurasi, anggaran DPT, atau pilihan raya terdahulu), bukan daripada borang ini. Menyuntingnya di sini akan memadam undi sedia ada tanpa menggantikan grid yang dipaparkan.',
+            'pusat' => 'Struktur kerusi ini datang daripada fail rujukan rasmi SPR yang sentiasa mengatasi struktur borang. Apa yang ditaip di sini tidak akan dipaparkan, tetapi undi sedia ada akan dipadam.',
         ]);
     }
 

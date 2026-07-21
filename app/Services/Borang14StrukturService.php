@@ -41,6 +41,7 @@ class Borang14StrukturService
         bool $undiPos,
         ?string $undiAwalLabel = null,
         ?string $undiPosLabel = null,
+        array $lainLain = [],
     ): array {
         $rows = [];
 
@@ -78,6 +79,20 @@ class Borang14StrukturService
             $rows[] = ['row_id' => 'pm_pos', 'dm' => '', 'pusat' => '', 'saluran' => $posSaluran];
         }
 
+        // Baris pusat-kosong yang panel TIDAK boleh wakili (UNDI TIDAK
+        // DIKEMBALIKAN, undi pos yang dipecah dua, apa sahaja yang dibaca AI).
+        // Dibawa melalui suntingan tanpa disentuh: menggugurkannya di sini
+        // menjadikan undi di bawahnya yatim, dan pengguna tiada cara untuk
+        // menyelamatkannya kerana ia langsung tidak muncul dalam UI.
+        foreach ($lainLain as $r) {
+            $rows[] = [
+                'row_id'  => (string) ($r['row_id'] ?? 'pm_lain'),
+                'dm'      => (string) ($r['dm'] ?? ''),
+                'pusat'   => '',
+                'saluran' => (string) ($r['saluran'] ?? ''),
+            ];
+        }
+
         return ['origin' => 'manual', 'calon' => [], 'rows' => $rows];
     }
 
@@ -99,6 +114,7 @@ class Borang14StrukturService
         $undiPos = false;
         $undiAwalLabel = null;
         $undiPosLabel = null;
+        $lainLain = [];
 
         foreach ($structure['rows'] ?? [] as $r) {
             $nama = (string) ($r['pusat'] ?? '');
@@ -110,13 +126,22 @@ class Borang14StrukturService
                 // padanya dan expand() mesti boleh memancarkannya semula
                 // tepat-tepat. Yang PERTAMA sepadan menang — satu sheet hanya
                 // ada satu baris undi awal / undi pos.
-                if (str_contains($upper, 'AWAL')) {
+                $diwakili = false;
+                if (str_contains($upper, 'AWAL') && $undiAwalLabel === null) {
                     $undiAwal = true;
-                    $undiAwalLabel ??= $label;
+                    $undiAwalLabel = $label;
+                    $diwakili = true;
                 }
-                if (str_contains($upper, 'POS')) {
+                if (str_contains($upper, 'POS') && $undiPosLabel === null) {
                     $undiPos = true;
-                    $undiPosLabel ??= $label;
+                    $undiPosLabel = $label;
+                    $diwakili = true;
+                }
+                // Baris yang tiada kotak untuk mewakilinya — termasuk baris
+                // KEDUA daripada keluarga yang sama — disimpan mentah supaya
+                // expand() boleh memancarkannya semula. Lihat expand().
+                if (! $diwakili) {
+                    $lainLain[] = ['row_id' => (string) ($r['row_id'] ?? ''), 'dm' => (string) ($r['dm'] ?? ''), 'saluran' => $label];
                 }
 
                 continue;
@@ -141,6 +166,58 @@ class Borang14StrukturService
             'undi_pos' => $undiPos,
             'undi_awal_label' => $undiAwalLabel,
             'undi_pos_label' => $undiPosLabel,
+            'lain_lain' => $lainLain,
+        ];
+    }
+
+    /**
+     * Rujukan yang DIPAPARKAN → entri per-Pusat untuk panel penyuntingan.
+     *
+     * Grid tidak selalunya dibina daripada `structure` borang ini: ia boleh
+     * datang daripada JSON kurasi, anggaran DPT, atau struktur yang diwarisi
+     * daripada pilihan raya lain. Bentuknya daerah_mengundi[] →
+     * pusat_mengundi[] → saluran[], bukan rows[]. Tanpa penukaran ini panel
+     * dibuka KOSONG di atas grid yang penuh undi, dan menyimpan ketika itu
+     * memadam setiap undi yang tidak ditaip semula.
+     *
+     * row_id diterbitkan dengan peraturan yang SAMA seperti collapse() supaya
+     * suntingan seterusnya mengenali pusat yang sama dan renameMap() dapat
+     * membezakan "namakan semula" daripada "buang lalu tambah".
+     *
+     * @return array{pusat:array<int,array<string,mixed>>,undi_awal:bool,undi_pos:bool,undi_awal_label:null,undi_pos_label:null,lain_lain:array}
+     */
+    public function collapseReference(?array $reference): array
+    {
+        $pusat = [];
+
+        foreach ($reference['daerah_mengundi'] ?? [] as $dm) {
+            $namaDm = (string) ($dm['nama'] ?? '');
+            foreach ($dm['pusat_mengundi'] ?? [] as $pm) {
+                $nama = (string) ($pm['nama'] ?? '');
+                if ($nama === '') {
+                    continue;
+                }
+                $labels = collect($pm['saluran'] ?? [])
+                    ->map(fn ($s) => (string) ($s['no'] ?? ''))->all();
+
+                $pusat[] = [
+                    'row_id' => 'pm_'.md5($namaDm.'|'.$nama),
+                    'dm' => $namaDm,
+                    'pusat' => $nama,
+                    'saluran_count' => max(1, count($labels)),
+                    'saluran_labels' => $labels,
+                ];
+            }
+        }
+
+        return [
+            'pusat' => $pusat,
+            // Baris undi awal/pos rujukan TIDAK dibawa masuk: hanya struktur
+            // borang ini sendiri membawa label mentah yang undi dikunci
+            // padanya. Biarkan pengguna menandakannya semula.
+            'undi_awal' => false, 'undi_pos' => false,
+            'undi_awal_label' => null, 'undi_pos_label' => null,
+            'lain_lain' => [],
         ];
     }
 

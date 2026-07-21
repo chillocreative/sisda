@@ -100,7 +100,7 @@ class Borang14StrukturServiceTest extends TestCase
         $this->assertSame(
             [
                 'pusat' => [], 'undi_awal' => false, 'undi_pos' => false,
-                'undi_awal_label' => null, 'undi_pos_label' => null,
+                'undi_awal_label' => null, 'undi_pos_label' => null, 'lain_lain' => [],
             ],
             $this->svc->collapse(null),
         );
@@ -196,6 +196,64 @@ class Borang14StrukturServiceTest extends TestCase
         // Tanpa suntingan, kunci mesti kembali SAMA — bukan '1','2'.
         $again = $this->svc->expand($out['pusat'], false, false);
         $this->assertSame(['SK A|', 'SK A|2A'], array_keys($this->svc->survivingKeys($again)));
+    }
+
+    public function test_collapse_preserves_a_blank_pusat_row_it_cannot_represent(): void
+    {
+        // Blok pusat-kosong bukan hanya UNDI AWAL/POS. Sheet sebenar
+        // mengandungi baris seperti UNDI TIDAK DIKEMBALIKAN, atau undi pos
+        // yang dipecah kepada dua baris. Panel tiada kotak untuk mewakilinya —
+        // maka ia mesti dibawa MELALUI suntingan tanpa disentuh, bukan
+        // digugurkan lalu dipadam sebagai yatim.
+        $scoresheet = ['rows' => [
+            ['dm' => '', 'pusat' => '', 'saluran' => 'UNDI POS'],
+            ['dm' => '', 'pusat' => '', 'saluran' => 'UNDI TIDAK DIKEMBALIKAN'],
+            ['dm' => '', 'pusat' => '', 'saluran' => 'UNDI POS 2'],
+        ]];
+
+        $out = $this->svc->collapse($scoresheet);
+
+        $this->assertSame(
+            ['UNDI TIDAK DIKEMBALIKAN', 'UNDI POS 2'],
+            collect($out['lain_lain'])->pluck('saluran')->all(),
+        );
+
+        $again = $this->svc->expand([], false, true, null, $out['undi_pos_label'], $out['lain_lain']);
+        $this->assertSame(
+            ['|UNDI POS', '|UNDI TIDAK DIKEMBALIKAN', '|UNDI POS 2'],
+            array_keys($this->svc->survivingKeys($again)),
+        );
+    }
+
+    public function test_collapse_reference_builds_editable_entries_from_a_rendered_grid(): void
+    {
+        // Grid daripada JSON kurasi / anggaran DPT / warisan berbentuk
+        // daerah_mengundi[] → pusat_mengundi[] → saluran[], BUKAN rows[].
+        // Panel mesti boleh disemai daripadanya, jika tidak ia dibuka kosong
+        // di atas grid yang penuh undi.
+        $reference = ['daerah_mengundi' => [[
+            'nama' => 'AWAT',
+            'pusat_mengundi' => [[
+                'nama' => 'SK KAMPONG AWAT',
+                'saluran' => [['no' => 1], ['no' => 2]],
+            ]],
+        ]]];
+
+        $out = $this->svc->collapseReference($reference);
+
+        $this->assertCount(1, $out['pusat']);
+        $this->assertSame('AWAT', $out['pusat'][0]['dm']);
+        $this->assertSame('SK KAMPONG AWAT', $out['pusat'][0]['pusat']);
+        $this->assertSame(2, $out['pusat'][0]['saluran_count']);
+        $this->assertSame(['1', '2'], $out['pusat'][0]['saluran_labels']);
+        // row_id mesti mengikut peraturan yang SAMA seperti collapse(), supaya
+        // suntingan kedua mengenalinya sebagai pusat yang sama.
+        $this->assertSame(
+            $this->svc->collapse(['rows' => [
+                ['dm' => 'AWAT', 'pusat' => 'SK KAMPONG AWAT', 'saluran' => '1'],
+            ]])['pusat'][0]['row_id'],
+            $out['pusat'][0]['row_id'],
+        );
     }
 
     public function test_expand_numbers_only_saluran_added_beyond_the_preserved_labels(): void
