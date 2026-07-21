@@ -64,7 +64,7 @@ class Borang14Controller extends Controller
      * Either way the response carries a `resolved` block so the caller can populate
      * its Negeri/Parlimen/DUN/Jenis PR/Tahun selects from whichever path was used.
      */
-    public function data(Request $request)
+    public function data(Request $request, Borang14StrukturService $svc)
     {
         if ($request->filled('form_id')) {
             $form = Borang14Form::findOrFail((int) $request->input('form_id'));
@@ -118,6 +118,17 @@ class Borang14Controller extends Controller
             'resolved' => array_merge(
                 ['kawasan_type' => $kawasanType, 'kawasan_id' => $kawasanId, 'jenis_pr' => $jenisPr, 'tahun' => $tahun],
                 $this->resolveIds($kawasanType, $kawasanId),
+            ),
+            // Keadaan permulaan bagi panel Sunting Struktur. Dikira di server
+            // supaya peraturan penerbitan row_id (termasuk id terbitan bagi
+            // struktur scoresheet/warisan yang tiada satu) hidup di SATU
+            // tempat sahaja — dua pelaksanaan akan hanyut, dan hanyut di sini
+            // bermakna undi dipadam sebagai ganti dipindahkan.
+            'struktur' => $svc->collapse($form?->structure),
+            'boleh_sunting_struktur' => $this->bolehSuntingStruktur(
+                $request->user(),
+                $form,
+                ['kawasan_type' => $kawasanType, 'kawasan_id' => $kawasanId],
             ),
         ];
 

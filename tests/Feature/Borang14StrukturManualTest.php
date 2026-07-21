@@ -491,4 +491,62 @@ class Borang14StrukturManualTest extends TestCase
             ]))
             ->assertForbidden();
     }
+
+    public function test_data_returns_the_collapsed_structure_for_the_editor(): void
+    {
+        $form = $this->form($this->manualStructure());
+
+        $res = $this->actingAs($this->user())
+            ->getJson(route('pilihanraya.borang-14.data', ['form_id' => $form->id]));
+
+        $res->assertOk();
+        $this->assertSame(
+            [['row_id' => 'pm_a', 'dm' => 'KUALA JEMAPOH', 'pusat' => 'SK TENGKEK', 'saluran_count' => 2],
+             ['row_id' => 'pm_b', 'dm' => 'KUALA JEMAPOH', 'pusat' => 'SK JEMAPOH', 'saluran_count' => 1]],
+            $res->json('struktur.pusat'),
+        );
+        $this->assertTrue($res->json('struktur.undi_pos'));
+        $this->assertFalse($res->json('struktur.undi_awal'));
+        $this->assertTrue($res->json('boleh_sunting_struktur'));
+    }
+
+    public function test_data_marks_the_structure_unlockable_for_published_forms_and_plain_users(): void
+    {
+        $form = $this->form($this->manualStructure(), 'published');
+
+        $res = $this->actingAs($this->user('super_admin'))
+            ->getJson(route('pilihanraya.borang-14.data', ['form_id' => $form->id]));
+        $this->assertFalse($res->json('boleh_sunting_struktur'));
+
+        $draf = Borang14Form::create([
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->kadun->id,
+            'jenis_pr' => 'pru', 'tahun' => 2028, 'penjuru' => 2,
+            'status' => 'draft', 'source' => 'manual', 'parties' => [],
+            'structure' => $this->manualStructure(),
+        ]);
+        // Bukan '$this->user('user')': keseluruhan kumpulan laluan
+        // pilihanraya/* disekat middleware 'admin' (routes/web.php), jadi
+        // peranan 'user' tidak pernah sampai ke data() — respons 403 tanpa
+        // sebarang kunci JSON, bukan false. Kes sebenar yang dijaga oleh
+        // cawangan skop-Bandar bolehSuntingStruktur() ialah admin YANG SAH
+        // memasuki data() tetapi bagi Bandar LAIN.
+        $bandarLain = Bandar::create(['nama' => 'Bandar Lain Data', 'negeri_id' => $this->kadun->bandar->negeri_id]);
+        $adminLain = $this->user('admin', ['bandar_id' => $bandarLain->id]);
+        $res = $this->actingAs($adminLain)
+            ->getJson(route('pilihanraya.borang-14.data', ['form_id' => $draf->id]));
+        $this->assertFalse($res->json('boleh_sunting_struktur'));
+    }
+
+    public function test_a_seat_with_no_form_at_all_still_reports_an_empty_editable_structure(): void
+    {
+        // Skrin buntu: tiada borang, tiada struktur — tetapi butang "Cipta
+        // Borang 14 kosong" mesti muncul, jadi bendera ini mesti true.
+        $res = $this->actingAs($this->user())->getJson(route('pilihanraya.borang-14.data', [
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->kadun->id, 'jenis_pr' => 'prn', 'tahun' => 2029,
+        ]));
+
+        $res->assertOk();
+        $this->assertSame([], $res->json('struktur.pusat'));
+        $this->assertTrue($res->json('boleh_sunting_struktur'));
+    }
 }
