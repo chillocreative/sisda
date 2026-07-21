@@ -264,8 +264,10 @@ class KeanggotaanController extends Controller
                 'alamat' => $m['alamat'] ?? null,
                 'umur' => MemberMatchService::ageFromIc($m['no_ic']),
                 'status_kawasan' => null,
-                // From the file's STATUS EKYC column; null when it had none.
+                // From the file's STATUS EKYC / STATUS KEANGGOTAAN columns;
+                // null when the file carried no such column.
                 'status_ekyc' => $m['ekyc'] ?? null,
+                'status_anggota' => $m['status'] ?? null,
                 'created_at' => now(),
                 'updated_at' => now(),
             ];

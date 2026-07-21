@@ -21,6 +21,11 @@ class KeanggotaanImportEkycTest extends TestCase
         $this->assertCount(2, $out);
         $this->assertSame('completed', $out[0]['ekyc']);
         $this->assertSame('pending', $out[1]['ekyc']);
+
+        // The neighbouring STATUS KEANGGOTAAN column must not be mistaken for
+        // the EKYC one, and maps to the app's own status values.
+        $this->assertSame('aktif', $out[0]['status']);
+        $this->assertSame('aktif', $out[1]['status']);
     }
 
     /** No EKYC column at all — unknown must stay null, never 'pending'. */
@@ -35,6 +40,7 @@ class KeanggotaanImportEkycTest extends TestCase
 
         $this->assertCount(1, $out);
         $this->assertNull($out[0]['ekyc']);
+        $this->assertNull($out[0]['status']);
     }
 
     /**
@@ -43,6 +49,28 @@ class KeanggotaanImportEkycTest extends TestCase
     public function test_normalises_ekyc_values(?string $raw, ?string $expected): void
     {
         $this->assertSame($expected, KeanggotaanImport::normaliseEkyc($raw));
+    }
+
+    /**
+     * @dataProvider statusValues
+     */
+    public function test_normalises_status_keanggotaan(?string $raw, ?string $expected): void
+    {
+        $this->assertSame($expected, KeanggotaanImport::normaliseStatusAnggota($raw));
+    }
+
+    public static function statusValues(): array
+    {
+        return [
+            ['Approved', 'aktif'],
+            ['  AKTIF ', 'aktif'],
+            ['Rejected', 'tidak_aktif'],
+            ['Tidak Aktif', 'tidak_aktif'],
+            ['', null],
+            [null, null],
+            // Unknown wording must not silently deactivate a member.
+            ['Dalam Proses', null],
+        ];
     }
 
     public static function ekycValues(): array

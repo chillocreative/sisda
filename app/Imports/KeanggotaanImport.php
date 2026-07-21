@@ -36,15 +36,17 @@ class KeanggotaanImport
 
     private const EKYC_KEYS = ['statusekyc', 'ekyc', 'ekycstatus'];
 
+    private const STATUS_KEYS = ['statuskeanggotaan', 'statusanggota', 'statusahli', 'statuskeahlian', 'status'];
+
     private const ALAMAT_KEYS = ['alamat', 'address', 'alamatrumah', 'alamatpenuh', 'alamattetap', 'alamatsurat', 'addressline'];
 
     /** Empty per-field map. */
-    private const EMPTY_MAP = ['nama' => null, 'ic' => null, 'tel' => null, 'anggota' => null, 'jantina' => null, 'bangsa' => null, 'cabang' => null, 'negeri' => null, 'alamat' => null, 'ekyc' => null];
+    private const EMPTY_MAP = ['nama' => null, 'ic' => null, 'tel' => null, 'anggota' => null, 'jantina' => null, 'bangsa' => null, 'cabang' => null, 'negeri' => null, 'alamat' => null, 'ekyc' => null, 'status' => null];
 
     /**
      * @param  array  $rows  array of rows, each an array of cell values
      * @param  array{kept?:int, skipped_no_ic?:int}  $tally  filled in-place with counts
-     * @return array<int, array{no_ic:string, nama:string, no_tel:?string, no_anggota:?string, jantina:?string, bangsa:?string, cabang:?string, negeri:?string, ekyc:?string}>
+     * @return array<int, array{no_ic:string, nama:string, no_tel:?string, no_anggota:?string, jantina:?string, bangsa:?string, cabang:?string, negeri:?string, ekyc:?string, status:?string}>
      */
     public static function extract(array $rows, array &$tally = []): array
     {
@@ -101,6 +103,7 @@ class KeanggotaanImport
                 // Address is kept in its original casing (just trimmed + collapsed).
                 'alamat' => self::cleanAlamat(self::cell($cells, $map['alamat'])),
                 'ekyc' => self::normaliseEkyc(self::cell($cells, $map['ekyc'])),
+                'status' => self::normaliseStatusAnggota(self::cell($cells, $map['status'])),
             ];
             $tally['kept']++;
         }
@@ -120,6 +123,7 @@ class KeanggotaanImport
             'anggota' => self::ANGGOTA_KEYS, 'jantina' => self::JANTINA_KEYS,
             'bangsa' => self::BANGSA_KEYS, 'cabang' => self::CABANG_KEYS, 'negeri' => self::NEGERI_KEYS,
             'alamat' => self::ALAMAT_KEYS, 'ekyc' => self::EKYC_KEYS,
+            'status' => self::STATUS_KEYS,
         ];
 
         $limit = min(count($rows), 30);
@@ -270,6 +274,30 @@ class KeanggotaanImport
         }
         if (in_array($k, ['pending', 'belum', 'belum selesai', 'tidak', 'no', 'n', '0'], true)) {
             return 'pending';
+        }
+
+        return null;
+    }
+
+    /**
+     * Normalise the file's "STATUS KEANGGOTAAN" cell to the app's own
+     * aktif / tidak_aktif values.
+     *
+     * Only explicit values map. An unrecognised or blank cell stays null so a
+     * member is never silently marked inactive by a wording the file used and
+     * this list doesn't know.
+     */
+    public static function normaliseStatusAnggota(?string $v): ?string
+    {
+        if ($v === null) {
+            return null;
+        }
+        $k = strtolower(trim($v));
+        if (in_array($k, ['approved', 'approve', 'aktif', 'active', 'lulus', 'diluluskan', 'sah'], true)) {
+            return 'aktif';
+        }
+        if (in_array($k, ['rejected', 'reject', 'tidak aktif', 'tidakaktif', 'inactive', 'terminated', 'ditolak', 'digantung'], true)) {
+            return 'tidak_aktif';
         }
 
         return null;
