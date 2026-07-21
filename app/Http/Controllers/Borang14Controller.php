@@ -12,6 +12,7 @@ use App\Models\Kadun;
 use App\Models\KeahlianParti;
 use App\Models\Negeri;
 use App\Models\User;
+use App\Services\Borang14StrukturService;
 use App\Services\Pilihanraya\KawasanResolver;
 use App\Services\Pilihanraya\ScoresheetExtractor;
 use App\Support\Borang14Reference;
@@ -22,6 +23,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class Borang14Controller extends Controller
@@ -224,6 +226,139 @@ class Borang14Controller extends Controller
         $form?->votes()->delete();
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Peraturan pengesahan yang dikongsi oleh simpanStruktur() dan
+     * kesanStruktur(). Kedua-duanya MESTI menerima bentuk input yang sama —
+     * kalau ia hanyut, pratonton akan melaporkan kesan bagi sesuatu yang
+     * berbeza daripada apa yang benar-benar disimpan.
+     */
+    private function strukturRules(string $existsTable): array
+    {
+        return [
+            'kawasan_type' => ['required', Rule::in([Borang14Form::KAWASAN_PARLIMEN, Borang14Form::KAWASAN_DUN])],
+            'kawasan_id'   => ['required', 'integer', Rule::exists($existsTable, 'id')],
+            'jenis_pr' => 'required|in:pru,prn,prk',
+            'tahun'    => 'required|integer|between:1959,2100',
+            'pusat'    => 'present|array|max:500',
+            'pusat.*.row_id' => 'required|string|max:64',
+            'pusat.*.dm'     => 'nullable|string|max:255',
+            'pusat.*.pusat'  => 'required|string|max:255',
+            'pusat.*.saluran_count' => 'required|integer|min:1|max:20',
+            'undi_awal' => 'boolean',
+            'undi_pos'  => 'boolean',
+        ];
+    }
+
+    /**
+     * Simpan struktur (Pusat Mengundi + bilangan saluran) yang dibina dengan tangan.
+     *
+     * Ini satu-satunya jalan mencipta borang bagi kerusi yang tiada DPT dan
+     * tiada scoresheet — firstOrCreate di sini yang memecahkan kebuntuan
+     * "Data Borang 14 belum tersedia".
+     *
+     * Undi dikunci pada `pusat|saluran|slot`, jadi menukar struktur mesti
+     * menggerakkan undi bersamanya. Urutan dalam transaksi PENTING:
+     * snapshot → namakan semula → padam yatim → simpan struktur. Menamakan
+     * semula dahulu bermakna langkah padam boleh menilai satu perkara sahaja:
+     * "adakah kunci ini masih wujud dalam struktur baharu?"
+     */
+    public function simpanStruktur(Request $request, Borang14StrukturService $svc)
+    {
+        $kawasanType = $request->input('kawasan_type');
+        $existsTable = $kawasanType === Borang14Form::KAWASAN_PARLIMEN ? 'bandar' : 'kadun';
+
+        $validated = $request->validate($this->strukturRules($existsTable));
+
+        $namaList = collect($validated['pusat'])->pluck('pusat')->map(fn ($n) => trim($n));
+        if ($namaList->count() !== $namaList->unique()->count()) {
+            // Dua pusat senama berkongsi kunci undi yang sama dan akan menulis
+            // atas satu sama lain tanpa sebarang amaran.
+            throw ValidationException::withMessages([
+                'pusat' => 'Nama Pusat Mengundi mesti unik dalam satu borang.',
+            ]);
+        }
+
+        $form = Borang14Form::forKawasan($validated['kawasan_type'], $validated['kawasan_id'])
+            ->where('jenis_pr', $validated['jenis_pr'])
+            ->where('tahun', $validated['tahun'])
+            ->first();
+
+        if (! $this->bolehSuntingStruktur($request->user(), $form, $validated)) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $baharu = $svc->expand(
+            $validated['pusat'],
+            (bool) ($validated['undi_awal'] ?? false),
+            (bool) ($validated['undi_pos'] ?? false),
+        );
+
+        DB::transaction(function () use (&$form, $validated, $baharu, $svc, $request) {
+            $form ??= Borang14Form::create([
+                'kawasan_type' => $validated['kawasan_type'],
+                'kawasan_id'   => $validated['kawasan_id'],
+                'jenis_pr'     => $validated['jenis_pr'],
+                'tahun'        => $validated['tahun'],
+                'penjuru'      => 2,
+                'parties'      => [],
+                'status'       => 'draft',
+                'source'       => 'manual',
+            ]);
+
+            if ($form->wasRecentlyCreated === false) {
+                Borang14Snapshot::create([
+                    'borang14_form_id' => $form->id,
+                    'structure' => $form->structure,
+                    'votes' => $form->votes()->get(['pusat', 'saluran', 'slot', 'undi'])->toArray(),
+                    'parties' => $form->parties,
+                    'reason' => 'before_structure_edit',
+                    'created_by' => $request->user()?->id,
+                ]);
+            }
+
+            foreach ($svc->renameMap($form->structure, $validated['pusat']) as $lama => $kini) {
+                $form->votes()->where('pusat', $lama)->update(['pusat' => $kini]);
+            }
+
+            $kekal = $svc->survivingKeys($baharu);
+            foreach ($form->votes()->get(['id', 'pusat', 'saluran']) as $v) {
+                if (! isset($kekal[$v->pusat.'|'.$v->saluran])) {
+                    Borang14Vote::whereKey($v->id)->delete();
+                }
+            }
+
+            $form->update(['structure' => $baharu]);
+        });
+
+        return response()->json(['ok' => true, 'form_id' => $form->id]);
+    }
+
+    /**
+     * Menyunting struktur menggerakkan undi sebenar, jadi ia berkongsi tahap
+     * kepercayaan yang sama seperti mengisi undi — admin ke atas — tetapi
+     * borang DITERBITKAN disekat sepenuhnya, termasuk untuk super_admin:
+     * bentuk rekod rasmi tidak boleh berubah di bawah angka yang sudah
+     * disiarkan ke Scoreboard. Revert dahulu, kemudian sunting.
+     */
+    private function bolehSuntingStruktur(?User $user, ?Borang14Form $form, array $validated): bool
+    {
+        if (! $user || (! $user->isSuperAdmin() && ! $user->isAdmin())) {
+            return false;
+        }
+        if ($form && $form->status === 'published') {
+            return false;
+        }
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        $bandarId = $validated['kawasan_type'] === Borang14Form::KAWASAN_PARLIMEN
+            ? $validated['kawasan_id']
+            : Kadun::whereKey($validated['kawasan_id'])->value('bandar_id');
+
+        return $user->bandar_id !== null && (int) $user->bandar_id === (int) $bandarId;
     }
 
     /**
