@@ -102,13 +102,59 @@ function AndaianEditor({ a, set, reset }) {
                 <EditField label="Turnout Sasaran C+I (Jadual 3)" value={Math.round(a.tTarget * 1000) / 10} onChange={setPct('tTarget')} suffix="%" step={0.5} max={100} />
             </div>
             <p className={`${t.subtext} text-xs mt-4 mb-2`}>
-                Keputusan 2022 kawasan ini (untuk Jadual 3) — nilai lalai ialah tally sebenar Buloh Kasap; sila ubah untuk kawasan lain.
+                Asas keputusan lepas kawasan ini (untuk Jadual 3). Jumlah undi PN diisi daripada keputusan
+                rasmi kerusi ini apabila telah disegerakkan. Pecahan undi Melayu mengikut parti ialah ANDAIAN
+                model — tiada sumber rasmi menyediakannya — jadi ia kosong sehingga anda mengisinya.
             </p>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <EditField label="Undi PH Melayu 2022" value={a.mPH2022} onChange={setNum('mPH2022')} step={1} />
                 <EditField label="Undi BN Melayu 2022" value={a.mBN2022} onChange={setNum('mBN2022')} step={1} />
                 <EditField label="Jumlah Undi PN 2022" value={a.undiPN} onChange={setNum('undiPN')} step={1} />
             </div>
+        </div>
+    );
+}
+
+/* --------------------------- Garis dasar rasmi --------------------------- */
+/**
+ * Keputusan rasmi SPR terkini bagi kerusi ini (electiondata.my).
+ *
+ * Setiap angka yang tidak diketahui dipaparkan "—", TIDAK PERNAH 0. Kerusi yang
+ * belum disegerakkan bukan kerusi dengan sifar undi.
+ */
+function GarisDasarKad({ garisDasar }) {
+    const { t } = usePilihanrayaTheme();
+    const g = garisDasar || {};
+
+    if (!g.tersedia) {
+        return (
+            <div className={t.card}>
+                <h3 className={t.cardTitle}>Garis Dasar Rasmi</h3>
+                <p className={`${t.subtext} text-sm`}>
+                    Tiada keputusan rasmi disegerakkan untuk kerusi ini. Jalankan
+                    <code className="mx-1 rounded bg-slate-100 px-1.5 py-0.5 text-xs">php artisan pilihanraya:sync-electiondata</code>
+                    selepas menetapkan kunci API di Tetapan → electiondata.my.
+                </p>
+            </div>
+        );
+    }
+
+    const n = (v) => (v === null || v === undefined ? '—' : fmt(v));
+    const p = (v) => (v === null || v === undefined ? '—' : `${v.toFixed(2)}%`);
+    const calon = (c) => (c ? `${c.parti || '—'} ${n(c.undi)}${c.undi_perc != null ? ` (${c.undi_perc.toFixed(1)}%)` : ''}` : '—');
+
+    return (
+        <div className={t.card}>
+            <h3 className={t.cardTitle}>Garis Dasar Rasmi — {g.pilihanraya || '—'} {g.tarikh ? `(${g.tarikh})` : ''}</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
+                <div><div className={`${t.subtext} text-xs`}>Pemenang</div><div className="font-semibold">{calon(g.pemenang)}</div></div>
+                <div><div className={`${t.subtext} text-xs`}>Penyaing</div><div className="font-semibold">{calon(g.penyaing)}</div></div>
+                <div><div className={`${t.subtext} text-xs`}>Majoriti</div><div className="font-semibold">{n(g.majoriti)} {g.majoriti_perc != null ? `(${g.majoriti_perc.toFixed(2)}%)` : ''}</div></div>
+                <div><div className={`${t.subtext} text-xs`}>Keluar mengundi</div><div className="font-semibold">{n(g.keluar_mengundi)} {p(g.keluar_mengundi_perc)}</div></div>
+                <div><div className={`${t.subtext} text-xs`}>Pengundi berdaftar</div><div className="font-semibold">{n(g.pengundi_berdaftar)}</div></div>
+                <div><div className={`${t.subtext} text-xs`}>Undi ditolak</div><div className="font-semibold">{n(g.undi_ditolak)}</div></div>
+            </div>
+            <p className={`${t.subtext} text-xs mt-3`}>Sumber: electiondata.my (keputusan rasmi SPR).</p>
         </div>
     );
 }
@@ -202,14 +248,30 @@ function Jadual2({ data }) {
 }
 
 /* ------------------------------- Jadual 3 -------------------------------- */
-function Jadual3({ data }) {
+function Jadual3({ data, siap, undiPN }) {
     const { t } = usePilihanrayaTheme();
+
+    // Angka asas yang tidak diketahui TIDAK boleh dianggap 0: dalam JS
+    // `null + 5` ialah 5, jadi mengiranya akan menerbitkan carta yang kelihatan
+    // sah sedangkan asasnya tiada. Sekat sehingga ketiga-tiganya diisi.
+    if (!siap) {
+        return (
+            <div className={t.card}>
+                <h3 className={t.cardTitle}>Jadual 3 — Kesan Peralihan Undi PN</h3>
+                <p className={`${t.subtext} text-sm`}>
+                    Belum boleh dikira. Isi ketiga-tiga medan asas keputusan lepas di atas
+                    (Undi PH Melayu, Undi BN Melayu, Jumlah Undi PN) untuk kawasan ini.
+                </p>
+            </div>
+        );
+    }
+
     const chart = data.map((r) => ({ name: `PN→PH ${pct(r.pn_ph, 0)}`, PH: Math.round(r.undi_ph), BN: Math.round(r.undi_bn) }));
     return (
         <div className={t.card}>
-            <h3 className={t.cardTitle}>Jadual 3 — Kesan Peralihan Undi PN 2022 (±2,999 undi)</h3>
+            <h3 className={t.cardTitle}>Jadual 3 — Kesan Peralihan Undi PN (±{fmt(undiPN)} undi)</h3>
             <p className={`${t.subtext} text-sm mb-4`}>
-                Asas: undi Melayu kekal pada paras 2022; turnout Cina/India dinaikkan ke sasaran di atas. Undi PN dibahagi
+                Asas: undi Melayu kekal pada paras keputusan lepas; turnout Cina/India dinaikkan ke sasaran di atas. Undi PN dibahagi
                 ikut nisbah senario di bawah.
             </p>
             <ResponsiveContainer width="100%" height={320}>
@@ -253,7 +315,7 @@ function Jadual3({ data }) {
     );
 }
 
-export default function Minima({ context, minima }) {
+export default function Minima({ context, minima, garisDasar }) {
     const src = minima.andaian;
     const initial = {
         M: src.pengundi_melayu, C: src.pengundi_cina, I: src.pengundi_india,
@@ -266,6 +328,10 @@ export default function Minima({ context, minima }) {
     const reset = () => setA(initial);
 
     const hasKawasan = (context.kawasanList?.length ?? 0) > 0;
+
+    // Jadual 3 hanya boleh dikira apabila KETIGA-TIGA asasnya diketahui.
+    // null di sini bermakna "belum diisi", bukan sifar undi.
+    const j3Siap = [a.mPH2022, a.mBN2022, a.undiPN].every((v) => v !== null && v !== undefined && v !== '');
 
     // Changing the DUN refetches its real voter counts from the server.
     const handleKawasan = (id) => {
@@ -324,13 +390,17 @@ export default function Minima({ context, minima }) {
                 </div>
 
                 <div className="mb-6">
+                    <GarisDasarKad garisDasar={garisDasar} />
+                </div>
+
+                <div className="mb-6">
                     <AndaianEditor a={a} set={set} reset={reset} />
                 </div>
 
                 <div className="grid grid-cols-1 gap-6">
                     <Jadual1 data={j1} />
                     <Jadual2 data={j2} />
-                    <Jadual3 data={j3} />
+                    <Jadual3 data={j3} siap={j3Siap} undiPN={a.undiPN} />
                 </div>
             </PilihanrayaShell>
         </AuthenticatedLayout>

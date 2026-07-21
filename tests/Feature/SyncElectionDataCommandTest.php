@@ -30,6 +30,14 @@ class SyncElectionDataCommandTest extends TestCase
                 ['seat' => 'Juasseh, Negeri Sembilan', 'slug' => 'n15-juasseh-negeri-sembilan', 'type' => 'dun'],
                 ['seat' => 'Buloh Kasap, Johor', 'slug' => 'n17-buloh-kasap-johor', 'type' => 'dun'],
             ]),
+            // Pecahan undi penuh bagi keputusan lengkap terkini.
+            '*/v1/results*' => Http::response([
+                'ballot' => [
+                    ['name' => 'Bibi Sharliza', 'party' => 'BN', 'votes' => 4549, 'votes_perc' => 50.43, 'result' => 'won'],
+                    ['name' => 'Eddin Syazlee', 'party' => 'PN', 'votes' => 4471, 'votes_perc' => 49.57, 'result' => 'lost'],
+                ],
+                'stats' => ['voters_total' => 13408, 'voter_turnout' => 9122, 'voter_turnout_perc' => 68.03],
+            ]),
             '*/v1/seats/results*' => Http::response([
                 [
                     'election_name' => 'SE-15', 'date' => '2023-08-12', 'party' => 'BN',
@@ -82,6 +90,10 @@ class SyncElectionDataCommandTest extends TestCase
         $this->assertSame(78, $r->majority);
         $this->assertSame(13408, $r->voters_total);
         $this->assertSame(9122, $r->voter_turnout);
+
+        // Pecahan undi penuh dilampirkan HANYA pada keputusan lengkap terkini.
+        $this->assertSame(4549, $r->ballot[0]['votes']);
+        $this->assertSame(4471, $r->ballot[1]['votes']);
     }
 
     /**

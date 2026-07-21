@@ -9,6 +9,7 @@ use App\Models\Keanggotaan;
 use App\Models\KeanggotaanBatch;
 use App\Models\UploadBatch;
 use App\Services\Pilihanraya\ElectionAnalyticsService;
+use App\Services\Pilihanraya\SeatBaselineService;
 use App\Support\Pilihanraya\ScoresheetParser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -69,7 +70,7 @@ class PilihanrayaAnalisaController extends Controller
      * seat instead of the hardcoded Buloh Kasap dataset. Turnout / support / 2022
      * figures stay editable assumptions with sensible seeds.
      */
-    public function minima(Request $request)
+    public function minima(Request $request, SeatBaselineService $baselines)
     {
         $kawasanList = $this->kawasanListFromMaster();
         $selected = collect($kawasanList)->firstWhere('id', $request->query('kawasan'))
@@ -79,7 +80,14 @@ class PilihanrayaAnalisaController extends Controller
             ? $this->kaumDmForDun($selected['dun'])
             : [[], ['melayu' => 0, 'cina' => 0, 'india' => 0, 'lain' => 0, 'jumlah' => 0]];
 
+        // Garis dasar rasmi bagi kerusi YANG DIPILIH. Sebelum ini setiap kerusi
+        // di negara ini dikalibrasi dengan tally 2022 Buloh Kasap — membuka
+        // Minima untuk Juasseh membandingkannya dengan angka Johor.
+        $kadun = $selected ? Kadun::find($selected['id']) : null;
+        $garisDasar = $kadun ? $baselines->forKawasan($kadun) : $baselines->kosong();
+
         return Inertia::render('Pilihanraya/Minima', [
+            'garisDasar' => $garisDasar,
             'context' => [
                 'dun' => $selected['dun'] ?? '—',
                 'parlimen' => $selected['parlimen'] ?? '—',
@@ -97,13 +105,49 @@ class PilihanrayaAnalisaController extends Controller
                     'turnout_melayu' => 0.68,
                     'sokongan_ph_cina' => 0.90,
                     'sokongan_ph_india' => 0.40,
-                    // Jadual 3 — 2022 result seeds; editable per seat (defaults
-                    // are Buloh Kasap's actual 2022 tally, adjust for others).
-                    'melayu_ph_2022' => 379,
-                    'melayu_bn_2022' => 7933,
-                    'undi_pn_2022' => 2999,
+                    // Jadual 3 — asas keputusan lepas.
+                    //
+                    // Undi PN datang daripada keputusan rasmi kerusi INI apabila
+                    // ia telah disegerakkan. Pecahan kaum×parti TIDAK dapat
+                    // dibekalkan oleh mana-mana sumber rasmi — ia model, bukan
+                    // fakta — jadi ia kekal null sehingga pengguna mengisinya.
+                    //
+                    // null bermakna "belum diketahui" dan halaman menyekat
+                    // Jadual 3 sehingga diisi. Ia TIDAK boleh diberi nilai lalai
+                    // daripada kerusi lain: itulah pepijat yang dibaiki di sini.
+                    'melayu_ph_2022' => null,
+                    'melayu_bn_2022' => null,
+                    'undi_pn_2022' => $baselines->partyVotes(
+                        $garisDasar,
+                        ['PN', 'PERIKATAN NASIONAL', 'BERSATU', 'PAS'],
+                    ),
                 ],
             ],
+        ]);
+    }
+
+    /**
+     * Garis dasar rasmi bagi satu kawasan, sebagai JSON.
+     *
+     * Dipisahkan daripada render halaman supaya War Room, Scoreboard dan
+     * Borang 14 boleh memaparkan kad yang sama tanpa mengubah muatan Inertia
+     * masing-masing. Kawasan yang tidak diketahui memulangkan bentuk KOSONG
+     * (setiap angka null) dengan status 200 — "tiada garis dasar" ialah keadaan
+     * yang sah untuk dipaparkan sebagai "—", bukan ralat.
+     */
+    public function seatBaseline(Request $request, SeatBaselineService $baselines)
+    {
+        $data = $request->validate([
+            'kadun_id' => 'nullable|integer|exists:kadun,id',
+            'bandar_id' => 'nullable|integer|exists:bandar,id',
+        ]);
+
+        $kawasan = ! empty($data['kadun_id'])
+            ? Kadun::find($data['kadun_id'])
+            : (! empty($data['bandar_id']) ? Bandar::find($data['bandar_id']) : null);
+
+        return response()->json([
+            'baseline' => $kawasan ? $baselines->forKawasan($kawasan) : $baselines->kosong(),
         ]);
     }
 

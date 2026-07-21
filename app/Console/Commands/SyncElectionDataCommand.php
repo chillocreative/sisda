@@ -75,6 +75,28 @@ class SyncElectionDataCommand extends Command
 
             $results = $api->seatResults($seat['slug']);
 
+            // Pecahan undi penuh (setiap calon) datang dari titik akhir BERBEZA,
+            // satu panggilan per kerusi per tarikh. Mengambilnya bagi SETIAP
+            // pilihan raya bermakna ~12,000 panggilan; hanya keputusan LENGKAP
+            // TERKINI yang dipaparkan sebagai garis dasar, jadi hanya itu yang
+            // diambil. Selebihnya menyimpan ringkasan pemenang sahaja.
+            $terkini = collect($results)
+                ->filter(fn ($r) => is_array($r) && ! empty($r['party']) && ! empty($r['date'] ?? $r['tarikh'] ?? null))
+                ->sortByDesc(fn ($r) => $r['date'] ?? $r['tarikh'])
+                ->first();
+
+            $ballotFor = null;
+            if ($terkini && ! $dryRun) {
+                $penuh = $api->ballot($nama, $negeri, (string) ($terkini['date'] ?? $terkini['tarikh']));
+                if (is_array($penuh)) {
+                    $ballotFor = [
+                        'tarikh' => (string) ($terkini['date'] ?? $terkini['tarikh']),
+                        'ballot' => $penuh['ballot'] ?? null,
+                        'stats' => $penuh['stats'] ?? null,
+                    ];
+                }
+            }
+
             if ($dryRun) {
                 $stats['kerusi']++;
                 $stats['keputusan'] += count($results);
@@ -86,7 +108,7 @@ class SyncElectionDataCommand extends Command
             // Satu transaksi per kerusi: kerusi + keputusannya masuk bersama,
             // atau tidak langsung. Satu transaksi merangkumi 822 kerusi akan
             // memegang kunci selama beberapa minit pada pangkalan data hidup.
-            DB::transaction(function () use ($seat, $nama, $negeri, $jenis, $kod, $link, $results, &$stats) {
+            DB::transaction(function () use ($seat, $nama, $negeri, $jenis, $kod, $link, $results, $ballotFor, &$stats) {
                 $row = ElectionSeat::updateOrCreate(
                     ['slug' => $seat['slug']],
                     [
@@ -100,6 +122,12 @@ class SyncElectionDataCommand extends Command
                     ],
                 );
                 $stats['kerusi']++;
+
+                // Blok `stats` daripada /v1/results mengisi angka yang tiada
+                // dalam ringkasan kerusi — tetapi HANYA bagi tarikh yang sama.
+                $stat = function (string $key) use ($ballotFor) {
+                    return $ballotFor['stats'][$key] ?? null;
+                };
 
                 foreach ($results as $r) {
                     $tarikh = $r['date'] ?? $r['tarikh'] ?? null;
@@ -133,10 +161,14 @@ class SyncElectionDataCommand extends Command
                             'majority_perc' => $r['majority_perc'] ?? null,
                             'voter_turnout' => $r['voter_turnout'] ?? null,
                             'voter_turnout_perc' => $r['voter_turnout_perc'] ?? null,
-                            'voters_total' => $r['voters_total'] ?? null,
+                            'voters_total' => $r['voters_total'] ?? $stat('voters_total'),
                             'votes_rejected' => $r['votes_rejected'] ?? null,
                             'votes_rejected_perc' => $r['votes_rejected_perc'] ?? null,
-                            'ballot' => $r['ballot'] ?? null,
+                            // Hanya keputusan lengkap terkini membawa pecahan
+                            // undi penuh (lihat nota pengambilan di atas).
+                            'ballot' => ($ballotFor && $ballotFor['tarikh'] === (string) ($r['date'] ?? $r['tarikh'] ?? ''))
+                                ? $ballotFor['ballot']
+                                : ($r['ballot'] ?? null),
                             'synced_at' => now(),
                         ],
                     );
