@@ -210,13 +210,25 @@ class Borang14StrukturService
             }
         }
 
+        // Baris undi awal/pos MESTI dibawa masuk. Anggaran DPT sentiasa
+        // memancarkan kedua-duanya (Borang14Reference::deriveFromDpt()), dan
+        // struktur warisan membawa LABEL MENTAHNYA
+        // (referenceFromStructure()) — grid memaparkan baris itu dan undi
+        // dikunci padanya. Membuka panel dengan kotak tidak bertanda
+        // bermakna expand() tidak memancarkan baris itu dan simpanan
+        // memadamnya; menggugurkan labelnya pula bermakna menandakan kotak
+        // itu memancarkan literal berkanun, kunci hanyut, dan undi tetap
+        // dipadam. Rujukan DPT tiada label — literal berkanun memang betul
+        // di situ, kerana itulah yang grid sendiri guna.
+        $awal = $reference['undi_awal'] ?? null;
+        $pos = $reference['undi_pos'] ?? null;
+
         return [
             'pusat' => $pusat,
-            // Baris undi awal/pos rujukan TIDAK dibawa masuk: hanya struktur
-            // borang ini sendiri membawa label mentah yang undi dikunci
-            // padanya. Biarkan pengguna menandakannya semula.
-            'undi_awal' => false, 'undi_pos' => false,
-            'undi_awal_label' => null, 'undi_pos_label' => null,
+            'undi_awal' => $awal !== null,
+            'undi_pos' => $pos !== null,
+            'undi_awal_label' => $awal['label'] ?? null,
+            'undi_pos_label' => $pos['label'] ?? null,
             'lain_lain' => [],
         ];
     }

@@ -354,7 +354,9 @@ class Borang14Controller extends Controller
         // langsung, dan tiada borang patut tercipta akibat cubaan itu.
         $this->assertStrukturBolehDisunting($validated, $form);
 
-        $this->assertPusatNamesUsable($svc, $form, $validated['pusat']);
+        $asas = $this->strukturAsas($svc, $form, $validated);
+
+        $this->assertPusatNamesUsable($svc, $form, $validated['pusat'], $asas);
 
         $baharu = $svc->expand(
             $validated['pusat'],
@@ -365,7 +367,7 @@ class Borang14Controller extends Controller
             $validated['lain_lain'] ?? [],
         );
 
-        DB::transaction(function () use (&$form, $validated, $baharu, $svc, $request) {
+        DB::transaction(function () use (&$form, $validated, $baharu, $asas, $svc, $request) {
             $form ??= Borang14Form::create([
                 'kawasan_type' => $validated['kawasan_type'],
                 'kawasan_id'   => $validated['kawasan_id'],
@@ -388,7 +390,7 @@ class Borang14Controller extends Controller
                 ]);
             }
 
-            foreach ($svc->renameMap($form->structure, $validated['pusat']) as $lama => $kini) {
+            foreach ($svc->renameMap($asas, $validated['pusat']) as $lama => $kini) {
                 $form->votes()->where('pusat', $lama)->update(['pusat' => $kini]);
             }
 
@@ -444,15 +446,22 @@ class Borang14Controller extends Controller
      *
      * @param  array<int,array{row_id:string,dm:?string,pusat:string,saluran_count:int}>  $pusat
      */
-    private function assertPusatNamesUsable(Borang14StrukturService $svc, ?Borang14Form $form, array $pusat): void
+    private function assertPusatNamesUsable(Borang14StrukturService $svc, ?Borang14Form $form, array $pusat, ?array $asas = null): void
     {
         $namaKeyList = collect($pusat)->map(fn ($p) => $this->nameKey($p['pusat']));
         if ($namaKeyList->count() !== $namaKeyList->unique()->count()) {
             // Dua pusat senama (atau senama tidak-sensitif-huruf) berkongsi
             // kunci undi yang sama dan akan menulis atas satu sama lain
             // tanpa sebarang amaran.
+            // Namakan pendua itu. Panel yang disemai daripada anggaran DPT
+            // boleh membawa beberapa baris 'TIADA LOKALITI' (satu bagi setiap
+            // Daerah Mengundi yang ada baris tanpa lokaliti), dan mesej yang
+            // tidak menyebut nama meninggalkan pengguna mengamati 12 baris
+            // yang kelihatan serupa.
+            $pendua = $namaKeyList->duplicates()->unique()->values()->implode(', ');
+
             throw ValidationException::withMessages([
-                'pusat' => 'Nama Pusat Mengundi mesti unik dalam satu borang.',
+                'pusat' => "Nama Pusat Mengundi mesti unik dalam satu borang. Nama berulang: {$pendua}. Namakan semula atau buang baris yang berlebihan.",
             ]);
         }
 
@@ -460,7 +469,21 @@ class Borang14Controller extends Controller
             return;
         }
 
-        $lama = $svc->collapse($form->structure)['pusat'];
+        $lama = $svc->collapse($asas ?? $form->structure)['pusat'];
+
+        // TIADA struktur lama = TIADA garis dasar penamaan semula:
+        // renameMap() memulangkan [] dan tiada satu pun UPDATE dijalankan,
+        // jadi perlanggaran indeks unik yang guard ini wujud untuk menghalang
+        // tidak mungkin berlaku. Tanpa pintasan ini, panel yang DISEMAI
+        // daripada rujukan (asal 'dpt'/'warisan', di mana structure memang
+        // null menurut definisi) tidak akan pernah boleh disimpan sebaik ada
+        // satu undi pun: setiap nama yang disemai sudah wujud dalam
+        // borang14_votes tetapi tiada dalam struktur, jadi ia dikira
+        // berlanggar dengan DIRINYA SENDIRI.
+        if (empty($lama)) {
+            return;
+        }
+
         $namaLama = collect($lama)->pluck('pusat');
         $namaUndi = $form->votes()->distinct()->pluck('pusat');
         $digunakan = $namaLama->merge($namaUndi)->filter(fn ($n) => $n !== '');
@@ -541,7 +564,9 @@ class Borang14Controller extends Controller
         // simpanan akan tolak, bukan memaparkan angka bagi muatan yang mati.
         $this->assertStrukturBolehDisunting($validated, $form);
 
-        $this->assertPusatNamesUsable($svc, $form, $validated['pusat']);
+        $asas = $this->strukturAsas($svc, $form, $validated);
+
+        $this->assertPusatNamesUsable($svc, $form, $validated['pusat'], $asas);
 
         if (! $form) {
             // Belum pernah disimpan bagi kerusi ini — tiada undi wujud untuk
@@ -552,7 +577,7 @@ class Borang14Controller extends Controller
         // Sama seperti simpanStruktur(): nilai kunci SELEPAS penamaan semula,
         // supaya pusat yang sekadar bertukar nama tidak dilaporkan sebagai
         // kehilangan.
-        $rename = $svc->renameMap($form->structure, $validated['pusat']);
+        $rename = $svc->renameMap($asas, $validated['pusat']);
         $kekal = $svc->survivingKeys($svc->expand(
             $validated['pusat'],
             (bool) ($validated['undi_awal'] ?? false),
@@ -633,6 +658,48 @@ class Borang14Controller extends Controller
         return $asal === null
             ? $svc->collapse(null)
             : $svc->collapseReference($reference);
+    }
+
+    /**
+     * Struktur yang menjadi GARIS DASAR penamaan semula.
+     *
+     * renameMap() memadankan pada row_id terhadap struktur lama. Bagi
+     * suntingan PERTAMA panel yang disemai daripada rujukan (asal 'dpt' /
+     * 'warisan'), borang ini belum ada struktur sendiri — menurut definisi
+     * cabang itu — jadi tanpa ini garis dasarnya kosong, setiap pusat dibaca
+     * sebagai baharu, dan menamakan semula dilaksanakan sebagai padam-lama +
+     * tambah-baharu: undi di bawah nama lama dipadam sedangkan ia sepatutnya
+     * BERPINDAH. Garis dasar itu sebenarnya wujud — grid yang disemai — dan
+     * row_id-nya diterbitkan dengan peraturan yang sama, jadi ia memang
+     * sepadan.
+     *
+     * Dipakai oleh simpanStruktur() DAN kesanStruktur(): pratonton mesti
+     * mengira penamaan semula yang sama seperti simpanan, jika tidak dialog
+     * melaporkan pemusnahan yang tidak akan berlaku (atau sebaliknya).
+     */
+    private function strukturAsas(Borang14StrukturService $svc, ?Borang14Form $form, array $validated): ?array
+    {
+        if (! empty($form?->structure['rows'])) {
+            return $form->structure;
+        }
+
+        ['reference' => $reference, 'asal' => $asal] = $this->resolveReference(
+            $validated['kawasan_type'], (int) $validated['kawasan_id'], $form,
+        );
+
+        if ($asal === null) {
+            return null;
+        }
+
+        $semaian = $svc->collapseReference($reference);
+
+        return $svc->expand(
+            $semaian['pusat'],
+            $semaian['undi_awal'],
+            $semaian['undi_pos'],
+            $semaian['undi_awal_label'],
+            $semaian['undi_pos_label'],
+        );
     }
 
     /** 422 supaya sebabnya boleh dibaca pengguna; guard ini bukan hal kebenaran. */

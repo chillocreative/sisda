@@ -242,6 +242,9 @@ class Borang14StrukturServiceTest extends TestCase
         $out = $this->svc->collapseReference($reference);
 
         $this->assertCount(1, $out['pusat']);
+        // Rujukan yang dipaparkan TIDAK membawa baris undi awal/pos di sini.
+        $this->assertFalse($out['undi_awal']);
+        $this->assertFalse($out['undi_pos']);
         $this->assertSame('AWAT', $out['pusat'][0]['dm']);
         $this->assertSame('SK KAMPONG AWAT', $out['pusat'][0]['pusat']);
         $this->assertSame(2, $out['pusat'][0]['saluran_count']);
@@ -254,6 +257,45 @@ class Borang14StrukturServiceTest extends TestCase
             ]])['pusat'][0]['row_id'],
             $out['pusat'][0]['row_id'],
         );
+    }
+
+    public function test_collapse_reference_carries_the_postal_rows_that_the_grid_renders(): void
+    {
+        // Anggaran DPT SENTIASA memancarkan undi_awal + undi_pos (rujuk
+        // Borang14Reference::deriveFromDpt()), dan grid memaparkannya. Kalau
+        // panel dibuka dengan kedua-dua kotak TIDAK bertanda, expand() tidak
+        // memancarkan baris itu dan simpanan memadamnya daripada borang.
+        $dpt = [
+            'daerah_mengundi' => [],
+            'undi_awal' => ['berdaftar' => 0],
+            'undi_pos' => ['berdaftar' => 0],
+            'source' => 'dpt_estimate',
+        ];
+
+        $out = $this->svc->collapseReference($dpt);
+
+        $this->assertTrue($out['undi_awal']);
+        $this->assertTrue($out['undi_pos']);
+        // DPT tiada label — literal berkanun betul, itulah yang grid guna.
+        $this->assertNull($out['undi_awal_label']);
+        $this->assertNull($out['undi_pos_label']);
+    }
+
+    public function test_collapse_reference_preserves_an_inherited_non_canonical_postal_label(): void
+    {
+        // referenceFromStructure() membawa label MENTAH. Menggugurkannya di
+        // sini bermakna menandakan kotak itu memancarkan literal berkanun,
+        // kunci hanyut, dan undi dipadam — walaupun pengguna menandakannya.
+        $warisan = [
+            'daerah_mengundi' => [],
+            'undi_pos' => ['berdaftar' => null, 'label' => 'UNDI POS AWAL'],
+        ];
+
+        $out = $this->svc->collapseReference($warisan);
+
+        $this->assertTrue($out['undi_pos']);
+        $this->assertSame('UNDI POS AWAL', $out['undi_pos_label']);
+        $this->assertFalse($out['undi_awal']);
     }
 
     public function test_expand_numbers_only_saluran_added_beyond_the_preserved_labels(): void

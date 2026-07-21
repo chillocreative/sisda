@@ -212,6 +212,108 @@ class Borang14StrukturManualTest extends TestCase
             collect($res->json('struktur.pusat'))->pluck('pusat')->all(),
         );
         $this->assertSame(2, $res->json('struktur.pusat.0.saluran_count'));
+        // Grid warisan MEMAPARKAN baris undi pos, jadi panel mesti dibuka
+        // dengan kotak itu BERTANDA. Kotak kosong di atas baris yang
+        // dipaparkan bermakna simpanan seterusnya memadamnya.
+        $this->assertTrue($res->json('struktur.undi_pos'));
+    }
+
+    public function test_editing_an_inherited_grid_does_not_delete_the_postal_votes(): void
+    {
+        // PR terdahulu memberi grid; PR baharu ada BORANG (kerana undi sudah
+        // ditulis) tetapi masih tiada structure sendiri — jadi asal kekal
+        // 'warisan' dan panel disemai daripada grid yang diwarisi.
+        Borang14Form::create([
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->kadun->id,
+            'jenis_pr' => 'prn', 'tahun' => 2023, 'penjuru' => 2,
+            'status' => 'published', 'source' => 'manual', 'parties' => [],
+            'structure' => $this->manualStructure(),
+        ]);
+
+        $baharu = Borang14Form::create([
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->kadun->id,
+            'jenis_pr' => 'prn', 'tahun' => 2027, 'penjuru' => 2,
+            'status' => 'draft', 'source' => 'manual', 'parties' => [],
+            'structure' => null,
+        ]);
+        Borang14Vote::create(['borang14_form_id' => $baharu->id, 'pusat' => '', 'saluran' => 'UNDI POS', 'slot' => 1, 'undi' => 88]);
+        Borang14Vote::create(['borang14_form_id' => $baharu->id, 'pusat' => 'SK TENGKEK', 'saluran' => '1', 'slot' => 1, 'undi' => 500]);
+
+        // Ambil keadaan panel SEPERTI YANG DILIHAT PENGGUNA, kemudian buat
+        // satu suntingan yang tidak menyentuh baris pos langsung.
+        $data = $this->actingAs($this->user())->getJson(route('pilihanraya.borang-14.data', [
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->kadun->id, 'jenis_pr' => 'prn', 'tahun' => 2027,
+        ]))->json('struktur');
+
+        $pusat = $data['pusat'];
+        $pusat[0]['saluran_count'] = 3;
+
+        $this->actingAs($this->user())->postJson(route('pilihanraya.borang-14.struktur'), [
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->kadun->id,
+            'jenis_pr' => 'prn', 'tahun' => 2027,
+            'pusat' => $pusat,
+            'undi_awal' => $data['undi_awal'], 'undi_pos' => $data['undi_pos'],
+            'undi_awal_label' => $data['undi_awal_label'], 'undi_pos_label' => $data['undi_pos_label'],
+            'lain_lain' => $data['lain_lain'],
+        ])->assertOk();
+
+        // Undi pos MESTI selamat: pengguna tidak pernah meminta ia dipadam.
+        $this->assertSame(88, Borang14Vote::where('borang14_form_id', $baharu->id)->where('saluran', 'UNDI POS')->value('undi'));
+        $this->assertSame(500, Borang14Vote::where('borang14_form_id', $baharu->id)->where('pusat', 'SK TENGKEK')->value('undi'));
+    }
+
+    public function test_renaming_a_pusat_on_a_seeded_panel_moves_its_votes_instead_of_deleting_them(): void
+    {
+        // Suntingan PERTAMA panel yang disemai daripada rujukan: borang ini
+        // tiada structure sendiri, jadi renameMap() tiada garis dasar dan
+        // menamakan semula dilaksanakan sebagai padam-lama + tambah-baharu.
+        // Garis dasar SEBENARNYA ada — grid yang disemai — jadi undi
+        // sepatutnya BERPINDAH, bukan mati.
+        Borang14Form::create([
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->kadun->id,
+            'jenis_pr' => 'prn', 'tahun' => 2023, 'penjuru' => 2,
+            'status' => 'published', 'source' => 'manual', 'parties' => [],
+            'structure' => $this->manualStructure(),
+        ]);
+
+        $baharu = Borang14Form::create([
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->kadun->id,
+            'jenis_pr' => 'prn', 'tahun' => 2027, 'penjuru' => 2,
+            'status' => 'draft', 'source' => 'manual', 'parties' => [],
+            'structure' => null,
+        ]);
+        Borang14Vote::create(['borang14_form_id' => $baharu->id, 'pusat' => 'SK TENGKEK', 'saluran' => '1', 'slot' => 1, 'undi' => 4471]);
+
+        $data = $this->actingAs($this->user())->getJson(route('pilihanraya.borang-14.data', [
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->kadun->id, 'jenis_pr' => 'prn', 'tahun' => 2027,
+        ]))->json('struktur');
+
+        $pusat = $data['pusat'];
+        $i = collect($pusat)->search(fn ($p) => $p['pusat'] === 'SK TENGKEK');
+        $pusat[$i]['pusat'] = 'SEKOLAH KEBANGSAAN TENGKEK';
+
+        $badan = [
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->kadun->id,
+            'jenis_pr' => 'prn', 'tahun' => 2027,
+            'pusat' => $pusat,
+            'undi_awal' => $data['undi_awal'], 'undi_pos' => $data['undi_pos'],
+            'undi_awal_label' => $data['undi_awal_label'], 'undi_pos_label' => $data['undi_pos_label'],
+            'lain_lain' => $data['lain_lain'],
+        ];
+
+        // Pratonton mesti melaporkan SIFAR kehilangan — tiada apa yang dipadam.
+        $this->actingAs($this->user())
+            ->postJson(route('pilihanraya.borang-14.struktur.kesan'), $badan)
+            ->assertOk()->assertJson(['baris' => 0, 'undi' => 0]);
+
+        $this->actingAs($this->user())
+            ->postJson(route('pilihanraya.borang-14.struktur'), $badan)->assertOk();
+
+        // Undi BERPINDAH ke nama baharu, bukan hilang.
+        $this->assertSame(4471, Borang14Vote::where('borang14_form_id', $baharu->id)
+            ->where('pusat', 'SEKOLAH KEBANGSAAN TENGKEK')->value('undi'));
+        $this->assertSame(0, Borang14Vote::where('borang14_form_id', $baharu->id)
+            ->where('pusat', 'SK TENGKEK')->count());
     }
 
     public function test_saving_preserves_votes_stored_under_a_non_canonical_postal_label(): void
