@@ -271,7 +271,22 @@ class Borang14Controller extends Controller
 
         $validated = $request->validate($this->strukturRules($existsTable));
 
-        $namaList = collect($validated['pusat'])->pluck('pusat')->map(fn ($n) => trim($n));
+        // SATU tempat sahaja untuk memangkas nama Pusat/DM — nilai yang
+        // dipangkas di sinilah yang disahkan, dibanding, dinamakan semula
+        // DAN disimpan. Laluan tulis undi (normalizeSaluran()) memangkas
+        // paksi Saluran; ini memangkas paksi Pusat supaya kedua-dua paksi
+        // kunci sel diselaraskan — tanpa ini "SK TENGKEK " (ruang
+        // berikutan) menjadi kunci yang berbeza daripada "SK TENGKEK".
+        $validated['pusat'] = collect($validated['pusat'])->map(function ($p) {
+            $p['pusat'] = trim($p['pusat']);
+            if (array_key_exists('dm', $p) && $p['dm'] !== null) {
+                $p['dm'] = trim($p['dm']);
+            }
+
+            return $p;
+        })->all();
+
+        $namaList = collect($validated['pusat'])->pluck('pusat');
         if ($namaList->count() !== $namaList->unique()->count()) {
             // Dua pusat senama berkongsi kunci undi yang sama dan akan menulis
             // atas satu sama lain tanpa sebarang amaran.
@@ -284,6 +299,35 @@ class Borang14Controller extends Controller
             ->where('jenis_pr', $validated['jenis_pr'])
             ->where('tahun', $validated['tahun'])
             ->first();
+
+        // Kunci nama sasaran (rename TARGET) terhadap nama SEDIA ADA dalam
+        // struktur lama — bukan sahaja senarai baharu. Tanpa semakan ini,
+        // menamakan semula satu pusat ke atas nama pusat LAIN yang turut
+        // dibuang dalam simpanan yang sama (atau menukar ganti dua nama)
+        // lolos semakan pendua di atas (senarai baharu sendiri tiada
+        // pendua) tetapi renameMap() kemudian menulis UPDATE ke atas kunci
+        // undi yang masih dimiliki nama lama itu: sama ada undi salah
+        // pusat kekal senyap (tiada perlanggaran kunci penuh), atau UPDATE
+        // bertembung dengan indeks unik dan melempar 500 tanpa mesej
+        // Bahasa Melayu. Pusat yang namanya TIDAK berubah sudah tentu
+        // "berlanggar" dengan dirinya sendiri — row_id yang sama dilangkau.
+        if ($form) {
+            $lama = $svc->collapse($form->structure)['pusat'];
+            foreach ($validated['pusat'] as $p) {
+                $rowId = (string) $p['row_id'];
+                $baharuNama = $p['pusat'];
+                foreach ($lama as $l) {
+                    if ($l['row_id'] === $rowId) {
+                        continue;
+                    }
+                    if ($l['pusat'] === $baharuNama) {
+                        throw ValidationException::withMessages([
+                            'pusat' => "Nama Pusat Mengundi '{$baharuNama}' sudah digunakan oleh pusat lain dalam borang ini. Namakan semula atau buang pusat itu dahulu, kemudian simpan sekali lagi.",
+                        ]);
+                    }
+                }
+            }
+        }
 
         if (! $this->bolehSuntingStruktur($request->user(), $form, $validated)) {
             abort(403, 'Unauthorized action.');

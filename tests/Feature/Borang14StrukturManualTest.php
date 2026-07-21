@@ -230,4 +230,79 @@ class Borang14StrukturManualTest extends TestCase
             ]))
             ->assertStatus(422);
     }
+
+    public function test_renaming_a_pusat_onto_another_deleted_pusat_name_is_rejected(): void
+    {
+        // pm_a dinamakan semula ke 'SK JEMAPOH' (nama pm_b) SAMBIL pm_b
+        // dibuang daripada senarai baharu. Senarai baharu sendiri tiada
+        // pendua, tetapi 'SK JEMAPOH' LAMA masih memegang undi — jika
+        // simpanan diteruskan, undi itu tertulis atas (atau bertembung
+        // dengan) kunci pusat yang baharu dinamakan semula, senyap.
+        $form = $this->form($this->manualStructure());
+        Borang14Vote::create(['borang14_form_id' => $form->id, 'pusat' => 'SK TENGKEK', 'saluran' => '1', 'slot' => 1, 'undi' => 250]);
+        Borang14Vote::create(['borang14_form_id' => $form->id, 'pusat' => 'SK JEMAPOH', 'saluran' => '1', 'slot' => 1, 'undi' => 90]);
+
+        $this->actingAs($this->user())->postJson(route('pilihanraya.borang-14.struktur'), $this->payload([
+            ['row_id' => 'pm_a', 'dm' => 'KUALA JEMAPOH', 'pusat' => 'SK JEMAPOH', 'saluran_count' => 2],
+        ]))->assertStatus(422);
+
+        // Transaksi tidak sepatutnya berjalan langsung — kedua-dua pusat
+        // mesti kekal dengan jumlah undi asal.
+        $this->assertSame(250, (int) $form->votes()->where('pusat', 'SK TENGKEK')->sum('undi'));
+        $this->assertSame(90, (int) $form->votes()->where('pusat', 'SK JEMAPOH')->sum('undi'));
+    }
+
+    public function test_swapping_two_pusat_names_is_rejected(): void
+    {
+        $form = $this->form($this->manualStructure());
+        Borang14Vote::create(['borang14_form_id' => $form->id, 'pusat' => 'SK TENGKEK', 'saluran' => '1', 'slot' => 1, 'undi' => 250]);
+        Borang14Vote::create(['borang14_form_id' => $form->id, 'pusat' => 'SK JEMAPOH', 'saluran' => '1', 'slot' => 1, 'undi' => 90]);
+
+        $this->actingAs($this->user())->postJson(route('pilihanraya.borang-14.struktur'), $this->payload([
+            ['row_id' => 'pm_a', 'dm' => 'KUALA JEMAPOH', 'pusat' => 'SK JEMAPOH', 'saluran_count' => 2],
+            ['row_id' => 'pm_b', 'dm' => 'KUALA JEMAPOH', 'pusat' => 'SK TENGKEK', 'saluran_count' => 1],
+        ]))->assertStatus(422);
+
+        $this->assertSame(250, (int) $form->votes()->where('pusat', 'SK TENGKEK')->sum('undi'));
+        $this->assertSame(90, (int) $form->votes()->where('pusat', 'SK JEMAPOH')->sum('undi'));
+    }
+
+    public function test_trailing_whitespace_in_pusat_name_is_trimmed_before_storage(): void
+    {
+        $this->actingAs($this->user())->postJson(route('pilihanraya.borang-14.struktur'), $this->payload([
+            ['row_id' => 'pm_a', 'dm' => 'KUALA JEMAPOH', 'pusat' => 'SK TENGKEK ', 'saluran_count' => 1],
+        ]))->assertOk();
+
+        $form = Borang14Form::firstOrFail();
+        $this->assertSame('SK TENGKEK', $form->structure['rows'][0]['pusat'], 'Ruang berikutan mesti dipangkas sebelum disimpan.');
+
+        // Undi ditulis di bawah nama yang dipangkas mesti terbaca semula —
+        // membuktikan kunci tulis dan kunci baca kini sepadan.
+        $this->actingAs($this->user())->postJson(route('pilihanraya.borang-14.vote'), [
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->kadun->id, 'jenis_pr' => 'prn', 'tahun' => 2027,
+            'penjuru' => 2, 'pusat' => 'SK TENGKEK', 'saluran' => '1', 'slot' => 1, 'undi' => 77,
+        ])->assertOk();
+
+        $res = $this->actingAs($this->user())->getJson(route('pilihanraya.borang-14.data', [
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->kadun->id, 'jenis_pr' => 'prn', 'tahun' => 2027,
+        ]));
+
+        $this->assertSame(77, $res->json('votes.SK TENGKEK|1|1'));
+    }
+
+    public function test_undi_pos_false_deletes_the_undi_pos_row_votes(): void
+    {
+        // manualStructure() menghidupkan UNDI POS (undi_pos: true) — semua
+        // ujian lain menyimpan payload dengan lalai undi_pos: true, jadi
+        // separuh "dibuang apabila bendera dimatikan" tidak pernah diuji.
+        $form = $this->form($this->manualStructure());
+        Borang14Vote::create(['borang14_form_id' => $form->id, 'pusat' => '', 'saluran' => 'UNDI POS', 'slot' => 1, 'undi' => 12]);
+
+        $this->actingAs($this->user())->postJson(route('pilihanraya.borang-14.struktur'), $this->payload([
+            ['row_id' => 'pm_a', 'dm' => 'KUALA JEMAPOH', 'pusat' => 'SK TENGKEK', 'saluran_count' => 2],
+            ['row_id' => 'pm_b', 'dm' => 'KUALA JEMAPOH', 'pusat' => 'SK JEMAPOH', 'saluran_count' => 1],
+        ], false, false))->assertOk();
+
+        $this->assertSame(0, $form->votes()->where('saluran', 'UNDI POS')->count());
+    }
 }
