@@ -55,6 +55,7 @@ export default function Dashboard({
     umurDistribution = [],
     trendBulanan = [],
     mpkkStats = [],
+    sokonganDun = null,
     petugasStats = [],
     keanggotaan = { total: 0, aktif_ekyc: 0, wings: [] },
     jawatankuasa = { total: 0, jenis: [] },
@@ -101,13 +102,6 @@ export default function Dashboard({
         { name: 'India', jumlah: bangsa.india },
         { name: 'Lain-lain', jumlah: bangsa.lain },
     ];
-
-    const sokonganMpkkData = mpkkStats.map(item => ({
-        mpkk: item.mpkk,
-        'PH': item.ph,
-        'Lawan': item.bn,
-        'Tidak Pasti': item.tidakPasti
-    }));
 
     const UMUR_COLORS = ['#f97316', '#eab308', '#22c55e', '#06b6d4', '#8b5cf6', '#ec4899', '#ef4444', '#0ea5e9'];
 
@@ -559,22 +553,30 @@ export default function Dashboard({
                     </div>
                 </div>
 
-                {/* Sokongan Politik Mengikut MPKK - Stacked Bar */}
-                <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-                    <h3 className="text-lg font-semibold text-slate-900 mb-4">Sokongan Politik Mengikut DUN</h3>
-                    <ResponsiveContainer width="100%" height={350}>
-                        <BarChart data={sokonganMpkkData}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                            <XAxis dataKey="mpkk" stroke="#64748b" />
-                            <YAxis stroke="#64748b" />
-                            <Tooltip />
-                            <Legend />
-                            <Bar dataKey="PH" stackId="a" fill="#dc2626" radius={[0, 0, 0, 0]} />
-                            <Bar dataKey="Lawan" stackId="a" fill="#003153" radius={[0, 0, 0, 0]} />
-                            <Bar dataKey="Tidak Pasti" stackId="a" fill="#94a3b8" radius={[8, 8, 0, 0]} />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
+                {/* Sokongan Politik Mengikut DUN — only shown once a Parlimen is
+                    chosen; without one the DUNs come from unrelated states. */}
+                {sokonganDun && sokonganDun.length > 0 && (
+                    <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                        <h3 className="text-lg font-semibold text-slate-900 mb-4">Sokongan Politik Mengikut DUN</h3>
+                        <ResponsiveContainer width="100%" height={350}>
+                            <BarChart data={sokonganDun}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                <XAxis dataKey="dun" stroke="#64748b" />
+                                <YAxis stroke="#64748b" />
+                                <Tooltip />
+                                <Legend />
+                                <Bar dataKey="PH" stackId="a" fill="#dc2626" radius={[0, 0, 0, 0]} />
+                                <Bar dataKey="Lawan" stackId="a" fill="#003153" radius={[0, 0, 0, 0]} />
+                                <Bar dataKey="Tidak Pasti" stackId="a" fill="#94a3b8" radius={[8, 8, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                        {sokonganDun.some(d => d.total === 0) && (
+                            <p className="text-xs text-slate-500 mt-2">
+                                Tiada rekod culaan (tiada bar): {sokonganDun.filter(d => d.total === 0).map(d => d.dun).join(', ')}.
+                            </p>
+                        )}
+                    </div>
+                )}
 
                 {/* Tables Section */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -267,6 +267,64 @@ class DashboardController extends Controller
         $batchActiveIds = UploadBatch::activeIds();
         $hasDptCol = Schema::hasColumn('pangkalan_data_pengundi', 'dpt_upload_id');
 
+        // Sokongan Politik Mengikut DUN — only meaningful once a Parlimen is
+        // picked: without one the chart puts DUNs from unrelated states side by
+        // side. Lists EVERY DUN in the chosen Parlimen from Data Induk (not just
+        // the ones carrying canvass records) and ignores the KADUN drill, so the
+        // whole Parlimen stays visible when a single DUN is focused.
+        //
+        // A DUN with no canvass record reports null, not 0: "nobody has been
+        // canvassed here" is not "nobody here supports PH".
+        $sokonganDun = null;
+        if ($bandarId) {
+            $dunCanvass = function (string $dun) use ($user, $negeriNama, $bandarNama, $tarikhDari, $tarikhHingga) {
+                $q = DataPengundi::where('is_deceased', false)
+                    ->whereRaw('UPPER(kadun) = ?', [mb_strtoupper($dun)]);
+
+                if (! $user->isSuperAdmin()) {
+                    if ($user->negeri_id) {
+                        $q->where('negeri', $user->negeri->nama ?? '');
+                    }
+                    if ($user->bandar_id) {
+                        $q->where('bandar', $user->bandar->nama ?? '');
+                    }
+                }
+                if ($negeriNama) {
+                    $q->where('negeri', $negeriNama);
+                }
+                if ($bandarNama) {
+                    $q->where('bandar', $bandarNama);
+                }
+                if ($tarikhDari) {
+                    $q->whereDate('created_at', '>=', $tarikhDari);
+                }
+                if ($tarikhHingga) {
+                    $q->whereDate('created_at', '<=', $tarikhHingga);
+                }
+
+                return $q;
+            };
+
+            $sokonganDun = Kadun::where('bandar_id', $bandarId)->orderBy('nama')->pluck('nama')
+                ->map(function ($nama) use ($dunCanvass) {
+                    $base = $dunCanvass($nama);
+                    $total = (clone $base)->count();
+                    if ($total === 0) {
+                        return ['dun' => $nama, 'total' => 0, 'PH' => null, 'Lawan' => null, 'Tidak Pasti' => null];
+                    }
+
+                    $pct = fn (string $like) => round(((clone $base)->where('kecenderungan_politik', 'like', $like)->count() / $total) * 100);
+
+                    return [
+                        'dun' => $nama,
+                        'total' => $total,
+                        'PH' => $pct('%PH/BN%'),
+                        'Lawan' => $pct('%BN/PN%'),
+                        'Tidak Pasti' => $pct('%TIDAK PASTI%'),
+                    ];
+                })->values();
+        }
+
         $mpkkStats = collect($top5Kadun)
             ->map(function ($rekodCount, $kadunUpper) use ($batchActiveIds, $hasDptCol) {
                 $kadunName = DataPengundi::whereRaw('UPPER(kadun) = ?', [$kadunUpper])->value('kadun')
@@ -475,6 +533,7 @@ class DashboardController extends Controller
             'umurDistribution' => $umurDistribution,
             'trendBulanan' => $trendBulanan,
             'mpkkStats' => $mpkkStats,
+            'sokonganDun' => $sokonganDun,
             'petugasStats' => $petugasStats,
             'keanggotaan' => $keanggotaan,
             'jawatankuasa' => $jawatankuasa,
