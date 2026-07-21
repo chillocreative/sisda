@@ -27,10 +27,57 @@ class Spr760ParserTest extends TestCase
     {
         $r = self::parsed();
 
-        $this->assertSame('N.15 JUASSEH', $r['kawasan_nama']);
+        $this->assertSame('N.15', $r['kawasan_kod']);
+        $this->assertSame('JUASSEH', $r['kawasan_nama']);
         $this->assertSame('dun', $r['kawasan_type']);
+        $this->assertSame('NEGERI SEMBILAN', $r['negeri']);
         $this->assertSame(13408, $r['pemilih']);
         $this->assertSame(2, $r['calon_count']);
+    }
+
+    /**
+     * The contract KawasanResolver + Borang14Controller::uploadCommit() consume.
+     * Getting this shape wrong is how the production bug shipped: the committed
+     * data must be per-saluran, not a single DUN-level row.
+     */
+    public function test_detailed_matches_the_extractor_contract(): void
+    {
+        $d = Spr760Parser::detailed(self::FIXTURE);
+        self::assertNotNull($d);
+
+        // KawasanResolver refuses anything it cannot place, so all four must be present.
+        $this->assertSame('NEGERI SEMBILAN', $d['negeri']);
+        $this->assertSame('N.15', $d['kawasan_kod']);
+        $this->assertSame('JUASSEH', $d['kawasan_nama']);
+        $this->assertSame('129', $d['parlimen_kod']);
+        $this->assertSame(13408, $d['jumlah_pemilih']);
+
+        // Names are fused into one text item on the sheet with no splittable
+        // geometry, so they are placeholders flagged for the user to confirm —
+        // never a guessed split, which would misattribute votes.
+        $this->assertCount(2, $d['calon']);
+        $this->assertSame(['CALON 1', 'CALON 2'], array_column($d['calon'], 'nama'));
+        $this->assertSame([false, false], array_column($d['calon'], 'yakin'));
+
+        $this->assertCount(40, $d['rows']);
+        $this->assertSame([4471, 4549], $d['jumlah']['undi']);
+        $this->assertSame(9020, $d['jumlah']['jumlah_undian']);
+
+        $row = collect($d['rows'])->firstWhere('saluran', 'UNDI POS');
+        $this->assertSame('', $row['pusat']);
+        $this->assertSame([98, 73], $row['undi']);
+        $this->assertSame(171, $row['jumlah_undian']);
+        $this->assertSame(18, $row['ditolak']);
+        $this->assertSame(14, $row['tidak_dimasukkan']);
+        $this->assertSame(203, $row['a']);
+    }
+
+    /** Every emitted row must satisfy the balance rules the extractor enforces. */
+    public function test_detailed_output_passes_the_balance_validator(): void
+    {
+        $this->assertSame([], \App\Services\Pilihanraya\ScoresheetExtractor::validateBalance(
+            Spr760Parser::detailed(self::FIXTURE),
+        ));
     }
 
     /** 39 saluran across 11 Daerah Mengundi, plus the UNDI POS row. */

@@ -168,6 +168,78 @@ class Spr760Parser
         ];
     }
 
+    /**
+     * The same read, reshaped into the contract KawasanResolver and
+     * Borang14Controller::uploadCommit() consume (identical to what
+     * ScoresheetExtractor::extractDetailed() gets from Claude), so the
+     * deterministic path is a drop-in replacement for the AI one.
+     *
+     * Returns null — deliberately, rather than a partial record — when the seat
+     * cannot be placed with certainty (no state, no seat code, no Parlimen code)
+     * or no candidate votes were read. KawasanResolver CREATES geography from
+     * these fields, so a half-read header would seed a phantom seat that
+     * silently orphans every row string-matched against it.
+     *
+     * @return array{negeri:string, kawasan_kod:string, kawasan_nama:string,
+     *     parlimen_kod:string, jumlah_pemilih:?int, calon:array, rows:array, jumlah:?array}|null
+     */
+    public static function detailed(string $path): ?array
+    {
+        $r = self::parse($path);
+        if ($r === null || $r['rows'] === [] || $r['calon_count'] < 1) {
+            return null;
+        }
+        if (! $r['negeri'] || ! $r['kawasan_kod'] || ! $r['kawasan_nama']) {
+            return null;
+        }
+
+        // Kod DM "129/15/01" encodes Parlimen 129 / DUN 15 / DM 01.
+        $parlimenKod = null;
+        foreach ($r['rows'] as $row) {
+            if ($row['kod_dm'] !== null && preg_match('#^(\d{2,3})/#', $row['kod_dm'], $m)) {
+                $parlimenKod = $m[1];
+                break;
+            }
+        }
+        if ($parlimenKod === null) {
+            return null;
+        }
+
+        $shape = fn (array $row) => [
+            'dm_kod' => $row['kod_dm'],
+            'dm' => $row['pusat'] !== '' ? $row['pusat'] : null,
+            'pusat' => $row['pusat'],
+            'saluran' => $row['saluran'],
+            'a' => $row['a'],
+            'undi' => array_values($row['undi']),
+            'jumlah_undian' => $row['keluar'],
+            'ditolak' => $row['ditolak'],
+            'tidak_dimasukkan' => $row['tidak_dimasukkan'],
+        ];
+
+        return [
+            'negeri' => $r['negeri'],
+            'kawasan_kod' => $r['kawasan_kod'],
+            'kawasan_nama' => $r['kawasan_nama'],
+            'parlimen_kod' => $parlimenKod,
+            // Absent on some sheets — stays null, never 0 (a 0 denominator
+            // fabricates a 0% turnout downstream).
+            'jumlah_pemilih' => $r['pemilih'],
+            // The sheet fuses every candidate name into ONE text item with no
+            // splittable geometry, so slots are numbered placeholders flagged
+            // `yakin: false` (which forces needs_review) for the user to name.
+            // A guessed split would misattribute votes — the precise class of
+            // error this parser exists to prevent.
+            'calon' => array_map(
+                fn (int $i) => ['nama' => 'CALON '.$i, 'parti_tekaan' => null, 'yakin' => false],
+                range(1, $r['calon_count']),
+            ),
+            'rows' => array_map($shape, $r['rows']),
+            'jumlah' => $r['printed_totals'] ? $shape($r['printed_totals']) : null,
+            'saluran_count' => $r['printed_totals']['saluran_count'] ?? null,
+        ];
+    }
+
     /** Seat identity + registered voters. Null when the SPR 760 banner is absent. */
     private static function header($page): ?array
     {
@@ -177,10 +249,29 @@ class Spr760Parser
         }
 
         $nama = '';
+        $kod = null;
         $type = 'dun';
         if (preg_match('/BAHAGIAN\s+PILIHAN\s+RAYA\s+(NEGERI|PERSEKUTUAN)\s*:\s*([^\n]+)/i', $text, $m)) {
             $type = mb_strtoupper(trim($m[1])) === 'PERSEKUTUAN' ? 'parlimen' : 'dun';
             $nama = trim($m[2]);
+
+            // "N.15 JUASSEH" — KawasanResolver keys the seat LEVEL off this
+            // prefix ("N." vs "P."), so kod and nama are split rather than
+            // handed over fused.
+            if (preg_match('/^([NP]\s*\.\s*\d+)\s+(.+)$/i', $nama, $s)) {
+                $kod = mb_strtoupper(preg_replace('/\s+/', '', $s[1]));
+                $nama = trim($s[2]);
+            }
+        }
+
+        // The state is printed only in the footer banner ("PILIHAN RAYA UMUM
+        // DEWAN NEGERI NEGERI SEMBILAN KE -15"). A parliamentary sheet says
+        // DEWAN RAKYAT and names no state at all — that stays null, and
+        // detailed() then declines the sheet rather than guessing a state,
+        // because KawasanResolver would otherwise place it in the wrong one.
+        $negeri = null;
+        if (preg_match('/DEWAN\s+NEGERI\s+(.+?)\s+KE\s*-\s*\d+/iu', $text, $m)) {
+            $negeri = mb_strtoupper(trim(preg_replace('/\s+/', ' ', $m[1])));
         }
 
         // Genuinely absent on some sheets — stays null, never 0. A 0 denominator
@@ -190,7 +281,13 @@ class Spr760Parser
             $pemilih = (int) preg_replace('/\D/', '', $m[1]);
         }
 
-        return ['kawasan_nama' => $nama, 'kawasan_type' => $type, 'pemilih' => $pemilih];
+        return [
+            'kawasan_kod' => $kod,
+            'kawasan_nama' => $nama,
+            'kawasan_type' => $type,
+            'negeri' => $negeri,
+            'pemilih' => $pemilih,
+        ];
     }
 
     /**

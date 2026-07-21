@@ -4,6 +4,7 @@ namespace App\Services\Pilihanraya;
 
 use App\Services\ClaudeService;
 use App\Support\Pilihanraya\ScoresheetParser;
+use App\Support\Pilihanraya\Spr760Parser;
 use Illuminate\Http\UploadedFile;
 use Smalot\PdfParser\Parser as PdfParser;
 
@@ -411,6 +412,17 @@ TXT;
      */
     public function extractDetailed(UploadedFile $file): array
     {
+        // Laluan pantas: Borang SPR 760 bertaip (bukan imbasan) boleh dibaca
+        // TEPAT tanpa AI — percuma, serta-merta, boleh diuji dalam CI, dan tiada
+        // peluang nombor direka. Parser memulangkan null (bukan bacaan separa)
+        // untuk sebarang fail lain, jadi Claude kekal sebagai sandaran penuh.
+        if ($this->isPdf($file)) {
+            $deterministic = Spr760Parser::detailed($file->getRealPath());
+            if ($deterministic !== null) {
+                return ['ok' => true, 'data' => $deterministic + ['source' => 'deterministic'], 'error' => null];
+            }
+        }
+
         $content = $this->buildContentBlocks($file);   // kaedah sedia ada yang dipakai extract()
         if ($content === null) {
             return ['ok' => false, 'data' => null, 'error' => 'Format fail tidak disokong.'];
@@ -506,6 +518,69 @@ TXT;
 
         if (! empty($data['jumlah'])) {
             $check($data['jumlah'], 'jumlah');
+        }
+
+        return $bad;
+    }
+
+    /**
+     * Silang-semak JUMLAH baris terhadap baris JUMLAH YANG DICETAK pada sheet.
+     *
+     * validateBalance() hanya menyemak setiap baris terhadap DIRINYA SENDIRI, jadi
+     * satu ekstrak yang memulangkan HANYA baris UNDI POS lulus semua semakannya
+     * — itulah yang berlaku di produksi: Keyin menerbitkan PN 98 / BN 73 sedangkan
+     * baris JUMLAH bercetak berbunyi 4,471 / 4,549 (kurang ~98%). Baris JUMLAH
+     * pada sheet ialah satu-satunya rujukan bebas yang ada, jadi ia digunakan di
+     * sini sebagai pihak berkuasa: `jangka` = angka BERCETAK, `dapat` = hasil
+     * campuran baris yang diekstrak.
+     *
+     * Sheet tanpa baris JUMLAH bercetak tidak menghasilkan sebarang penemuan —
+     * ketiadaan rujukan bukan bukti percanggahan.
+     *
+     * @return array<int, array{rule:string, index:string, pusat:string, saluran:string,
+     *                          calon?:int, jangka:int, dapat:int}>
+     */
+    public static function reconcileTotals(array $data): array
+    {
+        $printed = $data['jumlah'] ?? null;
+        $rows = $data['rows'] ?? [];
+        if (! is_array($printed) || $printed === [] || $rows === []) {
+            return [];
+        }
+
+        $bad = [];
+        $flag = function (string $rule, int $jangka, int $dapat, ?int $calon = null) use (&$bad) {
+            if ($jangka !== $dapat) {
+                $bad[] = array_filter([
+                    'rule' => $rule,
+                    'index' => 'jumlah',
+                    'pusat' => '',
+                    'saluran' => 'JUMLAH',
+                    'calon' => $calon,
+                    'jangka' => $jangka,
+                    'dapat' => $dapat,
+                ], fn ($v) => $v !== null);
+            }
+        };
+
+        // Setiap lajur calon diperiksa SECARA BERASINGAN: dua lajur yang tertukar
+        // menghasilkan jumlah keseluruhan yang sama, jadi jumlah besar sahaja
+        // tidak akan mengesannya.
+        foreach (($printed['undi'] ?? []) as $i => $undi) {
+            $flag('jumlah_undi', (int) $undi, (int) collect($rows)->sum(fn ($r) => (int) ($r['undi'][$i] ?? 0)), $i + 1);
+        }
+
+        foreach (['a', 'jumlah_undian', 'ditolak', 'tidak_dimasukkan'] as $key) {
+            if (isset($printed[$key])) {
+                $flag('jumlah_'.$key, (int) $printed[$key], (int) collect($rows)->sum(fn ($r) => (int) ($r[$key] ?? 0)));
+            }
+        }
+
+        // Bilangan saluran bercetak — semakan yang paling terus bagi ekstrak yang
+        // memulangkan segelintir baris sahaja daripada keseluruhan sheet.
+        $salurCount = $data['saluran_count'] ?? null;
+        if (is_numeric($salurCount)) {
+            $flag('saluran_count', (int) $salurCount, count($rows));
         }
 
         return $bad;
