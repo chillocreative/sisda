@@ -5,6 +5,11 @@ import { Plus, Search, RefreshCw, Pencil, Trash2, X, Eye, Download, CheckCircle2
 import useDragScroll from '@/Hooks/useDragScroll';
 import KeanggotaanNav from './Nav';
 
+// EKYC: the member's own status from the uploaded file decides whenever the
+// file gave one ('completed'/'pending'); only a silent file ('' / null) falls
+// back to the batch-level EKYC tick. Mirrors Keanggotaan::scopeEkycVerified().
+const isEkyc = (m) => (m.status_ekyc ? m.status_ekyc === 'completed' : !!m.batch?.is_ekyc);
+
 // Windowed page numbers: 1 … current-1 current current+1 … last
 function pageWindow(current, last, delta = 2) {
     const range = [];
@@ -97,7 +102,7 @@ function ViewModal({ member, onClose }) {
         ['Sentimen', member.voter_color ? member.voter_color.charAt(0).toUpperCase() + member.voter_color.slice(1) : 'Belum Dicula'],
         ['Sayap', (member.wings && member.wings.length) ? member.wings.join(', ') : null],
         ['Status Anggota', STATUS_ANGGOTA[member.status_anggota]?.label || null],
-        ['EKYC', member.batch?.is_ekyc ? 'Ya' : null],
+        ['EKYC', isEkyc(member) ? 'Ya' : member.status_ekyc === 'pending' ? 'Belum' : null],
         ['Daftar Tanpa Pengetahuan', member.daftar_tanpa_pengetahuan ? 'Ya' : 'Tidak'],
     ];
 
@@ -438,9 +443,9 @@ export default function Senarai({ members, filters, parlimenList = [], dunList =
                                     </td>
                                     <td className="py-3 px-3 whitespace-nowrap"><StatusAnggotaCell status={m.status_anggota} tanpaPengetahuan={m.daftar_tanpa_pengetahuan} /></td>
                                     <td className="py-3 px-3 text-center whitespace-nowrap">
-                                        {m.batch?.is_ekyc
-                                            ? <CheckCircle2 className="h-5 w-5 text-emerald-600 inline-block" aria-label="EKYC" />
-                                            : <span className="text-xs text-slate-300">–</span>}
+                                        {isEkyc(m)
+                                            ? <CheckCircle2 className="h-5 w-5 text-emerald-600 inline-block" aria-label="EKYC selesai" />
+                                            : <span className="text-xs text-slate-300" title={m.status_ekyc === 'pending' ? 'EKYC belum selesai' : 'Tiada maklumat EKYC'}>–</span>}
                                     </td>
                                     <td className="py-3 px-3 text-slate-600 whitespace-nowrap">{m.matched_kadun || m.dun || '-'}</td>
                                     <td className="py-3 px-3 text-slate-600 whitespace-nowrap">{m.matched_daerah_mengundi || '-'}</td>

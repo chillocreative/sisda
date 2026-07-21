@@ -264,6 +264,8 @@ class KeanggotaanController extends Controller
                 'alamat' => $m['alamat'] ?? null,
                 'umur' => MemberMatchService::ageFromIc($m['no_ic']),
                 'status_kawasan' => null,
+                // From the file's STATUS EKYC column; null when it had none.
+                'status_ekyc' => $m['ekyc'] ?? null,
                 'created_at' => now(),
                 'updated_at' => now(),
             ];
@@ -418,7 +420,8 @@ class KeanggotaanController extends Controller
         $setting = KeanggotaanSetting::current();
         $year = (int) date('Y');
 
-        // EKYC status is a property of the member's upload batch.
+        // EKYC: the member's own status_ekyc when the file gave one, else the
+        // batch-level flag (the front end applies the same fallback).
         $members = $query->with('batch:id,is_ekyc')->orderByDesc('id')->paginate(25)->withQueryString();
         $members->through(fn ($m) => $this->attachWings($m, $setting, $year));
 
@@ -744,13 +747,10 @@ class KeanggotaanController extends Controller
         $dicula = (clone $base())->where('is_dicula', true)->count();
         $baru = (clone $base())->where('is_pendaftaran_baru', true)->count();
 
-        // Aktif / EKYC = members set Aktif (EKYC batches auto-set this) or that
-        // belong to an EKYC-flagged batch. Follows the full filter scope.
+        // Aktif / EKYC — see Keanggotaan::scopeEkycVerified() for the rule.
+        // Follows the full filter scope.
         $ekycBatchIds = KeanggotaanBatch::where('is_ekyc', true)->pluck('id')->all();
-        $aktifEkyc = (clone $base())->where(function ($q) use ($ekycBatchIds) {
-            $q->where('status_anggota', 'aktif')
-                ->when($ekycBatchIds, fn ($qq) => $qq->orWhereIn('batch_id', $ekycBatchIds));
-        })->count();
+        $aktifEkyc = (clone $base())->ekycVerified($ekycBatchIds)->count();
 
         $ageBands = [];
         foreach (self::AGE_BANDS as $band) {
@@ -805,14 +805,8 @@ class KeanggotaanController extends Controller
 
         // Members per Daerah Mengundi within the selected Parlimen/DUN (excludes
         // the DM/Lokaliti drill so the whole list shows, honours non-geo filters).
-        // Also counts Aktif/EKYC members (status Aktif or in an EKYC batch) per DM.
-        $ekycExpr = 'status_anggota = ?';
-        $ekycBind = ['aktif'];
-        if ($ekycBatchIds !== []) {
-            $ph = implode(',', array_fill(0, count($ekycBatchIds), '?'));
-            $ekycExpr .= " OR batch_id IN ({$ph})";
-            $ekycBind = array_merge($ekycBind, $ekycBatchIds);
-        }
+        // Also counts Aktif/EKYC members per DM, same rule as the cards.
+        [$ekycExpr, $ekycBind] = Keanggotaan::ekycSql($ekycBatchIds);
         $byDm = (clone $parlimenBase())
             ->when($dun, fn ($q) => $q->where(fn ($x) => $x->where('matched_kadun', $dun)->orWhere('dun', $dun)))
             ->whereNotNull('matched_daerah_mengundi')->where('matched_daerah_mengundi', '!=', '')
@@ -911,14 +905,14 @@ class KeanggotaanController extends Controller
         $byCabang = [];
 
         $ekyc = array_flip($ekycBatchIds);
-        $rows = $base->select('umur', 'jantina', 'cabang', 'status_anggota', 'batch_id')->get();
+        $rows = $base->select('umur', 'jantina', 'cabang', 'status_anggota', 'status_ekyc', 'batch_id')->get();
         foreach ($rows as $r) {
             $wing = MemberWingService::classify($r->umur, $r->jantina, $setting->tahun_mula, $setting->tahun_tamat, $year);
             if ($wing['wings'] === []) {
                 continue;
             }
             $cabang = $r->cabang ?: 'Tiada Cabang';
-            $isAktifEkyc = $r->status_anggota === 'aktif' || isset($ekyc[$r->batch_id]);
+            $isAktifEkyc = Keanggotaan::rowIsEkycVerified($r->status_ekyc, $r->status_anggota, $r->batch_id, $ekyc);
             $graceWings = array_flip($wing['graceWings']);
             foreach ($wing['wings'] as $w) {
                 $totals[$w]++;

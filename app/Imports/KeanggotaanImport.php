@@ -34,15 +34,17 @@ class KeanggotaanImport
 
     private const NEGERI_KEYS = ['negeri', 'state'];
 
+    private const EKYC_KEYS = ['statusekyc', 'ekyc', 'ekycstatus'];
+
     private const ALAMAT_KEYS = ['alamat', 'address', 'alamatrumah', 'alamatpenuh', 'alamattetap', 'alamatsurat', 'addressline'];
 
     /** Empty per-field map. */
-    private const EMPTY_MAP = ['nama' => null, 'ic' => null, 'tel' => null, 'anggota' => null, 'jantina' => null, 'bangsa' => null, 'cabang' => null, 'negeri' => null, 'alamat' => null];
+    private const EMPTY_MAP = ['nama' => null, 'ic' => null, 'tel' => null, 'anggota' => null, 'jantina' => null, 'bangsa' => null, 'cabang' => null, 'negeri' => null, 'alamat' => null, 'ekyc' => null];
 
     /**
      * @param  array  $rows  array of rows, each an array of cell values
      * @param  array{kept?:int, skipped_no_ic?:int}  $tally  filled in-place with counts
-     * @return array<int, array{no_ic:string, nama:string, no_tel:?string, no_anggota:?string, jantina:?string, bangsa:?string, cabang:?string, negeri:?string}>
+     * @return array<int, array{no_ic:string, nama:string, no_tel:?string, no_anggota:?string, jantina:?string, bangsa:?string, cabang:?string, negeri:?string, ekyc:?string}>
      */
     public static function extract(array $rows, array &$tally = []): array
     {
@@ -98,6 +100,7 @@ class KeanggotaanImport
                 'negeri' => self::upperOrNull(self::cell($cells, $map['negeri'])),
                 // Address is kept in its original casing (just trimmed + collapsed).
                 'alamat' => self::cleanAlamat(self::cell($cells, $map['alamat'])),
+                'ekyc' => self::normaliseEkyc(self::cell($cells, $map['ekyc'])),
             ];
             $tally['kept']++;
         }
@@ -116,7 +119,7 @@ class KeanggotaanImport
             'nama' => self::NAMA_KEYS, 'ic' => self::IC_KEYS, 'tel' => self::TEL_KEYS,
             'anggota' => self::ANGGOTA_KEYS, 'jantina' => self::JANTINA_KEYS,
             'bangsa' => self::BANGSA_KEYS, 'cabang' => self::CABANG_KEYS, 'negeri' => self::NEGERI_KEYS,
-            'alamat' => self::ALAMAT_KEYS,
+            'alamat' => self::ALAMAT_KEYS, 'ekyc' => self::EKYC_KEYS,
         ];
 
         $limit = min(count($rows), 30);
@@ -244,6 +247,29 @@ class KeanggotaanImport
         }
         if (in_array($k, ['P', 'PEREMPUAN', 'FEMALE', 'F', 'W', 'WANITA'], true)) {
             return 'PEREMPUAN';
+        }
+
+        return null;
+    }
+
+    /**
+     * Normalise the file's "STATUS EKYC" cell to 'completed' / 'pending'.
+     *
+     * Anything unrecognised (including a blank cell or a missing column) stays
+     * null — meaning "the file did not say". Null is never treated as pending:
+     * those members fall back to the batch-level EKYC rule instead.
+     */
+    public static function normaliseEkyc(?string $v): ?string
+    {
+        if ($v === null) {
+            return null;
+        }
+        $k = strtolower(trim($v));
+        if (in_array($k, ['completed', 'complete', 'selesai', 'lengkap', 'ya', 'yes', 'y', '1'], true)) {
+            return 'completed';
+        }
+        if (in_array($k, ['pending', 'belum', 'belum selesai', 'tidak', 'no', 'n', '0'], true)) {
+            return 'pending';
         }
 
         return null;

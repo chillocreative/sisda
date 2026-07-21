@@ -371,12 +371,10 @@ class DashboardController extends Controller
         $within = $setting && MemberWingService::withinTerm($setting->tahun_mula, $setting->tahun_tamat, $year);
         $youthMax = $within ? MemberWingService::MAX_AGE + ($year - $setting->tahun_mula) : MemberWingService::MAX_AGE;
 
-        // Aktif / EKYC members (EKYC batches auto-set Aktif) — within the same scope.
+        // Aktif / EKYC members — see Keanggotaan::scopeEkycVerified() for the
+        // rule — within the same scope.
         $ekycBatchIds = KeanggotaanBatch::where('is_ekyc', true)->pluck('id')->all();
-        $keanggotaanAktifEkyc = $keanggotaanBase()->where(function ($q) use ($ekycBatchIds) {
-            $q->where('status_anggota', 'aktif')
-                ->when($ekycBatchIds, fn ($qq) => $qq->orWhereIn('batch_id', $ekycBatchIds));
-        })->count();
+        $keanggotaanAktifEkyc = $keanggotaanBase()->ekycVerified($ekycBatchIds)->count();
 
         $keanggotaan = [
             'total' => $keanggotaanBase()->count(),
