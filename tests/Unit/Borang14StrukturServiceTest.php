@@ -281,20 +281,53 @@ class Borang14StrukturServiceTest extends TestCase
         $this->assertNull($out['undi_pos_label']);
     }
 
+    public function test_collapse_reference_merges_pusat_that_share_a_name_across_daerah_mengundi(): void
+    {
+        // Anggaran DPT mengumpul [dm][lokaliti], jadi lokaliti kosong menjadi
+        // satu baris 'TIADA LOKALITI' bagi SETIAP Daerah Mengundi. Kunci undi
+        // ialah pusat|saluran — TIADA komponen DM — jadi baris-baris itu
+        // sememangnya sel yang SAMA. Membawanya ke panel sebagai entri
+        // berasingan menghasilkan muatan yang endpoint simpan sendiri tolak
+        // (nama mesti unik), iaitu jalan buntu: panel menyerahkan keadaan
+        // tidak sah kepada pengguna lalu menyalahkannya.
+        $dpt = ['daerah_mengundi' => [
+            ['nama' => 'DM SATU', 'pusat_mengundi' => [
+                ['nama' => 'TIADA LOKALITI', 'saluran' => [['no' => 1]]],
+                ['nama' => 'SK KAMPUNG BARU', 'saluran' => [['no' => 1]]],
+            ]],
+            ['nama' => 'DM DUA', 'pusat_mengundi' => [
+                ['nama' => 'TIADA LOKALITI', 'saluran' => [['no' => 1]]],
+            ]],
+        ]];
+
+        $out = $this->svc->collapseReference($dpt);
+
+        $this->assertSame(
+            ['TIADA LOKALITI', 'SK KAMPUNG BARU'],
+            collect($out['pusat'])->pluck('pusat')->all(),
+        );
+        // Satu sel, bukan dua: 'TIADA LOKALITI|1'.
+        $this->assertSame(1, $out['pusat'][0]['saluran_count']);
+    }
+
     public function test_collapse_reference_preserves_an_inherited_non_canonical_postal_label(): void
     {
         // referenceFromStructure() membawa label MENTAH. Menggugurkannya di
         // sini bermakna menandakan kotak itu memancarkan literal berkanun,
         // kunci hanyut, dan undi dipadam — walaupun pengguna menandakannya.
+        // Label dipilih supaya bentuk ini BOLEH benar-benar dihasilkan:
+        // referenceFromStructure() menguji AWAL dahulu dengan elseif, jadi
+        // apa-apa yang mengandungi 'AWAL' mendarat dalam undi_awal, bukan
+        // undi_pos. 'UNDI POS SPR' ialah bentuk pos-bukan-berkanun yang sah.
         $warisan = [
             'daerah_mengundi' => [],
-            'undi_pos' => ['berdaftar' => null, 'label' => 'UNDI POS AWAL'],
+            'undi_pos' => ['berdaftar' => null, 'label' => 'UNDI POS SPR'],
         ];
 
         $out = $this->svc->collapseReference($warisan);
 
         $this->assertTrue($out['undi_pos']);
-        $this->assertSame('UNDI POS AWAL', $out['undi_pos_label']);
+        $this->assertSame('UNDI POS SPR', $out['undi_pos_label']);
         $this->assertFalse($out['undi_awal']);
     }
 

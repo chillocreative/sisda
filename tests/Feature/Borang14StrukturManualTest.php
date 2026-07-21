@@ -17,6 +17,7 @@ use App\Models\User;
 use App\Services\Borang14StrukturService;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class Borang14StrukturManualTest extends TestCase
@@ -260,6 +261,97 @@ class Borang14StrukturManualTest extends TestCase
         // Undi pos MESTI selamat: pengguna tidak pernah meminta ia dipadam.
         $this->assertSame(88, Borang14Vote::where('borang14_form_id', $baharu->id)->where('saluran', 'UNDI POS')->value('undi'));
         $this->assertSame(500, Borang14Vote::where('borang14_form_id', $baharu->id)->where('pusat', 'SK TENGKEK')->value('undi'));
+    }
+
+    public function test_a_dpt_seeded_panel_is_saveable_and_does_not_misattribute_votes(): void
+    {
+        // Anggaran DPT mengumpul [dm][lokaliti] dan menggantikan lokaliti
+        // kosong dengan 'TIADA LOKALITI' — SEKALI BAGI SETIAP Daerah
+        // Mengundi. Kunci undi ialah pusat|saluran tanpa komponen DM, jadi
+        // baris-baris itu sememangnya sel yang sama.
+        foreach ([['PELANGAI', null], ['SENALING', null], ['PELANGAI', 'KG TENGKEK']] as [$dm, $lokaliti]) {
+            DB::table('pangkalan_data_pengundi')->insert([
+                'nama' => 'PENGUNDI '.$dm, 'no_ic' => (string) random_int(100000000000, 999999999999),
+                'kadun' => 'JUASSEH', 'daerah_mengundi' => $dm, 'lokaliti' => $lokaliti,
+                'is_deceased' => false, 'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
+
+        $res = $this->actingAs($this->user())->getJson(route('pilihanraya.borang-14.data', [
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->kadun->id, 'jenis_pr' => 'prn', 'tahun' => 2027,
+        ]));
+        $res->assertOk();
+        $this->assertSame('dpt_estimate', $res->json('reference.source'));
+        // Kerusi DPT MESTI boleh disunting — membaiki anggaran 1-saluran/pusat
+        // ialah antara sebab ciri ini wujud.
+        $this->assertTrue($res->json('boleh_sunting_struktur'));
+
+        $data = $res->json('struktur');
+        $nama = collect($data['pusat'])->pluck('pusat');
+        // SATU 'TIADA LOKALITI', bukan dua. Panel yang menyerahkan nama
+        // berulang menghasilkan muatan yang endpoint simpan sendiri tolak.
+        $this->assertSame($nama->unique()->count(), $nama->count(), 'Panel DPT tidak boleh mengandungi nama Pusat berulang: '.$nama->implode(', '));
+
+        // Undi ditaip pada sel yang dikongsi itu.
+        $form = Borang14Form::firstOrCreate(
+            ['kawasan_type' => 'dun', 'kawasan_id' => $this->kadun->id, 'jenis_pr' => 'prn', 'tahun' => 2027],
+            ['penjuru' => 2, 'parties' => [], 'status' => 'draft', 'source' => 'manual'],
+        );
+        Borang14Vote::create(['borang14_form_id' => $form->id, 'pusat' => 'TIADA LOKALITI', 'saluran' => '1', 'slot' => 1, 'undi' => 80]);
+
+        // Naikkan satu pusat kepada 3 saluran — kes penggunaan yang dinamakan
+        // spesifikasi — tanpa menamakan semula apa-apa.
+        $pusat = $data['pusat'];
+        $i = collect($pusat)->search(fn ($p) => $p['pusat'] === 'KG TENGKEK');
+        $pusat[$i]['saluran_count'] = 3;
+
+        $this->actingAs($this->user())->postJson(route('pilihanraya.borang-14.struktur'), [
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->kadun->id,
+            'jenis_pr' => 'prn', 'tahun' => 2027,
+            'pusat' => $pusat,
+            'undi_awal' => $data['undi_awal'], 'undi_pos' => $data['undi_pos'],
+            'undi_awal_label' => $data['undi_awal_label'], 'undi_pos_label' => $data['undi_pos_label'],
+            'lain_lain' => $data['lain_lain'],
+        ])->assertOk();
+
+        // Undi kekal di bawah kunci asalnya — tiada penamaan semula berlaku.
+        $this->assertSame(80, Borang14Vote::where('borang14_form_id', $form->id)
+            ->where('pusat', 'TIADA LOKALITI')->value('undi'));
+
+        // Dan saluran 2 & 3 benar-benar dipaparkan selepas simpanan: struktur
+        // mengalahkan anggaran DPT (spesifikasi :159).
+        $selepas = $this->actingAs($this->user())->getJson(route('pilihanraya.borang-14.data', [
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->kadun->id, 'jenis_pr' => 'prn', 'tahun' => 2027,
+        ]));
+        $dm = collect($selepas->json('reference.daerah_mengundi'))
+            ->flatMap(fn ($d) => $d['pusat_mengundi'])->firstWhere('nama', 'KG TENGKEK');
+        $this->assertCount(3, $dm['saluran']);
+    }
+
+    public function test_a_dead_end_seat_with_votes_but_no_reference_can_still_save_a_structure(): void
+    {
+        // saveVote() melakukan firstOrCreate, jadi menaip SATU sel pada kerusi
+        // buntu mencipta borang yang ada undi tetapi TIADA structure, dan
+        // tiada rujukan langsung (tiada kurasi, tiada DPT, tiada warisan).
+        // Sebelum pintasan dalam assertPusatNamesUsable(), simpanan struktur
+        // PERTAMA bagi borang begini ditolak selama-lamanya: setiap nama yang
+        // ditaip sudah wujud dalam borang14_votes tetapi tiada dalam struktur,
+        // jadi ia dikira berlanggar dengan dirinya sendiri.
+        $form = Borang14Form::create([
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->kadun->id,
+            'jenis_pr' => 'prn', 'tahun' => 2027, 'penjuru' => 2,
+            'status' => 'draft', 'source' => 'manual', 'parties' => [],
+            'structure' => null,
+        ]);
+        Borang14Vote::create(['borang14_form_id' => $form->id, 'pusat' => 'SK TENGKEK', 'saluran' => '1', 'slot' => 1, 'undi' => 320]);
+
+        $this->actingAs($this->user())->postJson(route('pilihanraya.borang-14.struktur'), $this->payload([
+            ['row_id' => 'pm_a', 'dm' => 'KUALA JEMAPOH', 'pusat' => 'SK TENGKEK', 'saluran_count' => 1],
+        ]))->assertOk();
+
+        // Dan undi yang sudah ditaip mesti KEKAL — nama itu tidak berubah.
+        $this->assertSame(320, Borang14Vote::where('borang14_form_id', $form->id)
+            ->where('pusat', 'SK TENGKEK')->value('undi'));
     }
 
     public function test_renaming_a_pusat_on_a_seeded_panel_moves_its_votes_instead_of_deleting_them(): void

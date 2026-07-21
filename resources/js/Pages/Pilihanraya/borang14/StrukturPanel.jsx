@@ -90,9 +90,15 @@ export default function StrukturPanel({ picker, struktur, onSaved, onCancel }) {
         const kosong = pusat.some((p) => !(p.pusat || '').trim());
         if (kosong) { setRalat('Setiap Pusat Mengundi mesti bernama.'); return; }
 
-        const nama = pusat.map((p) => (p.pusat || '').trim().toUpperCase());
-        if (new Set(nama).size !== nama.length) {
-            setRalat('Nama Pusat Mengundi mesti unik (tidak kira huruf besar/kecil).');
+        // Namakan pendua itu. Semakan ini berlaku SEBELUM permintaan, jadi
+        // mesej pelayan yang setara tidak akan sampai kepada pengguna — kalau
+        // yang ini kabur, tiada apa lagi yang akan menjelaskannya. Nama
+        // dipaparkan SEPERTI DITAIP, bukan bentuk huruf besar yang dibanding.
+        const nama = pusat.map((p) => (p.pusat || '').trim());
+        const kunci = nama.map((n) => n.toUpperCase());
+        const berulang = [...new Set(nama.filter((_, i) => kunci.indexOf(kunci[i]) !== i))];
+        if (berulang.length > 0) {
+            setRalat(`Nama Pusat Mengundi mesti unik (tidak kira huruf besar/kecil). Nama berulang: ${berulang.join(', ')}. Namakan semula atau buang baris yang berlebihan.`);
             return;
         }
 

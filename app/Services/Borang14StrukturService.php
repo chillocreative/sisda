@@ -189,6 +189,7 @@ class Borang14StrukturService
     public function collapseReference(?array $reference): array
     {
         $pusat = [];
+        $dilihat = [];
 
         foreach ($reference['daerah_mengundi'] ?? [] as $dm) {
             $namaDm = (string) ($dm['nama'] ?? '');
@@ -199,6 +200,22 @@ class Borang14StrukturService
                 }
                 $labels = collect($pm['saluran'] ?? [])
                     ->map(fn ($s) => (string) ($s['no'] ?? ''))->all();
+
+                // Kunci undi ialah pusat|saluran — TIADA komponen DM — jadi
+                // dua Pusat yang berkongsi nama di bawah DM berbeza
+                // sememangnya SEL YANG SAMA. Anggaran DPT menghasilkannya
+                // secara rutin: lokaliti kosong menjadi satu baris
+                // 'TIADA LOKALITI' bagi setiap Daerah Mengundi. Membawanya
+                // ke panel sebagai entri berasingan menghasilkan muatan yang
+                // ditolak oleh endpoint simpan sendiri (nama mesti unik) —
+                // panel menyerahkan keadaan tidak sah kepada pengguna lalu
+                // menyalahkannya. Digabungkan di sini supaya panel
+                // menggambarkan ruang kunci yang sebenar.
+                $kunci = mb_strtoupper(trim($nama));
+                if (isset($dilihat[$kunci])) {
+                    continue;
+                }
+                $dilihat[$kunci] = true;
 
                 $pusat[] = [
                     'row_id' => 'pm_'.md5($namaDm.'|'.$nama),

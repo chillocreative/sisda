@@ -458,7 +458,12 @@ class Borang14Controller extends Controller
             // Daerah Mengundi yang ada baris tanpa lokaliti), dan mesej yang
             // tidak menyebut nama meninggalkan pengguna mengamati 12 baris
             // yang kelihatan serupa.
-            $pendua = $namaKeyList->duplicates()->unique()->values()->implode(', ');
+            // Papar nama SEPERTI DITAIP, bukan bentuk nameKey() huruf besar
+            // yang hanya digunakan untuk membanding.
+            $kunciPendua = $namaKeyList->duplicates()->unique()->values();
+            $pendua = collect($pusat)
+                ->filter(fn ($p) => $kunciPendua->contains($this->nameKey($p['pusat'])))
+                ->pluck('pusat')->unique()->values()->implode(', ');
 
             throw ValidationException::withMessages([
                 'pusat' => "Nama Pusat Mengundi mesti unik dalam satu borang. Nama berulang: {$pendua}. Namakan semula atau buang baris yang berlebihan.",
