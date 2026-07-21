@@ -310,6 +310,33 @@ class Borang14StrukturServiceTest extends TestCase
         $this->assertSame(1, $out['pusat'][0]['saluran_count']);
     }
 
+    public function test_collapse_reference_unions_the_saluran_of_pusat_it_merges(): void
+    {
+        // Menggabungkan mesti MENYATUKAN saluran, bukan membuang yang kedua:
+        // kunci undi yang digugurkan di sini akan dipadam sebagai yatim oleh
+        // cascade simpanan, tanpa apa-apa petunjuk di panel bahawa ia wujud.
+        $ref = ['daerah_mengundi' => [
+            ['nama' => 'DM SATU', 'pusat_mengundi' => [
+                ['nama' => 'SK X', 'saluran' => [['no' => 1]]],
+            ]],
+            ['nama' => 'DM DUA', 'pusat_mengundi' => [
+                ['nama' => 'SK X', 'saluran' => [['no' => 2], ['no' => 3]]],
+            ]],
+        ]];
+
+        $out = $this->svc->collapseReference($ref);
+
+        $this->assertCount(1, $out['pusat']);
+        $this->assertSame(['1', '2', '3'], $out['pusat'][0]['saluran_labels']);
+        $this->assertSame(3, $out['pusat'][0]['saluran_count']);
+
+        // Dan ketiga-tiga kunci undi mesti terselamat melalui expand().
+        $this->assertSame(
+            ['SK X|1', 'SK X|2', 'SK X|3'],
+            array_keys($this->svc->survivingKeys($this->svc->expand($out['pusat'], false, false))),
+        );
+    }
+
     public function test_collapse_reference_preserves_an_inherited_non_canonical_postal_label(): void
     {
         // referenceFromStructure() membawa label MENTAH. Menggugurkannya di

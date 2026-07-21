@@ -212,10 +212,22 @@ class Borang14StrukturService
                 // menyalahkannya. Digabungkan di sini supaya panel
                 // menggambarkan ruang kunci yang sebenar.
                 $kunci = mb_strtoupper(trim($nama));
+
+                // MENYATUKAN, bukan membuang. Kalau saluran entri kedua
+                // digugurkan, kunci undi di bawahnya (contohnya 'SK X|2')
+                // hilang daripada struktur dan cascade simpanan memadamnya
+                // sebagai yatim — tanpa apa-apa di panel yang menunjukkan
+                // saluran itu pernah wujud.
                 if (isset($dilihat[$kunci])) {
+                    $i = $dilihat[$kunci];
+                    $gabung = array_values(array_unique(array_merge($pusat[$i]['saluran_labels'], $labels)));
+                    $pusat[$i]['saluran_labels'] = $gabung;
+                    $pusat[$i]['saluran_count'] = max(1, count($gabung));
+
                     continue;
                 }
-                $dilihat[$kunci] = true;
+
+                $dilihat[$kunci] = count($pusat);
 
                 $pusat[] = [
                     'row_id' => 'pm_'.md5($namaDm.'|'.$nama),
