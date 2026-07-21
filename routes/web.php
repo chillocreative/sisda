@@ -382,6 +382,11 @@ Route::middleware(['auth', 'super_admin'])->group(function () {
     Route::post('/settings/claude', [\App\Http\Controllers\ClaudeSettingController::class, 'update'])->name('settings.claude.update');
     Route::post('/settings/claude/test-connection', [\App\Http\Controllers\ClaudeSettingController::class, 'testConnection'])->name('settings.claude.test');
 
+    // electiondata.my — keputusan rasmi SPR (kunci API dalam DB, bukan .env)
+    Route::get('/settings/election-data', [\App\Http\Controllers\ElectionDataSettingController::class, 'index'])->name('settings.election-data');
+    Route::post('/settings/election-data', [\App\Http\Controllers\ElectionDataSettingController::class, 'update'])->name('settings.election-data.update');
+    Route::post('/settings/election-data/test-connection', [\App\Http\Controllers\ElectionDataSettingController::class, 'testConnection'])->name('settings.election-data.test');
+
     // AI Activity Log — token usage & cost
     Route::get('/settings/ai-usage', [\App\Http\Controllers\AiUsageLogController::class, 'index'])->name('settings.ai-usage');
 });
@@ -435,6 +440,8 @@ Route::middleware(['auth', 'admin'])->prefix('pilihanraya')->name('pilihanraya.'
     Route::delete('/analisa/comparisons/{comparison}/scenarios/{scenario}', [\App\Http\Controllers\AnalisaComparisonController::class, 'destroyScenario'])->name('analisa.comparisons.scenarios.destroy');
     Route::post('/analisa/comparisons/{comparison}/analyze', [\App\Http\Controllers\AnalisaComparisonController::class, 'analyze'])->name('analisa.comparisons.analyze')->middleware('throttle:5,1');
     Route::get('/analisa/comparisons/{comparison}/pdf', [\App\Http\Controllers\AnalisaComparisonController::class, 'pdf'])->name('analisa.comparisons.pdf');
+    // Garis dasar keputusan rasmi SPR bagi kawasan terpilih (electiondata.my)
+    Route::get('/analisa/seat-baseline', [\App\Http\Controllers\PilihanrayaAnalisaController::class, 'seatBaseline'])->name('analisa.seat-baseline');
     Route::get('/analisa/keanggotaan-card', [\App\Http\Controllers\PilihanrayaAnalisaController::class, 'keanggotaanCard'])->name('analisa.keanggotaan-card');
 
     // Scoreboard — live election night board driven by Borang 14 figures
@@ -453,6 +460,10 @@ Route::middleware(['auth', 'admin'])->prefix('pilihanraya')->name('pilihanraya.'
     Route::post('/borang-14/publish', [\App\Http\Controllers\Borang14Controller::class, 'publish'])->name('borang-14.publish')->middleware('throttle:30,1');
     Route::post('/borang-14/revert', [\App\Http\Controllers\Borang14Controller::class, 'revert'])->name('borang-14.revert')->middleware('throttle:10,1');
     Route::get('/borang-14/senarai', [\App\Http\Controllers\Borang14Controller::class, 'senarai'])->name('borang-14.senarai');
+    Route::get('/borang-14/upload/sejarah', [\App\Http\Controllers\Borang14Controller::class, 'sejarahUpload'])->name('borang-14.upload.sejarah');
+    // Muat turun menyemak semula skop pengguna dalam pengawal — jangan sekali-kali
+    // bergantung pada tapisan senarai sahaja, id boleh diteka.
+    Route::get('/borang-14/upload/{upload}/fail', [\App\Http\Controllers\Borang14Controller::class, 'muatTurunUpload'])->name('borang-14.upload.fail');
 
     // War Room tab data (lazy-loaded, cached aggregates)
     Route::get('/api/overview', [\App\Http\Controllers\PilihanrayaController::class, 'overview'])->name('api.overview');

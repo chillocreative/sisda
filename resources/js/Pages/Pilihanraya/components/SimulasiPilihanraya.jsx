@@ -17,7 +17,13 @@ const DEFAULT_ORDER = ['PH', 'BN', 'PN', 'PEJUANG', 'MUDA', 'BEBAS'];
 
 // Kalibrasi PRN 2022 (workbook SIMULASI-2026). Lain-lain is a sensible seed —
 // the workbook has no Lain-lain row.
+// Kiraan pengundi ini hanya nilai permulaan — ia digantikan oleh autoisi DPPR
+// sebaik sahaja satu kerusi dipilih (lihat useEffect di bawah).
 const DEFAULT_PENGUNDI = { melayu: 16668, cina: 9443, india: 2862, lain: 0 };
+
+// Turnout dan sokongan ialah ANDAIAN, bukan fakta. Turnout diselaraskan kepada
+// keluar-mengundi SEBENAR kerusi terpilih apabila garis dasar rasmi telah
+// disegerakkan; peratus sokongan tiada sumber rasmi dan kekal andaian.
 const DEFAULT_ANDAIAN = {
     melayu: { turnout: 0.674, sokongan: { PH: 0.235 } },
     cina: { turnout: 0.749, sokongan: { PH: 0.830 } },
@@ -99,6 +105,36 @@ export default function SimulasiPilihanraya({ filters, simulasiParties = [], pen
                 setSource(data.source);
             })
             .catch(() => !cancelled && setSource(null));
+
+        return () => { cancelled = true; };
+    }, [filters?.parlimen_id, filters?.kadun_id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    /* ---- Kalibrasi turnout daripada keputusan rasmi kerusi terpilih ---- */
+    const [garisDasar, setGarisDasar] = useState(null);
+    useEffect(() => {
+        if (!filters?.parlimen_id && !filters?.kadun_id) return undefined;
+
+        let cancelled = false;
+        axios.get(route('pilihanraya.analisa.seat-baseline'), {
+            params: filters.kadun_id ? { kadun_id: filters.kadun_id } : { bandar_id: filters.parlimen_id },
+        })
+            .then(({ data }) => {
+                if (cancelled) return;
+                const b = data.baseline;
+                setGarisDasar(b?.tersedia ? b : null);
+
+                // HANYA apabila peratus sebenar diketahui. null bermakna tidak
+                // diketahui — mengekalkan andaian generik adalah lebih jujur
+                // daripada menganggap 0% keluar mengundi.
+                const perc = b?.keluar_mengundi_perc;
+                if (b?.tersedia && typeof perc === 'number' && perc > 0) {
+                    const t = Math.min(1, perc / 100);
+                    setAndaian((a) => Object.fromEntries(
+                        Object.entries(a).map(([kaum, v]) => [kaum, { ...v, turnout: t }]),
+                    ));
+                }
+            })
+            .catch(() => !cancelled && setGarisDasar(null));
 
         return () => { cancelled = true; };
     }, [filters?.parlimen_id, filters?.kadun_id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -331,6 +367,13 @@ export default function SimulasiPilihanraya({ filters, simulasiParties = [], pen
                     <h3 className={`${t.cardTitle} mb-1`}>Andaian Senario</h3>
                     <p className={`${t.subtext} text-xs mb-4`}>
                         Baki % = {lastParty?.kod}. Sokongan parti terakhir dikira automatik dari baki turnout.
+                        {garisDasar && (
+                            <>
+                                {' '}Turnout dikalibrasi kepada keluar mengundi sebenar kerusi ini
+                                ({garisDasar.pilihanraya}: {garisDasar.keluar_mengundi_perc?.toFixed(2)}%).
+                                Peratus sokongan kekal andaian — tiada sumber rasmi menyediakannya.
+                            </>
+                        )}
                     </p>
                     <div className="overflow-x-auto">
                         <table className="min-w-full">

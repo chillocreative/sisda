@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Bandar;
 use App\Models\Borang14Form;
 use App\Models\Borang14Snapshot;
+use App\Models\Borang14Upload;
 use App\Models\Borang14Vote;
 use App\Models\Kadun;
 use App\Models\KeahlianParti;
 use App\Models\Negeri;
+use App\Models\User;
 use App\Services\Pilihanraya\KawasanResolver;
 use App\Services\Pilihanraya\ScoresheetExtractor;
 use App\Support\Borang14Reference;
@@ -16,6 +18,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -24,6 +27,9 @@ class Borang14Controller extends Controller
 {
     /** Undi Awal & Undi Pos are combined into a single row only for this DUN. */
     private const BULOH_KASAP_KADUN_ID = 41;
+
+    /** Folder scoresheet pada disk 'private' — tidak boleh dicapai melalui URL. */
+    private const SCORESHEET_DIR = 'borang14-scoresheets';
 
     /** Penjuru dropdown → number of party columns. */
     private const PENJURU = [
@@ -579,12 +585,28 @@ class Borang14Controller extends Controller
         }
 
         $token = Str::random(40);
+
+        // Fail disimpan SEKARANG, bukan semasa commit: langkah commit tidak
+        // menerima fail (hanya token), jadi ini satu-satunya masa bait-baitnya
+        // ada. Baris sejarah pula hanya dicipta selepas commit berjaya, jadi
+        // muat naik yang ditinggalkan meninggalkan fail tanpa rujukan — dibersihkan
+        // oleh sweep di bawah supaya storan tidak membesar tanpa had.
+        $this->pruneAbandonedScoresheets();
+        $failPath = null;
+        try {
+            $failPath = $request->file('fail')->store(self::SCORESHEET_DIR, 'private');
+        } catch (\Throwable) {
+            // Simpanan gagal tidak boleh membatalkan bacaan yang sudah berjaya —
+            // sejarah kehilangan fail asal, undi tetap masuk.
+        }
+
         Cache::put($this->dryRunCacheKey($token), [
             'user_id' => $request->user()?->id,
             'extracted' => $res['data'],
             'jenis_pr' => $data['jenis_pr'],
             'tahun' => $data['tahun'],
             'filename' => $request->file('fail')->getClientOriginalName(),
+            'fail_path' => $failPath,
         ], now()->addMinutes(self::DRY_RUN_TTL_MINUTES));
 
         $review = $this->computeNeedsReview($res['data']);
@@ -602,6 +624,10 @@ class Borang14Controller extends Controller
             'kawasan_nama' => $res['data']['kawasan_nama'] ?? null,
             'needs_review' => $review['needs_review'],
             'unbalanced' => $review['unbalanced'],
+            // 'deterministic' = dibaca terus dari borang SPR 760 (boleh dibuktikan);
+            // 'ai' = dibaca oleh Claude. Ditunjukkan supaya pengguna tahu tahap
+            // kepercayaan sebelum mengesahkan.
+            'source' => $res['data']['source'] ?? 'ai',
         ]);
     }
 
@@ -634,6 +660,34 @@ class Borang14Controller extends Controller
             'tahun' => $cached['tahun'],
         ]);
 
+        $review = $this->computeNeedsReview($extractedData);
+
+        // Satu commit menulis borang + snapshot + ratusan baris undi. Tanpa
+        // transaksi, kegagalan separuh jalan meninggalkan borang dengan undi
+        // yang tidak lengkap — dan undi lama SUDAH dipadam, jadi kerugiannya
+        // kekal. (CLAUDE.md menamakan kaedah ini sebagai salah satu penulisan
+        // berbilang baris yang belum dibungkus.)
+        DB::transaction(function () use ($form, $extractedData, $review, $cached, $request, $kawasan) {
+            $this->writeForm($form, $extractedData, $review, $cached, $request);
+            $this->recordUpload($form, $extractedData, $review, $cached, $request, $kawasan);
+        });
+
+        // Elak main semula token selepas commit berjaya.
+        Cache::forget($cacheKey);
+
+        return response()->json([
+            'ok' => true,
+            'form_id' => $form->id,
+            'created' => $kawasan['created'],
+            'unbalanced' => $review['unbalanced'],
+            'needs_review' => $form->needs_review,
+            'source' => $extractedData['source'] ?? 'ai',
+        ]);
+    }
+
+    /** Tulis borang, snapshot pemulihan, dan setiap sel undi. Mesti dalam transaksi. */
+    private function writeForm(Borang14Form $form, array $extractedData, array $review, array $cached, Request $request): void
+    {
         // Scoresheet menang — tetapi simpan keadaan lama dahulu supaya boleh revert.
         if ($form->exists) {
             Borang14Snapshot::create([
@@ -646,8 +700,6 @@ class Borang14Controller extends Controller
             ]);
             $form->votes()->delete();
         }
-
-        $review = $this->computeNeedsReview($extractedData);
 
         $form->fill([
             'penjuru' => max(2, count($extractedData['calon'] ?? [])),
@@ -674,16 +726,68 @@ class Borang14Controller extends Controller
             $this->putVote($form, $r, 90, (int) ($r['ditolak'] ?? 0));
             $this->putVote($form, $r, 91, (int) ($r['tidak_dimasukkan'] ?? 0));
         }
+    }
 
-        // Elak main semula token selepas commit berjaya.
-        Cache::forget($cacheKey);
+    /**
+     * Rekod satu baris sejarah bagi muat naik ini.
+     *
+     * `totals` menyimpan KEDUA-DUA angka: yang DICETAK pada sheet dan yang
+     * DICAMPUR daripada baris yang diekstrak. Menyimpan hanya satu daripadanya
+     * akan menyembunyikan percanggahan seperti kegagalan produksi (98 lawan
+     * 4,471) — perbandingan itu sendiri ialah rekod auditnya.
+     *
+     * Setiap angka yang tidak dicetak kekal null, bukan 0.
+     */
+    private function recordUpload(Borang14Form $form, array $extractedData, array $review, array $cached, Request $request, array $kawasan): void
+    {
+        $rows = $extractedData['rows'] ?? [];
+        $printed = $extractedData['jumlah'] ?? null;
+        $isParlimen = $form->kawasan_type === Borang14Form::KAWASAN_PARLIMEN;
+        $seat = $form->kawasan();
+        $bandar = $isParlimen ? $seat : $seat?->bandar;
 
-        return response()->json([
-            'ok' => true,
-            'form_id' => $form->id,
-            'created' => $kawasan['created'],
-            'unbalanced' => $review['unbalanced'],
-            'needs_review' => $form->needs_review,
+        $sum = fn (string $key) => (int) collect($rows)->sum(fn ($r) => (int) ($r[$key] ?? 0));
+        $sumUndi = collect($rows)->reduce(function (array $carry, array $r) {
+            foreach (($r['undi'] ?? []) as $i => $v) {
+                $carry[$i] = ($carry[$i] ?? 0) + (int) $v;
+            }
+
+            return $carry;
+        }, []);
+
+        Borang14Upload::create([
+            'borang14_form_id' => $form->id,
+            'kawasan_type' => $form->kawasan_type,
+            'kawasan_id' => $form->kawasan_id,
+            'negeri' => $bandar?->negeri?->nama,
+            'parlimen' => $bandar?->nama,
+            'dun' => $isParlimen ? null : $seat?->nama,
+            'nama_fail' => $cached['filename'],
+            'fail_path' => $cached['fail_path'] ?? null,
+            'jenis_pr' => $cached['jenis_pr'],
+            'tahun' => $cached['tahun'],
+            'source' => $extractedData['source'] ?? 'ai',
+            'row_count' => count($rows),
+            'saluran_count' => $extractedData['saluran_count'] ?? null,
+            'totals' => [
+                'pemilih' => $extractedData['jumlah_pemilih'] ?? null,
+                'dicetak' => $printed ? [
+                    'undi' => array_values($printed['undi'] ?? []),
+                    'keluar' => $printed['jumlah_undian'] ?? null,
+                    'ditolak' => $printed['ditolak'] ?? null,
+                    'tidak_dimasukkan' => $printed['tidak_dimasukkan'] ?? null,
+                ] : null,
+                'dikira' => [
+                    'undi' => array_values($sumUndi),
+                    'keluar' => $sum('jumlah_undian'),
+                    'ditolak' => $sum('ditolak'),
+                    'tidak_dimasukkan' => $sum('tidak_dimasukkan'),
+                ],
+                'calon' => array_column($extractedData['calon'] ?? [], 'nama'),
+                'percanggahan' => $review['unbalanced'],
+            ],
+            'needs_review' => $review['needs_review'],
+            'uploaded_by' => $request->user()?->id,
         ]);
     }
 
@@ -698,7 +802,15 @@ class Borang14Controller extends Controller
      */
     private function computeNeedsReview(array $extractedData): array
     {
-        $unbalanced = ScoresheetExtractor::validateBalance($extractedData);
+        // DUA semakan berbeza, kedua-duanya perlu:
+        //   validateBalance()  — setiap baris terhadap dirinya sendiri
+        //   reconcileTotals()  — jumlah semua baris terhadap baris JUMLAH BERCETAK
+        // Semakan kedua itulah yang akan menangkap kegagalan produksi (hanya baris
+        // UNDI POS diekstrak: 98/73 diterbitkan, sedangkan sheet mencetak 4,471/4,549).
+        $unbalanced = array_merge(
+            ScoresheetExtractor::validateBalance($extractedData),
+            ScoresheetExtractor::reconcileTotals($extractedData),
+        );
         $anyGuess = collect($extractedData['calon'] ?? [])->contains(fn ($c) => ! ($c['yakin'] ?? false));
         $noSaluran = collect($extractedData['rows'] ?? [])
             ->contains(fn ($r) => ($r['pusat'] ?? '') !== '' && blank($r['saluran'] ?? null));
@@ -832,6 +944,134 @@ class Borang14Controller extends Controller
             });
 
         return response()->json(['rows' => $rows]);
+    }
+
+    /**
+     * Sejarah muat naik scoresheet, terbaharu dahulu, ditapis mengikut kawasan
+     * yang sama seperti senarai() supaya kedua-dua panel menunjukkan skop yang
+     * konsisten.
+     */
+    public function sejarahUpload(Request $request)
+    {
+        $data = $request->validate([
+            'negeri_id' => 'nullable|integer|exists:negeri,id',
+            'bandar_id' => 'nullable|integer|exists:bandar,id',
+            'kadun_id' => 'nullable|integer|exists:kadun,id',
+        ]);
+
+        $rows = Borang14Upload::query()
+            ->with('uploader:id,name')
+            ->when($data['kadun_id'] ?? null, fn ($q, $id) => $q->where('kawasan_type', 'dun')->where('kawasan_id', $id))
+            ->when(! ($data['kadun_id'] ?? null) && ($data['bandar_id'] ?? null), function ($q, $_) use ($data) {
+                $kadunIds = Kadun::where('bandar_id', $data['bandar_id'])->pluck('id');
+                $q->where(function ($w) use ($data, $kadunIds) {
+                    $w->orWhere(fn ($x) => $x->where('kawasan_type', 'parlimen')->where('kawasan_id', $data['bandar_id']))
+                        ->orWhere(fn ($x) => $x->where('kawasan_type', 'dun')->whereIn('kawasan_id', $kadunIds));
+                });
+            })
+            ->latest('id')
+            ->limit(100)
+            ->get()
+            ->map(fn (Borang14Upload $u) => [
+                'id' => $u->id,
+                'form_id' => $u->borang14_form_id,
+                'kawasan' => trim(collect([$u->parlimen, $u->dun])->filter()->implode(' / ')) ?: '—',
+                'negeri' => $u->negeri ?? '—',
+                'nama_fail' => $u->nama_fail,
+                'jenis_pr' => $u->jenis_pr,
+                'tahun' => $u->tahun,
+                'source' => $u->source,
+                'row_count' => $u->row_count,
+                'saluran_count' => $u->saluran_count,
+                'totals' => $u->totals,
+                'needs_review' => $u->needs_review,
+                // Fail lama boleh dipadam dari cakera walaupun barisnya kekal —
+                // UI perlu tahu supaya tidak menawarkan pautan yang mati.
+                'boleh_muat_turun' => (bool) $u->fail_path,
+                'oleh' => $u->uploader?->name ?? '—',
+                'tarikh' => $u->created_at?->toDateTimeString(),
+            ]);
+
+        return response()->json(['rows' => $rows]);
+    }
+
+    /**
+     * Hidangkan fail scoresheet asal dari disk 'private'.
+     *
+     * Fail ini TIDAK PERNAH boleh dicapai terus melalui URL awam — hanya melalui
+     * laluan ini, dan hanya selepas skop pengguna disemak semula pada masa muat
+     * turun (bukan bergantung pada tapisan senarai, yang boleh dipintas dengan
+     * meneka id).
+     */
+    public function muatTurunUpload(Request $request, Borang14Upload $upload)
+    {
+        if (! $this->bolehCapaiUpload($request->user(), $upload)) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        if (! $upload->fail_path || ! Storage::disk('private')->exists($upload->fail_path)) {
+            abort(404, 'Fail scoresheet tidak lagi tersedia.');
+        }
+
+        return Storage::disk('private')->download($upload->fail_path, $upload->nama_fail);
+    }
+
+    /**
+     * super_admin melihat semua; admin terhad kepada Parlimen (Bandar) sendiri;
+     * pengguna lain terhad kepada DUN (Kadun) sendiri.
+     *
+     * Muat naik yang tidak dapat ditempatkan pada mana-mana kawasan hanya boleh
+     * dicapai oleh super_admin — "tidak diketahui" tidak boleh bermakna "terbuka
+     * kepada semua orang".
+     */
+    private function bolehCapaiUpload(?User $user, Borang14Upload $upload): bool
+    {
+        if (! $user) {
+            return false;
+        }
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+        if (! $upload->kawasan_type || ! $upload->kawasan_id) {
+            return false;
+        }
+
+        $bandarId = $upload->kawasan_type === Borang14Form::KAWASAN_PARLIMEN
+            ? $upload->kawasan_id
+            : Kadun::whereKey($upload->kawasan_id)->value('bandar_id');
+
+        if ($user->isAdmin()) {
+            return $user->bandar_id !== null && (int) $user->bandar_id === (int) $bandarId;
+        }
+
+        return $upload->kawasan_type === Borang14Form::KAWASAN_DUN
+            && $user->kadun_id !== null
+            && (int) $user->kadun_id === (int) $upload->kawasan_id;
+    }
+
+    /**
+     * Buang fail scoresheet yang tiada baris sejarah merujuknya dan sudah lebih
+     * lama daripada tempoh sah token — iaitu muat naik yang dibaca tetapi tidak
+     * pernah disahkan. Tanpa ini, setiap dry run yang ditinggalkan meninggalkan
+     * fail sehingga 20 MB pada cakera selama-lamanya.
+     */
+    private function pruneAbandonedScoresheets(): void
+    {
+        try {
+            $disk = Storage::disk('private');
+            $cutoff = now()->subMinutes(self::DRY_RUN_TTL_MINUTES + 60)->getTimestamp();
+            $files = collect($disk->files(self::SCORESHEET_DIR))
+                ->filter(fn ($p) => $disk->lastModified($p) < $cutoff);
+
+            if ($files->isEmpty()) {
+                return;
+            }
+
+            $kekal = Borang14Upload::whereIn('fail_path', $files->all())->pluck('fail_path')->all();
+            $disk->delete($files->reject(fn ($p) => in_array($p, $kekal, true))->all());
+        } catch (\Throwable) {
+            // Pembersihan tidak boleh menggagalkan muat naik yang sah.
+        }
     }
 
     private function cellKey(?string $pusat, string $saluran, int $slot): string

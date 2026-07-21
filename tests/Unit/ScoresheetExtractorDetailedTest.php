@@ -18,6 +18,59 @@ class ScoresheetExtractorDetailedTest extends TestCase
         $this->assertSame([], $bad, 'Setiap baris mesti: a == sum(undi) + ditolak + tidak_dimasukkan');
     }
 
+    /**
+     * THE regression test for the production defect: an extraction that returned
+     * only the sheet's UNDI POS line (PN 98 / BN 73) while the printed JUMLAH row
+     * says 4,471 / 4,549. Every row balanced internally, so the old per-row checks
+     * passed it — publishing a ~98% undercount. Reconciling the rows against the
+     * sheet's own printed total is what catches it.
+     */
+    public function test_rows_that_do_not_add_up_to_the_printed_jumlah_are_flagged(): void
+    {
+        $data = $this->fixture();
+        $pos = collect($data['rows'])->firstWhere('saluran', 'UNDI POS');
+        $data['rows'] = [$pos];                  // exactly what production published
+        $data['saluran_count'] = 40;
+
+        $bad = collect(ScoresheetExtractor::reconcileTotals($data));
+
+        $this->assertSame([4471, 4549], $bad->where('rule', 'jumlah_undi')->pluck('jangka')->all());
+        $this->assertSame([98, 73], $bad->where('rule', 'jumlah_undi')->pluck('dapat')->all());
+        $this->assertContains('saluran_count', $bad->pluck('rule')->all());
+    }
+
+    /** A shifted candidate column still totals correctly overall — per column it does not. */
+    public function test_a_shifted_candidate_column_is_flagged(): void
+    {
+        $data = \App\Support\Pilihanraya\Spr760Parser::detailed(
+            base_path('tests/Fixtures/Pilihanraya/spr760-juasseh-2023.pdf'),
+        );
+        $data['jumlah']['undi'] = array_reverse($data['jumlah']['undi']);
+
+        $bad = collect(ScoresheetExtractor::reconcileTotals($data))->where('rule', 'jumlah_undi');
+
+        $this->assertCount(2, $bad, 'kedua-dua lajur calon terpesong apabila ditukar ganti');
+    }
+
+    /** No printed JUMLAH row = nothing to reconcile against; do not invent a mismatch. */
+    public function test_reconciliation_is_skipped_when_no_total_is_printed(): void
+    {
+        $data = $this->fixture();
+        unset($data['jumlah']);
+
+        $this->assertSame([], ScoresheetExtractor::reconcileTotals($data));
+    }
+
+    /** The full sheet, read deterministically, must reconcile against its own JUMLAH. */
+    public function test_the_real_sheet_reconciles(): void
+    {
+        $data = \App\Support\Pilihanraya\Spr760Parser::detailed(
+            base_path('tests/Fixtures/Pilihanraya/spr760-juasseh-2023.pdf'),
+        );
+
+        $this->assertSame([], ScoresheetExtractor::reconcileTotals($data));
+    }
+
     public function test_grand_total_balances(): void
     {
         $j = $this->fixture()['jumlah'];
