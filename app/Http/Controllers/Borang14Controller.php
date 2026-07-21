@@ -326,6 +326,10 @@ class Borang14Controller extends Controller
      */
     private function referenceFromStructure(array $structure, Bandar|Kadun|null $kawasan): array
     {
+        // Asal-usul mesti dilaporkan dengan jujur ke UI: 'manual' bermakna
+        // seorang manusia menaip bentuk ini, bukan SPR yang menggazetkannya.
+        $origin = ($structure['origin'] ?? null) === 'manual' ? 'manual' : 'scoresheet';
+
         $isParlimen = $kawasan instanceof Bandar;
         $daerah = [];
         $undiAwal = null;
@@ -387,7 +391,7 @@ class Borang14Controller extends Controller
             'daerah_mengundi' => array_values($daerah),
             'undi_awal' => $undiAwal,
             'undi_pos'  => $undiPos,
-            'source'    => 'scoresheet',
+            'source'    => $origin,
         ];
     }
 
@@ -419,6 +423,15 @@ class Borang14Controller extends Controller
     {
         $structure = $form->structure;
         if (empty($structure['rows'])) {
+            return [];
+        }
+
+        // Struktur yang dibina dengan tangan tiada baris bercetak untuk
+        // dibandingkan — tiada lajur (A), tiada 'jumlah_undian'. Menjalankan
+        // validateBalance() ke atasnya akan membandingkan setiap sel dengan
+        // sifar yang tidak pernah dicetak sesiapa, lalu menuduh borang yang
+        // diisi dengan BETUL sebagai tidak seimbang.
+        if (($structure['origin'] ?? null) === 'manual') {
             return [];
         }
 
