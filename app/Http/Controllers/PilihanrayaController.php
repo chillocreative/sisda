@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Exports\PilihanrayaBriefingExport;
+use App\Models\KeahlianParti;
 use App\Services\Pilihanraya\ElectionAnalyticsService;
 use App\Services\Pilihanraya\ElectionEarlyWarningService;
 use App\Services\Pilihanraya\ElectionForecastService;
+use App\Support\PartyCode;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -23,7 +25,11 @@ class PilihanrayaController extends Controller
         protected ElectionForecastService $forecast,
     ) {}
 
-    /** Parties/coalitions selectable in the Simulasi Pilihanraya table. */
+    /**
+     * Fallback line-up for the Simulasi Pilihanraya table, used only when
+     * Data Induk (Keanggotaan Parti) has no rows — the page must never render
+     * an empty party dropdown.
+     */
     private const SIMULASI_PARTIES = [
         ['kod' => 'PH', 'nama' => 'Pakatan Harapan'],
         ['kod' => 'PN', 'nama' => 'Perikatan Nasional'],
@@ -58,13 +64,35 @@ class PilihanrayaController extends Controller
     {
         return Inertia::render('Pilihanraya/Simulasi', array_merge(
             [
-                'simulasiParties' => self::SIMULASI_PARTIES,
+                'simulasiParties' => $this->simulasiParties(),
                 'penjuruOptions' => collect(self::PENJURU_OPTIONS)
                     ->map(fn ($label, $value) => ['value' => $value, 'label' => $label])
                     ->values(),
             ],
             $this->analytics->filterLists(),
         ));
+    }
+
+    /**
+     * Selectable parties, sourced from Data Induk → Keanggotaan Parti so the
+     * list is maintained by users rather than hardcoded here. Names are
+     * de-duplicated case-insensitively (the master table is per-Bandar, so the
+     * same coalition appears once per Parlimen) and keep the master table's
+     * own sort order. Falls back to the built-in line-up when it is empty.
+     *
+     * @return array<int, array{kod:string, nama:string}>
+     */
+    private function simulasiParties(): array
+    {
+        $names = KeahlianParti::pluck('nama')
+            ->map(fn ($n) => trim((string) $n))
+            ->filter()
+            ->unique(fn ($n) => mb_strtoupper($n))
+            ->values();
+
+        $parties = PartyCode::forNames($names);
+
+        return $parties !== [] ? $parties : self::SIMULASI_PARTIES;
     }
 
     /** Latest DPPR voter counts by kaum for the selected Parlimen/KADUN. */
