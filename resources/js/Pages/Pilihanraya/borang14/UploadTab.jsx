@@ -5,6 +5,7 @@ import {
     Loader2, MapPinPlus, RotateCcw, ShieldAlert, Upload, X,
 } from 'lucide-react';
 import { usePilihanrayaTheme } from '../components/PilihanrayaShell';
+import SejarahUpload from './SejarahUpload';
 
 function jenisKawasanLabel(jenis) {
     return jenis === 'parlimen' ? 'Parlimen' : 'DUN';
@@ -30,10 +31,27 @@ const RULE_LABEL = {
     balance: 'Jumlah tidak seimbang',
     calon_count: 'Bilangan calon tidak sepadan',
     jumlah_undian: 'Jumlah undian tidak sepadan',
+    // Peraturan rekonsiliasi: campuran semua baris dibandingkan dengan baris
+    // JUMLAH yang DICETAK pada sheet. Inilah semakan yang menangkap bacaan
+    // tidak lengkap (98 dicampur lawan 4,471 bercetak).
+    jumlah_undi: 'Jumlah undi calon tidak sepadan dengan baris JUMLAH bercetak',
+    jumlah_a: 'Jumlah (A) tidak sepadan dengan baris JUMLAH bercetak',
+    jumlah_jumlah_undian: 'Jumlah undian tidak sepadan dengan baris JUMLAH bercetak',
+    jumlah_ditolak: 'Jumlah undi ditolak (C) tidak sepadan dengan baris JUMLAH bercetak',
+    jumlah_tidak_dimasukkan: 'Jumlah (D) tidak sepadan dengan baris JUMLAH bercetak',
+    saluran_count: 'Bilangan saluran dibaca tidak sepadan dengan bilangan bercetak',
 };
 
 function ruleDetail(item) {
     if (item.rule === 'calon_count') return `dijangka ${item.expected}, dapat ${item.actual}`;
+    // Bagi peraturan rekonsiliasi, `jangka` ialah angka BERCETAK pada sheet dan
+    // `dapat` ialah campuran baris yang dibaca — dinamakan secara eksplisit
+    // supaya pengguna tahu angka mana yang menjadi rujukan.
+    if (item.rule?.startsWith('jumlah_') && item.rule !== 'jumlah_undian') {
+        const calon = item.calon ? ` calon ${item.calon}` : '';
+        return `bercetak ${item.jangka}${calon}, dibaca ${item.dapat}`;
+    }
+    if (item.rule === 'saluran_count') return `bercetak ${item.jangka}, dibaca ${item.dapat}`;
     return `jangka ${item.jangka}, dapat ${item.dapat}`;
 }
 
@@ -60,6 +78,9 @@ export default function UploadTab({ onUploaded }) {
     const [error, setError] = useState(null);
     const [pending, setPending] = useState(null); // { token, willCreate, kawasanType, negeri, kawasanNama, needsReview, unbalanced }
     const [result, setResult] = useState(null); // { formId, created, unbalanced, needsReview }
+    // Pembilang, BUKAN form_id: memuat naik semula kerusi yang sama menghasilkan
+    // form_id yang sama, jadi panel sejarah tidak akan tahu ia perlu dimuat semula.
+    const [historyKey, setHistoryKey] = useState(0);
 
     const busy = phase === 'extracting' || phase === 'committing';
     const locked = busy || phase === 'confirm';
@@ -113,6 +134,7 @@ export default function UploadTab({ onUploaded }) {
             setPending(null);
             setFile(null);
             setPhase('idle');
+            setHistoryKey((n) => n + 1);
         } catch (e) {
             // 422 = token sah tidak dijumpai/luput/milik pengguna lain di sisi pelayan
             // — token memang mati, mesti muat naik semula. Sebarang kegagalan LAIN
@@ -189,12 +211,13 @@ export default function UploadTab({ onUploaded }) {
     };
 
     return (
+        <div className="space-y-4">
         <div className={`${t.card} space-y-4`}>
             <div>
                 <div className={`text-sm font-bold ${t.text}`}>Upload Scoresheet SPR (Borang 760)</div>
                 <div className={`text-xs ${t.subtext} mt-1`}>
-                    AI membaca scoresheet dan mengisi draf Keyin secara automatik — fail tidak disimpan ke pelayan.
-                    Negeri, Parlimen dan DUN dikesan terus daripada kandungan fail.
+                    Borang SPR 760 bertaip dibaca terus (tepat, tanpa AI); sheet imbasan atau gambar dibaca oleh AI.
+                    Negeri, Parlimen dan DUN dikesan daripada kandungan fail, dan fail asal disimpan dalam Sejarah Muat Naik di bawah.
                 </div>
             </div>
 
@@ -376,6 +399,9 @@ export default function UploadTab({ onUploaded }) {
                     </div>
                 </div>
             )}
+        </div>
+
+        <SejarahUpload refreshKey={historyKey} />
         </div>
     );
 }
