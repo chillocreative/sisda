@@ -393,6 +393,16 @@ RULES:
    column (A). There is NO registered-voter ("berdaftar") figure per saluran — never invent one.
 6. IGNORE diagonal watermarks ("DRAFT", "JPRP") and footer text.
 7. Copy every number verbatim. Never compute, estimate, or invent.
+7b. "jumlah" MUST be transcribed from the sheet's own printed bold JUMLAH
+   (grand-total) row — NOT summed from the rows you returned. It is used as an
+   INDEPENDENT cross-check against those rows, so a computed total defeats it.
+   If the sheet prints no JUMLAH row, omit "jumlah" entirely rather than
+   synthesising one. Likewise "saluran_count" is the saluran COUNT printed on
+   that JUMLAH row — omit it if not printed.
+7c. Return EVERY saluran row on EVERY page of the document. A sheet has dozens
+   (e.g. 40); returning only the first block, only the UNDI POS line, or a
+   single seat-level summary row is a serious error that publishes a vote count
+   short by orders of magnitude.
 8. Read the seat from the header: "BAHAGIAN PILIHAN RAYA NEGERI : N.15 JUASSEH" ->
    kawasan_kod "N.15", kawasan_nama "JUASSEH". Kod DM "129 / 15 / 01" encodes
    Parlimen 129 / DUN 15 / DM 01 -> parlimen_kod "129".
@@ -403,7 +413,8 @@ Return ONLY this JSON:
  "calon":[{"nama":str,"parti_tekaan":str|null,"yakin":bool}],
  "rows":[{"dm_kod":str|null,"dm":str|null,"pusat":str,"saluran":str,
           "a":int,"undi":[int],"jumlah_undian":int,"ditolak":int,"tidak_dimasukkan":int}],
- "jumlah":{"a":int,"undi":[int],"jumlah_undian":int,"ditolak":int,"tidak_dimasukkan":int}}
+ "jumlah":{"a":int,"undi":[int],"jumlah_undian":int,"ditolak":int,"tidak_dimasukkan":int},
+ "saluran_count":int|null}
 TXT;
 
     /**
