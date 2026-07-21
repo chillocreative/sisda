@@ -309,7 +309,7 @@ export default function Dashboard({
                     <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-slate-600">Jumlah Rekod Dimasukkan</p>
+                                <p className="text-sm font-medium text-slate-600">Jumlah Culaan Yang Telah Dibuat</p>
                                 <p className="text-3xl font-bold text-slate-900 mt-2">{totalCulaan.toLocaleString()}</p>
                             </div>
                             <div className="p-3 bg-sky-100 rounded-lg">
