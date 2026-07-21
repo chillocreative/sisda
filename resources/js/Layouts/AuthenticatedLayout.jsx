@@ -224,11 +224,12 @@ export default function AuthenticatedLayout({ children }) {
                 name: 'Tetapan',
                 href: route('settings.sendora'),
                 icon: Settings,
-                current: route().current('settings.sendora') || route().current('settings.claude') || route().current('settings.ai-usage'),
+                current: route().current('settings.sendora') || route().current('settings.claude') || route().current('settings.election-data') || route().current('settings.ai-usage'),
                 hasSubmenu: true,
                 submenu: [
                     { name: 'Tetapan Sendora', href: route('settings.sendora'), icon: Settings },
                     { name: 'Tetapan Claude AI', href: route('settings.claude'), icon: Brain },
+                    { name: 'Tetapan electiondata.my', href: route('settings.election-data'), icon: Landmark },
                     { name: 'Log Aktiviti AI', href: route('settings.ai-usage'), icon: Zap },
                 ]
             },
@@ -286,7 +287,7 @@ export default function AuthenticatedLayout({ children }) {
             setOpenDropdown('Pilihanraya');
         } else if (route().current('keanggotaan.*')) {
             setOpenDropdown('Keanggotaan');
-        } else if (route().current('settings.sendora') || route().current('settings.claude') || route().current('settings.ai-usage')) {
+        } else if (route().current('settings.sendora') || route().current('settings.claude') || route().current('settings.election-data') || route().current('settings.ai-usage')) {
             setOpenDropdown('Tetapan');
         }
     }, [route().current()]);
