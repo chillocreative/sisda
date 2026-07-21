@@ -76,8 +76,8 @@ export default function Dashboard({
 
     // Prepare chart data — use raw counts so pie slices are exact, not rounded %.
     const kecenderunganData = [
-        { name: 'PH/BN', value: sokongan.phCount ?? 0, color: '#dc2626' },
-        { name: 'BN/PN', value: sokongan.bnCount ?? 0, color: '#003153' },
+        { name: 'PH', value: sokongan.phCount ?? 0, color: '#dc2626' },
+        { name: 'Lawan', value: sokongan.bnCount ?? 0, color: '#003153' },
         { name: 'Tidak Pasti', value: sokongan.tidakPastiCount ?? 0, color: '#94a3b8' },
     ];
     const kecenderunganTotal = sokongan.total || 1;
@@ -104,8 +104,8 @@ export default function Dashboard({
 
     const sokonganMpkkData = mpkkStats.map(item => ({
         mpkk: item.mpkk,
-        'PH/BN': item.ph,
-        'BN/PN': item.bn,
+        'PH': item.ph,
+        'Lawan': item.bn,
         'Tidak Pasti': item.tidakPasti
     }));
 
@@ -318,11 +318,11 @@ export default function Dashboard({
                         </div>
                     </div>
 
-                    {/* PH/BN Support */}
+                    {/* PH Support */}
                     <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-slate-600">Sokongan PH/BN</p>
+                                <p className="text-sm font-medium text-slate-600">Sokongan PH</p>
                                 <p className="text-3xl font-bold text-red-600 mt-2">{sokongan.ph}%</p>
                             </div>
                             <div className="p-3 bg-red-100 rounded-lg">
@@ -331,11 +331,11 @@ export default function Dashboard({
                         </div>
                     </div>
 
-                    {/* BN/PN Support */}
+                    {/* Opposition Support */}
                     <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-slate-600">Sokongan BN/PN</p>
+                                <p className="text-sm font-medium text-slate-600">Sokongan Lawan</p>
                                 <p className="text-3xl font-bold mt-2" style={{ color: '#003153' }}>{sokongan.bn}%</p>
                             </div>
                             <div className="p-3 rounded-lg" style={{ backgroundColor: '#00315320' }}>
@@ -357,11 +357,11 @@ export default function Dashboard({
                         </div>
                     </div>
 
-                    {/* Ahli Keanggotaan */}
+                    {/* Keanggotaan */}
                     <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-slate-600">Ahli Keanggotaan</p>
+                                <p className="text-sm font-medium text-slate-600">Keanggotaan</p>
                                 <p className="text-3xl font-bold text-slate-900 mt-2">{(keanggotaan.total || 0).toLocaleString()}</p>
                             </div>
                             <div className="p-3 bg-rose-100 rounded-lg">
@@ -559,8 +559,8 @@ export default function Dashboard({
                             <YAxis stroke="#64748b" />
                             <Tooltip />
                             <Legend />
-                            <Bar dataKey="PH/BN" stackId="a" fill="#dc2626" radius={[0, 0, 0, 0]} />
-                            <Bar dataKey="BN/PN" stackId="a" fill="#003153" radius={[0, 0, 0, 0]} />
+                            <Bar dataKey="PH" stackId="a" fill="#dc2626" radius={[0, 0, 0, 0]} />
+                            <Bar dataKey="Lawan" stackId="a" fill="#003153" radius={[0, 0, 0, 0]} />
                             <Bar dataKey="Tidak Pasti" stackId="a" fill="#94a3b8" radius={[8, 8, 0, 0]} />
                         </BarChart>
                     </ResponsiveContainer>
@@ -580,8 +580,8 @@ export default function Dashboard({
                                         <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">KADUN</th>
                                         <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Pengundi</th>
                                         <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Rekod</th>
-                                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">PH/BN</th>
-                                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">BN/PN</th>
+                                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">PH</th>
+                                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Lawan</th>
                                         <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Tidak Pasti</th>
                                     </tr>
                                 </thead>
