@@ -15,6 +15,7 @@ use App\Models\Kadun;
 use App\Models\Negeri;
 use App\Models\User;
 use App\Services\Borang14StrukturService;
+use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -269,9 +270,16 @@ class Borang14StrukturManualTest extends TestCase
 
     public function test_trailing_whitespace_in_pusat_name_is_trimmed_before_storage(): void
     {
-        $this->actingAs($this->user())->postJson(route('pilihanraya.borang-14.struktur'), $this->payload([
-            ['row_id' => 'pm_a', 'dm' => 'KUALA JEMAPOH', 'pusat' => 'SK TENGKEK ', 'saluran_count' => 1],
-        ]))->assertOk();
+        // Middleware sejagat TrimStrings turut memangkas array bersarang dalam
+        // request, jadi ujian ini akan HIJAU dengan atau tanpa pangkasan
+        // peringkat pengawal (controller) yang ia sepatutnya menguji. Ia
+        // dimatikan di sini supaya ujian ini benar-benar menguji trim() dalam
+        // simpanStruktur(), bukan middleware global.
+        $this->actingAs($this->user())
+            ->withoutMiddleware(TrimStrings::class)
+            ->postJson(route('pilihanraya.borang-14.struktur'), $this->payload([
+                ['row_id' => 'pm_a', 'dm' => 'KUALA JEMAPOH', 'pusat' => 'SK TENGKEK ', 'saluran_count' => 1],
+            ]))->assertOk();
 
         $form = Borang14Form::firstOrFail();
         $this->assertSame('SK TENGKEK', $form->structure['rows'][0]['pusat'], 'Ruang berikutan mesti dipangkas sebelum disimpan.');
@@ -304,5 +312,81 @@ class Borang14StrukturManualTest extends TestCase
         ], false, false))->assertOk();
 
         $this->assertSame(0, $form->votes()->where('saluran', 'UNDI POS')->count());
+    }
+
+    public function test_renaming_onto_a_name_that_exists_only_in_the_votes_table_is_rejected(): void
+    {
+        // saveVote() menulis baris undi bagi MANA-MANA rentetan pusat tanpa
+        // menyemaknya terhadap struktur borang — jadi satu baris undi boleh
+        // wujud di bawah nama yang TIADA langsung dalam $form->structure
+        // (contohnya, kekal daripada pusat yang sudah dibuang sebelum ini).
+        // Guard perlanggaran mesti tetap menyekat penamaan semula ke atas
+        // nama "yatim" sebegini, bukan sahaja nama yang wujud dalam struktur
+        // semasa — jika tidak, sama ada UPDATE bertembung dengan indeks unik
+        // (500) atau undi yatim itu bergabung senyap ke dalam pusat baharu.
+        $form = $this->form($this->manualStructure());
+        Borang14Vote::create(['borang14_form_id' => $form->id, 'pusat' => 'SK TENGKEK', 'saluran' => '1', 'slot' => 1, 'undi' => 250]);
+        Borang14Vote::create(['borang14_form_id' => $form->id, 'pusat' => 'SK ORPHAN', 'saluran' => '1', 'slot' => 1, 'undi' => 99]);
+
+        $this->actingAs($this->user())->postJson(route('pilihanraya.borang-14.struktur'), $this->payload([
+            ['row_id' => 'pm_a', 'dm' => 'KUALA JEMAPOH', 'pusat' => 'SK ORPHAN', 'saluran_count' => 2],
+            ['row_id' => 'pm_b', 'dm' => 'KUALA JEMAPOH', 'pusat' => 'SK JEMAPOH', 'saluran_count' => 1],
+        ]))->assertStatus(422);
+
+        // Undi yatim, dan undi pusat lain, mesti kekal tidak disentuh
+        // selepas percubaan simpan ditolak.
+        $this->assertSame(99, (int) $form->votes()->where('pusat', 'SK ORPHAN')->sum('undi'));
+        $this->assertSame(250, (int) $form->votes()->where('pusat', 'SK TENGKEK')->sum('undi'));
+    }
+
+    public function test_renaming_with_case_only_difference_onto_existing_name_is_rejected(): void
+    {
+        // NOTA: Ujian ini lulus pada SQLite (yang sensitif huruf besar/kecil)
+        // atas sebab perbandingan sisi-PHP (nameKey()) yang dinormalisasi —
+        // BUKAN kerana SQLite meniru collation utf8mb4_unicode_ci MySQL.
+        // Ia mengunci kelakuan guard sisi-PHP sahaja; ia TIDAK membuktikan
+        // indeks unik MySQL sebenar akan berkelakuan sama (itu memerlukan
+        // MySQL sebenar, di luar skop CI).
+        $form = $this->form($this->manualStructure());
+        Borang14Vote::create(['borang14_form_id' => $form->id, 'pusat' => 'SK TENGKEK', 'saluran' => '1', 'slot' => 1, 'undi' => 250]);
+        Borang14Vote::create(['borang14_form_id' => $form->id, 'pusat' => 'SK JEMAPOH', 'saluran' => '1', 'slot' => 1, 'undi' => 90]);
+
+        // pm_a dinamakan semula daripada 'SK TENGKEK' kepada 'sk jemapoh'
+        // (beza huruf besar/kecil sahaja) SAMBIL pm_b ('SK JEMAPOH') dibuang
+        // daripada senarai baharu.
+        $this->actingAs($this->user())->postJson(route('pilihanraya.borang-14.struktur'), $this->payload([
+            ['row_id' => 'pm_a', 'dm' => 'KUALA JEMAPOH', 'pusat' => 'sk jemapoh', 'saluran_count' => 2],
+        ]))->assertStatus(422);
+
+        $this->assertSame(250, (int) $form->votes()->where('pusat', 'SK TENGKEK')->sum('undi'));
+        $this->assertSame(90, (int) $form->votes()->where('pusat', 'SK JEMAPOH')->sum('undi'));
+    }
+
+    public function test_admin_scoped_to_another_bandar_gets_403_not_422_for_colliding_payload(): void
+    {
+        // Peranan 'user' sudah disekat lebih awal oleh middleware laluan
+        // ('admin' — route group pilihanraya.*), jadi ia tidak pernah sampai
+        // ke pengawal langsung. Kes yang SEBENARNYA sampai ke
+        // bolehSuntingStruktur() ialah seorang 'admin' yang disemak per
+        // rekod terhadap Bandar-nya sendiri: admin bagi Bandar LAIN lulus
+        // middleware tetapi masih tiada kebenaran ke atas kerusi ini.
+        //
+        // Guard pendua/perlanggaran nama TIDAK boleh berjalan sebelum
+        // semakan kebenaran itu — jika tidak, pemanggil yang tiada kebenaran
+        // menyunting borang ini menerima 422 (isi kandungan tidak sah) dan
+        // bukannya 403 (disekat), yang membocorkan maklumat tentang
+        // kandungan borang kepada seseorang yang tidak sepatutnya
+        // menyentuhnya langsung.
+        $bandarLain = Bandar::create(['nama' => 'Bandar Lain', 'negeri_id' => $this->kadun->bandar->negeri_id]);
+        $adminLain = $this->user('admin', ['bandar_id' => $bandarLain->id]);
+
+        $this->actingAs($adminLain)
+            ->postJson(route('pilihanraya.borang-14.struktur'), $this->payload([
+                ['row_id' => 'pm_a', 'dm' => 'DM', 'pusat' => 'SK SAMA', 'saluran_count' => 1],
+                ['row_id' => 'pm_b', 'dm' => 'DM', 'pusat' => 'SK SAMA', 'saluran_count' => 1],
+            ]))
+            ->assertForbidden();
+
+        $this->assertSame(0, Borang14Form::count());
     }
 }
