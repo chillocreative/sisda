@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
-import { Download, FileClock, Loader2, RotateCcw, ShieldAlert } from 'lucide-react';
+import { Download, FileClock, Loader2, RotateCcw, ShieldAlert, Trash2 } from 'lucide-react';
 import useDragScroll from '@/Hooks/useDragScroll';
+import ConfirmDialog from './ConfirmDialog';
 import { usePilihanrayaTheme } from '../components/PilihanrayaShell';
 
 /**
@@ -37,6 +38,8 @@ export default function SejarahUpload({ refreshKey = 0 }) {
     const [rows, setRows] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [hapusTarget, setHapusTarget] = useState(null);
+    const [hapusing, setHapusing] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -54,6 +57,24 @@ export default function SejarahUpload({ refreshKey = 0 }) {
     // refreshKey berubah selepas setiap commit berjaya, jadi baris baharu muncul
     // tanpa pengguna perlu memuat semula halaman.
     useEffect(() => { load(); }, [load, refreshKey]);
+
+    // Memadam baris sejarah TIDAK menyentuh undi yang telah dimasukkan ke dalam
+    // Borang 14 — gunakan Padam pada tab Papar untuk membuang keputusan itu.
+    const hapus = async () => {
+        setHapusing(true);
+        try {
+            await axios.delete(route('pilihanraya.borang-14.upload.hapus', hapusTarget.id));
+            setHapusTarget(null);
+            load();
+        } catch (e) {
+            setError(e.response?.status === 403
+                ? 'Anda tiada kebenaran memadam rekod muat naik ini.'
+                : 'Gagal memadam rekod muat naik.');
+            setHapusTarget(null);
+        } finally {
+            setHapusing(false);
+        }
+    };
 
     return (
         <div className={`${t.card} space-y-3`}>
@@ -93,7 +114,8 @@ export default function SejarahUpload({ refreshKey = 0 }) {
                                 <th className="py-2 pr-4 font-medium whitespace-nowrap">Undi (dicetak / dicampur)</th>
                                 <th className="py-2 pr-4 font-medium whitespace-nowrap">Pemilih</th>
                                 <th className="py-2 pr-4 font-medium whitespace-nowrap">Oleh</th>
-                                <th className="py-2 font-medium whitespace-nowrap">Fail asal</th>
+                                <th className="py-2 pr-4 font-medium whitespace-nowrap">Fail asal</th>
+                                <th className="py-2 font-medium whitespace-nowrap">Tindakan</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -138,7 +160,7 @@ export default function SejarahUpload({ refreshKey = 0 }) {
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="py-2 whitespace-nowrap">
+                                        <td className="py-2 pr-4 whitespace-nowrap">
                                             {r.boleh_muat_turun ? (
                                                 <a href={route('pilihanraya.borang-14.upload.fail', r.id)}
                                                     className="inline-flex items-center gap-1 text-emerald-700 hover:underline">
@@ -148,6 +170,13 @@ export default function SejarahUpload({ refreshKey = 0 }) {
                                                 <span className={`text-xs ${t.subtext}`}>Tiada fail</span>
                                             )}
                                         </td>
+                                        <td className="py-2 whitespace-nowrap">
+                                            <button type="button" title="Padam rekod muat naik ini"
+                                                onClick={() => setHapusTarget(r)}
+                                                className="inline-flex items-center gap-1 text-rose-600 hover:text-rose-700">
+                                                <Trash2 className="h-3.5 w-3.5" /> Padam
+                                            </button>
+                                        </td>
                                     </tr>
                                 );
                             })}
@@ -155,6 +184,23 @@ export default function SejarahUpload({ refreshKey = 0 }) {
                     </table>
                 </div>
             )}
+
+            <ConfirmDialog
+                open={!!hapusTarget}
+                title="Padam rekod muat naik?"
+                confirmLabel="Padam"
+                busy={hapusing}
+                onClose={() => setHapusTarget(null)}
+                onConfirm={hapus}
+            >
+                {hapusTarget && (
+                    <p>
+                        Baris sejarah untuk <strong>{hapusTarget.nama_fail}</strong> dan fail scoresheet asalnya
+                        akan dibuang secara kekal. Undi yang telah dimasukkan ke dalam Borang 14
+                        <strong> tidak</strong> disentuh — gunakan Padam pada tab Papar jika anda mahu membuang keputusan itu juga.
+                    </p>
+                )}
+            </ConfirmDialog>
         </div>
     );
 }

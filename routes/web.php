@@ -460,6 +460,10 @@ Route::middleware(['auth', 'admin'])->prefix('pilihanraya')->name('pilihanraya.'
     Route::post('/borang-14/publish', [\App\Http\Controllers\Borang14Controller::class, 'publish'])->name('borang-14.publish')->middleware('throttle:30,1');
     Route::post('/borang-14/revert', [\App\Http\Controllers\Borang14Controller::class, 'revert'])->name('borang-14.revert')->middleware('throttle:10,1');
     Route::get('/borang-14/senarai', [\App\Http\Controllers\Borang14Controller::class, 'senarai'])->name('borang-14.senarai');
+    // Padam: rekod diarkibkan dahulu (borang14_deleted_forms) — semakan peranan
+    // dalam pengawal, super_admin sahaja untuk rekod DITERBITKAN.
+    Route::delete('/borang-14', [\App\Http\Controllers\Borang14Controller::class, 'hapus'])->name('borang-14.hapus')->middleware('throttle:20,1');
+    Route::delete('/borang-14/upload/{upload}', [\App\Http\Controllers\Borang14Controller::class, 'hapusUpload'])->name('borang-14.upload.hapus')->middleware('throttle:20,1');
     Route::get('/borang-14/upload/sejarah', [\App\Http\Controllers\Borang14Controller::class, 'sejarahUpload'])->name('borang-14.upload.sejarah');
     // Muat turun menyemak semula skop pengguna dalam pengawal — jangan sekali-kali
     // bergantung pada tapisan senarai sahaja, id boleh diteka.

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Bandar;
+use App\Models\Borang14DeletedForm;
 use App\Models\Borang14Form;
 use App\Models\Borang14Snapshot;
 use App\Models\Borang14Upload;
@@ -229,8 +230,11 @@ class Borang14Controller extends Controller
      * SATU tempat sahaja untuk rantaian fallback rujukan struktur — dikongsi
      * oleh data() DAN pdf() supaya kedua-duanya tidak boleh terpesong
      * (drift) antara satu sama lain. Susunan keutamaan:
-     *   1) Borang14Reference::forKadun()/forBandar() — JSON kurasi atau roll DPT.
-     *   2) Struktur borang INI sendiri (referenceFromStructure()).
+     *   1) JSON kurasi (Borang14Reference) — pecahan Saluran rasmi gazet SPR.
+     *   2) Struktur borang INI sendiri (referenceFromStructure()) — scoresheet
+     *      yang dimuat naik bagi pilihan raya INI.
+     *   2b) Anggaran DPT (Borang14Reference dengan source 'dpt_estimate') —
+     *      hanya apabila (1) dan (2) tiada.
      *   3) Pilihan raya LAIN yang paling baru bagi kerusi yang SAMA
      *      ("warisi") — pilihan terakhir sahaja, kerana pada malam
      *      pengiraan pilihan raya BAHARU tiada scoresheet lagi (ia OUTPUT,
@@ -251,11 +255,25 @@ class Borang14Controller extends Controller
             ? Borang14Reference::forBandar($kawasanId)
             : Borang14Reference::forKadun($kawasanId);
 
-        // Newly-created (scoresheet-sourced) kawasan have no curated reference JSON
-        // and no DPT roll uploaded yet — fall back to the scoresheet's own structure
-        // so the tables still render instead of silently showing "no data".
-        if (! $reference && $form?->structure) {
-            $reference = $this->referenceFromStructure($form->structure, $form->kawasan());
+        // Struktur scoresheet borang INI mengatasi anggaran DPT.
+        //
+        // Anggaran DPT mengumpul roll mengikut Lokaliti dan menganggap SATU
+        // saluran bagi setiap Pusat Mengundi — ia sendiri mengaku anggaran.
+        // Scoresheet pula ialah pecahan rasmi gazet SPR bagi kerusi ini.
+        //
+        // Membiarkan DPT menang menghasilkan kegagalan yang sunyi dan teruk:
+        // undi ditulis di bawah kunci scoresheet ("SEKOLAH KEBANGSAAN TENGKEK|1|1")
+        // tetapi grid dibina daripada kunci DPT ("KG KUALA JEMAPOH|1|1"), jadi
+        // SETIAP sel memaparkan 0 walaupun undi selamat tersimpan — hanya baris
+        // UNDI POS terselamat kerana labelnya kebetulan sepadan. Itulah yang
+        // dilaporkan di produksi: Juasseh memaparkan 98/73 sedangkan 4,471/4,549
+        // ada dalam pangkalan data.
+        //
+        // JSON kurasi (tiada kunci 'source') kekal keutamaan tertinggi.
+        $isDptEstimate = ($reference['source'] ?? null) === 'dpt_estimate';
+        if ((! $reference || $isDptEstimate) && ! empty($form?->structure['rows'])) {
+            $reference = $this->referenceFromStructure($form->structure, $form->kawasan())
+                ?: $reference;
         }
 
         // On counting night for a NEW election there IS no scoresheet — it's the
@@ -1072,6 +1090,101 @@ class Borang14Controller extends Controller
         } catch (\Throwable) {
             // Pembersihan tidak boleh menggagalkan muat naik yang sah.
         }
+    }
+
+    /**
+     * Padam satu rekod Borang 14 (borang + semua undinya).
+     *
+     * SNAPSHOT DAHULU, kemudian padam. Rekod ini memegang undi sebenar, jadi
+     * satu klik pada baris yang salah tidak boleh memusnahkannya secara kekal —
+     * Borang14Snapshot 'before_delete' menyimpan undi, struktur dan pemetaan
+     * parti supaya ia masih boleh dipulihkan daripada pangkalan data.
+     *
+     * Arkib ditulis ke jadual BERASINGAN, bukan borang14_snapshots: lajur
+     * borang14_form_id jadual itu NOT NULL dengan cascadeOnDelete, jadi arkib
+     * di sana akan dipadam oleh padaman yang sepatutnya ia lindungi.
+     */
+    public function hapus(Request $request)
+    {
+        $data = $request->validate(['form_id' => 'required|integer|exists:borang14_forms,id']);
+        $form = Borang14Form::findOrFail($data['form_id']);
+
+        if (! $this->bolehPadamBorang($request->user(), $form)) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $kawasan = $form->kawasan()?->nama ?? '—';
+
+        DB::transaction(function () use ($form, $request, $kawasan) {
+            Borang14DeletedForm::create([
+                'kawasan_type' => $form->kawasan_type,
+                'kawasan_id' => $form->kawasan_id,
+                'kawasan_nama' => $kawasan,
+                'jenis_pr' => $form->jenis_pr,
+                'tahun' => $form->tahun,
+                'status' => $form->status,
+                'structure' => $form->structure,
+                'votes' => $form->votes()->get(['pusat', 'saluran', 'slot', 'undi'])->toArray(),
+                'parties' => $form->parties,
+                'deleted_by' => $request->user()?->id,
+            ]);
+
+            $form->votes()->delete();
+            $form->delete();
+        });
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * super_admin boleh memadam apa-apa. Admin terhad kepada rekod DRAF dalam
+     * Parlimen mereka sendiri — rekod DITERBITKAN ialah keputusan rasmi yang
+     * sudah disiarkan ke Scoreboard, jadi membuangnya ialah keputusan
+     * super_admin.
+     */
+    private function bolehPadamBorang(?User $user, Borang14Form $form): bool
+    {
+        if (! $user) {
+            return false;
+        }
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+        if (! $user->isAdmin() || $form->status === 'published') {
+            return false;
+        }
+
+        $bandarId = $form->kawasan_type === Borang14Form::KAWASAN_PARLIMEN
+            ? $form->kawasan_id
+            : Kadun::whereKey($form->kawasan_id)->value('bandar_id');
+
+        return $user->bandar_id !== null && (int) $user->bandar_id === (int) $bandarId;
+    }
+
+    /**
+     * Padam satu baris sejarah muat naik, berserta fail scoresheet yang
+     * disimpan. Undi yang telah dimasukkan ke dalam borang TIDAK disentuh —
+     * memadam jejak muat naik tidak sepatutnya membatalkan keputusan yang
+     * dibina daripadanya (gunakan Padam pada tab Papar untuk itu).
+     */
+    public function hapusUpload(Request $request, Borang14Upload $upload)
+    {
+        if (! $this->bolehCapaiUpload($request->user(), $upload)) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        if ($upload->fail_path) {
+            try {
+                Storage::disk('private')->delete($upload->fail_path);
+            } catch (\Throwable) {
+                // Fail yang tidak dapat dibuang tidak boleh mengekalkan baris
+                // sejarah yang pengguna minta dipadam.
+            }
+        }
+
+        $upload->delete();
+
+        return response()->json(['ok' => true]);
     }
 
     private function cellKey(?string $pusat, string $saluran, int $slot): string

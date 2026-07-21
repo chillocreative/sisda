@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
+import { usePage } from '@inertiajs/react';
 import axios from 'axios';
-import { Download, Eye, Info, Landmark, Loader2, MapPin, RotateCcw, Vote } from 'lucide-react';
+import { Download, Eye, Info, Landmark, Loader2, MapPin, RotateCcw, Trash2, Vote } from 'lucide-react';
 import { usePilihanrayaTheme } from '../components/PilihanrayaShell';
 import ConfirmDialog from './ConfirmDialog';
 
@@ -38,6 +39,14 @@ export default function PaparTab({ negeriList, parlimenList, kadunList, onOpenKe
     const [error, setError] = useState(null);
     const [revertTarget, setRevertTarget] = useState(null);
     const [reverting, setReverting] = useState(false);
+    const [hapusTarget, setHapusTarget] = useState(null);
+    const [hapusing, setHapusing] = useState(false);
+
+    // Rekod DITERBITKAN ialah keputusan rasmi yang sudah disiarkan ke Scoreboard
+    // — hanya super_admin boleh membuangnya. Butang disembunyikan bagi peranan
+    // lain, tetapi pengawal tetap menyemak semula (UI bukan kawalan keselamatan).
+    const role = usePage().props?.auth?.user?.role;
+    const bolehPadam = (r) => role === 'super_admin' || (role === 'admin' && r.status !== 'published');
 
     const parlimenOptions = negeriId
         ? parlimenList.filter((p) => String(p.negeri_id) === String(negeriId)) : [];
@@ -97,6 +106,22 @@ export default function PaparTab({ negeriList, parlimenList, kadunList, onOpenKe
             setRevertTarget(null);
         } finally {
             setReverting(false);
+        }
+    };
+
+    const hapus = async () => {
+        setHapusing(true);
+        try {
+            await axios.delete(route('pilihanraya.borang-14.hapus'), { data: { form_id: hapusTarget.id } });
+            setHapusTarget(null);
+            load();
+        } catch (e) {
+            setError(e.response?.status === 403
+                ? 'Anda tiada kebenaran memadam rekod ini.'
+                : (e.response?.data?.message || 'Gagal memadam rekod.'));
+            setHapusTarget(null);
+        } finally {
+            setHapusing(false);
         }
     };
 
@@ -192,9 +217,16 @@ export default function PaparTab({ negeriList, parlimenList, kadunList, onOpenKe
                                         </button>
                                         <button type="button" title="Pulih keadaan sebelum scoresheet menimpa"
                                             onClick={() => setRevertTarget(r)}
-                                            className="inline-flex items-center gap-1 text-sm text-rose-600 hover:text-rose-700">
+                                            className="inline-flex items-center gap-1 text-sm text-rose-600 hover:text-rose-700 mr-3">
                                             <RotateCcw className="h-4 w-4" /> Revert
                                         </button>
+                                        {bolehPadam(r) && (
+                                            <button type="button" title="Padam rekod Borang 14 ini"
+                                                onClick={() => setHapusTarget(r)}
+                                                className="inline-flex items-center gap-1 text-sm text-rose-600 hover:text-rose-700">
+                                                <Trash2 className="h-4 w-4" /> Padam
+                                            </button>
+                                        )}
                                     </td>
                                 </tr>
                             ))}
@@ -216,6 +248,25 @@ export default function PaparTab({ negeriList, parlimenList, kadunList, onOpenKe
                         Undi, struktur dan pemetaan parti untuk <strong>{revertTarget.kawasan_nama} · {JENIS_LABEL[revertTarget.jenis_pr]} {revertTarget.tahun}</strong> akan
                         dikembalikan kepada keadaan sebelum scoresheet menimpanya. Tindakan ini tidak boleh dibuat asal.
                         Jika tiada snapshot tersimpan, permintaan ini akan gagal dengan mesej ralat.
+                    </p>
+                )}
+            </ConfirmDialog>
+
+            <ConfirmDialog
+                open={!!hapusTarget}
+                title="Padam rekod Borang 14?"
+                confirmLabel="Padam"
+                busy={hapusing}
+                onClose={() => setHapusTarget(null)}
+                onConfirm={hapus}
+            >
+                {hapusTarget && (
+                    <p>
+                        Rekod <strong>{hapusTarget.kawasan_nama} · {JENIS_LABEL[hapusTarget.jenis_pr]} {hapusTarget.tahun}</strong> dan
+                        SEMUA undinya akan dibuang daripada senarai.
+                        {hapusTarget.status === 'published' && ' Rekod ini telah DITERBITKAN — ia mungkin sedang dipaparkan pada Scoreboard.'}
+                        {' '}Satu salinan arkib (undi, struktur dan pemetaan parti) disimpan terlebih dahulu, jadi
+                        padaman tersilap masih boleh dipulihkan daripada pangkalan data.
                     </p>
                 )}
             </ConfirmDialog>

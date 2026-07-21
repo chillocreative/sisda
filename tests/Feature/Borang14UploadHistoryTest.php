@@ -170,6 +170,48 @@ class Borang14UploadHistoryTest extends TestCase
             ->assertOk();
     }
 
+    public function test_deleting_an_upload_removes_the_row_and_the_file(): void
+    {
+        $user = $this->user();
+        $upload = $this->commit($user);
+        $path = $upload->fail_path;
+
+        $this->actingAs($user)
+            ->delete(route('pilihanraya.borang-14.upload.hapus', $upload))
+            ->assertOk();
+
+        $this->assertDatabaseMissing('borang14_uploads', ['id' => $upload->id]);
+        Storage::disk('private')->assertMissing($path);
+    }
+
+    /** Undi yang telah dimasukkan TIDAK boleh hilang apabila jejak muat naik dipadam. */
+    public function test_deleting_an_upload_leaves_the_votes_alone(): void
+    {
+        $user = $this->user();
+        $upload = $this->commit($user);
+        $sebelum = \App\Models\Borang14Vote::count();
+        $this->assertGreaterThan(0, $sebelum);
+
+        $this->actingAs($user)
+            ->delete(route('pilihanraya.borang-14.upload.hapus', $upload))
+            ->assertOk();
+
+        $this->assertSame($sebelum, \App\Models\Borang14Vote::count());
+    }
+
+    public function test_an_admin_from_another_parlimen_cannot_delete_an_upload(): void
+    {
+        $upload = $this->commit($this->user());
+        $lain = Bandar::create(['nama' => 'PARLIMEN LAIN 2', 'negeri_id' => Negeri::first()->id]);
+        $penceroboh = $this->user('admin', ['bandar_id' => $lain->id]);
+
+        $this->actingAs($penceroboh)
+            ->delete(route('pilihanraya.borang-14.upload.hapus', $upload))
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('borang14_uploads', ['id' => $upload->id]);
+    }
+
     /** Fail yang sudah tiada pada cakera tidak boleh menyebabkan ralat pelayan. */
     public function test_missing_file_returns_not_found(): void
     {
