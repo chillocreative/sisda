@@ -12,6 +12,7 @@ use App\Models\Kadun;
 use App\Models\KeahlianParti;
 use App\Models\Negeri;
 use App\Models\User;
+use App\Services\Borang14StrukturService;
 use App\Services\Pilihanraya\KawasanResolver;
 use App\Services\Pilihanraya\ScoresheetExtractor;
 use App\Support\Borang14Reference;
@@ -22,6 +23,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class Borang14Controller extends Controller
@@ -62,7 +64,7 @@ class Borang14Controller extends Controller
      * Either way the response carries a `resolved` block so the caller can populate
      * its Negeri/Parlimen/DUN/Jenis PR/Tahun selects from whichever path was used.
      */
-    public function data(Request $request)
+    public function data(Request $request, Borang14StrukturService $svc)
     {
         if ($request->filled('form_id')) {
             $form = Borang14Form::findOrFail((int) $request->input('form_id'));
@@ -93,7 +95,7 @@ class Borang14Controller extends Controller
                 ->first();
         }
 
-        ['reference' => $reference, 'inherited_from' => $inheritedFrom] = $this->resolveReference($kawasanType, $kawasanId, $form);
+        ['reference' => $reference, 'inherited_from' => $inheritedFrom, 'asal' => $asal] = $this->resolveReference($kawasanType, $kawasanId, $form);
 
         $votes = $form
             ? $form->votes()->get(['pusat', 'saluran', 'slot', 'undi'])
@@ -117,6 +119,23 @@ class Borang14Controller extends Controller
                 ['kawasan_type' => $kawasanType, 'kawasan_id' => $kawasanId, 'jenis_pr' => $jenisPr, 'tahun' => $tahun],
                 $this->resolveIds($kawasanType, $kawasanId),
             ),
+            // Keadaan permulaan bagi panel Sunting Struktur. Dikira di server
+            // supaya peraturan penerbitan row_id (termasuk id terbitan bagi
+            // struktur scoresheet/warisan yang tiada satu) hidup di SATU
+            // tempat sahaja — dua pelaksanaan akan hanyut, dan hanyut di sini
+            // bermakna undi dipadam sebagai ganti dipindahkan.
+            // Disemai daripada rujukan yang DIPAPARKAN apabila borang ini
+            // belum ada struktur sendiri — panel yang dibuka kosong di atas
+            // grid yang penuh undi ialah punca pemadaman senyap.
+            'struktur' => $this->strukturUntukPanel($svc, $form, $reference, $asal),
+            // DUA syarat, bukan satu: peranan/status DAN asal grid. $asal
+            // diguna semula daripada resolveReference() di atas — menyelesaikan
+            // semula di sini bermakna DUA imbasan penuh roll DPT setiap muatan.
+            'boleh_sunting_struktur' => $this->bolehSuntingStruktur(
+                $request->user(),
+                $form,
+                ['kawasan_type' => $kawasanType, 'kawasan_id' => $kawasanId],
+            ) && $this->strukturBolehDisunting($asal),
         ];
 
         // Deliberately OMITTED (not merely null) when nothing was inherited —
@@ -227,6 +246,501 @@ class Borang14Controller extends Controller
     }
 
     /**
+     * Peraturan pengesahan yang dikongsi oleh simpanStruktur() dan
+     * kesanStruktur(). Kedua-duanya MESTI menerima bentuk input yang sama —
+     * kalau ia hanyut, pratonton akan melaporkan kesan bagi sesuatu yang
+     * berbeza daripada apa yang benar-benar disimpan.
+     */
+    private function strukturRules(string $existsTable): array
+    {
+        return [
+            'kawasan_type' => ['required', Rule::in([Borang14Form::KAWASAN_PARLIMEN, Borang14Form::KAWASAN_DUN])],
+            'kawasan_id'   => ['required', 'integer', Rule::exists($existsTable, 'id')],
+            'jenis_pr' => 'required|in:pru,prn,prk',
+            'tahun'    => 'required|integer|between:1959,2100',
+            'pusat'    => 'present|array|max:500',
+            'pusat.*.row_id' => 'required|string|max:64',
+            // WAJIB, bukan nullable. Borang14ScenarioMapper::map() MELANGKAU
+            // setiap undi yang Pusatnya tiada Daerah Mengundi ("jangan reka
+            // DM"). Bagi kerusi manual yang tiada rujukan lain untuk memetakan
+            // DM, satu dm kosong bermakna Analisa/AI menerbitkan "keputusan
+            // kerusi" yang sebenarnya baris undi pos semata-mata.
+            'pusat.*.dm'     => 'required|string|max:255',
+            'pusat.*.pusat'  => 'required|string|max:255',
+            'pusat.*.saluran_count' => 'required|integer|min:1|max:20',
+            // Label saluran/undi pos MENTAH yang dibawa balik oleh collapse().
+            // Undi dikunci padanya, jadi ia mesti pulang ke expand() tanpa
+            // diubah — lihat docblock expand().
+            'pusat.*.saluran_labels'   => 'nullable|array|max:20',
+            'pusat.*.saluran_labels.*' => 'nullable|string|max:255',
+            'undi_awal' => 'boolean',
+            'undi_pos'  => 'boolean',
+            'undi_awal_label' => 'nullable|string|max:255',
+            'undi_pos_label'  => 'nullable|string|max:255',
+            // Baris pusat-kosong yang panel tidak boleh wakili, dibawa balik
+            // mentah supaya undi di bawahnya tidak menjadi yatim.
+            'lain_lain' => 'nullable|array|max:50',
+            'lain_lain.*.row_id'  => 'nullable|string|max:64',
+            'lain_lain.*.dm'      => 'nullable|string|max:255',
+            'lain_lain.*.saluran' => 'nullable|string|max:255',
+        ];
+    }
+
+    /** Mesej pengesahan dalam Bahasa Melayu — teks lalai Laravel dalam Bahasa Inggeris. */
+    private function strukturMessages(): array
+    {
+        return [
+            'pusat.*.pusat.required' => 'Nama Pusat Mengundi wajib diisi.',
+            'pusat.*.dm.required' => 'Daerah Mengundi wajib diisi bagi setiap Pusat Mengundi — analisa melangkau undi yang tiada Daerah Mengundi.',
+            'pusat.*.saluran_count.required' => 'Bilangan saluran wajib diisi.',
+            'pusat.*.saluran_count.min' => 'Setiap Pusat Mengundi mesti ada sekurang-kurangnya 1 saluran.',
+            'pusat.*.saluran_count.max' => 'Bilangan saluran melebihi had 20.',
+            'pusat.max' => 'Terlalu banyak Pusat Mengundi (had 500).',
+        ];
+    }
+
+    /**
+     * Simpan struktur (Pusat Mengundi + bilangan saluran) yang dibina dengan tangan.
+     *
+     * Ini satu-satunya jalan mencipta borang bagi kerusi yang tiada DPT dan
+     * tiada scoresheet — firstOrCreate di sini yang memecahkan kebuntuan
+     * "Data Borang 14 belum tersedia".
+     *
+     * Undi dikunci pada `pusat|saluran|slot`, jadi menukar struktur mesti
+     * menggerakkan undi bersamanya. Urutan dalam transaksi PENTING:
+     * snapshot → namakan semula → padam yatim → simpan struktur. Menamakan
+     * semula dahulu bermakna langkah padam boleh menilai satu perkara sahaja:
+     * "adakah kunci ini masih wujud dalam struktur baharu?"
+     */
+    public function simpanStruktur(Request $request, Borang14StrukturService $svc)
+    {
+        $kawasanType = $request->input('kawasan_type');
+        $existsTable = $kawasanType === Borang14Form::KAWASAN_PARLIMEN ? 'bandar' : 'kadun';
+
+        $validated = $request->validate($this->strukturRules($existsTable), $this->strukturMessages());
+
+        // SATU tempat sahaja untuk memangkas nama Pusat/DM — nilai yang
+        // dipangkas di sinilah yang disahkan, dibanding, dinamakan semula
+        // DAN disimpan. Laluan tulis undi (normalizeSaluran()) memangkas
+        // paksi Saluran; ini memangkas paksi Pusat supaya kedua-dua paksi
+        // kunci sel diselaraskan — tanpa ini "SK TENGKEK " (ruang
+        // berikutan) menjadi kunci yang berbeza daripada "SK TENGKEK".
+        $validated['pusat'] = collect($validated['pusat'])->map(function ($p) {
+            $p['pusat'] = trim($p['pusat']);
+            if (array_key_exists('dm', $p) && $p['dm'] !== null) {
+                $p['dm'] = trim($p['dm']);
+            }
+
+            return $p;
+        })->all();
+
+        $form = Borang14Form::forKawasan($validated['kawasan_type'], $validated['kawasan_id'])
+            ->where('jenis_pr', $validated['jenis_pr'])
+            ->where('tahun', $validated['tahun'])
+            ->first();
+
+        // Kebenaran MESTI disemak dahulu — sebelum sebarang panduan
+        // pendua/perlanggaran nama di bawah. Jika tidak, penyahutan (422)
+        // membocorkan kandungan borang (nama Pusat mana yang sudah wujud)
+        // kepada pemanggil yang langsung tiada kebenaran menyentuh borang
+        // ini, dan borang yang DITERBITKAN melaporkan sebab penolakan yang
+        // salah (isi kandungan tidak sah, bukan disekat).
+        if (! $this->bolehSuntingStruktur($request->user(), $form, $validated)) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        // Selepas kebenaran (jangan bocorkan kewujudan borang), sebelum
+        // firstOrCreate — kerusi kurasi/DPT/warisan tidak boleh disunting
+        // langsung, dan tiada borang patut tercipta akibat cubaan itu.
+        $this->assertStrukturBolehDisunting($validated, $form);
+
+        $asas = $this->strukturAsas($svc, $form, $validated);
+
+        $this->assertPusatNamesUsable($svc, $form, $validated['pusat'], $asas);
+
+        $baharu = $svc->expand(
+            $validated['pusat'],
+            (bool) ($validated['undi_awal'] ?? false),
+            (bool) ($validated['undi_pos'] ?? false),
+            $validated['undi_awal_label'] ?? null,
+            $validated['undi_pos_label'] ?? null,
+            $validated['lain_lain'] ?? [],
+        );
+
+        DB::transaction(function () use (&$form, $validated, $baharu, $asas, $svc, $request) {
+            $form ??= Borang14Form::create([
+                'kawasan_type' => $validated['kawasan_type'],
+                'kawasan_id'   => $validated['kawasan_id'],
+                'jenis_pr'     => $validated['jenis_pr'],
+                'tahun'        => $validated['tahun'],
+                'penjuru'      => 2,
+                'parties'      => [],
+                'status'       => 'draft',
+                'source'       => 'manual',
+            ]);
+
+            if ($form->wasRecentlyCreated === false) {
+                Borang14Snapshot::create([
+                    'borang14_form_id' => $form->id,
+                    'structure' => $form->structure,
+                    'votes' => $form->votes()->get(['pusat', 'saluran', 'slot', 'undi'])->toArray(),
+                    'parties' => $form->parties,
+                    'reason' => 'before_structure_edit',
+                    'created_by' => $request->user()?->id,
+                ]);
+            }
+
+            foreach ($svc->renameMap($asas, $validated['pusat']) as $lama => $kini) {
+                $form->votes()->where('pusat', $lama)->update(['pusat' => $kini]);
+            }
+
+            $kekal = $svc->survivingKeys($baharu);
+            foreach ($form->votes()->get(['id', 'pusat', 'saluran']) as $v) {
+                if (! isset($kekal[$v->pusat.'|'.$v->saluran])) {
+                    Borang14Vote::whereKey($v->id)->delete();
+                }
+            }
+
+            $form->update(['structure' => $baharu]);
+        });
+
+        return response()->json(['ok' => true, 'form_id' => $form->id]);
+    }
+
+    /**
+     * Pengesahan nama Pusat Mengundi yang dikongsi oleh simpanStruktur() DAN
+     * kesanStruktur() — kedua-duanya MESTI bersetuju sama ada muatan ini
+     * diterima, bukan sekadar apa kesannya. Melempar ValidationException
+     * (422) apabila ditolak; tidak memulangkan apa-apa apabila diterima.
+     *
+     * Kunci nama sasaran (rename TARGET) terhadap nama SEDIA ADA — bukan
+     * sahaja senarai baharu, dan bukan sahaja struktur lama.
+     *
+     * Sumber "sudah digunakan" ialah GABUNGAN DUA set, kerana indeks unik
+     * sebenar (borang14_votes) tidak sama dengan struktur:
+     *   (a) nama dalam struktur lama ($svc->collapse()); DAN
+     *   (b) nama pusat yang wujud dalam borang14_votes itu sendiri —
+     *       saveVote() menulis baris undi bagi MANA-MANA rentetan pusat
+     *       tanpa menyemaknya terhadap struktur, jadi baris "yatim"
+     *       (wujud dalam undi, tiada dalam struktur) tetap boleh
+     *       bertembung dengan nama yang baharu dinamakan semula.
+     *
+     * Perbandingan dinormalisasi (nameKey(): huruf besar + pangkas) supaya
+     * ia sepadan dengan collation MySQL utf8mb4_unicode_ci yang menguasai
+     * indeks unik borang14_votes — pangkalan data tidak sensitif huruf
+     * besar/kecil, jadi guard ini pun tidak boleh. NILAI YANG DISIMPAN
+     * tidak diubah — hanya kunci perbandingan.
+     *
+     * Tanpa semakan ini, menamakan semula satu pusat ke atas nama pusat LAIN
+     * yang turut dibuang dalam simpanan yang sama (atau menukar ganti dua
+     * nama) lolos semakan pendua di atas (senarai baharu sendiri tiada
+     * pendua) tetapi renameMap() kemudian menulis UPDATE ke atas kunci undi
+     * yang masih dimiliki nama lama itu: sama ada undi salah pusat kekal
+     * senyap (tiada perlanggaran kunci penuh), atau UPDATE bertembung
+     * dengan indeks unik dan melempar 500 tanpa mesej Bahasa Melayu.
+     *
+     * Pusat yang namanya (dinormalisasi) TIDAK berubah sudah tentu
+     * "berlanggar" dengan dirinya sendiri — nama yang dimiliki OLEH row ini
+     * sendiri dalam struktur lama dikecualikan daripada set "sudah
+     * digunakan" bagi row itu sahaja.
+     *
+     * @param  array<int,array{row_id:string,dm:?string,pusat:string,saluran_count:int}>  $pusat
+     */
+    private function assertPusatNamesUsable(Borang14StrukturService $svc, ?Borang14Form $form, array $pusat, ?array $asas = null): void
+    {
+        $namaKeyList = collect($pusat)->map(fn ($p) => $this->nameKey($p['pusat']));
+        if ($namaKeyList->count() !== $namaKeyList->unique()->count()) {
+            // Dua pusat senama (atau senama tidak-sensitif-huruf) berkongsi
+            // kunci undi yang sama dan akan menulis atas satu sama lain
+            // tanpa sebarang amaran.
+            // Namakan pendua itu. Panel yang disemai daripada anggaran DPT
+            // boleh membawa beberapa baris 'TIADA LOKALITI' (satu bagi setiap
+            // Daerah Mengundi yang ada baris tanpa lokaliti), dan mesej yang
+            // tidak menyebut nama meninggalkan pengguna mengamati 12 baris
+            // yang kelihatan serupa.
+            // Papar nama SEPERTI DITAIP, bukan bentuk nameKey() huruf besar
+            // yang hanya digunakan untuk membanding.
+            $kunciPendua = $namaKeyList->duplicates()->unique()->values();
+            $pendua = collect($pusat)
+                ->filter(fn ($p) => $kunciPendua->contains($this->nameKey($p['pusat'])))
+                ->pluck('pusat')->unique()->values()->implode(', ');
+
+            throw ValidationException::withMessages([
+                'pusat' => "Nama Pusat Mengundi mesti unik dalam satu borang. Nama berulang: {$pendua}. Namakan semula atau buang baris yang berlebihan.",
+            ]);
+        }
+
+        if (! $form) {
+            return;
+        }
+
+        $lama = $svc->collapse($asas ?? $form->structure)['pusat'];
+
+        // TIADA struktur lama = TIADA garis dasar penamaan semula:
+        // renameMap() memulangkan [] dan tiada satu pun UPDATE dijalankan,
+        // jadi perlanggaran indeks unik yang guard ini wujud untuk menghalang
+        // tidak mungkin berlaku. Tanpa pintasan ini, panel yang DISEMAI
+        // daripada rujukan (asal 'dpt'/'warisan', di mana structure memang
+        // null menurut definisi) tidak akan pernah boleh disimpan sebaik ada
+        // satu undi pun: setiap nama yang disemai sudah wujud dalam
+        // borang14_votes tetapi tiada dalam struktur, jadi ia dikira
+        // berlanggar dengan DIRINYA SENDIRI.
+        if (empty($lama)) {
+            return;
+        }
+
+        $namaLama = collect($lama)->pluck('pusat');
+        $namaUndi = $form->votes()->distinct()->pluck('pusat');
+        $digunakan = $namaLama->merge($namaUndi)->filter(fn ($n) => $n !== '');
+
+        foreach ($pusat as $p) {
+            $rowId = (string) $p['row_id'];
+            $baharuNama = $p['pusat'];
+            $baharuKey = $this->nameKey($baharuNama);
+
+            $namaSendiri = collect($lama)->firstWhere('row_id', $rowId)['pusat'] ?? null;
+            $kunciSendiri = $namaSendiri !== null ? $this->nameKey($namaSendiri) : null;
+
+            $berlanggar = $digunakan->contains(fn ($n) => $this->nameKey($n) === $baharuKey && $this->nameKey($n) !== $kunciSendiri);
+
+            if ($berlanggar) {
+                throw ValidationException::withMessages([
+                    'pusat' => "Nama Pusat Mengundi '{$baharuNama}' sudah digunakan oleh pusat lain dalam borang ini. Namakan semula atau buang pusat itu dahulu, kemudian simpan sekali lagi.",
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Pratonton tanpa menulis: berapa baris undi dan berapa jumlah undi yang
+     * akan DIPADAM oleh cadangan struktur ini.
+     *
+     * Wujud supaya dialog pengesahan memaparkan angka sebenar. Amaran kabur
+     * ("perubahan ini mungkin menjejaskan data") dibaca sebagai bunyi latar
+     * dan diklik terus — angka tidak.
+     *
+     * Mesti bersetuju dengan simpanStruktur() dalam DUA perkara, bukan
+     * sekadar satu:
+     *   1) kunci undi dinilai SELEPAS penamaan semula (rename), supaya
+     *      pertukaran nama tulen melaporkan sifar; dan
+     *   2) muatan yang simpanStruktur() akan TOLAK (pendua nama, atau nama
+     *      yang berlanggar dengan struktur lama/undi yatim) juga ditolak di
+     *      sini dengan 422 yang sama — bukan dipratonton seolah-olah sah.
+     *      Tanpa ini dialog memaparkan angka yakin bagi muatan yang akan
+     *      gagal sebaik sahaja pengguna menekan Simpan.
+     *
+     * Tidak menulis apa-apa: tiada transaksi, tiada Borang14Form::create(),
+     * tiada Borang14Snapshot::create(), tiada UPDATE/DELETE ke atas
+     * borang14_votes. Pratonton yang mencipta borang bukan pratonton.
+     */
+    public function kesanStruktur(Request $request, Borang14StrukturService $svc)
+    {
+        $kawasanType = $request->input('kawasan_type');
+        $existsTable = $kawasanType === Borang14Form::KAWASAN_PARLIMEN ? 'bandar' : 'kadun';
+
+        $validated = $request->validate($this->strukturRules($existsTable), $this->strukturMessages());
+
+        // Sama seperti simpanStruktur() — SATU tempat sahaja untuk memangkas
+        // nama Pusat/DM, supaya nilai yang disahkan/dibanding/dinamakan
+        // semula sepadan dengan nilai yang benar-benar akan disimpan.
+        $validated['pusat'] = collect($validated['pusat'])->map(function ($p) {
+            $p['pusat'] = trim($p['pusat']);
+            if (array_key_exists('dm', $p) && $p['dm'] !== null) {
+                $p['dm'] = trim($p['dm']);
+            }
+
+            return $p;
+        })->all();
+
+        $form = Borang14Form::forKawasan($validated['kawasan_type'], $validated['kawasan_id'])
+            ->where('jenis_pr', $validated['jenis_pr'])
+            ->where('tahun', $validated['tahun'])
+            ->first();
+
+        // Kebenaran MESTI disemak dahulu — sebelum guard pendua/perlanggaran
+        // di bawah — atas sebab yang sama seperti simpanStruktur(): jika
+        // tidak, penyahutan (422) membocorkan kandungan borang kepada
+        // pemanggil yang langsung tiada kebenaran menyentuh borang ini.
+        if (! $this->bolehSuntingStruktur($request->user(), $form, $validated)) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        // Sama seperti simpanStruktur(): pratonton mesti MENOLAK apa yang
+        // simpanan akan tolak, bukan memaparkan angka bagi muatan yang mati.
+        $this->assertStrukturBolehDisunting($validated, $form);
+
+        $asas = $this->strukturAsas($svc, $form, $validated);
+
+        $this->assertPusatNamesUsable($svc, $form, $validated['pusat'], $asas);
+
+        if (! $form) {
+            // Belum pernah disimpan bagi kerusi ini — tiada undi wujud untuk
+            // dipadam, jadi sifar adalah jawapan JUJUR, bukan ralat.
+            return response()->json(['baris' => 0, 'undi' => 0, 'pusat' => []]);
+        }
+
+        // Sama seperti simpanStruktur(): nilai kunci SELEPAS penamaan semula,
+        // supaya pusat yang sekadar bertukar nama tidak dilaporkan sebagai
+        // kehilangan.
+        $rename = $svc->renameMap($asas, $validated['pusat']);
+        $kekal = $svc->survivingKeys($svc->expand(
+            $validated['pusat'],
+            (bool) ($validated['undi_awal'] ?? false),
+            (bool) ($validated['undi_pos'] ?? false),
+            $validated['undi_awal_label'] ?? null,
+            $validated['undi_pos_label'] ?? null,
+            $validated['lain_lain'] ?? [],
+        ));
+
+        $hilang = $form->votes()->get(['pusat', 'saluran', 'undi'])
+            ->filter(fn ($v) => ! isset($kekal[($rename[$v->pusat] ?? $v->pusat).'|'.$v->saluran]));
+
+        return response()->json([
+            'baris' => $hilang->count(),
+            'undi'  => (int) $hilang->sum('undi'),
+            'pusat' => $hilang->pluck('pusat')->unique()->values()->all(),
+        ]);
+    }
+
+    /**
+     * Menyunting struktur menggerakkan undi sebenar, jadi ia berkongsi tahap
+     * kepercayaan yang sama seperti mengisi undi — admin ke atas — tetapi
+     * borang DITERBITKAN disekat sepenuhnya, termasuk untuk super_admin:
+     * bentuk rekod rasmi tidak boleh berubah di bawah angka yang sudah
+     * disiarkan ke Scoreboard. Revert dahulu, kemudian sunting.
+     */
+    /**
+     * Adakah grid yang dipaparkan benar-benar datang daripada struktur borang
+     * INI (atau tiada grid langsung)?
+     *
+     * Panel Sunting Struktur disemai daripada $form->structure SAHAJA. Apabila
+     * grid sebenarnya dibina daripada JSON kurasi, anggaran DPT, atau struktur
+     * yang diwarisi daripada pilihan raya lain, borang ini sendiri mempunyai
+     * structure = null — jadi panel dibuka KOSONG di atas grid yang penuh
+     * undi. Menyimpan ketika itu menjadikan setiap undi sedia ada "yatim" dan
+     * survivingKeys() memadamnya. Bagi kerusi kurasi ia lebih buruk lagi:
+     * resolveReference() tidak pernah merujuk struktur borang untuk sumber
+     * itu, jadi struktur yang baru ditaip tidak akan dipaparkan pun —
+     * operasi itu kerugian semata-mata.
+     *
+     * HANYA 'kurasi' disekat, dan sebab yang tepat itu penting:
+     *   - 'kurasi'   — JSON kurasi tiada kunci 'source', jadi resolveReference()
+     *                  TIDAK PERNAH merujuk structure borang untuk sumber ini.
+     *                  Struktur yang ditaip tidak akan dipaparkan pun, jadi
+     *                  menyunting di sini kerugian semata-mata.
+     *   - 'dpt'      — structure MENGALAHKAN anggaran DPT (lihat keutamaan di
+     *                  atas), jadi suntingan benar-benar dipaparkan. Inilah
+     *                  cara membaiki anggaran DPT yang menganggap 1 saluran
+     *                  per Pusat — antara sebab ciri ini wujud.
+     *   - 'warisan'  — sebaik borang ini ada structure sendiri, cabang warisan
+     *                  tidak berjalan langsung. Suntingan dipaparkan.
+     *   - 'struktur' / null — struktur borang ini sendiri, atau kebuntuan yang
+     *                  ciri ini wujud untuk dipecahkan.
+     *
+     * Bahaya "panel dibuka kosong di atas grid penuh" bagi 'dpt'/'warisan'
+     * ditutup di tempat lain, dengan MENYEMAI panel daripada rujukan yang
+     * dipaparkan (strukturUntukPanel()), bukan dengan menyekat penyuntingan.
+     */
+    private function strukturBolehDisunting(?string $asal): bool
+    {
+        return $asal !== 'kurasi';
+    }
+
+    /**
+     * Keadaan permulaan panel: struktur borang INI apabila ada, jika tidak
+     * rujukan yang sedang DIPAPARKAN.
+     *
+     * Menyemai daripada $form->structure sahaja bermakna panel dibuka kosong
+     * setiap kali grid datang daripada DPT atau warisan — dan menyimpan
+     * ketika itu memadam setiap undi yang tidak ditaip semula.
+     */
+    private function strukturUntukPanel(Borang14StrukturService $svc, ?Borang14Form $form, ?array $reference, ?string $asal): array
+    {
+        if ($asal === 'struktur' || ! empty($form?->structure['rows'])) {
+            return $svc->collapse($form?->structure);
+        }
+
+        return $asal === null
+            ? $svc->collapse(null)
+            : $svc->collapseReference($reference);
+    }
+
+    /**
+     * Struktur yang menjadi GARIS DASAR penamaan semula.
+     *
+     * renameMap() memadankan pada row_id terhadap struktur lama. Bagi
+     * suntingan PERTAMA panel yang disemai daripada rujukan (asal 'dpt' /
+     * 'warisan'), borang ini belum ada struktur sendiri — menurut definisi
+     * cabang itu — jadi tanpa ini garis dasarnya kosong, setiap pusat dibaca
+     * sebagai baharu, dan menamakan semula dilaksanakan sebagai padam-lama +
+     * tambah-baharu: undi di bawah nama lama dipadam sedangkan ia sepatutnya
+     * BERPINDAH. Garis dasar itu sebenarnya wujud — grid yang disemai — dan
+     * row_id-nya diterbitkan dengan peraturan yang sama, jadi ia memang
+     * sepadan.
+     *
+     * Dipakai oleh simpanStruktur() DAN kesanStruktur(): pratonton mesti
+     * mengira penamaan semula yang sama seperti simpanan, jika tidak dialog
+     * melaporkan pemusnahan yang tidak akan berlaku (atau sebaliknya).
+     */
+    private function strukturAsas(Borang14StrukturService $svc, ?Borang14Form $form, array $validated): ?array
+    {
+        if (! empty($form?->structure['rows'])) {
+            return $form->structure;
+        }
+
+        ['reference' => $reference, 'asal' => $asal] = $this->resolveReference(
+            $validated['kawasan_type'], (int) $validated['kawasan_id'], $form,
+        );
+
+        if ($asal === null) {
+            return null;
+        }
+
+        $semaian = $svc->collapseReference($reference);
+
+        return $svc->expand(
+            $semaian['pusat'],
+            $semaian['undi_awal'],
+            $semaian['undi_pos'],
+            $semaian['undi_awal_label'],
+            $semaian['undi_pos_label'],
+        );
+    }
+
+    /** 422 supaya sebabnya boleh dibaca pengguna; guard ini bukan hal kebenaran. */
+    private function assertStrukturBolehDisunting(array $validated, ?Borang14Form $form): void
+    {
+        $asal = $this->resolveReference($validated['kawasan_type'], (int) $validated['kawasan_id'], $form)['asal'];
+
+        if ($this->strukturBolehDisunting($asal)) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'pusat' => 'Struktur kerusi ini datang daripada fail rujukan rasmi SPR yang sentiasa mengatasi struktur borang. Apa yang ditaip di sini tidak akan dipaparkan, tetapi undi sedia ada akan dipadam.',
+        ]);
+    }
+
+    private function bolehSuntingStruktur(?User $user, ?Borang14Form $form, array $validated): bool
+    {
+        if (! $user || (! $user->isSuperAdmin() && ! $user->isAdmin())) {
+            return false;
+        }
+        if ($form && $form->status === 'published') {
+            return false;
+        }
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        $bandarId = $validated['kawasan_type'] === Borang14Form::KAWASAN_PARLIMEN
+            ? $validated['kawasan_id']
+            : Kadun::whereKey($validated['kawasan_id'])->value('bandar_id');
+
+        return $user->bandar_id !== null && (int) $user->bandar_id === (int) $bandarId;
+    }
+
+    /**
      * SATU tempat sahaja untuk rantaian fallback rujukan struktur — dikongsi
      * oleh data() DAN pdf() supaya kedua-duanya tidak boleh terpesong
      * (drift) antara satu sama lain. Susunan keutamaan:
@@ -246,7 +760,13 @@ class Borang14Controller extends Controller
      * sebab), tetapi tidak MEWAJIBKAN published — kerusi yang hanya ada satu
      * draf sejarah tetap mewarisi draf itu, bukan "belum tersedia".
      *
-     * @return array{reference: array|null, inherited_from: array{tahun:int, jenis_pr:string}|null}
+     * `asal` melaporkan CABANG MANA yang menang — 'kurasi' | 'dpt' |
+     * 'struktur' | 'warisan', atau null apabila tiada rujukan langsung.
+     * Penyuntingan struktur bergantung padanya: panel disemai daripada
+     * struktur borang INI sahaja, jadi ia hanya selamat dibuka apabila grid
+     * yang dipaparkan memang datang dari situ (atau tiada grid langsung).
+     *
+     * @return array{reference: array|null, inherited_from: array{tahun:int, jenis_pr:string}|null, asal: string|null}
      */
     private function resolveReference(string $kawasanType, int $kawasanId, ?Borang14Form $form): array
     {
@@ -254,6 +774,10 @@ class Borang14Controller extends Controller
         $reference = $isParlimen
             ? Borang14Reference::forBandar($kawasanId)
             : Borang14Reference::forKadun($kawasanId);
+
+        $asal = $reference
+            ? (($reference['source'] ?? null) === 'dpt_estimate' ? 'dpt' : 'kurasi')
+            : null;
 
         // Struktur scoresheet borang INI mengatasi anggaran DPT.
         //
@@ -272,8 +796,11 @@ class Borang14Controller extends Controller
         // JSON kurasi (tiada kunci 'source') kekal keutamaan tertinggi.
         $isDptEstimate = ($reference['source'] ?? null) === 'dpt_estimate';
         if ((! $reference || $isDptEstimate) && ! empty($form?->structure['rows'])) {
-            $reference = $this->referenceFromStructure($form->structure, $form->kawasan())
-                ?: $reference;
+            $dariStruktur = $this->referenceFromStructure($form->structure, $form->kawasan());
+            if ($dariStruktur) {
+                $reference = $dariStruktur;
+                $asal = 'struktur';
+            }
         }
 
         // On counting night for a NEW election there IS no scoresheet — it's the
@@ -307,10 +834,13 @@ class Borang14Controller extends Controller
             if ($sourceForm) {
                 $reference = $this->referenceFromStructure($sourceForm->structure, $sourceForm->kawasan());
                 $inheritedFrom = ['tahun' => $sourceForm->tahun, 'jenis_pr' => $sourceForm->jenis_pr];
+                if ($reference) {
+                    $asal = 'warisan';
+                }
             }
         }
 
-        return ['reference' => $reference, 'inherited_from' => $inheritedFrom];
+        return ['reference' => $reference, 'inherited_from' => $inheritedFrom, 'asal' => $asal];
     }
 
     /**
@@ -326,6 +856,10 @@ class Borang14Controller extends Controller
      */
     private function referenceFromStructure(array $structure, Bandar|Kadun|null $kawasan): array
     {
+        // Asal-usul mesti dilaporkan dengan jujur ke UI: 'manual' bermakna
+        // seorang manusia menaip bentuk ini, bukan SPR yang menggazetkannya.
+        $origin = ($structure['origin'] ?? null) === 'manual' ? 'manual' : 'scoresheet';
+
         $isParlimen = $kawasan instanceof Bandar;
         $daerah = [];
         $undiAwal = null;
@@ -387,7 +921,7 @@ class Borang14Controller extends Controller
             'daerah_mengundi' => array_values($daerah),
             'undi_awal' => $undiAwal,
             'undi_pos'  => $undiPos,
-            'source'    => 'scoresheet',
+            'source'    => $origin,
         ];
     }
 
@@ -419,6 +953,15 @@ class Borang14Controller extends Controller
     {
         $structure = $form->structure;
         if (empty($structure['rows'])) {
+            return [];
+        }
+
+        // Struktur yang dibina dengan tangan tiada baris bercetak untuk
+        // dibandingkan — tiada lajur (A), tiada 'jumlah_undian'. Menjalankan
+        // validateBalance() ke atasnya akan membandingkan setiap sel dengan
+        // sifar yang tidak pernah dicetak sesiapa, lalu menuduh borang yang
+        // diisi dengan BETUL sebagai tidak seimbang.
+        if (($structure['origin'] ?? null) === 'manual') {
             return [];
         }
 
@@ -876,6 +1419,19 @@ class Borang14Controller extends Controller
     private function normalizeSaluran(?string $raw): string
     {
         return trim((string) ($raw ?? ''));
+    }
+
+    /**
+     * Kunci padanan nama Pusat Mengundi yang tidak sensitif huruf besar/kecil
+     * atau ruang lampau — sepadan dengan collation MySQL (utf8mb4_unicode_ci)
+     * yang menguasai indeks unik borang14_votes, dan konvensyen nameKey() yang
+     * sama seperti ElectionDataService/ElectionAnalyticsService. HANYA untuk
+     * PERBANDINGAN dalam guard simpanStruktur() — nama yang disimpan ke DB
+     * tidak sekali-kali diubah huruf besarnya di sini.
+     */
+    private function nameKey(?string $value): string
+    {
+        return mb_strtoupper(trim((string) $value));
     }
 
     public function publish(Request $request)

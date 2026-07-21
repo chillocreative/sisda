@@ -455,6 +455,12 @@ Route::middleware(['auth', 'admin'])->prefix('pilihanraya')->name('pilihanraya.'
     Route::post('/borang-14/parties', [\App\Http\Controllers\Borang14Controller::class, 'saveParties'])->name('borang-14.parties');
     Route::post('/borang-14/vote', [\App\Http\Controllers\Borang14Controller::class, 'saveVote'])->name('borang-14.vote')->middleware('throttle:120,1');
     Route::post('/borang-14/reset', [\App\Http\Controllers\Borang14Controller::class, 'reset'])->name('borang-14.reset')->middleware('throttle:20,1');
+    // Struktur yang dibina dengan tangan (Pusat Mengundi + bilangan saluran)
+    // untuk PR akan datang yang belum ada scoresheet. Menyunting struktur
+    // MEMINDAH atau MEMADAM undi sedia ada, jadi semakan peranan ada dalam
+    // pengawal dan borang DITERBITKAN disekat sepenuhnya.
+    Route::post('/borang-14/struktur', [\App\Http\Controllers\Borang14Controller::class, 'simpanStruktur'])->name('borang-14.struktur')->middleware('throttle:30,1');
+    Route::post('/borang-14/struktur/kesan', [\App\Http\Controllers\Borang14Controller::class, 'kesanStruktur'])->name('borang-14.struktur.kesan')->middleware('throttle:60,1');
     Route::get('/borang-14/pdf', [\App\Http\Controllers\Borang14Controller::class, 'pdf'])->name('borang-14.pdf');
     Route::post('/borang-14/upload', [\App\Http\Controllers\Borang14Controller::class, 'upload'])->name('borang-14.upload')->middleware('throttle:10,1');
     Route::post('/borang-14/publish', [\App\Http\Controllers\Borang14Controller::class, 'publish'])->name('borang-14.publish')->middleware('throttle:30,1');

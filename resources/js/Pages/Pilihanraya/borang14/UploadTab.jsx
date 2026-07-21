@@ -270,6 +270,15 @@ export default function UploadTab({ onUploaded }) {
                 </div>
             )}
 
+            {/* Kawasan yang SUDAH wujud tidak melalui skrin pengesahan langsung (lihat submit():
+                willCreate kosong -> terus commit). Kerusi yang mempunyai struktur ditaip tangan
+                sememangnya kawasan yang sudah wujud, jadi nota ini mesti kekal di sini — bukan
+                di dalam blok pengesahan — supaya ia dibaca sebelum fail dimuat naik. */}
+            <div className={`text-xs ${t.subtext}`}>
+                Nota: jika borang ini mempunyai struktur yang ditaip tangan, scoresheet akan
+                menggantikannya. Keadaan lama disimpan dan boleh dipulihkan melalui Revert.
+            </div>
+
             {phase !== 'confirm' && !(phase === 'committing' && pending) && (
                 <div className="flex items-center gap-3">
                     <button type="button" onClick={submit} disabled={locked || !ready} className={t.buttonPrimary}>
