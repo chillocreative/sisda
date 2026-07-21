@@ -324,6 +324,11 @@ export default function Dashboard({
                             <div>
                                 <p className="text-sm font-medium text-slate-600">Sokongan PH</p>
                                 <p className="text-3xl font-bold text-red-600 mt-2">{sokongan.ph}%</p>
+                                <p className="text-xs text-slate-500 mt-1">
+                                    {sokongan.total > 0
+                                        ? `${(sokongan.phCount ?? 0).toLocaleString()} daripada ${sokongan.total.toLocaleString()} rekod`
+                                        : 'Tiada rekod kecenderungan'}
+                                </p>
                             </div>
                             <div className="p-3 bg-red-100 rounded-lg">
                                 <TrendingUp className="h-6 w-6 text-red-600" />
@@ -337,6 +342,11 @@ export default function Dashboard({
                             <div>
                                 <p className="text-sm font-medium text-slate-600">Sokongan Lawan</p>
                                 <p className="text-3xl font-bold mt-2" style={{ color: '#003153' }}>{sokongan.bn}%</p>
+                                <p className="text-xs text-slate-500 mt-1">
+                                    {sokongan.total > 0
+                                        ? `${(sokongan.bnCount ?? 0).toLocaleString()} daripada ${sokongan.total.toLocaleString()} rekod`
+                                        : 'Tiada rekod kecenderungan'}
+                                </p>
                             </div>
                             <div className="p-3 rounded-lg" style={{ backgroundColor: '#00315320' }}>
                                 <TrendingDown className="h-6 w-6" style={{ color: '#003153' }} />
