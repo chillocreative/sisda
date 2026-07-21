@@ -105,11 +105,22 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
     // Fetch reference + saved data whenever the chosen kawasan/jenis/tahun changes.
     // Also syncs penjuru from a loaded draft so a scoresheet upload lands ready-to-edit.
     useEffect(() => {
-        if (!geographyComplete) { setReference(null); setHasData(true); setInheritedFrom(null); setVotes({}); setForm(null); return undefined; }
+        if (!geographyComplete) {
+            setReference(null); setHasData(true); setInheritedFrom(null); setVotes({}); setForm(null);
+            // Struktur/bolehSuntingStruktur belong to whichever seat was
+            // previously selected — never let them survive a picker change
+            // (complete or not), or "Sunting Struktur" can open the panel
+            // with the old seat's rows against the newly chosen geography.
+            setStruktur({ pusat: [], undi_awal: false, undi_pos: false });
+            setBolehSuntingStruktur(false);
+            return undefined;
+        }
         let cancelled = false;
         setLoading(true);
         setSelectedPusat('');
         setPublishedOk(false);
+        setStruktur({ pusat: [], undi_awal: false, undi_pos: false });
+        setBolehSuntingStruktur(false);
         axios.get(route('pilihanraya.borang-14.data'), {
             params: { kawasan_type: kawasanType, kawasan_id: kawasanId, jenis_pr: jenisPr, tahun, penjuru: penjuru || undefined },
         })
@@ -332,7 +343,7 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                 )}
             </div>
 
-            {geographyComplete && hasData && bolehSuntingStruktur && !suntingStruktur && (
+            {geographyComplete && hasData && bolehSuntingStruktur && !suntingStruktur && !loading && (
                 <div className="flex justify-end mb-3">
                     <button type="button" onClick={() => setSuntingStruktur(true)} className={t.buttonSecondary}>
                         Sunting Struktur
