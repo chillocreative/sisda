@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Download, Info, MapPin, Loader2, Save } from 'lucide-react';
 import { usePilihanrayaTheme } from '../components/PilihanrayaShell';
 import KawasanPicker from './KawasanPicker';
+import StrukturPanel from './StrukturPanel';
 import {
     VoteTable, UndiAwalPosTable, GrandSummary,
     toBlocks, cellKey, BULOH_KASAP_KADUN_ID,
@@ -29,6 +30,13 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
     // whenever the reference came from curated JSON/DPT or this election's own
     // structure. Must never be silent — see the banner below.
     const [inheritedFrom, setInheritedFrom] = useState(null);
+    // Keadaan panel Sunting Struktur. `struktur` sentiasa datang dari server —
+    // jangan sekali-kali kira semula di client, kerana peraturan row_id yang
+    // hanyut bermakna undi dipadam sebagai ganti dipindahkan.
+    const [struktur, setStruktur] = useState({ pusat: [], undi_awal: false, undi_pos: false });
+    const [bolehSuntingStruktur, setBolehSuntingStruktur] = useState(false);
+    const [suntingStruktur, setSuntingStruktur] = useState(false);
+    const [reloadNonce, setReloadNonce] = useState(0);
     const [votes, setVotes] = useState({});
     const [form, setForm] = useState(null); // { id, status, source, needs_review, crosscheck_issues, penjuru }
     const [loading, setLoading] = useState(false);
@@ -68,6 +76,8 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                     });
                     setReference(data.reference);
                     setHasData(data.hasData);
+                    setStruktur(data.struktur || { pusat: [], undi_awal: false, undi_pos: false });
+                    setBolehSuntingStruktur(Boolean(data.boleh_sunting_struktur));
                     setInheritedFrom(data.inherited_from || null);
                     setVotes(data.votes || {});
                     setForm(data.form || null);
@@ -107,6 +117,8 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                 if (cancelled) return;
                 setReference(data.reference);
                 setHasData(data.hasData);
+                setStruktur(data.struktur || { pusat: [], undi_awal: false, undi_pos: false });
+                setBolehSuntingStruktur(Boolean(data.boleh_sunting_struktur));
                 setInheritedFrom(data.inherited_from || null);
                 setVotes(data.votes || {});
                 setForm(data.form || null);
@@ -117,7 +129,7 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
             })
             .finally(() => { if (!cancelled) setLoading(false); });
         return () => { cancelled = true; };
-    }, [geographyComplete, kawasanType, kawasanId, jenisPr, tahun]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [geographyComplete, kawasanType, kawasanId, jenisPr, tahun, reloadNonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Keep the party-slot array sized to the chosen penjuru.
     useEffect(() => {
@@ -276,7 +288,7 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
         }
     };
 
-    const canShowTables = geographyComplete && hasData && penjuru && blocks.length > 0;
+    const canShowTables = geographyComplete && hasData && penjuru && blocks.length > 0 && !suntingStruktur;
 
     return (
         <>
@@ -320,6 +332,23 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                 )}
             </div>
 
+            {geographyComplete && hasData && bolehSuntingStruktur && !suntingStruktur && (
+                <div className="flex justify-end mb-3">
+                    <button type="button" onClick={() => setSuntingStruktur(true)} className={t.buttonSecondary}>
+                        Sunting Struktur
+                    </button>
+                </div>
+            )}
+
+            {suntingStruktur && (
+                <StrukturPanel
+                    picker={picker}
+                    struktur={struktur}
+                    onCancel={() => setSuntingStruktur(false)}
+                    onSaved={() => { setSuntingStruktur(false); setReloadNonce((n) => n + 1); }}
+                />
+            )}
+
             {/* Note when geography incomplete */}
             {!geographyComplete && (
                 <div className={`${t.banner} flex items-center gap-2`}>
@@ -329,10 +358,18 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
             )}
 
             {/* No reference data for chosen kawasan */}
-            {geographyComplete && !hasData && !loading && (
-                <div className={`${t.banner} flex items-center gap-2`}>
+            {geographyComplete && !hasData && !loading && !suntingStruktur && (
+                <div className={`${t.banner} flex flex-wrap items-center gap-2`}>
                     <Info className="h-4 w-4 shrink-0" />
-                    <span>Data Borang 14 (saluran &amp; pengundi berdaftar) belum tersedia untuk kawasan ini.</span>
+                    <span>
+                        Tiada struktur Borang 14 untuk kawasan ini — tiada data DPT dan tiada
+                        scoresheet tahun lepas untuk diwarisi.
+                    </span>
+                    {bolehSuntingStruktur && (
+                        <button type="button" onClick={() => setSuntingStruktur(true)} className={t.buttonPrimary}>
+                            Cipta Borang 14 kosong
+                        </button>
+                    )}
                 </div>
             )}
 
