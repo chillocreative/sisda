@@ -98,6 +98,140 @@ class Borang14StrukturManualTest extends TestCase
         ];
     }
 
+    /**
+     * Kadun 41 ialah satu-satunya kerusi yang mempunyai fail JSON kurasi
+     * (resources/data/borang14/kadun-41.json). Grid bagi kerusi begini DIBINA
+     * daripada fail itu, BUKAN daripada struktur borang — rujuk keutamaan di
+     * resolveReference(): JSON kurasi tiada kunci 'source', jadi pindaan
+     * struktur tidak pernah dirujuk.
+     */
+    private function curatedKadun(): Kadun
+    {
+        $k = new Kadun(['nama' => 'Buloh Kasap', 'bandar_id' => $this->kadun->bandar_id]);
+        $k->id = 41;
+        $k->save();
+
+        return $k;
+    }
+
+    /** @return array<string,mixed> */
+    private function curatedPayload(array $pusat): array
+    {
+        return [
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->curatedKadun()->id,
+            'jenis_pr' => 'prn', 'tahun' => 2027,
+            'pusat' => $pusat, 'undi_awal' => false, 'undi_pos' => true,
+        ];
+    }
+
+    // ---------------------------------------------------------------------
+    // Grid yang dipaparkan TIDAK selalunya datang daripada struktur borang
+    // ini sendiri. Apabila ia datang daripada JSON kurasi / anggaran DPT /
+    // warisan, borang ini sendiri mempunyai structure = null, jadi panel
+    // dibuka KOSONG di atas grid yang penuh. Menyimpan ketika itu memadam
+    // setiap undi yang tidak ditaip semula — dan bagi kerusi kurasi struktur
+    // yang disimpan itu tidak pernah dipaparkan pun. Sebab itu penyuntingan
+    // dikunci pada ASAL grid, bukan sekadar peranan pengguna.
+    // ---------------------------------------------------------------------
+
+    public function test_editing_is_blocked_when_the_grid_comes_from_a_curated_reference(): void
+    {
+        $kadun = $this->curatedKadun();
+
+        $res = $this->actingAs($this->user())->getJson(route('pilihanraya.borang-14.data', [
+            'kawasan_type' => 'dun', 'kawasan_id' => $kadun->id, 'jenis_pr' => 'prn', 'tahun' => 2027,
+        ]));
+
+        $res->assertOk();
+        $this->assertTrue($res->json('hasData'));
+        // Super admin, borang belum diterbitkan — disekat semata-mata kerana
+        // grid itu bukan milik struktur borang ini.
+        $this->assertFalse($res->json('boleh_sunting_struktur'));
+    }
+
+    public function test_saving_is_rejected_when_the_grid_comes_from_a_curated_reference(): void
+    {
+        $this->actingAs($this->user())
+            ->postJson(route('pilihanraya.borang-14.struktur'), $this->curatedPayload([
+                ['row_id' => 'pm_a', 'dm' => 'DM', 'pusat' => 'SK BARU', 'saluran_count' => 1],
+            ]))
+            ->assertStatus(422);
+
+        // Tiada borang dicipta — penolakan mesti berlaku SEBELUM firstOrCreate.
+        $this->assertSame(0, Borang14Form::count());
+    }
+
+    public function test_preview_is_rejected_when_the_grid_comes_from_a_curated_reference(): void
+    {
+        $this->actingAs($this->user())
+            ->postJson(route('pilihanraya.borang-14.struktur.kesan'), $this->curatedPayload([
+                ['row_id' => 'pm_a', 'dm' => 'DM', 'pusat' => 'SK BARU', 'saluran_count' => 1],
+            ]))
+            ->assertStatus(422);
+    }
+
+    public function test_editing_is_allowed_when_the_grid_is_this_forms_own_structure(): void
+    {
+        // Kawalan positif: sekatan di atas mesti kerana ASAL grid, bukan
+        // kerana ia menyekat semua orang.
+        $form = $this->form($this->manualStructure());
+
+        $res = $this->actingAs($this->user())
+            ->getJson(route('pilihanraya.borang-14.data', ['form_id' => $form->id]));
+
+        $res->assertOk();
+        $this->assertTrue($res->json('boleh_sunting_struktur'));
+    }
+
+    public function test_saving_preserves_votes_stored_under_a_non_canonical_postal_label(): void
+    {
+        // Struktur berbentuk SCORESHEET: label undi pos ialah apa yang dibaca
+        // daripada sheet, dan saluran pertama KOSONG (kes produksi sebenar).
+        // Undi dikunci pada rentetan itu.
+        $form = $this->form(['rows' => [
+            ['dm' => 'KUALA JEMAPOH', 'pusat' => 'SK TENGKEK', 'saluran' => ''],
+            ['dm' => '', 'pusat' => '', 'saluran' => 'UNDI POS AWAL'],
+        ]]);
+        Borang14Vote::create(['borang14_form_id' => $form->id, 'pusat' => 'SK TENGKEK', 'saluran' => '', 'slot' => 1, 'undi' => 411]);
+        Borang14Vote::create(['borang14_form_id' => $form->id, 'pusat' => '', 'saluran' => 'UNDI POS AWAL', 'slot' => 1, 'undi' => 37]);
+
+        // Buka panel, tambah SATU saluran, simpan — tanpa menyentuh apa-apa lagi.
+        $struktur = (new Borang14StrukturService)->collapse($form->structure);
+        $pusat = $struktur['pusat'];
+        $pusat[0]['saluran_count'] = 2;
+
+        $this->actingAs($this->user())->postJson(route('pilihanraya.borang-14.struktur'), [
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->kadun->id,
+            'jenis_pr' => 'prn', 'tahun' => 2027,
+            'pusat' => $pusat,
+            'undi_awal' => $struktur['undi_awal'], 'undi_pos' => $struktur['undi_pos'],
+            'undi_awal_label' => $struktur['undi_awal_label'],
+            'undi_pos_label' => $struktur['undi_pos_label'],
+        ])->assertOk();
+
+        // KEDUA-DUA undi mesti selamat. Sebelum pembetulan ini, expand()
+        // menomborkan semula saluran kosong menjadi '1' dan menulis semula
+        // label pos menjadi literal berkanun — kedua-dua kunci hanyut dan
+        // survivingKeys() memadamnya sebagai yatim.
+        $this->assertSame(411, Borang14Vote::where('pusat', 'SK TENGKEK')->where('saluran', '')->value('undi'));
+        $this->assertSame(37, Borang14Vote::where('saluran', 'UNDI POS AWAL')->value('undi'));
+        $this->assertSame(2, Borang14Vote::where('borang14_form_id', $form->id)->count());
+    }
+
+    public function test_a_blank_daerah_mengundi_is_rejected(): void
+    {
+        // Borang14ScenarioMapper MELANGKAU setiap undi yang Pusatnya tiada DM
+        // ("jangan reka DM"). Bagi kerusi manual yang tiada rujukan lain, itu
+        // bermakna Analisa/AI menerbitkan "keputusan kerusi" yang sebenarnya
+        // undi pos semata-mata. Halang di pintu masuk.
+        $this->actingAs($this->user())
+            ->postJson(route('pilihanraya.borang-14.struktur'), $this->payload([
+                ['row_id' => 'pm_a', 'dm' => '', 'pusat' => 'SK TENGKEK', 'saluran_count' => 1],
+            ]))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('pusat.0.dm');
+    }
+
     public function test_saving_a_structure_creates_the_form_and_breaks_the_dead_end(): void
     {
         // Kerusi tanpa DPT dan tanpa scoresheet — sebelum ini buntu sepenuhnya.
@@ -501,8 +635,10 @@ class Borang14StrukturManualTest extends TestCase
 
         $res->assertOk();
         $this->assertSame(
-            [['row_id' => 'pm_a', 'dm' => 'KUALA JEMAPOH', 'pusat' => 'SK TENGKEK', 'saluran_count' => 2],
-             ['row_id' => 'pm_b', 'dm' => 'KUALA JEMAPOH', 'pusat' => 'SK JEMAPOH', 'saluran_count' => 1]],
+            // saluran_labels dihantar ke panel supaya ia boleh pulang ke
+            // expand() tanpa diubah — itulah yang mengekalkan kunci undi.
+            [['row_id' => 'pm_a', 'dm' => 'KUALA JEMAPOH', 'pusat' => 'SK TENGKEK', 'saluran_count' => 2, 'saluran_labels' => ['1', '2']],
+             ['row_id' => 'pm_b', 'dm' => 'KUALA JEMAPOH', 'pusat' => 'SK JEMAPOH', 'saluran_count' => 1, 'saluran_labels' => ['1']]],
             $res->json('struktur.pusat'),
         );
         $this->assertTrue($res->json('struktur.undi_pos'));

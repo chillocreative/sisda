@@ -125,11 +125,14 @@ class Borang14Controller extends Controller
             // tempat sahaja — dua pelaksanaan akan hanyut, dan hanyut di sini
             // bermakna undi dipadam sebagai ganti dipindahkan.
             'struktur' => $svc->collapse($form?->structure),
+            // DUA syarat, bukan satu: peranan/status DAN asal grid. Grid yang
+            // datang daripada kurasi/DPT/warisan tidak boleh disunting di sini
+            // — panel akan dibuka kosong di atasnya dan simpanan memadam undi.
             'boleh_sunting_struktur' => $this->bolehSuntingStruktur(
                 $request->user(),
                 $form,
                 ['kawasan_type' => $kawasanType, 'kawasan_id' => $kawasanId],
-            ),
+            ) && $this->strukturBolehDisunting($kawasanType, (int) $kawasanId, $form),
         ];
 
         // Deliberately OMITTED (not merely null) when nothing was inherited —
@@ -254,11 +257,23 @@ class Borang14Controller extends Controller
             'tahun'    => 'required|integer|between:1959,2100',
             'pusat'    => 'present|array|max:500',
             'pusat.*.row_id' => 'required|string|max:64',
-            'pusat.*.dm'     => 'nullable|string|max:255',
+            // WAJIB, bukan nullable. Borang14ScenarioMapper::map() MELANGKAU
+            // setiap undi yang Pusatnya tiada Daerah Mengundi ("jangan reka
+            // DM"). Bagi kerusi manual yang tiada rujukan lain untuk memetakan
+            // DM, satu dm kosong bermakna Analisa/AI menerbitkan "keputusan
+            // kerusi" yang sebenarnya baris undi pos semata-mata.
+            'pusat.*.dm'     => 'required|string|max:255',
             'pusat.*.pusat'  => 'required|string|max:255',
             'pusat.*.saluran_count' => 'required|integer|min:1|max:20',
+            // Label saluran/undi pos MENTAH yang dibawa balik oleh collapse().
+            // Undi dikunci padanya, jadi ia mesti pulang ke expand() tanpa
+            // diubah — lihat docblock expand().
+            'pusat.*.saluran_labels'   => 'nullable|array|max:20',
+            'pusat.*.saluran_labels.*' => 'nullable|string|max:255',
             'undi_awal' => 'boolean',
             'undi_pos'  => 'boolean',
+            'undi_awal_label' => 'nullable|string|max:255',
+            'undi_pos_label'  => 'nullable|string|max:255',
         ];
     }
 
@@ -312,12 +327,19 @@ class Borang14Controller extends Controller
             abort(403, 'Unauthorized action.');
         }
 
+        // Selepas kebenaran (jangan bocorkan kewujudan borang), sebelum
+        // firstOrCreate — kerusi kurasi/DPT/warisan tidak boleh disunting
+        // langsung, dan tiada borang patut tercipta akibat cubaan itu.
+        $this->assertStrukturBolehDisunting($validated, $form);
+
         $this->assertPusatNamesUsable($svc, $form, $validated['pusat']);
 
         $baharu = $svc->expand(
             $validated['pusat'],
             (bool) ($validated['undi_awal'] ?? false),
             (bool) ($validated['undi_pos'] ?? false),
+            $validated['undi_awal_label'] ?? null,
+            $validated['undi_pos_label'] ?? null,
         );
 
         DB::transaction(function () use (&$form, $validated, $baharu, $svc, $request) {
@@ -492,6 +514,10 @@ class Borang14Controller extends Controller
             abort(403, 'Unauthorized action.');
         }
 
+        // Sama seperti simpanStruktur(): pratonton mesti MENOLAK apa yang
+        // simpanan akan tolak, bukan memaparkan angka bagi muatan yang mati.
+        $this->assertStrukturBolehDisunting($validated, $form);
+
         $this->assertPusatNamesUsable($svc, $form, $validated['pusat']);
 
         if (! $form) {
@@ -508,6 +534,8 @@ class Borang14Controller extends Controller
             $validated['pusat'],
             (bool) ($validated['undi_awal'] ?? false),
             (bool) ($validated['undi_pos'] ?? false),
+            $validated['undi_awal_label'] ?? null,
+            $validated['undi_pos_label'] ?? null,
         ));
 
         $hilang = $form->votes()->get(['pusat', 'saluran', 'undi'])
@@ -527,6 +555,42 @@ class Borang14Controller extends Controller
      * bentuk rekod rasmi tidak boleh berubah di bawah angka yang sudah
      * disiarkan ke Scoreboard. Revert dahulu, kemudian sunting.
      */
+    /**
+     * Adakah grid yang dipaparkan benar-benar datang daripada struktur borang
+     * INI (atau tiada grid langsung)?
+     *
+     * Panel Sunting Struktur disemai daripada $form->structure SAHAJA. Apabila
+     * grid sebenarnya dibina daripada JSON kurasi, anggaran DPT, atau struktur
+     * yang diwarisi daripada pilihan raya lain, borang ini sendiri mempunyai
+     * structure = null — jadi panel dibuka KOSONG di atas grid yang penuh
+     * undi. Menyimpan ketika itu menjadikan setiap undi sedia ada "yatim" dan
+     * survivingKeys() memadamnya. Bagi kerusi kurasi ia lebih buruk lagi:
+     * resolveReference() tidak pernah merujuk struktur borang untuk sumber
+     * itu, jadi struktur yang baru ditaip tidak akan dipaparkan pun —
+     * operasi itu kerugian semata-mata.
+     *
+     * asal null (tiada rujukan langsung) DIBENARKAN: itulah kebuntuan yang
+     * ciri ini wujud untuk dipecahkan.
+     */
+    private function strukturBolehDisunting(string $kawasanType, int $kawasanId, ?Borang14Form $form): bool
+    {
+        $asal = $this->resolveReference($kawasanType, (int) $kawasanId, $form)['asal'];
+
+        return $asal === null || $asal === 'struktur';
+    }
+
+    /** 422 supaya sebabnya boleh dibaca pengguna; guard ini bukan hal kebenaran. */
+    private function assertStrukturBolehDisunting(array $validated, ?Borang14Form $form): void
+    {
+        if ($this->strukturBolehDisunting($validated['kawasan_type'], (int) $validated['kawasan_id'], $form)) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'pusat' => 'Struktur kerusi ini datang daripada sumber rasmi (JSON kurasi, anggaran DPT, atau pilihan raya terdahulu), bukan daripada borang ini. Menyuntingnya di sini akan memadam undi sedia ada tanpa menggantikan grid yang dipaparkan.',
+        ]);
+    }
+
     private function bolehSuntingStruktur(?User $user, ?Borang14Form $form, array $validated): bool
     {
         if (! $user || (! $user->isSuperAdmin() && ! $user->isAdmin())) {
@@ -566,7 +630,13 @@ class Borang14Controller extends Controller
      * sebab), tetapi tidak MEWAJIBKAN published — kerusi yang hanya ada satu
      * draf sejarah tetap mewarisi draf itu, bukan "belum tersedia".
      *
-     * @return array{reference: array|null, inherited_from: array{tahun:int, jenis_pr:string}|null}
+     * `asal` melaporkan CABANG MANA yang menang — 'kurasi' | 'dpt' |
+     * 'struktur' | 'warisan', atau null apabila tiada rujukan langsung.
+     * Penyuntingan struktur bergantung padanya: panel disemai daripada
+     * struktur borang INI sahaja, jadi ia hanya selamat dibuka apabila grid
+     * yang dipaparkan memang datang dari situ (atau tiada grid langsung).
+     *
+     * @return array{reference: array|null, inherited_from: array{tahun:int, jenis_pr:string}|null, asal: string|null}
      */
     private function resolveReference(string $kawasanType, int $kawasanId, ?Borang14Form $form): array
     {
@@ -574,6 +644,10 @@ class Borang14Controller extends Controller
         $reference = $isParlimen
             ? Borang14Reference::forBandar($kawasanId)
             : Borang14Reference::forKadun($kawasanId);
+
+        $asal = $reference
+            ? (($reference['source'] ?? null) === 'dpt_estimate' ? 'dpt' : 'kurasi')
+            : null;
 
         // Struktur scoresheet borang INI mengatasi anggaran DPT.
         //
@@ -592,8 +666,11 @@ class Borang14Controller extends Controller
         // JSON kurasi (tiada kunci 'source') kekal keutamaan tertinggi.
         $isDptEstimate = ($reference['source'] ?? null) === 'dpt_estimate';
         if ((! $reference || $isDptEstimate) && ! empty($form?->structure['rows'])) {
-            $reference = $this->referenceFromStructure($form->structure, $form->kawasan())
-                ?: $reference;
+            $dariStruktur = $this->referenceFromStructure($form->structure, $form->kawasan());
+            if ($dariStruktur) {
+                $reference = $dariStruktur;
+                $asal = 'struktur';
+            }
         }
 
         // On counting night for a NEW election there IS no scoresheet — it's the
@@ -627,10 +704,13 @@ class Borang14Controller extends Controller
             if ($sourceForm) {
                 $reference = $this->referenceFromStructure($sourceForm->structure, $sourceForm->kawasan());
                 $inheritedFrom = ['tahun' => $sourceForm->tahun, 'jenis_pr' => $sourceForm->jenis_pr];
+                if ($reference) {
+                    $asal = 'warisan';
+                }
             }
         }
 
-        return ['reference' => $reference, 'inherited_from' => $inheritedFrom];
+        return ['reference' => $reference, 'inherited_from' => $inheritedFrom, 'asal' => $asal];
     }
 
     /**

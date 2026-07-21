@@ -44,6 +44,11 @@ export default function StrukturPanel({ picker, struktur, onSaved, onCancel }) {
     const buang = (i) => setPusat((prev) => prev.filter((_, j) => j !== i));
     const tambah = () => setPusat((prev) => [...prev, { row_id: newRowId(), dm: '', pusat: '', saluran_count: 1 }]);
 
+    // saluran_labels / undi_*_label dibawa balik TANPA DIUBAH. Undi disimpan
+    // berkunci pada rentetan saluran yang tepat (scoresheet sebenar ada
+    // saluran kosong dan label undi pos yang bukan literal berkanun), jadi
+    // menggugurkannya di sini bermakna server menomborkan semula '1'..'N' dan
+    // setiap undi sedia ada menjadi yatim lalu dipadam.
     const payload = () => ({
         ...params,
         pusat: pusat.map((p) => ({
@@ -51,9 +56,12 @@ export default function StrukturPanel({ picker, struktur, onSaved, onCancel }) {
             dm: (p.dm || '').trim(),
             pusat: (p.pusat || '').trim(),
             saluran_count: Math.max(1, Math.min(20, Number(p.saluran_count) || 1)),
+            saluran_labels: p.saluran_labels ?? null,
         })),
         undi_awal: undiAwal,
         undi_pos: undiPos,
+        undi_awal_label: struktur?.undi_awal_label ?? null,
+        undi_pos_label: struktur?.undi_pos_label ?? null,
     });
 
     // Laravel 422 membawa mesej generik ("The given data was invalid.") pada
@@ -157,10 +165,14 @@ export default function StrukturPanel({ picker, struktur, onSaved, onCancel }) {
                                     />
                                 </td>
                                 <td className={t.tableCell}>
+                                    {/* WAJIB: Analisa melangkau setiap undi yang
+                                        Pusatnya tiada Daerah Mengundi, jadi satu
+                                        medan kosong di sini menjadikan keputusan
+                                        kerusi itu undi pos semata-mata. */}
                                     <input
                                         value={p.dm}
                                         onChange={(e) => ubah(i, { dm: e.target.value })}
-                                        placeholder="Daerah Mengundi"
+                                        placeholder="Daerah Mengundi (wajib)"
                                         disabled={saving}
                                         className={`${t.input} min-w-[160px]`}
                                     />

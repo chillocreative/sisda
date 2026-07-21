@@ -65,9 +65,15 @@ class Borang14StrukturServiceTest extends TestCase
         ];
         $back = $this->svc->collapse($this->svc->expand($pusat, false, true));
 
-        $this->assertSame($pusat, $back['pusat']);
+        // collapse() membawa balik label saluran mentah supaya suntingan
+        // seterusnya boleh memancarkannya semula tanpa menghanyutkan kunci undi.
+        $this->assertSame(
+            [$pusat[0] + ['saluran_labels' => ['1', '2', '3']]],
+            $back['pusat'],
+        );
         $this->assertFalse($back['undi_awal']);
         $this->assertTrue($back['undi_pos']);
+        $this->assertSame('UNDI POS', $back['undi_pos_label']);
     }
 
     public function test_collapse_derives_a_stable_row_id_for_legacy_structures(): void
@@ -92,7 +98,10 @@ class Borang14StrukturServiceTest extends TestCase
     public function test_collapse_of_null_structure_is_empty_not_an_error(): void
     {
         $this->assertSame(
-            ['pusat' => [], 'undi_awal' => false, 'undi_pos' => false],
+            [
+                'pusat' => [], 'undi_awal' => false, 'undi_pos' => false,
+                'undi_awal_label' => null, 'undi_pos_label' => null,
+            ],
             $this->svc->collapse(null),
         );
     }
@@ -132,5 +141,73 @@ class Borang14StrukturServiceTest extends TestCase
             ['SK A|1', 'SK A|2', '|UNDI POS'],
             array_keys($this->svc->survivingKeys($new)),
         );
+    }
+
+    // ---------------------------------------------------------------------
+    // Struktur berbentuk SCORESHEET, bukan keluaran expand() sendiri.
+    //
+    // Ujian round-trip yang sedia ada hanya menyuap collapse() dengan output
+    // expand() — satu-satunya bentuk yang identitinya benar secara remeh.
+    // Struktur scoresheet TIDAK berbentuk begitu: labelnya rentetan sebenar
+    // yang dibaca daripada sheet, dan undi dikunci pada rentetan itu. Kalau
+    // collapse()/expand() mengkanonkan semula label, kunci undi hanyut dan
+    // survivingKeys() memadamnya sebagai yatim.
+    // ---------------------------------------------------------------------
+
+    public function test_collapse_preserves_a_non_canonical_postal_label(): void
+    {
+        // Yang dibaca AI daripada sheet sebenar, bukan literal berkanun.
+        $scoresheet = ['rows' => [
+            ['dm' => 'DM', 'pusat' => 'SK A', 'saluran' => '1'],
+            ['dm' => '', 'pusat' => '', 'saluran' => 'UNDI POS AWAL'],
+        ]];
+
+        $out = $this->svc->collapse($scoresheet);
+
+        $this->assertTrue($out['undi_awal']);
+        $this->assertTrue($out['undi_pos']);
+        // Rentetan mentah mesti dibawa keluar, bukan hanya dua boolean.
+        $this->assertSame('UNDI POS AWAL', $out['undi_awal_label']);
+        $this->assertSame('UNDI POS AWAL', $out['undi_pos_label']);
+    }
+
+    public function test_expand_reemits_a_preserved_postal_label_verbatim(): void
+    {
+        $new = $this->svc->expand([], true, false, 'UNDI POS AWAL');
+
+        $this->assertSame(
+            ['|UNDI POS AWAL'],
+            array_keys($this->svc->survivingKeys($new)),
+        );
+    }
+
+    public function test_collapse_and_expand_preserve_scoresheet_saluran_labels(): void
+    {
+        // Saluran KOSONG ialah kes produksi sebenar (rujuk
+        // Borang14Controller.php:1178-1185). Undi dikunci 'SK A|'.
+        $scoresheet = ['rows' => [
+            ['dm' => 'DM', 'pusat' => 'SK A', 'saluran' => ''],
+            ['dm' => 'DM', 'pusat' => 'SK A', 'saluran' => '2A'],
+        ]];
+
+        $out = $this->svc->collapse($scoresheet);
+        $this->assertSame(['', '2A'], $out['pusat'][0]['saluran_labels']);
+
+        // Tanpa suntingan, kunci mesti kembali SAMA — bukan '1','2'.
+        $again = $this->svc->expand($out['pusat'], false, false);
+        $this->assertSame(['SK A|', 'SK A|2A'], array_keys($this->svc->survivingKeys($again)));
+    }
+
+    public function test_expand_numbers_only_saluran_added_beyond_the_preserved_labels(): void
+    {
+        $pusat = [[
+            'row_id' => 'pm_a', 'dm' => 'DM', 'pusat' => 'SK A',
+            'saluran_count' => 3, 'saluran_labels' => ['', '2A'],
+        ]];
+
+        $new = $this->svc->expand($pusat, false, false);
+
+        // Dua yang sedia ada kekal; yang KETIGA sahaja bernombor.
+        $this->assertSame(['SK A|', 'SK A|2A', 'SK A|3'], array_keys($this->svc->survivingKeys($new)));
     }
 }
