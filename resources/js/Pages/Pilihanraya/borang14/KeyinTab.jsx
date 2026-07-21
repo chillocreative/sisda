@@ -113,6 +113,11 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
             // with the old seat's rows against the newly chosen geography.
             setStruktur({ pusat: [], undi_awal: false, undi_pos: false });
             setBolehSuntingStruktur(false);
+            // Tutup panel Sunting Struktur juga — pengguna sengaja beralih
+            // dari kerusi yang sedang disunting, jadi suntingan separuh siap
+            // bagi kerusi lama dianggap dibatalkan, bukan disasarkan semula
+            // secara senyap kepada kerusi/pilihan raya baharu.
+            setSuntingStruktur(false);
             return undefined;
         }
         let cancelled = false;
@@ -121,6 +126,10 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
         setPublishedOk(false);
         setStruktur({ pusat: [], undi_awal: false, undi_pos: false });
         setBolehSuntingStruktur(false);
+        // Sama seperti di atas — pertukaran kerusi/pilihan raya menutup panel
+        // sunting struktur supaya ia tidak menyimpan `struktur` kerusi lama
+        // sambil membaca `picker` kerusi baharu semasa Simpan.
+        setSuntingStruktur(false);
         axios.get(route('pilihanraya.borang-14.data'), {
             params: { kawasan_type: kawasanType, kawasan_id: kawasanId, jenis_pr: jenisPr, tahun, penjuru: penjuru || undefined },
         })
@@ -353,6 +362,11 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
 
             {suntingStruktur && (
                 <StrukturPanel
+                    // Pertahanan lapis kedua: jika panel ini pernah dipaparkan
+                    // merentasi pertukaran kerusi (sepatutnya sudah dielak oleh
+                    // reset di atas), `key` yang berbeza memaksa React remount
+                    // panel — bukan guna semula state `struktur` kerusi lama.
+                    key={`${kawasanType}-${kawasanId}-${jenisPr}-${tahun}`}
                     picker={picker}
                     struktur={struktur}
                     onCancel={() => setSuntingStruktur(false)}
