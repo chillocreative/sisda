@@ -72,6 +72,12 @@ jobs:
                 # 5d. Seed Pulau Pinang Parlimen + DUN (idempotent, name-reconciling)
                 php artisan db:seed --class=PenangSeeder --force --no-interaction
 
+                # 5e. Fill voter birth years from ICs. Voter exports (TERAS/SPR)
+                # carry no birth-year column, which leaves the Taburan Umur
+                # chart empty. Idempotent: only rows with a blank tahun_lahir
+                # are scanned, so this is a no-op once they are filled.
+                php artisan pengundi:backfill-tahun-lahir --no-interaction
+
                 # 6. Re-cache for production
                 php artisan config:cache
                 php artisan route:cache
