@@ -389,4 +389,106 @@ class Borang14StrukturManualTest extends TestCase
 
         $this->assertSame(0, Borang14Form::count());
     }
+
+    public function test_preview_reports_exactly_what_the_edit_would_destroy(): void
+    {
+        $form = $this->form($this->manualStructure());
+        Borang14Vote::create(['borang14_form_id' => $form->id, 'pusat' => 'SK TENGKEK', 'saluran' => '1', 'slot' => 1, 'undi' => 250]);
+        Borang14Vote::create(['borang14_form_id' => $form->id, 'pusat' => 'SK TENGKEK', 'saluran' => '1', 'slot' => 2, 'undi' => 111]);
+        Borang14Vote::create(['borang14_form_id' => $form->id, 'pusat' => 'SK JEMAPOH', 'saluran' => '1', 'slot' => 1, 'undi' => 90]);
+
+        $res = $this->actingAs($this->user())
+            ->postJson(route('pilihanraya.borang-14.struktur.kesan'), $this->payload([
+                ['row_id' => 'pm_b', 'dm' => 'KUALA JEMAPOH', 'pusat' => 'SK JEMAPOH', 'saluran_count' => 1],
+            ]));
+
+        $res->assertOk();
+        $this->assertSame(2, $res->json('baris'));
+        $this->assertSame(361, $res->json('undi'));
+        $this->assertSame(['SK TENGKEK'], $res->json('pusat'));
+    }
+
+    public function test_preview_writes_nothing(): void
+    {
+        $form = $this->form($this->manualStructure());
+        Borang14Vote::create(['borang14_form_id' => $form->id, 'pusat' => 'SK TENGKEK', 'saluran' => '1', 'slot' => 1, 'undi' => 250]);
+
+        $this->actingAs($this->user())
+            ->postJson(route('pilihanraya.borang-14.struktur.kesan'), $this->payload([]))
+            ->assertOk();
+
+        $this->assertSame(250, (int) $form->votes()->sum('undi'));
+        $this->assertSame(0, $form->snapshots()->count());
+    }
+
+    public function test_a_rename_destroys_nothing(): void
+    {
+        $form = $this->form($this->manualStructure());
+        Borang14Vote::create(['borang14_form_id' => $form->id, 'pusat' => 'SK TENGKEK', 'saluran' => '1', 'slot' => 1, 'undi' => 250]);
+
+        $res = $this->actingAs($this->user())
+            ->postJson(route('pilihanraya.borang-14.struktur.kesan'), $this->payload([
+                ['row_id' => 'pm_a', 'dm' => 'KUALA JEMAPOH', 'pusat' => 'NAMA BAHARU', 'saluran_count' => 2],
+                ['row_id' => 'pm_b', 'dm' => 'KUALA JEMAPOH', 'pusat' => 'SK JEMAPOH', 'saluran_count' => 1],
+            ]));
+
+        $res->assertOk();
+        $this->assertSame(0, $res->json('baris'));
+        $this->assertSame(0, $res->json('undi'));
+    }
+
+    public function test_preview_with_no_existing_form_reports_zeros_not_an_error(): void
+    {
+        // Kerusi belum pernah disimpan langsung — tiada undi wujud untuk
+        // dipadam, jadi sifar ialah jawapan JUJUR, bukan ralat 404/422.
+        $this->assertSame(0, Borang14Form::count());
+
+        $res = $this->actingAs($this->user())
+            ->postJson(route('pilihanraya.borang-14.struktur.kesan'), $this->payload([
+                ['row_id' => 'pm_a', 'dm' => 'KUALA JEMAPOH', 'pusat' => 'SK TENGKEK', 'saluran_count' => 2],
+            ]));
+
+        $res->assertOk();
+        $this->assertSame(0, $res->json('baris'));
+        $this->assertSame(0, $res->json('undi'));
+        $this->assertSame([], $res->json('pusat'));
+
+        // Dan mesti benar-benar tidak wujud borang — pratonton bukan simpanan.
+        $this->assertSame(0, Borang14Form::count());
+    }
+
+    public function test_preview_rejects_a_payload_the_save_would_also_reject(): void
+    {
+        // Dua pusat senama dalam payload yang sama: simpanStruktur() menolak
+        // ini dengan 422 (test_duplicate_pusat_names_are_rejected). Pratonton
+        // MESTI bersetuju — jika tidak, dialog memaparkan angka yakin bagi
+        // muatan yang akan gagal sebaik sahaja pengguna menekan Simpan.
+        $res = $this->actingAs($this->user())
+            ->postJson(route('pilihanraya.borang-14.struktur.kesan'), $this->payload([
+                ['row_id' => 'pm_a', 'dm' => 'DM', 'pusat' => 'SK SAMA', 'saluran_count' => 1],
+                ['row_id' => 'pm_b', 'dm' => 'DM', 'pusat' => 'SK SAMA', 'saluran_count' => 1],
+            ]));
+
+        $res->assertStatus(422);
+        $this->assertSame(0, Borang14Form::count());
+    }
+
+    public function test_preview_gives_403_not_422_for_unauthorized_colliding_payload(): void
+    {
+        // Susunan guard mesti sepadan dengan simpanStruktur(): kebenaran
+        // dahulu, guard pendua/perlanggaran kemudian. Admin bagi Bandar LAIN
+        // menghantar payload yang JUGA berlanggar (pendua nama) — jawapan
+        // mesti 403 (disekat), bukan 422 (isi kandungan tidak sah), supaya
+        // pemanggil yang tiada kebenaran tidak menerima maklum balas tentang
+        // kandungan borang langsung.
+        $bandarLain = Bandar::create(['nama' => 'Bandar Lain', 'negeri_id' => $this->kadun->bandar->negeri_id]);
+        $adminLain = $this->user('admin', ['bandar_id' => $bandarLain->id]);
+
+        $this->actingAs($adminLain)
+            ->postJson(route('pilihanraya.borang-14.struktur.kesan'), $this->payload([
+                ['row_id' => 'pm_a', 'dm' => 'DM', 'pusat' => 'SK SAMA', 'saluran_count' => 1],
+                ['row_id' => 'pm_b', 'dm' => 'DM', 'pusat' => 'SK SAMA', 'saluran_count' => 1],
+            ]))
+            ->assertForbidden();
+    }
 }

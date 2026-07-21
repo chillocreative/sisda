@@ -301,70 +301,7 @@ class Borang14Controller extends Controller
             abort(403, 'Unauthorized action.');
         }
 
-        $namaKeyList = collect($validated['pusat'])->map(fn ($p) => $this->nameKey($p['pusat']));
-        if ($namaKeyList->count() !== $namaKeyList->unique()->count()) {
-            // Dua pusat senama (atau senama tidak-sensitif-huruf) berkongsi
-            // kunci undi yang sama dan akan menulis atas satu sama lain
-            // tanpa sebarang amaran.
-            throw ValidationException::withMessages([
-                'pusat' => 'Nama Pusat Mengundi mesti unik dalam satu borang.',
-            ]);
-        }
-
-        // Kunci nama sasaran (rename TARGET) terhadap nama SEDIA ADA — bukan
-        // sahaja senarai baharu, dan bukan sahaja struktur lama.
-        //
-        // Sumber "sudah digunakan" ialah GABUNGAN DUA set, kerana indeks unik
-        // sebenar (borang14_votes) tidak sama dengan struktur:
-        //   (a) nama dalam struktur lama ($svc->collapse()); DAN
-        //   (b) nama pusat yang wujud dalam borang14_votes itu sendiri —
-        //       saveVote() menulis baris undi bagi MANA-MANA rentetan pusat
-        //       tanpa menyemaknya terhadap struktur, jadi baris "yatim"
-        //       (wujud dalam undi, tiada dalam struktur) tetap boleh
-        //       bertembung dengan nama yang baharu dinamakan semula.
-        //
-        // Perbandingan dinormalisasi (nameKey(): huruf besar + pangkas)
-        // supaya ia sepadan dengan collation MySQL utf8mb4_unicode_ci yang
-        // menguasai indeks unik borang14_votes — pangkalan data tidak
-        // sensitif huruf besar/kecil, jadi guard ini pun tidak boleh.
-        // NILAI YANG DISIMPAN tidak diubah — hanya kunci perbandingan.
-        //
-        // Tanpa semakan ini, menamakan semula satu pusat ke atas nama pusat
-        // LAIN yang turut dibuang dalam simpanan yang sama (atau menukar
-        // ganti dua nama) lolos semakan pendua di atas (senarai baharu
-        // sendiri tiada pendua) tetapi renameMap() kemudian menulis UPDATE
-        // ke atas kunci undi yang masih dimiliki nama lama itu: sama ada
-        // undi salah pusat kekal senyap (tiada perlanggaran kunci penuh),
-        // atau UPDATE bertembung dengan indeks unik dan melempar 500 tanpa
-        // mesej Bahasa Melayu.
-        //
-        // Pusat yang namanya (dinormalisasi) TIDAK berubah sudah tentu
-        // "berlanggar" dengan dirinya sendiri — nama yang dimiliki OLEH row
-        // ini sendiri dalam struktur lama dikecualikan daripada set
-        // "sudah digunakan" bagi row itu sahaja.
-        if ($form) {
-            $lama = $svc->collapse($form->structure)['pusat'];
-            $namaLama = collect($lama)->pluck('pusat');
-            $namaUndi = $form->votes()->distinct()->pluck('pusat');
-            $digunakan = $namaLama->merge($namaUndi)->filter(fn ($n) => $n !== '');
-
-            foreach ($validated['pusat'] as $p) {
-                $rowId = (string) $p['row_id'];
-                $baharuNama = $p['pusat'];
-                $baharuKey = $this->nameKey($baharuNama);
-
-                $namaSendiri = collect($lama)->firstWhere('row_id', $rowId)['pusat'] ?? null;
-                $kunciSendiri = $namaSendiri !== null ? $this->nameKey($namaSendiri) : null;
-
-                $berlanggar = $digunakan->contains(fn ($n) => $this->nameKey($n) === $baharuKey && $this->nameKey($n) !== $kunciSendiri);
-
-                if ($berlanggar) {
-                    throw ValidationException::withMessages([
-                        'pusat' => "Nama Pusat Mengundi '{$baharuNama}' sudah digunakan oleh pusat lain dalam borang ini. Namakan semula atau buang pusat itu dahulu, kemudian simpan sekali lagi.",
-                    ]);
-                }
-            }
-        }
+        $this->assertPusatNamesUsable($svc, $form, $validated['pusat']);
 
         $baharu = $svc->expand(
             $validated['pusat'],
@@ -410,6 +347,166 @@ class Borang14Controller extends Controller
         });
 
         return response()->json(['ok' => true, 'form_id' => $form->id]);
+    }
+
+    /**
+     * Pengesahan nama Pusat Mengundi yang dikongsi oleh simpanStruktur() DAN
+     * kesanStruktur() — kedua-duanya MESTI bersetuju sama ada muatan ini
+     * diterima, bukan sekadar apa kesannya. Melempar ValidationException
+     * (422) apabila ditolak; tidak memulangkan apa-apa apabila diterima.
+     *
+     * Kunci nama sasaran (rename TARGET) terhadap nama SEDIA ADA — bukan
+     * sahaja senarai baharu, dan bukan sahaja struktur lama.
+     *
+     * Sumber "sudah digunakan" ialah GABUNGAN DUA set, kerana indeks unik
+     * sebenar (borang14_votes) tidak sama dengan struktur:
+     *   (a) nama dalam struktur lama ($svc->collapse()); DAN
+     *   (b) nama pusat yang wujud dalam borang14_votes itu sendiri —
+     *       saveVote() menulis baris undi bagi MANA-MANA rentetan pusat
+     *       tanpa menyemaknya terhadap struktur, jadi baris "yatim"
+     *       (wujud dalam undi, tiada dalam struktur) tetap boleh
+     *       bertembung dengan nama yang baharu dinamakan semula.
+     *
+     * Perbandingan dinormalisasi (nameKey(): huruf besar + pangkas) supaya
+     * ia sepadan dengan collation MySQL utf8mb4_unicode_ci yang menguasai
+     * indeks unik borang14_votes — pangkalan data tidak sensitif huruf
+     * besar/kecil, jadi guard ini pun tidak boleh. NILAI YANG DISIMPAN
+     * tidak diubah — hanya kunci perbandingan.
+     *
+     * Tanpa semakan ini, menamakan semula satu pusat ke atas nama pusat LAIN
+     * yang turut dibuang dalam simpanan yang sama (atau menukar ganti dua
+     * nama) lolos semakan pendua di atas (senarai baharu sendiri tiada
+     * pendua) tetapi renameMap() kemudian menulis UPDATE ke atas kunci undi
+     * yang masih dimiliki nama lama itu: sama ada undi salah pusat kekal
+     * senyap (tiada perlanggaran kunci penuh), atau UPDATE bertembung
+     * dengan indeks unik dan melempar 500 tanpa mesej Bahasa Melayu.
+     *
+     * Pusat yang namanya (dinormalisasi) TIDAK berubah sudah tentu
+     * "berlanggar" dengan dirinya sendiri — nama yang dimiliki OLEH row ini
+     * sendiri dalam struktur lama dikecualikan daripada set "sudah
+     * digunakan" bagi row itu sahaja.
+     *
+     * @param  array<int,array{row_id:string,dm:?string,pusat:string,saluran_count:int}>  $pusat
+     */
+    private function assertPusatNamesUsable(Borang14StrukturService $svc, ?Borang14Form $form, array $pusat): void
+    {
+        $namaKeyList = collect($pusat)->map(fn ($p) => $this->nameKey($p['pusat']));
+        if ($namaKeyList->count() !== $namaKeyList->unique()->count()) {
+            // Dua pusat senama (atau senama tidak-sensitif-huruf) berkongsi
+            // kunci undi yang sama dan akan menulis atas satu sama lain
+            // tanpa sebarang amaran.
+            throw ValidationException::withMessages([
+                'pusat' => 'Nama Pusat Mengundi mesti unik dalam satu borang.',
+            ]);
+        }
+
+        if (! $form) {
+            return;
+        }
+
+        $lama = $svc->collapse($form->structure)['pusat'];
+        $namaLama = collect($lama)->pluck('pusat');
+        $namaUndi = $form->votes()->distinct()->pluck('pusat');
+        $digunakan = $namaLama->merge($namaUndi)->filter(fn ($n) => $n !== '');
+
+        foreach ($pusat as $p) {
+            $rowId = (string) $p['row_id'];
+            $baharuNama = $p['pusat'];
+            $baharuKey = $this->nameKey($baharuNama);
+
+            $namaSendiri = collect($lama)->firstWhere('row_id', $rowId)['pusat'] ?? null;
+            $kunciSendiri = $namaSendiri !== null ? $this->nameKey($namaSendiri) : null;
+
+            $berlanggar = $digunakan->contains(fn ($n) => $this->nameKey($n) === $baharuKey && $this->nameKey($n) !== $kunciSendiri);
+
+            if ($berlanggar) {
+                throw ValidationException::withMessages([
+                    'pusat' => "Nama Pusat Mengundi '{$baharuNama}' sudah digunakan oleh pusat lain dalam borang ini. Namakan semula atau buang pusat itu dahulu, kemudian simpan sekali lagi.",
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Pratonton tanpa menulis: berapa baris undi dan berapa jumlah undi yang
+     * akan DIPADAM oleh cadangan struktur ini.
+     *
+     * Wujud supaya dialog pengesahan memaparkan angka sebenar. Amaran kabur
+     * ("perubahan ini mungkin menjejaskan data") dibaca sebagai bunyi latar
+     * dan diklik terus — angka tidak.
+     *
+     * Mesti bersetuju dengan simpanStruktur() dalam DUA perkara, bukan
+     * sekadar satu:
+     *   1) kunci undi dinilai SELEPAS penamaan semula (rename), supaya
+     *      pertukaran nama tulen melaporkan sifar; dan
+     *   2) muatan yang simpanStruktur() akan TOLAK (pendua nama, atau nama
+     *      yang berlanggar dengan struktur lama/undi yatim) juga ditolak di
+     *      sini dengan 422 yang sama — bukan dipratonton seolah-olah sah.
+     *      Tanpa ini dialog memaparkan angka yakin bagi muatan yang akan
+     *      gagal sebaik sahaja pengguna menekan Simpan.
+     *
+     * Tidak menulis apa-apa: tiada transaksi, tiada Borang14Form::create(),
+     * tiada Borang14Snapshot::create(), tiada UPDATE/DELETE ke atas
+     * borang14_votes. Pratonton yang mencipta borang bukan pratonton.
+     */
+    public function kesanStruktur(Request $request, Borang14StrukturService $svc)
+    {
+        $kawasanType = $request->input('kawasan_type');
+        $existsTable = $kawasanType === Borang14Form::KAWASAN_PARLIMEN ? 'bandar' : 'kadun';
+
+        $validated = $request->validate($this->strukturRules($existsTable));
+
+        // Sama seperti simpanStruktur() — SATU tempat sahaja untuk memangkas
+        // nama Pusat/DM, supaya nilai yang disahkan/dibanding/dinamakan
+        // semula sepadan dengan nilai yang benar-benar akan disimpan.
+        $validated['pusat'] = collect($validated['pusat'])->map(function ($p) {
+            $p['pusat'] = trim($p['pusat']);
+            if (array_key_exists('dm', $p) && $p['dm'] !== null) {
+                $p['dm'] = trim($p['dm']);
+            }
+
+            return $p;
+        })->all();
+
+        $form = Borang14Form::forKawasan($validated['kawasan_type'], $validated['kawasan_id'])
+            ->where('jenis_pr', $validated['jenis_pr'])
+            ->where('tahun', $validated['tahun'])
+            ->first();
+
+        // Kebenaran MESTI disemak dahulu — sebelum guard pendua/perlanggaran
+        // di bawah — atas sebab yang sama seperti simpanStruktur(): jika
+        // tidak, penyahutan (422) membocorkan kandungan borang kepada
+        // pemanggil yang langsung tiada kebenaran menyentuh borang ini.
+        if (! $this->bolehSuntingStruktur($request->user(), $form, $validated)) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $this->assertPusatNamesUsable($svc, $form, $validated['pusat']);
+
+        if (! $form) {
+            // Belum pernah disimpan bagi kerusi ini — tiada undi wujud untuk
+            // dipadam, jadi sifar adalah jawapan JUJUR, bukan ralat.
+            return response()->json(['baris' => 0, 'undi' => 0, 'pusat' => []]);
+        }
+
+        // Sama seperti simpanStruktur(): nilai kunci SELEPAS penamaan semula,
+        // supaya pusat yang sekadar bertukar nama tidak dilaporkan sebagai
+        // kehilangan.
+        $rename = $svc->renameMap($form->structure, $validated['pusat']);
+        $kekal = $svc->survivingKeys($svc->expand(
+            $validated['pusat'],
+            (bool) ($validated['undi_awal'] ?? false),
+            (bool) ($validated['undi_pos'] ?? false),
+        ));
+
+        $hilang = $form->votes()->get(['pusat', 'saluran', 'undi'])
+            ->filter(fn ($v) => ! isset($kekal[($rename[$v->pusat] ?? $v->pusat).'|'.$v->saluran]));
+
+        return response()->json([
+            'baris' => $hilang->count(),
+            'undi'  => (int) $hilang->sum('undi'),
+            'pusat' => $hilang->pluck('pusat')->unique()->values()->all(),
+        ]);
     }
 
     /**
