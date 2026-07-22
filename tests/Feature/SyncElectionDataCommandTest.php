@@ -26,10 +26,13 @@ class SyncElectionDataCommandTest extends TestCase
     private function fakeApi(): void
     {
         Http::fake([
-            '*/v1/seats/dropdown*' => Http::response([
+            // Dibungkus di bawah 'seats' seperti API sebenar (disahkan pada
+            // pengeluaran 2026-07-22). Fake yang memulangkan array telanjang
+            // ialah sebab pepijat ini lulus semua ujian selama berbulan-bulan.
+            '*/v1/seats/dropdown*' => Http::response(['seats' => [
                 ['seat' => 'Juasseh, Negeri Sembilan', 'slug' => 'n15-juasseh-negeri-sembilan', 'type' => 'dun'],
                 ['seat' => 'Buloh Kasap, Johor', 'slug' => 'n17-buloh-kasap-johor', 'type' => 'dun'],
-            ]),
+            ]]),
             // Pecahan undi penuh bagi keputusan lengkap terkini.
             '*/v1/results*' => Http::response([
                 'ballot' => [
@@ -38,7 +41,8 @@ class SyncElectionDataCommandTest extends TestCase
                 ],
                 'stats' => ['voters_total' => 13408, 'voter_turnout' => 9122, 'voter_turnout_perc' => 68.03],
             ]),
-            '*/v1/seats/results*' => Http::response([
+            // Titik akhir ini membungkus di bawah 'results', bukan 'seats'.
+            '*/v1/seats/results*' => Http::response(['results' => [
                 [
                     'election_name' => 'SE-15', 'date' => '2023-08-12', 'party' => 'BN',
                     'coalition' => 'BN', 'name' => 'Bibi Sharliza', 'majority' => 78,
@@ -48,7 +52,7 @@ class SyncElectionDataCommandTest extends TestCase
                 ],
                 // Pilihan raya AKAN DATANG — setiap angka null.
                 ['election_name' => 'SE-16', 'date' => '2026-08-01', 'party' => null, 'majority' => null],
-            ]),
+            ]]),
         ]);
     }
 

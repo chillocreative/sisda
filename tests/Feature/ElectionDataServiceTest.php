@@ -43,13 +43,56 @@ class ElectionDataServiceTest extends TestCase
 
     public function test_seats_are_returned_on_success(): void
     {
+        // BENTUK SEBENAR API, disalin daripada respons pengeluaran 2026-07-22:
+        // senarai dibungkus di bawah kunci "seats", BUKAN array telanjang.
+        // Versi terdahulu ujian ini memalsukan array telanjang — bentuk yang
+        // API tidak pernah pulangkan — jadi ia HIJAU sementara pengeluaran
+        // memulangkan sifar kerusi selama-lamanya.
         Http::fake([
-            '*/v1/seats/dropdown*' => Http::response([
+            '*/v1/seats/dropdown*' => Http::response(['seats' => [
                 ['seat' => 'Juasseh, Negeri Sembilan', 'slug' => 'n15-juasseh-negeri-sembilan', 'type' => 'dun'],
-            ]),
+            ]]),
         ]);
 
-        $this->assertCount(1, $this->service->seats());
+        $seats = $this->service->seats();
+
+        $this->assertCount(1, $seats);
+        // Elemen mesti baris kerusi itu sendiri, bukan pembungkusnya.
+        $this->assertSame('n15-juasseh-negeri-sembilan', $seats[0]['slug']);
+    }
+
+    public function test_seat_results_are_unwrapped_from_their_own_key(): void
+    {
+        // Titik akhir ini membungkus di bawah "results", bukan "seats" —
+        // setiap titik akhir menamakan pembungkusnya sendiri.
+        Http::fake([
+            '*/v1/seats/results*' => Http::response(['results' => [
+                ['election_name' => 'GE-15', 'seat' => 'P.001 Padang Besar', 'state' => 'Perlis',
+                    'date' => '2022-11-19', 'party' => 'PAS', 'majority' => 12514.0],
+            ]]),
+        ]);
+
+        $results = $this->service->seatResults('p001-padang-besar-perlis');
+
+        $this->assertCount(1, $results);
+        $this->assertSame('GE-15', $results[0]['election_name']);
+    }
+
+    public function test_a_200_missing_the_expected_wrapper_is_logged_not_silent(): void
+    {
+        // INILAH kegagalan yang merugikan kami. 200 OK dengan bentuk yang tidak
+        // dijangka memulangkan array — jadi is_array() lulus, tiada apa dicatat,
+        // dan sistem melaporkan "tiada kerusi" seolah-olah API itu kosong.
+        // Bentuk yang berubah MESTI bising.
+        \Illuminate\Support\Facades\Log::spy();
+
+        Http::fake(['*/v1/seats/dropdown*' => Http::response(['bentuk_baharu' => []])]);
+
+        $this->assertSame([], $this->service->seats());
+
+        \Illuminate\Support\Facades\Log::shouldHaveReceived('warning')
+            ->withArgs(fn ($msg) => str_contains($msg, 'electiondata.my'))
+            ->atLeast()->once();
     }
 
     /** Kunci yang tidak sah tidak boleh menghasilkan pengecualian. */
@@ -87,10 +130,11 @@ class ElectionDataServiceTest extends TestCase
      */
     public function test_null_figures_for_an_upcoming_election_survive_as_null(): void
     {
+        // Dibungkus di bawah "results" seperti API sebenar.
         Http::fake([
-            '*/v1/seats/results*' => Http::response([
+            '*/v1/seats/results*' => Http::response(['results' => [
                 ['election_name' => 'SE-16', 'date' => '2026-08-01', 'party' => null, 'majority' => null, 'voter_turnout' => null],
-            ]),
+            ]]),
         ]);
 
         $row = $this->service->seatResults('n15-juasseh-negeri-sembilan')[0];
