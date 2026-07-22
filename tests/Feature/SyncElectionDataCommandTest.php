@@ -30,8 +30,8 @@ class SyncElectionDataCommandTest extends TestCase
             // pengeluaran 2026-07-22). Fake yang memulangkan array telanjang
             // ialah sebab pepijat ini lulus semua ujian selama berbulan-bulan.
             '*/v1/seats/dropdown*' => Http::response(['seats' => [
-                ['seat' => 'Juasseh, Negeri Sembilan', 'slug' => 'n15-juasseh-negeri-sembilan', 'type' => 'dun'],
-                ['seat' => 'Buloh Kasap, Johor', 'slug' => 'n17-buloh-kasap-johor', 'type' => 'dun'],
+                ['seat' => 'N.15 Juasseh, Negeri Sembilan', 'slug' => 'n15-juasseh-negeri-sembilan', 'type' => 'dun'],
+                ['seat' => 'N.17 Buloh Kasap, Johor', 'slug' => 'n17-buloh-kasap-johor', 'type' => 'dun'],
             ]]),
             // Pecahan undi penuh bagi keputusan lengkap terkini.
             '*/v1/results*' => Http::response([
@@ -79,6 +79,36 @@ class SyncElectionDataCommandTest extends TestCase
         $this->assertSame($kadun->id, $seat->kadun_id);
 
         $this->assertSame(2, $seat->results()->count());
+    }
+
+    /**
+     * Awalan kod dibuang HANYA apabila ia kod kerusi itu sendiri.
+     *
+     * Nama yang disimpan dibandingkan dengan geografi SISDA mengikut RENTETAN.
+     * Membuang terlalu banyak akan mencacatkan nama sebenar; membuang terlalu
+     * sedikit melaporkan setiap kawasan sebagai tidak padan. Kedua-duanya
+     * mengarahkan manusia menamakan semula geografi yang betul, dan penamaan
+     * semula itu memutuskan setiap baris pengundi yang dipadan pada ejaan lama.
+     */
+    public function test_a_code_prefix_that_is_not_this_seats_code_is_left_alone(): void
+    {
+        Http::fake([
+            '*/v1/seats/dropdown*' => Http::response(['seats' => [
+                // Kod dalam nama (N.99) TIDAK sepadan dengan kod slug (N15).
+                ['seat' => 'N.99 Juasseh, Negeri Sembilan', 'slug' => 'n15-juasseh-negeri-sembilan', 'type' => 'dun'],
+            ]]),
+            '*/v1/results*' => Http::response(['ballot' => [], 'stats' => []]),
+            '*/v1/seats/results*' => Http::response(['results' => []]),
+        ]);
+        $this->seedGeography();
+
+        $this->artisan('pilihanraya:sync-electiondata')->assertSuccessful();
+
+        $this->assertSame(
+            'N.99 Juasseh',
+            ElectionSeat::where('slug', 'n15-juasseh-negeri-sembilan')->value('nama'),
+            'Awalan asing tidak boleh dibuang — hanya kod kerusi ini sendiri.',
+        );
     }
 
     /** Angka Juasseh 2023 sebenar, disalin apa adanya. */
