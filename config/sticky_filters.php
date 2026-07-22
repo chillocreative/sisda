@@ -69,6 +69,18 @@ return [
         'keys' => ['jenis', 'parlimen', 'dun'],
     ],
 
+    // date_from/date_to SENGAJA TIDAK disenaraikan walaupun
+    // ReportsController::applyHasilCulaanFilters() menyokongnya: disemak
+    // Reports/HasilCulaan/Index.jsx (baris ~72-79) dan filterState di situ
+    // TIDAK mengandungi date_from/date_to langsung — tiada medan input
+    // tarikh pun wujud pada skrin ini (hanya search/umur/bangsa/negeri/
+    // bandar/lokaliti). Skrin tidak dapat menghantar kunci ini
+    // hadir-tetapi-kosong (tiada UI untuk itu), jadi tiada cara ia dapat
+    // "dikosongkan" — menambahnya di sini hanya akan mengingat nilai daripada
+    // URL manual (jika ada) yang skrin sendiri tidak pernah pulihkan ke
+    // dalam sebarang kawalan. Tambah hanya selepas UI tarikh sebenar wujud
+    // pada skrin ini dan mengikut corak hadir-tetapi-kosong yang sama
+    // seperti kunci lain di atas.
     'hasil_culaan' => [
         'routes' => ['reports.hasil-culaan.index'],
         'keys' => ['umur', 'bangsa', 'negeri', 'bandar', 'lokaliti'],
@@ -98,6 +110,20 @@ return [
     // negeri_id yang baru dipilih. KeanggotaanCard.jsx turut dibetulkan untuk
     // menyertakan negeri_id (dahulu tertinggal) supaya SETIAP fetch menyimpan
     // ketiga-tiga kunci dengan lengkap, bukan menghapuskan negeri_id secara senyap.
+    //
+    // KETERBATASAN JUJUR (bukan bahaya UI menipu, TIDAK dibetulkan di sini):
+    // KeanggotaanCard.jsx sendiri kembali awal (return) apabila bandar_id
+    // tiada, jadi ia TIDAK PERNAH menghantar permintaan "dikosongkan" bagi
+    // dirinya sendiri. Skrin ini tidak dapat menyatakan "kosong" bagi kad
+    // ini — sesi mengekalkan nilai lama dan lawatan seterusnya
+    // memulihkannya; pengguna tidak dapat kembali ke "tiada penapis" tanpa
+    // log keluar. Ini SELAMAT (kawalan yang dipulihkan dan data yang
+    // dipulihkan sentiasa sepadan kerana kedua-duanya datang daripada nilai
+    // yang sama) tetapi BUKAN "boleh dikosongkan sepenuhnya". Ubatan yang
+    // ditetapkan untuk sesiapa yang membetulkannya kelak: requestParams() di
+    // resources/js/Pages/Pilihanraya/filters.js menghantar {reset_filters:1}
+    // apabila semua penapis kosong — KeanggotaanCard perlu menghantar isyarat
+    // itu dan bukan sekadar diam apabila bandar_id kosong.
     'analisa' => [
         'routes' => ['pilihanraya.analisa', 'pilihanraya.analisa.keanggotaan-card'],
         'keys' => ['negeri_id', 'bandar_id', 'kadun_id'],
@@ -119,6 +145,17 @@ return [
     // (awam, tanpa log masuk) TIDAK sepadan — nama laluannya tidak bermula
     // dengan 'pilihanraya.scoreboard.'. Semak semula senarai GET setiap kali
     // laluan baharu ditambah di bawah prefix ini.
+    //
+    // KETERBATASAN JUJUR (bukan bahaya UI menipu, TIDAK dibetulkan di sini):
+    // fetchData() kembali awal (return) apabila kadunId kosong dan TIDAK
+    // PERNAH menghantar permintaan "dikosongkan". Skrin ini tidak dapat
+    // menyatakan "kosong" — sesi mengekalkan kadun_id/negeri_id/parlimen_id
+    // lama dan lawatan seterusnya memulihkannya; pengguna tidak dapat
+    // kembali ke "tiada DUN dipilih" tanpa log keluar. Ini SELAMAT (kawalan
+    // yang dipulihkan dan data yang dipulihkan sentiasa sepadan) tetapi
+    // BUKAN "boleh dikosongkan sepenuhnya". Ubatan yang ditetapkan: hantar
+    // {reset_filters:1} (lihat requestParams() di
+    // resources/js/Pages/Pilihanraya/filters.js) apabila kadunId dikosongkan.
     'scoreboard' => [
         'routes' => ['pilihanraya.scoreboard', 'pilihanraya.scoreboard.*'],
         'keys' => ['negeri_id', 'parlimen_id', 'kadun_id'],
@@ -138,6 +175,17 @@ return [
     // berfungsi sepenuhnya untuk geografi. TIDAK dibetulkan di sini kerana
     // pembetulan memerlukan menyentuh fetch KeyinTab.jsx yang dilarang oleh
     // amaran Borang 14 (elak sebarang perubahan selain nilai awal `picker`).
+    //
+    // KETERBATASAN JUJUR TAMBAHAN (bukan bahaya UI menipu, TIDAK dibetulkan
+    // di sini): KeyinTab.jsx kembali awal (return) dalam kedua-dua kesan
+    // fetch selagi geographyComplete palsu, jadi ia TIDAK PERNAH menghantar
+    // permintaan "dikosongkan" apabila picker dikosongkan. Skrin ini tidak
+    // dapat menyatakan "kosong" — sesi mengekalkan geografi lama dan lawatan
+    // seterusnya memulihkannya; pengguna tidak dapat kembali ke "tiada
+    // geografi dipilih" tanpa log keluar. Ubatan yang ditetapkan untuk
+    // sesiapa yang membetulkannya kelak: requestParams() di
+    // resources/js/Pages/Pilihanraya/filters.js menghantar {reset_filters:1}
+    // apabila semua penapis kosong.
     // SENGAJA SENARAI EKSPLISIT, BUKAN WILDCARD 'pilihanraya.borang-14.*':
     // wildcard itu menangkap TIGA laluan GET lain yang tidak patut berkongsi
     // skop ini —
