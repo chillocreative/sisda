@@ -70,7 +70,13 @@ class RememberFilters
         if ($diingat) {
             // array_intersect_key melindungi daripada entri sesi lama yang
             // membawa kunci yang sejak itu dibuang daripada senarai putih.
-            $request->merge(array_intersect_key($diingat, array_flip($kunci)));
+            // skalarSahaja() diulang di sini supaya invarian "hanya skalar
+            // digabungkan" berlaku untuk SEBARANG kandungan sesi — bukan
+            // sekadar apa yang versi semasa middleware ini simpan.
+            $request->merge(array_map(
+                fn ($v) => $this->skalarSahaja($v),
+                array_intersect_key($diingat, array_flip($kunci))
+            ));
         }
 
         return $next($request);

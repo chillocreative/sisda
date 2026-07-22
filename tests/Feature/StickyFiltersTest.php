@@ -24,11 +24,6 @@ class StickyFiltersTest extends TestCase
     {
         parent::setUp();
 
-        config()->set('sticky_filters.ujian', [
-            'routes' => ['ujian.penapis'],
-            'keys' => ['negeri_id', 'bandar_id'],
-        ]);
-
         Route::middleware(['web', 'auth'])->get('/ujian-penapis', function () {
             return response()->json([
                 'negeri_id' => request()->input('negeri_id'),
@@ -46,7 +41,10 @@ class StickyFiltersTest extends TestCase
             ]);
         })->name('ujian.penapis.post');
 
-        config()->set('sticky_filters.ujian.routes', ['ujian.penapis', 'ujian.penapis.post']);
+        config()->set('sticky_filters.ujian', [
+            'routes' => ['ujian.penapis', 'ujian.penapis.post'],
+            'keys' => ['negeri_id', 'bandar_id'],
+        ]);
     }
 
     public function test_filters_are_remembered_and_merged_into_a_bare_request(): void
@@ -65,7 +63,11 @@ class StickyFiltersTest extends TestCase
     {
         $this->actingAs($this->user())->getJson('/ujian-penapis?negeri_id=5&bandar_id=40');
 
-        // "Set Semula" menghantar kunci HADIR-TETAPI-KOSONG.
+        // applyFilters() (dipanggil pada setiap pertukaran dropdown, bukan
+        // Set Semula) sentiasa menghantar SEMUA kunci skop — termasuk yang
+        // dikosongkan oleh pengguna — jadi kunci itu HADIR-TETAPI-KOSONG.
+        // Set Semula pula menghantar permintaan KOSONG berserta reset_filters
+        // (lihat test_reset_sentinel_forgets_the_session_entry).
         $this->actingAs($this->user())
             ->getJson('/ujian-penapis?negeri_id=&bandar_id=')
             ->assertJson(['negeri_id' => '', 'bandar_id' => '']);
@@ -131,6 +133,24 @@ class StickyFiltersTest extends TestCase
         // menggabungkan nilai tersimpan ke dalam BADAN POST.
         $this->actingAs($user)
             ->postJson('/ujian-penapis-post')
+            ->assertJson(['negeri_id' => null, 'bandar_id' => null]);
+    }
+
+    public function test_method_spoofing_does_not_bypass_the_get_only_guard(): void
+    {
+        $user = $this->user();
+
+        $this->actingAs($user)->getJson('/ujian-penapis?negeri_id=5&bandar_id=40');
+
+        // POST SEBENAR ke laluan berdaftar GET, dengan `_method=GET` dalam
+        // badan. Laravel membolehkan penggantian parameter kaedah HTTP, jadi
+        // isMethod('GET') akan melapor TRUE di sini walaupun kaedah HTTP
+        // sebenar ialah POST — itulah sebab middleware mesti guna
+        // getRealMethod(). Jika pengawal method dialih kembali kepada
+        // isMethod('GET'), permintaan ini akan lulus dan menggabungkan
+        // penapis tersimpan ke dalam badan POST.
+        $this->actingAs($user)
+            ->post('/ujian-penapis', ['_method' => 'GET'])
             ->assertJson(['negeri_id' => null, 'bandar_id' => null]);
     }
 
@@ -215,6 +235,25 @@ class StickyFiltersTest extends TestCase
         // Jika nilai tatasusunan disimpan verbatim, ia akan digabungkan
         // semula ke dalam SETIAP permintaan kosong berikutnya dan meracau
         // seluruh baki sesi pengguna.
+        $this->actingAs($user)
+            ->getJson('/ujian-penapis')
+            ->assertJson(['negeri_id' => '5', 'bandar_id' => null]);
+    }
+
+    public function test_array_value_already_in_the_session_is_coerced_on_merge(): void
+    {
+        // skalarSahaja() sebelum ini hanya dipanggil pada laluan SIMPAN, jadi
+        // ia hanya melindungi kandungan yang middleware INI yang menulis.
+        // Tulis tatasusunan terus ke dalam sesi (memantulkan entri lama dari
+        // versi middleware terdahulu, atau kandungan sesi yang dirosakkan
+        // dengan cara lain) supaya laluan GABUNG diuji secara berasingan
+        // daripada laluan simpan.
+        $user = $this->user();
+        $this->actingAs($user)->getJson('/ujian-penapis');
+
+        session()->put('sticky_filters.ujian', ['negeri_id' => '5', 'bandar_id' => ['1', '2']]);
+        session()->save();
+
         $this->actingAs($user)
             ->getJson('/ujian-penapis')
             ->assertJson(['negeri_id' => '5', 'bandar_id' => null]);
