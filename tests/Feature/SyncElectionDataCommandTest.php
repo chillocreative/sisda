@@ -111,6 +111,32 @@ class SyncElectionDataCommandTest extends TestCase
         );
     }
 
+    /**
+     * Panggilan ballot MESTI menggunakan nama berawalan kod.
+     *
+     * API menolak nama telanjang dengan 404 ("Juasseh" -> Not found), tetapi
+     * menerima "N.15 Juasseh". Nama yang DISIMPAN pula mesti telanjang, supaya
+     * ia padan dengan geografi SISDA. Dua nama berbeza untuk dua tujuan
+     * berbeza — menggunakan satu untuk kedua-duanya memecahkan satu pihak, dan
+     * kegagalan itu SENYAP: ballot tidak pernah tersimpan dan setiap pilihan
+     * raya kelihatan seperti "pecahan calon tidak disegerakkan".
+     */
+    public function test_the_ballot_lookup_uses_the_code_prefixed_seat_name(): void
+    {
+        $this->fakeApi();
+        $this->seedGeography();
+
+        $this->artisan('pilihanraya:sync-electiondata')->assertSuccessful();
+
+        Http::assertSent(function ($request) {
+            if (! str_contains($request->url(), '/v1/results')) {
+                return false;
+            }
+
+            return str_contains(urldecode($request->url()), 'seat=N.15 Juasseh');
+        });
+    }
+
     /** Angka Juasseh 2023 sebenar, disalin apa adanya. */
     public function test_the_completed_result_keeps_its_real_figures(): void
     {

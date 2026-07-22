@@ -87,7 +87,8 @@ class SyncElectionDataCommand extends Command
 
             $ballotFor = null;
             if ($terkini && ! $dryRun) {
-                $penuh = $api->ballot($nama, $negeri, (string) ($terkini['date'] ?? $terkini['tarikh']));
+                // Nama BERAWALAN KOD — API menolak nama telanjang dengan 404.
+                $penuh = $api->ballot(self::namaPenuhOf($seat), $negeri, (string) ($terkini['date'] ?? $terkini['tarikh']));
                 if (is_array($penuh)) {
                     $ballotFor = [
                         'tarikh' => (string) ($terkini['date'] ?? $terkini['tarikh']),
@@ -254,7 +255,7 @@ class SyncElectionDataCommand extends Command
      */
     private static function namaOf(array $seat): string
     {
-        $nama = trim(explode(',', (string) ($seat['seat'] ?? ''))[0] ?? '');
+        $nama = self::namaPenuhOf($seat);
         $kod = self::kodFromSlug((string) ($seat['slug'] ?? ''));
 
         if ($kod === null) {
@@ -266,6 +267,24 @@ class SyncElectionDataCommand extends Command
         $corak = '/^'.$huruf.'\.?\s*0*'.$nombor.'\s+/i';
 
         return trim((string) preg_replace($corak, '', $nama));
+    }
+
+    /**
+     * 'N.15 Juasseh, Negeri Sembilan' -> 'N.15 Juasseh' (awalan DIKEKALKAN).
+     *
+     * Nama carian API, bukan nama simpanan. /v1/results menolak nama telanjang
+     * dengan 404 ("Juasseh" -> Not found) tetapi menerima "N.15 Juasseh",
+     * manakala election_seats.nama mesti telanjang supaya ia padan dengan
+     * geografi SISDA (lihat namaOf()).
+     *
+     * Dua tujuan, dua nama. Menggunakan nama simpanan untuk carian API pernah
+     * menyebabkan SETIAP panggilan ballot memulangkan 404 — tiada pecahan calon
+     * pernah tersimpan, dan setiap pilihan raya kelihatan seperti "pecahan
+     * calon tidak disegerakkan" pada skrin Analisa.
+     */
+    private static function namaPenuhOf(array $seat): string
+    {
+        return trim(explode(',', (string) ($seat['seat'] ?? ''))[0] ?? '');
     }
 
     /** 'Juasseh, Negeri Sembilan' -> 'Negeri Sembilan' */
