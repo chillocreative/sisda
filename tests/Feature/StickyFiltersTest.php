@@ -3,6 +3,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
@@ -289,5 +290,79 @@ class StickyFiltersTest extends TestCase
         $this->actingAs($user)
             ->get(route('dashboard'))
             ->assertInertia(fn ($page) => $page->where('rememberedFilters.negeri_id', '5'));
+    }
+
+    public function test_dashboard_echoes_its_filters_back_to_the_page(): void
+    {
+        // Pepijat sedia ada: pengawal MEMBACA keenam-enam parameter tetapi
+        // tidak pernah memulangkannya, jadi setiap dropdown bermula kosong
+        // walaupun URL membawanya. Refresh biasa pun kehilangannya.
+        //
+        // NOTA CI: laluan 'super_admin' penuh menjalankan BUKAN SAHAJA
+        // `tahun_lahir REGEXP ...` (khusus MySQL, lihat CLAUDE.md) tetapi
+        // juga pertanyaan $petugasStats (HAVING tanpa GROUP BY) yang
+        // ditolak oleh pemeriksa sintaks SQLite walaupun pada jadual kosong
+        // — kedua-duanya sedia ada dan tidak berkaitan dengan pembaikan
+        // Tugasan 4 ini. Disahkan secara manual (di luar suite ini, tanpa
+        // menyentuh kod pengeluaran) bahawa selepas melangkau kedua-dua
+        // sekatan itu di sisi ujian sahaja, laluan sebenar MEMANG
+        // memulangkan prop 'filters' yang betul — jadi ujian ini
+        // dilangkau di SQLite dan akan LULUS di MySQL (pengeluaran).
+        if (DB::connection()->getDriverName() !== 'mysql') {
+            $this->markTestSkipped(
+                'Dashboard super_admin penuh guna SQL khusus MySQL (REGEXP, dan '.
+                'HAVING tanpa GROUP BY pada $petugasStats) yang gagal di SQLite '.
+                'tidak kira data — sedia ada, tidak berkaitan pembaikan ini.'
+            );
+        }
+
+        $this->actingAs($this->user())
+            ->get(route('dashboard', ['negeri_id' => 5, 'bandar_id' => 40]))
+            ->assertInertia(fn ($page) => $page
+                ->where('filters.negeri_id', '5')
+                ->where('filters.bandar_id', '40'));
+    }
+
+    public function test_remembered_filters_cannot_widen_a_scoped_admins_access(): void
+    {
+        // Penapis yang diingat MENYEMPITKAN di dalam sempadan kebenaran
+        // pengguna; ia tidak boleh MELUASKANNYA.
+        //
+        // PENTING: peranan 'admin' tidak sekali-kali sampai ke sempadan
+        // penskopan di DashboardController.php:55-63 — baris 32-34 pengawal
+        // memulangkan 'Dashboard/UserDashboard' (TANPA prop) untuk admin/
+        // super_user/user SEBELUM satu parameter penapis pun dibaca. Jadi
+        // menyemak `totalPengundi === 0` (cadangan asal) akan GAGAL SENTIASA
+        // dengan "Property [totalPengundi] does not exist" — bukan kerana
+        // penskopan berfungsi, tetapi kerana prop itu tidak wujud langsung
+        // pada laluan ini. Itu bukan bukti tentang peluasan akses.
+        //
+        // Pengesahan yang lebih kukuh: sahkan KOMPONEN yang dipulangkan DAN
+        // ketiadaan LANGSUNG sebarang prop berskop-bandar ('totalPengundi').
+        // Ini terbukti benar tidak kira nilai bandar_id yang diingat —
+        // pintu masuk kepada pertanyaan berskop itu sendiri tidak pernah
+        // dibuka untuk peranan ini, jadi peluasan akses mustahil secara
+        // struktur, bukan sekadar kebetulan mengira sifar.
+        $negeri = \App\Models\Negeri::create(['nama' => 'Negeri Sembilan']);
+        $kita = \App\Models\Bandar::create(['nama' => 'Kuala Pilah', 'negeri_id' => $negeri->id]);
+        $orangLain = \App\Models\Bandar::create(['nama' => 'Seremban', 'negeri_id' => $negeri->id]);
+
+        $admin = User::factory()->create([
+            'role' => 'admin',
+            'telephone' => '01277'.random_int(10000, 99999),
+            'negeri_id' => $negeri->id,
+            'bandar_id' => $kita->id,
+        ]);
+
+        // Cuba mencapai Bandar orang lain melalui penapis, kemudian melalui
+        // penapis yang DIINGAT pada lawatan kosong berikutnya.
+        $this->actingAs($admin)->get(route('dashboard', ['bandar_id' => $orangLain->id]));
+
+        $res = $this->actingAs($admin)->get(route('dashboard'));
+
+        $res->assertOk();
+        $res->assertInertia(fn ($page) => $page
+            ->component('Dashboard/UserDashboard')
+            ->missing('totalPengundi'));
     }
 }

@@ -62,17 +62,23 @@ export default function Dashboard({
     negeriList = [],
     bandarList = [],
     kadunList = [],
-    mpkkList = []
+    mpkkList = [],
+    // Nama tempatan berlanggar dengan state 'filters' di bawah — terima
+    // prop bawah nama lain.
+    filters: filtersProp
 }) {
     const scrollRef1 = useDragScroll();
     const scrollRef2 = useDragScroll();
+    // Disemai daripada pelayan supaya pilihan bertahan merentasi navigasi.
+    // Nama tempatan camelCase; parameter yang dihantar snake_case — petakan
+    // secara jelas, jangan andaikan ia sama.
     const [filters, setFilters] = useState({
-        negeri: '',
-        bandar: '',
-        kadun: '',
-        mpkk: '',
-        tarikhDari: '',
-        tarikhHingga: ''
+        negeri: filtersProp?.negeri_id ?? '',
+        bandar: filtersProp?.bandar_id ?? '',
+        kadun: filtersProp?.kadun_id ?? '',
+        mpkk: filtersProp?.mpkk_id ?? '',
+        tarikhDari: filtersProp?.tarikh_dari ?? '',
+        tarikhHingga: filtersProp?.tarikh_hingga ?? ''
     });
 
     // Prepare chart data — use raw counts so pie slices are exact, not rounded %.
