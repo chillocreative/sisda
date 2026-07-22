@@ -21,15 +21,18 @@ class FilterScopesTest extends TestCase
         $this->assertNull(FilterScopes::forRoute(null));
     }
 
-    public function test_wildcard_routes_share_one_scope(): void
+    public function test_page_and_xhr_routes_share_one_scope(): void
     {
         // Tab XHR endpoints MESTI memetakan ke skop yang sama seperti halaman
         // induknya — itulah yang menjadikan pengambilan data halaman merangkap
-        // penyimpanan.
+        // penyimpanan. Nama laluan di sini MESTI sepadan dengan yang sebenar
+        // didaftarkan dalam routes/web.php (lihat WarRoom.jsx TABS) — corak
+        // `pilihanraya.war-room.*` sebelum ini tidak sepadan dengan mana-mana
+        // laluan sebenar dan menjadikan skop war_room lengai.
         $a = FilterScopes::forRoute('pilihanraya.war-room');
-        $b = FilterScopes::forRoute('pilihanraya.war-room.battlefield');
+        $b = FilterScopes::forRoute('pilihanraya.api.overview');
 
-        $this->assertNotNull($a, 'Laluan induk war-room mesti diselesaikan kepada satu skop.');
+        $this->assertNotNull($a, 'Laluan halaman war-room mesti diselesaikan kepada satu skop.');
         $this->assertNotNull($b, 'Laluan XHR war-room mesti berkongsi skop yang sama.');
         $this->assertSame($a['scope'], $b['scope']);
     }
