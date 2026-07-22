@@ -77,7 +77,12 @@ class StickyFiltersTest extends TestCase
 
     public function test_two_users_do_not_share_remembered_filters(): void
     {
+        // Dua pengguna berbeza = dua sesi berbeza. Log keluar MESTI berada di
+        // antaranya: dalam ujian, actingAs() menukar pengguna tetapi MENGEKALKAN
+        // sesi ujian yang sama, jadi tanpa log keluar ujian ini hanya menguji
+        // artifak kerangka ujian, bukan tingkah laku pengeluaran.
         $this->actingAs($this->user())->getJson('/ujian-penapis?negeri_id=5&bandar_id=40');
+        $this->post(route('logout'));
 
         $this->actingAs($this->user())
             ->getJson('/ujian-penapis')
