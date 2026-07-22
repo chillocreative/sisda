@@ -42,7 +42,7 @@ class ElectionDataService
      */
     public function seats(): array
     {
-        return $this->get('/v1/seats/dropdown') ?? [];
+        return $this->get('/v1/seats/dropdown', [], 'seats') ?? [];
     }
 
     /**
@@ -52,7 +52,7 @@ class ElectionDataService
      */
     public function seatResults(string $slug): array
     {
-        return $this->get('/v1/seats/results', ['slug' => $slug, 'lineage' => 'true']) ?? [];
+        return $this->get('/v1/seats/results', ['slug' => $slug, 'lineage' => 'true'], 'results') ?? [];
     }
 
     /**
@@ -130,7 +130,19 @@ class ElectionDataService
      * Satu permintaan GET. Memulangkan null pada SEBARANG kegagalan — pemanggil
      * merosot dengan anggun dan tidak pernah melihat pengecualian.
      */
-    private function get(string $path, array $query = []): ?array
+    /**
+     * @param  string|null  $unwrap  Kunci pembungkus yang dijangka pada respons.
+     *
+     * API membungkus setiap senarai di bawah kunci bernama — /v1/seats/dropdown
+     * memulangkan {"seats": [...]}, /v1/seats/results memulangkan
+     * {"results": [...]}. Kunci itu DINYATAKAN oleh pemanggil, bukan diteka:
+     * pembungkus yang hilang bermakna bentuk API telah berubah, dan itu mesti
+     * BISING. Pernah sekali ia senyap — kod menganggap array telanjang, is_array()
+     * lulus ke atas pembungkus, tiada apa dicatat, dan sistem melaporkan "tiada
+     * kerusi" selama berbulan-bulan sedangkan API memulangkan 800+ kerusi dengan
+     * sempurna. Jangan sekali-kali pulangkan array pembungkus itu sendiri.
+     */
+    private function get(string $path, array $query = [], ?string $unwrap = null): ?array
     {
         $setting = ElectionDataSetting::current();
         if (! $setting || ! $setting->is_active || empty($setting->api_key)) {
@@ -154,7 +166,25 @@ class ElectionDataService
 
             $json = $res->json();
 
-            return is_array($json) ? $json : null;
+            if (! is_array($json)) {
+                return null;
+            }
+
+            if ($unwrap !== null) {
+                if (! array_key_exists($unwrap, $json) || ! is_array($json[$unwrap])) {
+                    Log::warning('electiondata.my response shape changed', [
+                        'path' => $path,
+                        'dijangka' => $unwrap,
+                        'kunci_diterima' => array_keys($json),
+                    ]);
+
+                    return null;
+                }
+
+                return $json[$unwrap];
+            }
+
+            return $json;
         } catch (\Throwable $e) {
             Log::warning('electiondata.my request threw', ['path' => $path, 'error' => $e->getMessage()]);
 
