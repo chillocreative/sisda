@@ -44,26 +44,40 @@ class FilterScopesTest extends TestCase
         $this->assertNull(FilterScopes::forRoute(null));
     }
 
-    public function test_scope_with_empty_routes_is_unreachable(): void
+    public function test_war_room_scope_is_live_for_its_page_and_xhr_routes(): void
     {
-        // war_room kini SENGAJA `'routes' => []` (lihat config/sticky_filters.php)
-        // sehingga front end War Room menghantar reset_filters. Buktikan resolver
-        // tidak sekali-kali sepadan dengan skop yang tiada laluan — jika tidak,
-        // skop "kosong" ini akan lengai secara tidak sengaja apabila corak Str::is
-        // longgar (cth. '*') ditambah semula pada masa depan.
-        $this->assertNull(FilterScopes::forRoute('pilihanraya.war-room'));
-        $this->assertNull(FilterScopes::forRoute('pilihanraya.api.overview'));
-        $this->assertNull(FilterScopes::forRoute('pilihanraya.api.battlefield'));
+        // war_room kini DIAKTIFKAN (lihat config/sticky_filters.php) selepas
+        // WarRoom.jsx disemai daripada rememberedFilters dan menghantar
+        // reset_filters apabila FilterBar dikosongkan. Buktikan laluan
+        // halaman DAN keenam-enam laluan XHR tab menyelesaikan kepada skop
+        // yang SAMA menggunakan konfigurasi SEBENAR — bukan sekadar wujud
+        // dalam router (ujian di atas), tetapi benar-benar dipadankan oleh
+        // resolver.
+        $routes = [
+            'pilihanraya.war-room',
+            'pilihanraya.api.overview',
+            'pilihanraya.api.composition',
+            'pilihanraya.api.sentiment',
+            'pilihanraya.api.seat-scores',
+            'pilihanraya.api.battlefield',
+            'pilihanraya.api.alerts',
+        ];
+
+        foreach ($routes as $route) {
+            $out = FilterScopes::forRoute($route);
+            $this->assertNotNull($out, "Laluan '{$route}' mesti menyelesaikan kepada satu skop.");
+            $this->assertSame('war_room', $out['scope'], "Laluan '{$route}' mesti berkongsi skop 'war_room'.");
+        }
     }
 
     public function test_page_and_xhr_routes_share_one_scope_when_scope_is_active(): void
     {
         // Tab XHR endpoints MESTI memetakan ke skop yang sama seperti halaman
         // induknya — itulah yang menjadikan pengambilan data halaman merangkap
-        // penyimpanan. war_room sengaja kosong buat masa ini (lihat ujian di
-        // atas), jadi tingkah laku ini dibuktikan di sini menggunakan skop
-        // sementara yang menggunakan nama laluan sebenar War Room, supaya ujian
-        // ini tidak bergantung pada bila skop war_room diaktifkan semula.
+        // penyimpanan. war_room kini aktif (lihat ujian di atas) dan sudah
+        // membuktikan ini bagi skop sebenar; skop sementara di sini mengesahkan
+        // sifat generik resolver itu sendiri, tidak bergantung pada satu nama
+        // skop konfigurasi tertentu.
         config()->set('sticky_filters.ujian_war_room', [
             'routes' => ['pilihanraya.war-room', 'pilihanraya.api.overview'],
             'keys' => ['negeri_id'],

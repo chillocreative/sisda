@@ -7,7 +7,7 @@ import { Download, Loader2, RotateCcw, Trophy } from 'lucide-react';
 import { usePilihanrayaTheme } from './PilihanrayaShell';
 import KpiCard from './KpiCard';
 import EditableCell from './EditableCell';
-import { cleanParams } from '../filters';
+import { requestParams } from '../filters';
 import { fmt, pct, safeDiv, partyColor, KAUM_LABEL } from '../analisa/shared';
 import { KAUM_KEYS, simulate } from '../simulation/nCornerModel';
 
@@ -93,7 +93,7 @@ export default function SimulasiPilihanraya({ filters, simulasiParties = [], pen
         lastFetchKey.current = key;
 
         let cancelled = false;
-        axios.get(route('pilihanraya.api.simulasi.pengundi'), { params: cleanParams(filters) })
+        axios.get(route('pilihanraya.api.simulasi.pengundi'), { params: requestParams(filters) })
             .then(({ data }) => {
                 if (cancelled) return;
                 setPengundi({

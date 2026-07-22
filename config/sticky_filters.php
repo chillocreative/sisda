@@ -17,17 +17,21 @@ return [
     ],
 
     'war_room' => [
-        // SENGAJA KOSONG buat masa ini. Nama laluan di bawah sudah disahkan betul,
-        // tetapi mengaktifkan skop ini SEBELUM front end War Room dikemas kini
-        // menghasilkan keadaan yang lebih teruk daripada tiada ingatan langsung:
-        // FilterBar memaparkan "Semua Negeri" sementara penapis sesi menyempitkan
-        // angka di bawahnya, dan reset FilterBar menanggalkan nilai kosong
-        // (cleanParams) lalu menghantar permintaan KOSONG — yang membangkitkan
-        // semula penapis yang baru sahaja dibuang. Diaktifkan semula dalam tugasan
-        // yang menyemai WarRoom.jsx dan menghantar reset_filters daripada FilterBar.
-        // Laluan sebenar: pilihanraya.war-room, pilihanraya.api.overview,
-        // .composition, .sentiment, .seat-scores, .battlefield, .alerts
-        'routes' => [],
+        // WarRoom.jsx menyemai keadaan penapisnya daripada rememberedFilters
+        // (initialFilters()) dan menghantar reset_filters apabila FilterBar
+        // dikosongkan (requestParams()) — kedua-dua keping front end yang
+        // membolehkan skop ini diaktifkan dengan selamat. Laluan halaman dan
+        // enam XHR tab berkongsi skop yang sama supaya pengambilan data biasa
+        // merangkap penyimpanan tanpa panggilan "simpan" berasingan.
+        'routes' => [
+            'pilihanraya.war-room',
+            'pilihanraya.api.overview',
+            'pilihanraya.api.composition',
+            'pilihanraya.api.sentiment',
+            'pilihanraya.api.seat-scores',
+            'pilihanraya.api.battlefield',
+            'pilihanraya.api.alerts',
+        ],
         'keys' => [
             'negeri_id', 'parlimen_id', 'kadun_id',
             'tarikh_dari', 'tarikh_hingga',

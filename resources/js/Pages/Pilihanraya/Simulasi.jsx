@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { EMPTY_FILTERS } from './filters';
+import { initialFilters } from './filters';
 import PilihanrayaShell from './components/PilihanrayaShell';
 import FilterBar from './components/FilterBar';
 import SimulasiPilihanraya from './components/SimulasiPilihanraya';
 
 export default function Simulasi({ negeriList, parlimenList, kadunList, simulasiParties = [], penjuruOptions = [] }) {
-    const [filters, setFilters] = useState(EMPTY_FILTERS);
+    const { rememberedFilters } = usePage().props;
+    const [filters, setFilters] = useState(() => initialFilters(rememberedFilters));
 
     return (
         <AuthenticatedLayout>

@@ -1,5 +1,5 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import axios from 'axios';
 import {
     Bar, BarChart, CartesianGrid, Cell, LabelList, Legend, Pie, PieChart,
@@ -10,7 +10,7 @@ import {
     Loader2, Map, PieChart as PieChartIcon, RefreshCw, Scale, Users, Vote,
 } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { EMPTY_FILTERS, cleanParams } from './filters';
+import { requestParams, initialFilters } from './filters';
 import PilihanrayaShell, { usePilihanrayaTheme } from './components/PilihanrayaShell';
 import TabBar from './components/TabBar';
 import FilterBar from './components/FilterBar';
@@ -71,7 +71,7 @@ function useTabData(activeTab, filters, seed) {
         const requestKey = `${activeTab}|${filterKey}`;
         pendingRef.current = requestKey;
         setLoading(true);
-        axios.get(route(tabDef.route), { params: cleanParams(filters) })
+        axios.get(route(tabDef.route), { params: requestParams(filters) })
             .then((res) => {
                 if (filterKey === currentKeyRef.current) {
                     cacheRef.current[activeTab] = res.data;
@@ -451,7 +451,8 @@ function WarRoomContent({ filters, setFilters, seedOverview, lists }) {
 }
 
 export default function WarRoom({ overview, negeriList, parlimenList, kadunList }) {
-    const [filters, setFilters] = useState(EMPTY_FILTERS);
+    const { rememberedFilters } = usePage().props;
+    const [filters, setFilters] = useState(() => initialFilters(rememberedFilters));
 
     return (
         <AuthenticatedLayout>

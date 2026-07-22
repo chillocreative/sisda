@@ -260,6 +260,46 @@ class StickyFiltersTest extends TestCase
             ->assertJson(['negeri_id' => '5', 'bandar_id' => null]);
     }
 
+    public function test_war_room_scope_forgets_on_reset_instead_of_restoring(): void
+    {
+        // war_room kini AKTIF (lihat config/sticky_filters.php) selepas
+        // WarRoom.jsx disemai daripada rememberedFilters dan requestParams()
+        // menghantar reset_filters apabila cleanParams() memulangkan {}.
+        // Laluan SEBENAR War Room memanggil ElectionAnalyticsService, yang
+        // menjalankan SQL khusus MySQL (REGEXP) tanpa mengira penapis —
+        // tidak dapat diuji di SQLite CI (lihat CLAUDE.md). Sahkan tingkah
+        // laku middleware bagi skop 'war_room' SEBENAR melalui laluan ujian
+        // ringan, menggantikan 'routes' skop itu buat sementara sahaja —
+        // 'keys' kekal senarai putih SEBENAR daripada konfigurasi.
+        Route::middleware(['web', 'auth'])->get('/ujian-war-room', function () {
+            return response()->json([
+                'negeri_id' => request()->input('negeri_id'),
+                'parlimen_id' => request()->input('parlimen_id'),
+            ]);
+        })->name('ujian.war-room');
+
+        config()->set('sticky_filters.war_room.routes', ['ujian.war-room']);
+
+        $user = $this->user();
+
+        $this->actingAs($user)
+            ->getJson('/ujian-war-room?negeri_id=3&parlimen_id=12')
+            ->assertJson(['negeri_id' => '3', 'parlimen_id' => '12']);
+
+        // Set Semula (FilterBar) -> requestParams() menghantar permintaan
+        // KOSONG berserta reset_filters kerana cleanParams() memulangkan {}
+        // apabila semua penapis dikosongkan.
+        $this->actingAs($user)
+            ->getJson('/ujian-war-room?reset_filters=1')
+            ->assertJson(['negeri_id' => null, 'parlimen_id' => null]);
+
+        // Lawatan KOSONG seterusnya mesti KEKAL tidak ditapis — entri sesi
+        // dilupakan, bukan dipulihkan.
+        $this->actingAs($user)
+            ->getJson('/ujian-war-room')
+            ->assertJson(['negeri_id' => null, 'parlimen_id' => null]);
+    }
+
     public function test_logging_out_forgets_the_filters(): void
     {
         $user = $this->user();
