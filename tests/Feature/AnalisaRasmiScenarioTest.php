@@ -166,6 +166,89 @@ class AnalisaRasmiScenarioTest extends TestCase
         $this->assertSame(3, $c->fresh()->scenarios()->count());
     }
 
+    public function test_the_ai_fact_payload_excludes_elections_that_have_not_happened(): void
+    {
+        // electiondata.my memulangkan pilihan raya AKAN DATANG sebagai stub:
+        // party null, setiap angka null. Memberikannya kepada model naratif
+        // sebagai "sejarah kerusi" — dan ia diisih PALING ATAS kerana tarikhnya
+        // paling lewat — menjemput naratif tentang pilihan raya yang belum
+        // berlaku. ElectionSeat::latestCompletedResult() sudah menapisnya;
+        // laluan fakta mesti sama.
+        [$bandar, $kadun] = $this->seedSeat();
+        $seat = $this->seat($kadun);
+        $this->keputusan($seat);
+        $this->keputusan($seat, [
+            'election_name' => 'SE-16', 'tarikh' => '2030-08-01', 'party' => null,
+            'ballot' => null, 'voters_total' => null, 'voter_turnout' => null, 'votes_rejected' => null,
+        ]);
+
+        $c = $this->comparison($bandar, $kadun);
+        // buildFactPayload() memanggil currentRoll(), yang khusus MySQL dan
+        // tidak boleh berjalan pada SQLite CI — uji kaedah ini terus.
+        $rasmi = app(\App\Services\Pilihanraya\ElectionComparisonService::class)->officialHistory($c);
+
+        $this->assertCount(1, $rasmi);
+        $this->assertSame('SE-15', $rasmi[0]['pilihanraya']);
+    }
+
+    public function test_the_fact_payload_keeps_unknown_official_figures_null(): void
+    {
+        [$bandar, $kadun] = $this->seedSeat();
+        $seat = $this->seat($kadun);
+        $this->keputusan($seat, ['voters_total' => null, 'voter_turnout' => null]);
+
+        $c = $this->comparison($bandar, $kadun);
+        $rasmi = app(\App\Services\Pilihanraya\ElectionComparisonService::class)->officialHistory($c);
+
+        $this->assertNull($rasmi[0]['pengundi_berdaftar']);
+        $this->assertNull($rasmi[0]['keluar_mengundi']);
+    }
+
+    public function test_official_history_works_at_parlimen_level_too(): void
+    {
+        // Kedua-dua endpoint dan officialHistory() bercabang mengikut `level`;
+        // cabang Bandar tidak pernah diuji hujung ke hujung.
+        [$bandar] = $this->seedSeat();
+        $seat = ElectionSeat::create([
+            'slug' => 'p129-kuala-pilah-negeri-sembilan', 'nama' => 'KUALA PILAH', 'kod' => 'P129',
+            'negeri' => 'NEGERI SEMBILAN', 'jenis' => 'parlimen', 'bandar_id' => $bandar->id,
+        ]);
+        $this->keputusan($seat, ['election_name' => 'GE-15']);
+
+        $c = AnalisaComparison::create([
+            'title' => 'Ujian P', 'level' => 'parlimen',
+            'bandar_id' => $bandar->id, 'kadun_id' => null,
+            'negeri' => 'NEGERI SEMBILAN', 'parlimen' => 'KUALA PILAH', 'dun' => null,
+        ]);
+
+        $res = $this->actingAs($this->user())
+            ->getJson(route('pilihanraya.analisa.comparisons.rasmi', $c));
+
+        $res->assertOk()->assertJsonCount(1, 'keputusan');
+
+        $rasmi = app(\App\Services\Pilihanraya\ElectionComparisonService::class)->officialHistory($c);
+        $this->assertSame('GE-15', $rasmi[0]['pilihanraya']);
+    }
+
+    public function test_official_and_borang14_scenarios_share_one_shape(): void
+    {
+        // Kod hiliran (scenarioSummary, deltas, jadual, PDF) membaca kedua-dua
+        // bentuk tanpa cabang khas. Dua bentuk yang hanyut bermakna naratif AI
+        // memperihalkan angka berbeza daripada jadual di sebelahnya.
+        [, $kadun] = $this->seedSeat();
+        $mapped = (new \App\Services\Pilihanraya\ElectionResultScenarioMapper)
+            ->map($this->keputusan($this->seat($kadun)));
+
+        $this->assertSame(
+            ['pemilih', 'keluar', 'ditolak', 'undi', 'parties'],
+            array_keys($mapped['totals']),
+        );
+        $this->assertSame(
+            ['kawasan', 'pemilih', 'keluar', 'ditolak', 'undi'],
+            array_keys($mapped['rows'][0]),
+        );
+    }
+
     public function test_a_seat_that_was_never_synced_reports_a_reason_not_an_error(): void
     {
         [$bandar, $kadun] = $this->seedSeat();

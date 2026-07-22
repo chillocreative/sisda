@@ -75,9 +75,20 @@
 
     $first = $senario[0] ?? null;
     $last = $senario[count($senario) - 1] ?? null;
-    $growth = ($first && $last) ? ($last['pemilih_berdaftar'] - $first['pemilih_berdaftar']) : 0;
-    $growthPct = ($first && ($first['pemilih_berdaftar'] ?? 0) > 0)
-        ? round($growth / $first['pemilih_berdaftar'] * 100, 1) : 0;
+    // `pemilih_berdaftar` boleh NULL: scoresheet Borang 14 tidak pernah
+    // membawanya (lajur (A) ialah kertas undi dalam peti, bukan pendaftaran),
+    // sedangkan keputusan rasmi SPR biasanya ada. Membanding kedua-dua sumber
+    // dalam satu perbandingan kini perkara biasa, jadi satu hujung boleh null.
+    //
+    // null - 13408 === -13408 dalam PHP, yang dicetak sebagai "-13,408 / -100%
+    // sejak senario terawal" — angka yang direka sepenuhnya. Tidak diketahui
+    // BUKAN sifar: apabila mana-mana hujung tiada, jangan dakwa apa-apa.
+    $pemilihAwal = $first['pemilih_berdaftar'] ?? null;
+    $pemilihAkhir = $last['pemilih_berdaftar'] ?? null;
+    $adaPertumbuhan = $pemilihAwal !== null && $pemilihAkhir !== null && $pemilihAwal > 0;
+
+    $growth = $adaPertumbuhan ? ($pemilihAkhir - $pemilihAwal) : null;
+    $growthPct = $adaPertumbuhan ? round($growth / $pemilihAwal * 100, 1) : null;
 
     $n = fn ($v) => number_format((float) $v);
 
@@ -124,8 +135,17 @@
             </td>
             <td class="kpi-cell">
                 <div class="kpi-label">Pertumbuhan Pemilih</div>
-                <div class="kpi-value" style="color:{{ $growth >= 0 ? '#10b981' : '#ef4444' }}; font-size:19px;">{{ $growth >= 0 ? '+' : '' }}{{ $n($growth) }}</div>
-                <div class="kpi-sub">{{ $growth >= 0 ? '+' : '' }}{{ $growthPct }}% sejak senario terawal</div>
+                {{-- null >= 0 ialah TRUE dalam PHP, jadi angka yang tidak
+                     diketahui akan dicetak sebagai "+0 / +0%" — mendakwa
+                     "tiada perubahan" sedangkan yang benar ialah "tidak
+                     diketahui". Papar "—" seperti setiap angka tiada yang lain. --}}
+                @if ($adaPertumbuhan)
+                    <div class="kpi-value" style="color:{{ $growth >= 0 ? '#10b981' : '#ef4444' }}; font-size:19px;">{{ $growth >= 0 ? '+' : '' }}{{ $n($growth) }}</div>
+                    <div class="kpi-sub">{{ $growth >= 0 ? '+' : '' }}{{ $growthPct }}% sejak senario terawal</div>
+                @else
+                    <div class="kpi-value" style="font-size:19px;">—</div>
+                    <div class="kpi-sub">Bilangan pengundi berdaftar tidak tersedia bagi setiap senario</div>
+                @endif
             </td>
             <td class="kpi-cell">
                 <div class="kpi-label">% Pengundi Muda (18–29)</div>

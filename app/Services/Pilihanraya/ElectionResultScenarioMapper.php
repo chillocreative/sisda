@@ -50,11 +50,17 @@ class ElectionResultScenarioMapper
 
         // Angka RASMI diguna apa adanya, bukan dikira semula daripada undi
         // parti: ballot mungkin tidak menyenaraikan setiap calon kecil, jadi
-        // jumlah yang dikira sendiri akan terkurang berbanding angka SPR.
+        // jumlah yang dikira sendiri akan TERKURANG berbanding angka SPR — dan
+        // `keluar` ialah PENYEBUT bagi setiap peratus undi, jadi angka yang
+        // terkurang melambungkan syer setiap parti sambil dipaparkan sebagai
+        // angka rasmi.
+        //
+        // Apabila mana-mana angka tiada, ia kekal NULL. scenarioSummary()
+        // sudah ada sandarannya sendiri bagi `keluar` yang kosong, jadi hiliran
+        // mengendalikannya tanpa kita berpura-pura ia angka rasmi.
         $pemilih = $this->intOrNull($result->voters_total);
         $ditolak = $this->intOrNull($result->votes_rejected);
-        $keluar = $this->intOrNull($result->voter_turnout)
-            ?? (array_sum($undi) + (int) $ditolak);
+        $keluar = $this->intOrNull($result->voter_turnout);
 
         $row = [
             'kawasan' => $this->namaKerusi($result),

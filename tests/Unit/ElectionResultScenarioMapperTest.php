@@ -73,6 +73,30 @@ class ElectionResultScenarioMapperTest extends TestCase
         $this->assertNull($out['rows'][0]['pemilih']);
     }
 
+    public function test_an_unknown_turnout_is_not_recomputed_from_party_votes(): void
+    {
+        // Mengira semula daripada undi parti akan TERKURANG: ballot mungkin
+        // tidak menyenaraikan setiap calon kecil, jadi jumlah kita sendiri
+        // lebih rendah daripada angka SPR. Angka yang terkurang itu kemudian
+        // menjadi PENYEBUT bagi setiap peratus undi — setiap syer parti
+        // dilambungkan, dan dipaparkan sebagai angka rasmi.
+        //
+        // scenarioSummary() sudah pun ada sandarannya sendiri untuk keluar
+        // yang tiada, jadi null di sini dikendalikan hiliran tanpa berpura-pura
+        // ia angka rasmi.
+        $out = $this->mapper->map($this->keputusan(['voter_turnout' => null]));
+
+        $this->assertNull($out['totals']['keluar']);
+        $this->assertNull($out['rows'][0]['keluar']);
+    }
+
+    public function test_an_unknown_rejected_count_stays_null_not_zero(): void
+    {
+        $out = $this->mapper->map($this->keputusan(['votes_rejected' => null]));
+
+        $this->assertNull($out['totals']['ditolak']);
+    }
+
     public function test_official_data_is_seat_level_so_exactly_one_row(): void
     {
         // Tiada pecahan Daerah Mengundi dalam data rasmi. Satu baris aras

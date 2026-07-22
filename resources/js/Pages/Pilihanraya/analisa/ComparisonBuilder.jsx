@@ -288,7 +288,8 @@ function ScenarioChip({ scenario, comparisonId, onRemoved }) {
             </div>
             <div className="mt-3 flex items-center gap-2 text-xs text-emerald-600">
                 <CheckCircle2 className="h-3.5 w-3.5" />
-                {scenario.row_count} kawasan · Pemilih {fmt(totals.pemilih)} · Keluar {fmt(totals.keluar)}
+                {scenario.aras_kerusi ? 'Seluruh kerusi' : `${scenario.row_count} kawasan`}
+                {' · '}Pemilih {fmt(totals.pemilih)} · Keluar {fmt(totals.keluar)}
             </div>
             <div className="mt-1 text-xs text-slate-500">
                 {topParties.length ? topParties.join(' · ') : 'Tiada data undi'}

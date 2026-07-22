@@ -225,9 +225,15 @@ class ElectionComparisonService
      * Setiap angka kekal null apabila tidak diketahui. Tiada `?? 0` — kerusi
      * tanpa angka bukan kerusi dengan sifar undi.
      *
+     * Awam semata-mata supaya ia BOLEH DIUJI. buildFactPayload() memanggil
+     * currentRoll(), yang menggunakan REGEXP/TIMESTAMPDIFF khusus MySQL dan
+     * tidak boleh berjalan pada SQLite CI — jadi menguji melalui pintu depan
+     * meninggalkan kaedah ini tanpa liputan langsung, dan di sinilah penapis
+     * "pilihan raya belum berlaku" berada.
+     *
      * @return array<int, array<string, mixed>>
      */
-    private function officialHistory(AnalisaComparison $comparison): array
+    public function officialHistory(AnalisaComparison $comparison): array
     {
         $kawasan = $comparison->level === 'parlimen'
             ? Bandar::find($comparison->bandar_id)
@@ -240,6 +246,13 @@ class ElectionComparisonService
         }
 
         return $seat->results()
+            // Pilihan raya AKAN DATANG dipulangkan API sebagai stub: party null,
+            // setiap angka null. Ia diisih PALING ATAS kerana tarikhnya paling
+            // lewat, jadi tanpa tapisan ini ia menjadi baris pertama "sejarah"
+            // yang diberikan kepada model naratif — menjemput cerita tentang
+            // pilihan raya yang belum berlaku. ElectionSeat::latestCompletedResult()
+            // sudah menapisnya dengan cara yang sama.
+            ->whereNotNull('party')
             ->orderByDesc('tarikh')
             ->get()
             ->map(fn ($r) => [

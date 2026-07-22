@@ -380,6 +380,11 @@ class AnalisaComparisonController extends Controller
                 'election_date' => $s->election_date?->format('Y-m-d'),
                 'source_filename' => $s->source_filename,
                 'row_count' => $s->row_count,
+                // Senario rasmi ialah aras KERUSI — tiada pecahan Daerah
+                // Mengundi. Tanpa penanda ini UI memaparkan "1 kawasan", yang
+                // dibaca sebagai "data hanya meliputi satu DM" sedangkan ia
+                // sebenarnya meliputi seluruh kerusi.
+                'aras_kerusi' => str_starts_with((string) $s->source_filename, 'electiondata.my'),
                 'parsed_totals' => $s->parsed_totals,
             ])->all(),
         ];
