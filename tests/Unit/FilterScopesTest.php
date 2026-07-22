@@ -29,6 +29,8 @@ class FilterScopesTest extends TestCase
         $a = FilterScopes::forRoute('pilihanraya.war-room');
         $b = FilterScopes::forRoute('pilihanraya.war-room.battlefield');
 
+        $this->assertNotNull($a, 'Laluan induk war-room mesti diselesaikan kepada satu skop.');
+        $this->assertNotNull($b, 'Laluan XHR war-room mesti berkongsi skop yang sama.');
         $this->assertSame($a['scope'], $b['scope']);
     }
 }
