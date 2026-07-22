@@ -420,4 +420,25 @@ class StickyFiltersTest extends TestCase
             ->component('Dashboard/UserDashboard')
             ->missing('totalPengundi'));
     }
+
+    public function test_every_configured_scope_resolves_and_has_keys(): void
+    {
+        // Nama laluan yang salah eja gagal SENYAP — skrin itu sekadar tidak
+        // mengingat apa-apa. Kunci setiap corak kepada laluan sebenar.
+        $daftar = \Illuminate\Support\Facades\Route::getRoutes();
+
+        foreach (config('sticky_filters') as $scope => $def) {
+            $this->assertNotEmpty($def['keys'], "Skop {$scope} tiada kunci.");
+
+            foreach ($def['routes'] as $pattern) {
+                if (str_contains($pattern, '*')) {
+                    continue; // corak wildcard disemak melalui laluan induknya
+                }
+                $this->assertNotNull(
+                    collect($daftar)->first(fn ($r) => $r->getName() === $pattern),
+                    "Laluan '{$pattern}' bagi skop '{$scope}' tidak wujud.",
+                );
+            }
+        }
+    }
 }
