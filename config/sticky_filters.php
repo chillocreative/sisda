@@ -17,7 +17,18 @@ return [
     ],
 
     'war_room' => [
-        'routes' => ['pilihanraya.war-room', 'pilihanraya.war-room.*'],
+        // Laluan halaman + setiap endpoint XHR tab (lihat WarRoom.jsx TABS)
+        // yang SEBENARNYA dipanggil oleh War Room — bukan corak `.war-room.*`
+        // rekaan yang tidak sepadan dengan mana-mana laluan sebenar.
+        'routes' => [
+            'pilihanraya.war-room',
+            'pilihanraya.api.overview',
+            'pilihanraya.api.composition',
+            'pilihanraya.api.sentiment',
+            'pilihanraya.api.seat-scores',
+            'pilihanraya.api.battlefield',
+            'pilihanraya.api.alerts',
+        ],
         'keys' => [
             'negeri_id', 'parlimen_id', 'kadun_id',
             'tarikh_dari', 'tarikh_hingga',

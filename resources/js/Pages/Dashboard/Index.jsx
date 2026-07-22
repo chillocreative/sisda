@@ -139,7 +139,9 @@ export default function Dashboard({
             tarikhDari: '',
             tarikhHingga: ''
         });
-        router.get(route('dashboard'), {}, {
+        // Isyarat reset yang JELAS untuk middleware — permintaan kosong tidak
+        // dapat dibezakan daripada navigasi biasa dan akan dipulihkan semula.
+        router.get(route('dashboard'), { reset_filters: 1 }, {
             preserveState: true,
             preserveScroll: true
         });
