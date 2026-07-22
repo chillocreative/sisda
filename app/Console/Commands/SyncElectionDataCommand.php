@@ -236,10 +236,36 @@ class SyncElectionDataCommand extends Command
         return $ids->count() === 1 ? ['kadun_id' => (int) $ids->first(), 'bandar_id' => null] : $kosong;
     }
 
-    /** 'Juasseh, Negeri Sembilan' -> 'Juasseh' */
+    /**
+     * 'N.15 Juasseh, Negeri Sembilan' -> 'Juasseh'
+     *
+     * API mengawal nama kerusi dengan KOD-nya ("P.140 Segamat, Johor"). Kod itu
+     * MESTI dibuang: geografi SISDA menyimpan nama sahaja ("Segamat"), dan
+     * election_seats.nama dibandingkan dengan nama itu oleh
+     * ValidateKawasanCommand serta laluan sandaran ElectionDataService::slugFor().
+     * Menyimpan awalan itu menjadikan SETIAP kawasan dilaporkan sebagai
+     * "tiada dalam senarai rasmi" — 180 percanggahan palsu pada pengeluaran,
+     * yang mengarahkan pengguna menamakan semula geografi yang sebenarnya betul.
+     * Menamakan semula kawasan akan memutuskan setiap baris pengundi yang
+     * dipadankan mengikut rentetan pada ejaan lama.
+     *
+     * Awalan dibuang HANYA apabila ia benar-benar kod kerusi ini (disahkan
+     * terhadap slug), jadi nama tulen tidak boleh dicacatkan.
+     */
     private static function namaOf(array $seat): string
     {
-        return trim(explode(',', (string) ($seat['seat'] ?? ''))[0] ?? '');
+        $nama = trim(explode(',', (string) ($seat['seat'] ?? ''))[0] ?? '');
+        $kod = self::kodFromSlug((string) ($seat['slug'] ?? ''));
+
+        if ($kod === null) {
+            return $nama;
+        }
+
+        $huruf = preg_quote(substr($kod, 0, 1), '/');
+        $nombor = (int) substr($kod, 1);
+        $corak = '/^'.$huruf.'\.?\s*0*'.$nombor.'\s+/i';
+
+        return trim((string) preg_replace($corak, '', $nama));
     }
 
     /** 'Juasseh, Negeri Sembilan' -> 'Negeri Sembilan' */
