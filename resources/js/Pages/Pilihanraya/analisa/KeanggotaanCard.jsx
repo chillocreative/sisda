@@ -33,7 +33,11 @@ export default function KeanggotaanCard({ scope }) {
         let cancelled = false;
         setLoading(true);
         axios.get(route('pilihanraya.analisa.keanggotaan-card'), {
-            params: { level: scope.level, bandar_id: scope.bandar_id, kadun_id: scope.kadun_id },
+            // negeri_id turut disertakan (walaupun tidak digunakan oleh pengawal)
+            // supaya middleware RememberFilters menyimpan ketiganya secara
+            // lengkap bagi skop 'analisa' — tanpa ini, setiap fetch akan
+            // menghapuskan negeri_id yang baru dipilih di KawasanPicker.
+            params: { level: scope.level, negeri_id: scope.negeri_id, bandar_id: scope.bandar_id, kadun_id: scope.kadun_id },
         })
             .then((res) => { if (!cancelled) setData(res.data); })
             .catch(() => { if (!cancelled) setData(null); })

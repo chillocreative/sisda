@@ -88,6 +88,51 @@ return [
         'keys' => ['kawasan'],
     ],
 
+    // Analisa/KawasanPicker.jsx menyemai negeriId/bandarId/kadunId daripada
+    // rememberedFilters dan mengosongkan skop sepenuhnya (EmptyState, tiada
+    // XHR) apabila dikosongkan — tiada risiko "Semua" palsu sambil data
+    // masih ditapis. SENGAJA guna senarai laluan EKSPLISIT, bukan corak
+    // 'pilihanraya.analisa.*': pilihanraya.analisa.seat-baseline dikongsi
+    // dengan Simulasi.jsx (parlimen_id/kadun_id, tanpa negeri_id) — wildcard
+    // akan membiarkan trafik Simulasi menulis ke skop ini dan menghakis
+    // negeri_id yang baru dipilih. KeanggotaanCard.jsx turut dibetulkan untuk
+    // menyertakan negeri_id (dahulu tertinggal) supaya SETIAP fetch menyimpan
+    // ketiga-tiga kunci dengan lengkap, bukan menghapuskan negeri_id secara senyap.
+    'analisa' => [
+        'routes' => ['pilihanraya.analisa', 'pilihanraya.analisa.keanggotaan-card'],
+        'keys' => ['negeri_id', 'bandar_id', 'kadun_id'],
+    ],
+
+    // Scoreboard (INTERNAL sahaja — Public/Scoreboard.jsx tidak disentuh).
+    // fetchData() dibetulkan untuk turut menghantar negeri_id/parlimen_id
+    // (dahulu hanya kadun_id) supaya penapis tidak terhakis oleh tinjauan
+    // (poll) 4 saat sendiri — tanpa pembetulan ini, dropdown Negeri/Parlimen
+    // akan menjadi kosong/lumpuh pada lawatan seterusnya walaupun DUN masih
+    // betul, keadaan "kawalan tidak sepadan data" yang dilarang.
+    'scoreboard' => [
+        'routes' => ['pilihanraya.scoreboard', 'pilihanraya.scoreboard.*'],
+        'keys' => ['negeri_id', 'parlimen_id', 'kadun_id'],
+    ],
+
+    // Borang 14 — tab Keyin dan Papar berkongsi satu skop dengan sengaja.
+    // NOTA KETERBATASAN (didedahkan, diterima — lihat laporan Tugasan 7):
+    // fetch geografi KeyinTab (pilihanraya.borang-14.data) menghantar
+    // kawasan_type/jenis_pr/tahun tetapi TIDAK PERNAH negeri_id/parlimen_id/
+    // kadun_id (ia guna kawasan_id gabungan), dan fetch senarai PaparTab
+    // (pilihanraya.borang-14.senarai) menghantar negeri_id/kadun_id tetapi
+    // bukan kawasan_type/jenis_pr/tahun. Ini bermakna kedua-dua kumpulan
+    // kunci saling menghapuskan antara satu sama lain sepanjang sesi, jadi
+    // "geographyComplete" TIDAK PERNAH pulih automatik sepenuhnya — bukan
+    // bahaya (tiada UI menipu; picker sentiasa kelihatan dan mesti disiapkan
+    // secara manual sebelum jadual dipaparkan), tetapi ciri "ingat" ini tidak
+    // berfungsi sepenuhnya untuk geografi. TIDAK dibetulkan di sini kerana
+    // pembetulan memerlukan menyentuh fetch KeyinTab.jsx yang dilarang oleh
+    // amaran Borang 14 (elak sebarang perubahan selain nilai awal `picker`).
+    'borang14' => [
+        'routes' => ['pilihanraya.borang-14', 'pilihanraya.borang-14.*'],
+        'keys' => ['negeri_id', 'parlimen_id', 'kadun_id', 'kawasan_type', 'jenis_pr', 'tahun'],
+    ],
+
     // SENGAJA KOSONG — laluan sebenar: users.index. Butang "Set Semula" di
     // Users/Index.jsx (resetFilters(), ~baris 111-121) memanggil
     // router.get(route('users.index')) TANPA sebarang parameter dan TANPA

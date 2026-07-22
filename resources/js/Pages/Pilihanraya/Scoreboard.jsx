@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import axios from 'axios';
 import {
     Trophy, Crown, Settings, X, Upload, Info, MapPin, Landmark, Vote, Loader2, Radio, Maximize2, Minimize2,
@@ -205,10 +205,11 @@ export default function Scoreboard(props) {
 }
 
 function ScoreboardBody({ negeriList, parlimenList, kadunList }) {
+    const { rememberedFilters } = usePage().props;
     const [settingsOpen, setSettingsOpen] = useState(false);
-    const [negeriId, setNegeriId] = useState('');
-    const [parlimenId, setParlimenId] = useState('');
-    const [kadunId, setKadunId] = useState('');
+    const [negeriId, setNegeriId] = useState(rememberedFilters?.negeri_id ?? '');
+    const [parlimenId, setParlimenId] = useState(rememberedFilters?.parlimen_id ?? '');
+    const [kadunId, setKadunId] = useState(rememberedFilters?.kadun_id ?? '');
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [updatedAt, setUpdatedAt] = useState(null);
@@ -222,11 +223,15 @@ function ScoreboardBody({ negeriList, parlimenList, kadunList }) {
     const fetchData = useCallback((showSpinner = false) => {
         if (!kadunId) { setData(null); return; }
         if (showSpinner) setLoading(true);
+        // negeri_id/parlimen_id turut disertakan (walaupun tidak digunakan oleh
+        // pengawal) supaya middleware RememberFilters menyimpan ketiga-tiga
+        // kunci skop 'scoreboard' dengan lengkap — tanpa ini, tinjauan (poll)
+        // 4 saat ini akan menghapuskan negeri_id/parlimen_id secara senyap.
         // `_t` cache-buster keeps every poll fresh (no stale browser/CDN cache).
-        axios.get(route('pilihanraya.scoreboard.data'), { params: { kadun_id: kadunId, _t: Date.now() } })
+        axios.get(route('pilihanraya.scoreboard.data'), { params: { negeri_id: negeriId, parlimen_id: parlimenId, kadun_id: kadunId, _t: Date.now() } })
             .then(({ data: d }) => { setData(d); setUpdatedAt(new Date()); })
             .finally(() => setLoading(false));
-    }, [kadunId]);
+    }, [negeriId, parlimenId, kadunId]);
 
     // Initial fetch + live polling.
     useEffect(() => {
