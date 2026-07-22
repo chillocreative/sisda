@@ -31,9 +31,12 @@ const SUMBER_LABEL = { manual: 'Manual', scoresheet: 'Scoresheet' };
  */
 export default function PaparTab({ negeriList, parlimenList, kadunList, onOpenKeyin }) {
     const { t } = usePilihanrayaTheme();
-    const [negeriId, setNegeriId] = useState('');
-    const [parlimenId, setParlimenId] = useState('');
-    const [kadunId, setKadunId] = useState('');
+    const { rememberedFilters, auth } = usePage().props;
+    // Nilai awal disemai daripada rememberedFilters (skop 'borang14', berkongsi
+    // dengan tab Keyin) — selamat kerana ia berlaku sebelum render pertama.
+    const [negeriId, setNegeriId] = useState(rememberedFilters?.negeri_id ?? '');
+    const [parlimenId, setParlimenId] = useState(rememberedFilters?.parlimen_id ?? '');
+    const [kadunId, setKadunId] = useState(rememberedFilters?.kadun_id ?? '');
     const [rows, setRows] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -45,7 +48,7 @@ export default function PaparTab({ negeriList, parlimenList, kadunList, onOpenKe
     // Rekod DITERBITKAN ialah keputusan rasmi yang sudah disiarkan ke Scoreboard
     // — hanya super_admin boleh membuangnya. Butang disembunyikan bagi peranan
     // lain, tetapi pengawal tetap menyemak semula (UI bukan kawalan keselamatan).
-    const role = usePage().props?.auth?.user?.role;
+    const role = auth?.user?.role;
     const bolehPadam = (r) => role === 'super_admin' || (role === 'admin' && r.status !== 'published');
 
     const parlimenOptions = negeriId
@@ -60,6 +63,11 @@ export default function PaparTab({ negeriList, parlimenList, kadunList, onOpenKe
             params: {
                 negeri_id: negeriId,
                 bandar_id: parlimenId || undefined,
+                // parlimen_id turut disertakan (bandar_id ialah nama sebenar
+                // yang dibaca pengawal; parlimen_id ialah nama kunci senarai
+                // putih skop 'borang14') supaya middleware RememberFilters
+                // menyimpannya dengan betul untuk tab Keyin juga.
+                parlimen_id: parlimenId || undefined,
                 kadun_id: kadunId || undefined,
             },
         })

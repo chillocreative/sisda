@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { usePage } from '@inertiajs/react';
 import { Landmark, Map, MapPin } from 'lucide-react';
 import { usePilihanrayaTheme } from '../components/PilihanrayaShell';
 
@@ -22,9 +23,10 @@ export default function KawasanPicker({ geo, onChange }) {
     const { t } = usePilihanrayaTheme();
     const { negeriList = [], parlimenList = [], kadunList = [] } = geo || {};
 
-    const [negeriId, setNegeriId] = useState('');
-    const [bandarId, setBandarId] = useState('');
-    const [kadunId, setKadunId] = useState('');
+    const { rememberedFilters } = usePage().props;
+    const [negeriId, setNegeriId] = useState(rememberedFilters?.negeri_id ?? '');
+    const [bandarId, setBandarId] = useState(rememberedFilters?.bandar_id ?? '');
+    const [kadunId, setKadunId] = useState(rememberedFilters?.kadun_id ?? '');
 
     const parlimens = useMemo(
         () => parlimenList.filter((p) => String(p.negeri_id) === String(negeriId)),

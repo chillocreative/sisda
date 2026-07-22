@@ -541,6 +541,17 @@ class DashboardController extends Controller
             'bandarList' => $bandarList,
             'kadunList' => $kadunList,
             'mpkkList' => $mpkkList,
+            // Pulangkan penapis supaya dropdown boleh dipulihkan. Nilai ini
+            // ialah nilai yang SAMA yang membina pertanyaan di atas — satu
+            // sumber, jadi kawalan dan keputusan tidak boleh bercanggah.
+            'filters' => [
+                'negeri_id' => $negeriId,
+                'bandar_id' => $bandarId,
+                'kadun_id' => $kadunId,
+                'mpkk_id' => $mpkkId,
+                'tarikh_dari' => $tarikhDari,
+                'tarikh_hingga' => $tarikhHingga,
+            ],
         ]);
     }
 

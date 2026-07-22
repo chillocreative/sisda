@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { usePage } from '@inertiajs/react';
 import axios from 'axios';
 import { Download, Info, MapPin, Loader2, Save } from 'lucide-react';
 import { usePilihanrayaTheme } from '../components/PilihanrayaShell';
@@ -16,7 +17,18 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
 
     // Geography + jenis PR/tahun in one controlled object — kawasan can be a
     // Parlimen OR a DUN (kawasanType), never implied only via a DUN path.
-    const [picker, setPicker] = useState({ negeriId: '', jenisPr: '', kawasanType: '', parlimenId: '', kadunId: '', tahun: '' });
+    // Nilai awal disemai daripada rememberedFilters (skop 'borang14') — selamat
+    // kerana ia berlaku SEBELUM render pertama; jangan tambah tulisan kedua
+    // kepada `picker` atau tunda/alih kesan sedia ada di bawah.
+    const { rememberedFilters } = usePage().props;
+    const [picker, setPicker] = useState(() => ({
+        negeriId: rememberedFilters?.negeri_id ?? '',
+        kawasanType: rememberedFilters?.kawasan_type ?? '',
+        parlimenId: rememberedFilters?.parlimen_id ?? '',
+        kadunId: rememberedFilters?.kadun_id ?? '',
+        jenisPr: rememberedFilters?.jenis_pr ?? '',
+        tahun: rememberedFilters?.tahun ?? '',
+    }));
     const { negeriId, jenisPr, kawasanType, parlimenId, kadunId, tahun } = picker;
     const kawasanId = kawasanType === 'parlimen' ? parlimenId : kadunId;
     const geographyComplete = Boolean(negeriId && jenisPr && kawasanType && kawasanId && tahun);
