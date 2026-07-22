@@ -201,6 +201,9 @@ export default function AuthenticatedLayout({ children }) {
                     { name: 'Scoreboard', href: route('pilihanraya.scoreboard'), icon: Trophy },
                     { name: 'Borang 14', href: route('pilihanraya.borang-14'), icon: FileSpreadsheet },
                     { name: 'Simulasi Pilihanraya', href: route('pilihanraya.simulasi'), icon: Brain },
+                    // Minima memaparkan kad Garis Dasar rasmi tetapi tidak pernah
+                    // dipautkan — ia hanya boleh dicapai dengan menaip URL.
+                    { name: 'Minima', href: route('pilihanraya.minima'), icon: Target },
                     { name: 'Jawatankuasa', href: route('pilihanraya.jawatankuasa.index'), icon: ClipboardList },
                 ]
             }

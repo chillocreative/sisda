@@ -100,6 +100,20 @@ class SeatBaselineService
     /** Keputusan LENGKAP terkini bagi kawasan ini, atau null. */
     private function resultFor(Kadun|Bandar $kawasan): ?ElectionSeatResult
     {
+        return $this->seatFor($kawasan)?->latestCompletedResult();
+    }
+
+    /**
+     * Kerusi rasmi bagi satu kawasan SISDA, atau null.
+     *
+     * Awam kerana Analisa juga perlu menyelesaikan kerusi yang sama apabila
+     * menyenaraikan keputusan rasmi sebagai senario perbandingan. SATU
+     * pelaksanaan sahaja: dua salinan akan hanyut, dan hanyut di sini bermakna
+     * satu skrin memaparkan garis dasar kerusi ini sementara satu lagi
+     * menawarkan keputusan kerusi yang LAIN untuk dibandingkan.
+     */
+    public function seatFor(Kadun|Bandar $kawasan): ?ElectionSeat
+    {
         // Pautan cache dahulu (diisi semasa segerak), kemudian slug — kawasan
         // yang disegerakkan sebelum ia wujud dalam SISDA tiada pautan lagi.
         $seat = $kawasan instanceof Kadun
@@ -111,7 +125,7 @@ class SeatBaselineService
             $seat = $slug ? ElectionSeat::where('slug', $slug)->first() : null;
         }
 
-        return $seat?->latestCompletedResult();
+        return $seat;
     }
 
     /** @return array<string, mixed> */

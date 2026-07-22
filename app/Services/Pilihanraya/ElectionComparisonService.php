@@ -3,6 +3,7 @@
 namespace App\Services\Pilihanraya;
 
 use App\Models\AnalisaComparison;
+use App\Models\Bandar;
 use App\Models\ClaudeSetting;
 use App\Models\Kadun;
 use App\Models\UploadBatch;
@@ -40,6 +41,7 @@ class ElectionComparisonService
     public function __construct(
         protected ClaudeService $claude,
         protected ElectionAnalyticsService $analytics,
+        protected SeatBaselineService $baselines,
     ) {}
 
     /* ----------------------------------------------------------------
@@ -92,7 +94,16 @@ class ElectionComparisonService
             .'PH/BN/PN tetap. Tulis analisis profesional yang lengkap dalam Bahasa Malaysia formal, meliputi dengan jelas: '
             .'(1) pertumbuhan pengundi baru berbanding pengundi lama, (2) peratus pengundi muda, (3) pecahan mengikut saluran, '
             .'(4) faktor-faktor KENAPA keputusan dan komposisi pengundi berubah (hujah bernas, sertakan sumber carian web), '
-            .'dan (5) kesimpulan. Setiap angka mesti diambil terus daripada fakta yang diberi.';
+            .'dan (5) kesimpulan. Setiap angka mesti diambil terus daripada fakta yang diberi. '
+            // Sejarah rasmi kini tersedia secara tempatan. Tanpa ayat ini AI
+            // masih akan mencari di web untuk keputusan lampau kerusi ini —
+            // angka yang tidak boleh disemak, sedangkan angka SPR yang
+            // berwibawa sudah ada dalam payload.
+            .'Medan `rasmi` mengandungi keputusan RASMI SPR bagi kerusi ini daripada electiondata.my '
+            .'(pemenang, majoriti, keluar mengundi, pengundi berdaftar bagi setiap pilihan raya lampau). '
+            .'Gunakan `rasmi` sebagai sumber sejarah kerusi ini — JANGAN cari di web untuk keputusan lampau kerusi ini. '
+            .'Perhatikan `rasmi` menyimpan ringkasan pemenang sahaja: ia TIADA pecahan undi setiap parti, '
+            .'jadi jangan sesekali mengira peratus undi parti daripadanya.';
 
         // Bounded so the whole request finishes well inside the PHP/proxy
         // timeout: ≤3 searches, 70s per HTTP call, ~140s total wall-clock for
@@ -196,7 +207,68 @@ class ElectionComparisonService
             'perubahan' => $this->deltas($summaries),
             'roll_semasa' => $this->currentRoll($comparison),
             'saluran_semasa' => $this->currentSaluran($comparison),
+            'rasmi' => $this->officialHistory($comparison),
         ];
+    }
+
+    /**
+     * Sejarah keputusan RASMI SPR bagi kerusi ini (electiondata.my).
+     *
+     * Sebelum ini AI mendapatkan konteks sejarah melalui carian web — angka
+     * yang tidak boleh disemak dan bercanggah dengan peraturan projek bahawa
+     * setiap angka dikira di pelayan. Ini memberikannya angka rasmi tempatan.
+     *
+     * Ringkasan pemenang sahaja: pecahan undi setiap calon hanya disegerakkan
+     * bagi pilihan raya TERKINI setiap kerusi (lihat SyncElectionDataCommand),
+     * jadi jangan sesekali menganggap `undi` per parti wujud di sini.
+     *
+     * Setiap angka kekal null apabila tidak diketahui. Tiada `?? 0` — kerusi
+     * tanpa angka bukan kerusi dengan sifar undi.
+     *
+     * Awam semata-mata supaya ia BOLEH DIUJI. buildFactPayload() memanggil
+     * currentRoll(), yang menggunakan REGEXP/TIMESTAMPDIFF khusus MySQL dan
+     * tidak boleh berjalan pada SQLite CI — jadi menguji melalui pintu depan
+     * meninggalkan kaedah ini tanpa liputan langsung, dan di sinilah penapis
+     * "pilihan raya belum berlaku" berada.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function officialHistory(AnalisaComparison $comparison): array
+    {
+        $kawasan = $comparison->level === 'parlimen'
+            ? Bandar::find($comparison->bandar_id)
+            : Kadun::find($comparison->kadun_id);
+
+        $seat = $kawasan ? $this->baselines->seatFor($kawasan) : null;
+
+        if (! $seat) {
+            return [];
+        }
+
+        return $seat->results()
+            // Pilihan raya AKAN DATANG dipulangkan API sebagai stub: party null,
+            // setiap angka null. Ia diisih PALING ATAS kerana tarikhnya paling
+            // lewat, jadi tanpa tapisan ini ia menjadi baris pertama "sejarah"
+            // yang diberikan kepada model naratif — menjemput cerita tentang
+            // pilihan raya yang belum berlaku. ElectionSeat::latestCompletedResult()
+            // sudah menapisnya dengan cara yang sama.
+            ->whereNotNull('party')
+            ->orderByDesc('tarikh')
+            ->get()
+            ->map(fn ($r) => [
+                'pilihanraya' => $r->election_name,
+                'tarikh' => $r->tarikh?->format('Y-m-d'),
+                'parti_menang' => $r->party,
+                'gabungan' => $r->coalition,
+                'calon' => $r->candidate,
+                'majoriti' => $r->majority,
+                'majoriti_perc' => $r->majority_perc !== null ? (float) $r->majority_perc : null,
+                'pengundi_berdaftar' => $r->voters_total,
+                'keluar_mengundi' => $r->voter_turnout,
+                'keluar_mengundi_perc' => $r->voter_turnout_perc !== null ? (float) $r->voter_turnout_perc : null,
+                'undi_ditolak' => $r->votes_rejected,
+            ])
+            ->all();
     }
 
     /**
