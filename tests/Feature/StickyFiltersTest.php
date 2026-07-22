@@ -258,4 +258,36 @@ class StickyFiltersTest extends TestCase
             ->getJson('/ujian-penapis')
             ->assertJson(['negeri_id' => '5', 'bandar_id' => null]);
     }
+
+    public function test_logging_out_forgets_the_filters(): void
+    {
+        $user = $this->user();
+
+        $this->actingAs($user)->getJson('/ujian-penapis?negeri_id=5&bandar_id=40');
+        $this->post(route('logout'));
+
+        // Log masuk semula pada sesi baharu -> lalai, seperti diminta.
+        $this->actingAs($user)
+            ->getJson('/ujian-penapis')
+            ->assertJson(['negeri_id' => null, 'bandar_id' => null]);
+    }
+
+    public function test_remembered_filters_are_shared_to_inertia(): void
+    {
+        // 'super_admin' pada laluan dashboard PENUH menjalankan pertanyaan
+        // `tahun_lahir REGEXP ...` (khusus MySQL — lihat CLAUDE.md: untestable
+        // di SQLite CI). Guna peranan 'user' supaya pengawal terus pulang
+        // Dashboard/UserDashboard ringkas, membolehkan kongsi rememberedFilters
+        // diuji tanpa menyentuh laluan pertanyaan MySQL-sahaja itu.
+        $user = User::factory()->create([
+            'role' => 'user',
+            'telephone' => '01277'.random_int(10000, 99999),
+        ]);
+
+        $this->actingAs($user)->get(route('dashboard', ['negeri_id' => 5]));
+
+        $this->actingAs($user)
+            ->get(route('dashboard'))
+            ->assertInertia(fn ($page) => $page->where('rememberedFilters.negeri_id', '5'));
+    }
 }

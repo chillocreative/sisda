@@ -47,6 +47,18 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'app_url' => url('/'),
+            // Penapis yang diingat bagi skop skrin semasa. Halaman yang
+            // dipacu axios (War Room, Analisa, Borang 14, Scoreboard) menyemai
+            // useState awalnya daripada sini; halaman yang dipacu URL tidak
+            // memerlukannya kerana middleware sudah menggabungkan nilai itu
+            // ke dalam permintaan sebelum pengawal berjalan.
+            'rememberedFilters' => function () use ($request) {
+                $scope = \App\Support\FilterScopes::forRoute($request->route()?->getName());
+
+                return $scope
+                    ? (object) $request->session()->get(\App\Support\FilterScopes::sessionKey($scope['scope']), [])
+                    : (object) [];
+            },
             'auth' => [
                 'user' => $user ? $user->load('bandar:id,nama', 'kadun:id,nama') : null,
                 'pendingApprovalsCount' => $pendingApprovalsCount,
