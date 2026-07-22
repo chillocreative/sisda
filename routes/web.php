@@ -437,6 +437,9 @@ Route::middleware(['auth', 'admin'])->prefix('pilihanraya')->name('pilihanraya.'
     Route::post('/analisa/comparisons/{comparison}/scenarios', [\App\Http\Controllers\AnalisaComparisonController::class, 'storeScenario'])->name('analisa.comparisons.scenarios.store')->middleware('throttle:20,1');
     Route::get('/analisa/comparisons/{comparison}/borang14', [\App\Http\Controllers\AnalisaComparisonController::class, 'borang14Tersedia'])->name('analisa.comparisons.borang14');
     Route::post('/analisa/comparisons/{comparison}/scenarios/borang14', [\App\Http\Controllers\AnalisaComparisonController::class, 'storeScenarioFromBorang14'])->name('analisa.comparisons.scenarios.borang14')->middleware('throttle:20,1');
+    // Keputusan rasmi SPR (electiondata.my) sebagai senario perbandingan.
+    Route::get('/analisa/comparisons/{comparison}/rasmi', [\App\Http\Controllers\AnalisaComparisonController::class, 'rasmiTersedia'])->name('analisa.comparisons.rasmi');
+    Route::post('/analisa/comparisons/{comparison}/scenarios/rasmi', [\App\Http\Controllers\AnalisaComparisonController::class, 'storeScenarioFromRasmi'])->name('analisa.comparisons.scenarios.rasmi')->middleware('throttle:20,1');
     Route::delete('/analisa/comparisons/{comparison}/scenarios/{scenario}', [\App\Http\Controllers\AnalisaComparisonController::class, 'destroyScenario'])->name('analisa.comparisons.scenarios.destroy');
     Route::post('/analisa/comparisons/{comparison}/analyze', [\App\Http\Controllers\AnalisaComparisonController::class, 'analyze'])->name('analisa.comparisons.analyze')->middleware('throttle:5,1');
     Route::get('/analisa/comparisons/{comparison}/pdf', [\App\Http\Controllers\AnalisaComparisonController::class, 'pdf'])->name('analisa.comparisons.pdf');

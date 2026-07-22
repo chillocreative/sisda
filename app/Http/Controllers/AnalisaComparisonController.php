@@ -6,10 +6,13 @@ use App\Models\AnalisaComparison;
 use App\Models\AnalisaScenario;
 use App\Models\Bandar;
 use App\Models\Borang14Form;
+use App\Models\ElectionSeatResult;
 use App\Models\Kadun;
 use App\Services\Pilihanraya\Borang14ScenarioMapper;
 use App\Services\Pilihanraya\ElectionComparisonService;
+use App\Services\Pilihanraya\ElectionResultScenarioMapper;
 use App\Services\Pilihanraya\ScoresheetExtractor;
+use App\Services\Pilihanraya\SeatBaselineService;
 use App\Support\Pdf;
 use Illuminate\Http\Request;
 
@@ -181,6 +184,101 @@ class AnalisaComparisonController extends Controller
         $comparison->update(['status' => 'draft']);
 
         return response()->json(['comparison' => $this->comparisonPayload($comparison->fresh('scenarios'))]);
+    }
+
+    /**
+     * Keputusan rasmi SPR yang ada bagi kerusi perbandingan ini.
+     *
+     * `sedia` menandakan keputusan yang mempunyai pecahan undi setiap calon.
+     * Sync hanya mengambil pecahan itu bagi pilihan raya LENGKAP TERKINI setiap
+     * kerusi (mengambil semua = ~12,000 panggilan API), jadi keputusan lama
+     * disenaraikan tetapi TIDAK boleh dijadikan senario. Ia disenaraikan dan
+     * bukan disembunyikan supaya ketiadaannya jelas, bukan misteri.
+     */
+    public function rasmiTersedia(AnalisaComparison $comparison, SeatBaselineService $baselines)
+    {
+        $kawasan = $this->kawasanForComparison($comparison);
+        $seat = $kawasan ? $baselines->seatFor($kawasan) : null;
+
+        if (! $seat) {
+            return response()->json(['keputusan' => [], 'sebab' => 'Kerusi ini belum disegerakkan daripada electiondata.my.']);
+        }
+
+        $keputusan = $seat->results()
+            ->orderByDesc('tarikh')
+            ->get()
+            ->map(fn (ElectionSeatResult $r) => [
+                'id' => $r->id,
+                'label' => ($r->election_name ?: 'Pilihan raya').' (Rasmi)',
+                'tarikh' => $r->tarikh?->format('Y-m-d'),
+                'party' => $r->party,
+                'majority' => $r->majority,
+                'sedia' => is_array($r->ballot) && $r->ballot !== [],
+            ]);
+
+        return response()->json(['keputusan' => $keputusan]);
+    }
+
+    /**
+     * Tambah keputusan rasmi SPR sebagai satu senario.
+     *
+     * Cerminan storeScenarioFromBorang14(): had yang sama, semakan kerusi di
+     * PELAYAN yang sama. Semakan itu bukan hiasan — tanpanya pengguna boleh
+     * menyisipkan keputusan kerusi ORANG LAIN ke dalam perbandingan ini, dan
+     * naratif AI akan memperihalkannya sebagai kerusi ini.
+     */
+    public function storeScenarioFromRasmi(Request $request, AnalisaComparison $comparison, ElectionResultScenarioMapper $mapper, SeatBaselineService $baselines)
+    {
+        $data = $request->validate(['result_id' => 'required|integer|exists:election_seat_results,id']);
+
+        if ($comparison->scenarios()->count() >= 3) {
+            return response()->json(['message' => 'Maksimum 3 senario setiap perbandingan.'], 422);
+        }
+
+        $kawasan = $this->kawasanForComparison($comparison);
+        $seat = $kawasan ? $baselines->seatFor($kawasan) : null;
+
+        // Keputusan mesti milik kerusi perbandingan ini — jangan bergantung
+        // pada tapisan frontend sahaja.
+        $result = $seat
+            ? $seat->results()->whereKey($data['result_id'])->first()
+            : null;
+
+        if (! $result) {
+            return response()->json(['message' => 'Keputusan rasmi ini bukan untuk kawasan perbandingan ini.'], 422);
+        }
+
+        try {
+            $mapped = $mapper->map($result);
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        $position = (int) $comparison->scenarios()->max('position') + 1;
+
+        $comparison->scenarios()->create([
+            'position' => $position,
+            'label' => ($result->election_name ?: 'Pilihan raya').' (Rasmi)',
+            // Tarikh SEBENAR keputusan — tidak seperti Borang 14 yang hanya
+            // menyimpan tahun. Isihan senario bergantung pada medan ini.
+            'election_date' => $result->tarikh,
+            'source_filename' => 'electiondata.my — '.($result->election_name ?: 'keputusan rasmi'),
+            'parsed_rows' => $mapped['rows'],
+            'parsed_totals' => $mapped['totals'],
+            'row_count' => count($mapped['rows']),
+        ]);
+
+        $comparison->update(['status' => 'draft']);
+
+        return response()->json(['comparison' => $this->comparisonPayload($comparison->fresh('scenarios'))]);
+    }
+
+    /** Kawasan SISDA bagi perbandingan ini — Bandar bagi Parlimen, Kadun bagi DUN. */
+    private function kawasanForComparison(AnalisaComparison $comparison): Kadun|Bandar|null
+    {
+        return $comparison->level === 'parlimen'
+            ? Bandar::find($comparison->bandar_id)
+            : Kadun::find($comparison->kadun_id);
     }
 
     public function destroyScenario(AnalisaComparison $comparison, AnalisaScenario $scenario)

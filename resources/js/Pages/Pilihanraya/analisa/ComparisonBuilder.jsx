@@ -21,10 +21,14 @@ function AddScenarioForm({ comparisonId, position, onAdded }) {
     const [error, setError] = useState(null);
     const [drag, setDrag] = useState(false);
 
-    // Source picker: an existing Borang 14 form, or the original upload path.
-    const [sumber, setSumber] = useState('upload');   // 'borang14' | 'upload'
+    // Source picker: an existing Borang 14 form, the official SPR result, or
+    // the original upload path.
+    const [sumber, setSumber] = useState('upload');   // 'borang14' | 'rasmi' | 'upload'
     const [borangList, setBorangList] = useState([]);
     const [formId, setFormId] = useState('');
+    const [rasmiList, setRasmiList] = useState([]);
+    const [rasmiSebab, setRasmiSebab] = useState('');
+    const [resultId, setResultId] = useState('');
 
     useEffect(() => {
         let batal = false;
@@ -39,6 +43,37 @@ function AddScenarioForm({ comparisonId, position, onAdded }) {
             .catch(() => { if (!batal) setSumber('upload'); });
         return () => { batal = true; };
     }, [comparisonId]);
+
+    useEffect(() => {
+        let batal = false;
+        axios.get(route('pilihanraya.analisa.comparisons.rasmi', comparisonId))
+            .then((res) => {
+                if (batal) return;
+                setRasmiList(res.data.keputusan ?? []);
+                setRasmiSebab(res.data.sebab ?? '');
+            })
+            .catch(() => { if (!batal) setRasmiList([]); });
+        return () => { batal = true; };
+    }, [comparisonId]);
+
+    const submitFromRasmi = async () => {
+        if (!resultId) {
+            setError('Pilih satu keputusan rasmi.');
+            return;
+        }
+        setBusy(true);
+        try {
+            const res = await axios.post(route('pilihanraya.analisa.comparisons.scenarios.rasmi', comparisonId), {
+                result_id: Number(resultId),
+            });
+            onAdded(res.data.comparison);
+            setResultId('');
+        } catch (e) {
+            setError(e.response?.data?.message || 'Gagal menambah senario.');
+        } finally {
+            setBusy(false);
+        }
+    };
 
     const submitFromBorang14 = async () => {
         if (!formId) {
@@ -85,10 +120,17 @@ function AddScenarioForm({ comparisonId, position, onAdded }) {
 
     const submit = () => {
         setError(null);
-        return sumber === 'borang14' ? submitFromBorang14() : submitUpload();
+        if (sumber === 'borang14') return submitFromBorang14();
+        if (sumber === 'rasmi') return submitFromRasmi();
+
+        return submitUpload();
     };
 
-    const canSubmit = sumber === 'borang14' ? !!formId : !!file;
+    const canSubmit = {
+        borang14: !!formId,
+        rasmi: !!resultId,
+        upload: !!file,
+    }[sumber] ?? false;
 
     return (
         <div className="rounded-xl border-2 border-dashed border-slate-300 p-4">
@@ -100,6 +142,10 @@ function AddScenarioForm({ comparisonId, position, onAdded }) {
                     <label className="flex items-center gap-1.5">
                         <input type="radio" checked={sumber === 'borang14'} onChange={() => setSumber('borang14')} />
                         Pilih dari Borang 14
+                    </label>
+                    <label className="flex items-center gap-1.5">
+                        <input type="radio" checked={sumber === 'rasmi'} onChange={() => setSumber('rasmi')} />
+                        Keputusan Rasmi SPR
                     </label>
                     <label className="flex items-center gap-1.5">
                         <input type="radio" checked={sumber === 'upload'} onChange={() => setSumber('upload')} />
@@ -124,6 +170,36 @@ function AddScenarioForm({ comparisonId, position, onAdded }) {
                                 </option>
                             ))}
                         </select>
+                    </div>
+                )}
+
+                {sumber === 'rasmi' && (
+                    <div>
+                        <label className={t.label}>Keputusan Rasmi SPR</label>
+                        {rasmiList.length === 0 ? (
+                            <p className={`${t.subtext} text-sm`}>
+                                {rasmiSebab || 'Tiada keputusan rasmi untuk kerusi ini.'}
+                            </p>
+                        ) : (
+                            <>
+                                <select value={resultId} onChange={(e) => setResultId(e.target.value)} className={t.input}>
+                                    <option value="">— Pilih keputusan —</option>
+                                    {rasmiList.map((r) => (
+                                        <option key={r.id} value={r.id} disabled={!r.sedia}>
+                                            {r.label}{r.tarikh ? ` — ${r.tarikh}` : ''}
+                                            {r.sedia ? '' : ' — pecahan calon tidak disegerakkan'}
+                                        </option>
+                                    ))}
+                                </select>
+                                {/* Sync hanya mengambil pecahan calon bagi pilihan raya
+                                    terkini setiap kerusi; menjelaskannya di sini supaya
+                                    pilihan yang kelabu tidak kelihatan seperti pepijat. */}
+                                <p className={`${t.subtext} mt-1 text-xs`}>
+                                    Hanya pilihan raya terkini setiap kerusi mempunyai pecahan undi
+                                    setiap calon. Keputusan lama menyimpan ringkasan pemenang sahaja.
+                                </p>
+                            </>
+                        )}
                     </div>
                 )}
 
