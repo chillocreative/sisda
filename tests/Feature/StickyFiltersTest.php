@@ -323,7 +323,22 @@ class StickyFiltersTest extends TestCase
                 ->where('filters.bandar_id', '40'));
     }
 
-    public function test_remembered_filters_cannot_widen_a_scoped_admins_access(): void
+    /**
+     * NAMA INI SENGAJA SEMPIT. Ujian ini membuktikan GERBANG PERANAN sahaja:
+     * peranan berskop tidak pernah sampai ke dashboard yang boleh ditapis
+     * (DashboardController.php:32-34 memulangkan Dashboard/UserDashboard tanpa
+     * sebarang prop sebelum satu pun parameter penapis dibaca).
+     *
+     * Ia TIDAK membuktikan bahawa penapis yang diingat menyempitkan dan bukan
+     * meluaskan. Sifat itu benar dengan pembacaan kod — DashboardController
+     * :56-69 (skop wilayah pengguna) dan :72-83 (penapis permintaan) kedua-dua
+     * menambah where() pada pembina yang SAMA, jadi ia bergabung secara AND —
+     * tetapi tiada ujian menegakkannya, kerana laluan itu tidak dapat dicapai
+     * oleh mana-mana peranan berskop hari ini. Jika dashboard penuh yang
+     * berskop pernah dibuka kepada peranan bukan super_admin, ujian ini akan
+     * KEKAL HIJAU sementara sifat keselamatan itu menjadi tidak diuji.
+     */
+    public function test_scoped_roles_never_reach_the_filterable_dashboard(): void
     {
         // Penapis yang diingat MENYEMPITKAN di dalam sempadan kebenaran
         // pengguna; ia tidak boleh MELUASKANNYA.
