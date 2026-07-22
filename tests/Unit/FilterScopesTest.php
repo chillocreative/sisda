@@ -74,20 +74,24 @@ class FilterScopesTest extends TestCase
     {
         // Tab XHR endpoints MESTI memetakan ke skop yang sama seperti halaman
         // induknya — itulah yang menjadikan pengambilan data halaman merangkap
-        // penyimpanan. war_room kini aktif (lihat ujian di atas) dan sudah
-        // membuktikan ini bagi skop sebenar; skop sementara di sini mengesahkan
-        // sifat generik resolver itu sendiri, tidak bergantung pada satu nama
-        // skop konfigurasi tertentu.
-        config()->set('sticky_filters.ujian_war_room', [
-            'routes' => ['pilihanraya.war-room', 'pilihanraya.api.overview'],
+        // penyimpanan.
+        //
+        // Laluan di sini SENGAJA laluan yang tiada dalam mana-mana skop hidup.
+        // Versi terdahulu ujian ini menggunakan pilihanraya.war-room, yang kini
+        // dimiliki oleh skop war_room sebenar — dan kerana forRoute() mengulang
+        // config mengikut urutan sisipan, ia memulangkan war_room dan tidak
+        // pernah merujuk skop sementara ini langsung. Ujian itu lulus atas
+        // sebab yang SALAH: memadam skop sementara pun ia tetap hijau.
+        config()->set('sticky_filters.ujian_kongsi_skop', [
+            'routes' => ['profile.edit', 'profile.update'],
             'keys' => ['negeri_id'],
         ]);
 
-        $a = FilterScopes::forRoute('pilihanraya.war-room');
-        $b = FilterScopes::forRoute('pilihanraya.api.overview');
+        $a = FilterScopes::forRoute('profile.edit');
+        $b = FilterScopes::forRoute('profile.update');
 
-        $this->assertNotNull($a, 'Laluan halaman war-room mesti diselesaikan kepada satu skop.');
-        $this->assertNotNull($b, 'Laluan XHR war-room mesti berkongsi skop yang sama.');
+        $this->assertNotNull($a, 'Laluan pertama mesti diselesaikan kepada skop sementara.');
+        $this->assertNotNull($b, 'Laluan kedua mesti berkongsi skop yang sama.');
         $this->assertSame($a['scope'], $b['scope']);
     }
 }
