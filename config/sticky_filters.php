@@ -109,6 +109,16 @@ return [
     // (poll) 4 saat sendiri — tanpa pembetulan ini, dropdown Negeri/Parlimen
     // akan menjadi kosong/lumpuh pada lawatan seterusnya walaupun DUN masih
     // betul, keadaan "kawalan tidak sepadan data" yang dilarang.
+    //
+    // Wildcard 'pilihanraya.scoreboard.*' DISEMAK (bukan diandaikan selamat
+    // seperti kesilapan 'borang14' di atas): di bawah prefix
+    // pilihanraya/scoreboard hanya wujud DUA laluan GET — .data (fetch
+    // ditapis di atas) dan laluan asas itu sendiri; .settings ialah POST,
+    // jadi RememberFilters (GET sahaja) tidak pernah mencapainya walaupun
+    // namanya sepadan dengan corak. scoreboard.public / scoreboard.public.data
+    // (awam, tanpa log masuk) TIDAK sepadan — nama laluannya tidak bermula
+    // dengan 'pilihanraya.scoreboard.'. Semak semula senarai GET setiap kali
+    // laluan baharu ditambah di bawah prefix ini.
     'scoreboard' => [
         'routes' => ['pilihanraya.scoreboard', 'pilihanraya.scoreboard.*'],
         'keys' => ['negeri_id', 'parlimen_id', 'kadun_id'],
@@ -128,8 +138,27 @@ return [
     // berfungsi sepenuhnya untuk geografi. TIDAK dibetulkan di sini kerana
     // pembetulan memerlukan menyentuh fetch KeyinTab.jsx yang dilarang oleh
     // amaran Borang 14 (elak sebarang perubahan selain nilai awal `picker`).
+    // SENGAJA SENARAI EKSPLISIT, BUKAN WILDCARD 'pilihanraya.borang-14.*':
+    // wildcard itu menangkap TIGA laluan GET lain yang tidak patut berkongsi
+    // skop ini —
+    //   - .pdf ialah tindakan CETAK; ia menghantar kawasan_type/jenis_pr/tahun
+    //     bagi baris arkib yang dicetak, jadi ia mengambil cabang SIMPAN dan
+    //     menulis ganti seluruh set kunci (kunci yang tiada jadi null) —
+    //     mencetak satu pilihan raya lama akan menghapuskan negeri/parlimen/
+    //     kadun yang baru sahaja dipilih untuk kemasukan undi.
+    //   - .upload.sejarah (panel Sejarah Muat Naik) TIDAK menghantar sebarang
+    //     parameter, jadi ia mengambil cabang GABUNG dan disuntik dengan
+    //     negeri_id/kadun_id yang diingat — panel ini TIADA UI penapis, jadi
+    //     operator tidak dapat mengesan atau membersihkan penapisan senyap
+    //     ini; risiko malam pilihan raya: muat naik scoresheet kerusi lain
+    //     tidak kelihatan dalam sejarah, operator sangka gagal, muat naik
+    //     semula -> data undi Borang 14 bertindan.
+    //   - .upload.fail (muat turun fail scoresheet asal) tidak berbahaya
+    //     tetapi juga tidak sengaja termasuk.
+    // Jangan sekali-kali kembalikan corak ini kepada wildcard tanpa menyemak
+    // setiap laluan GET baharu di bawah pilihanraya/borang-14/* dahulu.
     'borang14' => [
-        'routes' => ['pilihanraya.borang-14', 'pilihanraya.borang-14.*'],
+        'routes' => ['pilihanraya.borang-14', 'pilihanraya.borang-14.data', 'pilihanraya.borang-14.senarai'],
         'keys' => ['negeri_id', 'parlimen_id', 'kadun_id', 'kawasan_type', 'jenis_pr', 'tahun'],
     ],
 

@@ -70,6 +70,72 @@ class FilterScopesTest extends TestCase
         }
     }
 
+    /**
+     * Kedua-dua ujian nama laluan di atas MELANGKAU corak wildcard
+     * (`str_contains($pattern, '*')`) — itulah lubang buta yang membiarkan
+     * `pilihanraya.borang-14.*` menangkap laluan .pdf dan .upload.sejarah
+     * yang tidak sepatutnya berkongsi skop borang14 (lihat CRITICAL C1).
+     * Ujian itu tidak dapat mengesan masalah itu kerana ia tidak pernah
+     * benar-benar MENGEMBANGKAN wildcard terhadap laluan sebenar router.
+     *
+     * Ujian ini mengembangkan SETIAP laluan GET berdaftar (bukan sekadar
+     * corak config) melalui FilterScopes::forRoute() sebenar dan
+     * membandingkan peta lengkap nama-laluan => skop dengan senarai yang
+     * dipatri secara eksplisit di bawah. Jika wildcard baharu (atau
+     * wildcard sedia ada) menangkap satu laluan tambahan, peta yang
+     * terhasil tidak lagi sepadan dan ujian ini GAGAL, menamakan laluan
+     * yang baru ditangkap dalam mesej kegagalan.
+     *
+     * Tulen (tiada sesi/permintaan/pangkalan data) — Route::getRoutes()
+     * dan config sahaja, jadi ia berjalan di SQLite CI.
+     */
+    public function test_the_full_route_to_scope_map_is_pinned(): void
+    {
+        $peta = [];
+
+        foreach (Route::getRoutes() as $route) {
+            $nama = $route->getName();
+            if (! $nama || ! in_array('GET', $route->methods(), true)) {
+                continue;
+            }
+
+            $skop = FilterScopes::forRoute($nama);
+            if ($skop) {
+                $peta[$nama] = $skop['scope'];
+            }
+        }
+
+        ksort($peta);
+
+        $dijangka = [
+            'dashboard' => 'dashboard',
+            'keanggotaan.analisa' => 'keanggotaan_analisa',
+            'keanggotaan.senarai' => 'keanggotaan_senarai',
+            'pilihanraya.analisa' => 'analisa',
+            'pilihanraya.analisa.keanggotaan-card' => 'analisa',
+            'pilihanraya.api.alerts' => 'war_room',
+            'pilihanraya.api.battlefield' => 'war_room',
+            'pilihanraya.api.composition' => 'war_room',
+            'pilihanraya.api.overview' => 'war_room',
+            'pilihanraya.api.seat-scores' => 'war_room',
+            'pilihanraya.api.sentiment' => 'war_room',
+            'pilihanraya.borang-14' => 'borang14',
+            'pilihanraya.borang-14.data' => 'borang14',
+            'pilihanraya.borang-14.senarai' => 'borang14',
+            'pilihanraya.jawatankuasa.index' => 'jawatankuasa',
+            'pilihanraya.kaum-dm' => 'kaum_dm',
+            'pilihanraya.minima' => 'minima',
+            'pilihanraya.scoreboard' => 'scoreboard',
+            'pilihanraya.scoreboard.data' => 'scoreboard',
+            'pilihanraya.war-room' => 'war_room',
+            'reports.hasil-culaan.index' => 'hasil_culaan',
+            'user-log.index' => 'user_log',
+        ];
+        ksort($dijangka);
+
+        $this->assertSame($dijangka, $peta);
+    }
+
     public function test_page_and_xhr_routes_share_one_scope_when_scope_is_active(): void
     {
         // Tab XHR endpoints MESTI memetakan ke skop yang sama seperti halaman
