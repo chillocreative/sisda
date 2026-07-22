@@ -13,7 +13,6 @@ namespace Tests\Unit;
 
 use App\Models\ElectionSeatResult;
 use App\Services\Pilihanraya\ElectionResultScenarioMapper;
-use RuntimeException;
 use Tests\TestCase;
 
 class ElectionResultScenarioMapperTest extends TestCase
@@ -107,15 +106,24 @@ class ElectionResultScenarioMapperTest extends TestCase
         $this->assertSame(['PAS' => 26914, 'BN' => 14400], $out['rows'][0]['undi']);
     }
 
-    public function test_a_result_without_a_candidate_breakdown_throws(): void
+    public function test_a_result_without_a_candidate_breakdown_is_still_usable(): void
     {
         // ~3,200 keputusan lama menyimpan ringkasan pemenang sahaja (sync hanya
-        // mengambil ballot bagi keputusan lengkap TERKINI). Memetakannya akan
-        // menghasilkan senario tanpa undi, dan deltas() akan menerbitkan
-        // peratusan yang direka daripadanya.
-        $this->expectException(RuntimeException::class);
+        // mengambil ballot bagi keputusan lengkap TERKINI). Ia TETAP berguna
+        // untuk perbandingan: keluar mengundi, pengundi berdaftar dan undi
+        // ditolak semuanya diketahui.
+        //
+        // `parties` KOSONG ialah isyaratnya. Ia bukan "sifar undi" — ia
+        // "pecahan tidak diketahui", dan hiliran mesti memaparkan "—" bukan 0%.
+        $out = $this->mapper->map($this->keputusan(['ballot' => null]));
 
-        $this->mapper->map($this->keputusan(['ballot' => null]));
+        $this->assertSame([], $out['totals']['undi']);
+        $this->assertSame([], $out['totals']['parties']);
+
+        // Angka yang MEMANG diketahui mesti bertahan.
+        $this->assertSame(60189, $out['totals']['pemilih']);
+        $this->assertSame(46059, $out['totals']['keluar']);
+        $this->assertSame(745, $out['totals']['ditolak']);
     }
 
     public function test_a_ballot_entry_without_a_party_is_skipped_not_guessed(): void

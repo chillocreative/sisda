@@ -3,7 +3,6 @@
 namespace App\Services\Pilihanraya;
 
 use App\Models\ElectionSeatResult;
-use RuntimeException;
 
 /**
  * Keputusan rasmi SPR (electiondata.my) → satu senario Analisa.
@@ -31,22 +30,21 @@ class ElectionResultScenarioMapper
     /**
      * @return array{rows: array<int, array<string, mixed>>, totals: array<string, mixed>}
      *
-     * @throws RuntimeException apabila keputusan itu tiada pecahan calon
+     * `totals.parties` kosong bermakna pecahan calon TIDAK DIKETAHUI.
      */
     public function map(ElectionSeatResult $result): array
     {
+        // `undi` KOSONG bukan ralat. Sync hanya mengambil `ballot` bagi
+        // keputusan LENGKAP TERKINI setiap kerusi (mengambil semua = ~12,000
+        // panggilan API), jadi keputusan lama menyimpan ringkasan pemenang
+        // sahaja — tetapi keluar mengundi, pengundi berdaftar dan undi ditolak
+        // SEMUANYA diketahui dan berguna untuk perbandingan.
+        //
+        // `parties` kosong ialah isyarat "pecahan TIDAK DIKETAHUI". Ia BUKAN
+        // "sifar undi". Setiap pengguna hiliran mesti memaparkan "—", bukan 0%
+        // — lihat guard dalam deltas(), yang tanpanya satu senario ringkasan
+        // menjadikan setiap parti "jatuh ke sifar".
         $undi = $this->undiPerParti($result);
-
-        if ($undi === []) {
-            // Sync hanya mengambil `ballot` bagi keputusan LENGKAP TERKINI
-            // setiap kerusi (mengambil semua = ~12,000 panggilan API), jadi
-            // ~3,200 keputusan lama menyimpan ringkasan pemenang sahaja.
-            // Memetakannya menghasilkan senario tanpa undi, dan deltas() akan
-            // menerbitkan peratusan yang direka daripada kekosongan itu.
-            throw new RuntimeException(
-                'Keputusan rasmi ini tiada pecahan undi setiap calon, jadi ia tidak boleh dijadikan senario perbandingan. Hanya pilihan raya terkini setiap kerusi mempunyai pecahan penuh.'
-            );
-        }
 
         // Angka RASMI diguna apa adanya, bukan dikira semula daripada undi
         // parti: ballot mungkin tidak menyenaraikan setiap calon kecil, jadi

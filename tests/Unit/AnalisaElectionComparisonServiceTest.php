@@ -73,6 +73,35 @@ class AnalisaElectionComparisonServiceTest extends TestCase
         $this->assertSame(2000, $summary['kawasan'][0]['pemilih']);
     }
 
+    public function test_swing_is_unknown_when_one_scenario_has_no_party_breakdown(): void
+    {
+        // Keputusan rasmi SPR yang lama menyimpan ringkasan pemenang sahaja —
+        // `parties` kosong bermakna pecahan TIDAK DIKETAHUI, bukan sifar undi.
+        //
+        // Tanpa pengawal, `?? 0` dalam deltas() menjadikan setiap parti dalam
+        // senario yang SATU LAGI "jatuh ke sifar": ayunan -55.6 mata untuk PN
+        // yang direka sepenuhnya, dicetak bersebelahan angka rasmi SPR.
+        $penuh = $this->scenario([
+            'pemilih' => 13408, 'keluar' => 9000, 'ditolak' => 0,
+            'undi' => ['PN' => 5000, 'PH' => 4000], 'parties' => ['PN', 'PH'],
+        ], [], 'PRN 2023', '2023-01-01');
+        $ringkasan = $this->scenario([
+            'pemilih' => 12000, 'keluar' => 8000, 'ditolak' => 0,
+            'undi' => [], 'parties' => [],
+        ], [], 'SE-14 (Rasmi)', '2018-05-09');
+
+        $summaries = [
+            $this->callPrivate('scenarioSummary', [$ringkasan]),
+            $this->callPrivate('scenarioSummary', [$penuh]),
+        ];
+
+        $deltas = $this->callPrivate('deltas', [$summaries]);
+
+        $this->assertNull($deltas[0]['ayunan_undi'], 'Ayunan mesti TIDAK DIKETAHUI, bukan dikira terhadap sifar.');
+        // Angka yang MEMANG diketahui pada kedua-dua belah masih dibandingkan.
+        $this->assertSame(1408, $deltas[0]['perubahan_pemilih']);
+    }
+
     public function test_deltas_with_known_pemilih_on_both_sides_computes_expected_change(): void
     {
         $a = $this->scenario([

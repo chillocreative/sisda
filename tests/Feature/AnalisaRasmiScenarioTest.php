@@ -87,7 +87,8 @@ class AnalisaRasmiScenarioTest extends TestCase
             ->getJson(route('pilihanraya.analisa.comparisons.rasmi', $c));
 
         $res->assertOk()->assertJsonCount(2, 'keputusan');
-        // Disusun terkini dahulu, dan hanya yang berpecahan ditanda `sedia`.
+        // Disusun terkini dahulu. `sedia` kini bermaksud 'ada pecahan calon',
+        // BUKAN 'boleh dipilih' — kedua-duanya boleh dipilih.
         $this->assertTrue($res->json('keputusan.0.sedia'));
         $this->assertFalse($res->json('keputusan.1.sedia'));
     }
@@ -131,17 +132,23 @@ class AnalisaRasmiScenarioTest extends TestCase
         $this->assertSame(0, $c->fresh()->scenarios()->count());
     }
 
-    public function test_a_result_without_a_candidate_breakdown_is_rejected(): void
+    public function test_a_summary_only_result_is_accepted_with_an_unknown_breakdown(): void
     {
+        // Keputusan lama tiada pecahan calon, tetapi keluar mengundi dan
+        // pengundi berdaftar diketahui — cukup berguna untuk dibandingkan.
+        // `parties` kosong ialah isyarat "tidak diketahui"; deltas() menolak
+        // mengira ayunan terhadapnya, jadi tiada angka direka.
         [$bandar, $kadun] = $this->seedSeat();
         $result = $this->keputusan($this->seat($kadun), ['ballot' => null]);
         $c = $this->comparison($bandar, $kadun);
 
         $this->actingAs($this->user())
             ->postJson(route('pilihanraya.analisa.comparisons.scenarios.rasmi', $c), ['result_id' => $result->id])
-            ->assertStatus(422);
+            ->assertOk();
 
-        $this->assertSame(0, $c->fresh()->scenarios()->count());
+        $senario = $c->fresh('scenarios')->scenarios->first();
+        $this->assertSame([], $senario->parsed_totals['parties']);
+        $this->assertSame(13408, $senario->parsed_totals['pemilih']);
     }
 
     public function test_the_three_scenario_limit_is_enforced(): void

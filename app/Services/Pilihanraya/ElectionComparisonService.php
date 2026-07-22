@@ -36,7 +36,15 @@ class ElectionComparisonService
         .'numeric ground truth. '
         .'Jika `pemilih_berdaftar` sesuatu senario bernilai null dalam `fakta`, ini bermakna angka itu TIDAK TERSEDIA '
         .'dalam scoresheet rasmi — JANGAN sekali-kali membuat sebarang dakwaan tentang peratus keluar mengundi atau '
-        .'perubahan bilangan pengundi berdaftar bagi senario tersebut. ';
+        .'perubahan bilangan pengundi berdaftar bagi senario tersebut. '
+        // Senario keputusan rasmi SPR yang lama tiada pecahan per parti.
+        // Tanpa arahan ini model akan membaca senarai parti yang kosong
+        // sebagai "tiada undi" dan menulis kejatuhan yang tidak pernah berlaku.
+        .'Jika `parti` sesuatu senario ialah senarai KOSONG, ini bermakna pecahan undi setiap parti bagi pilihan raya '
+        .'itu TIDAK DIKETAHUI — ia BUKAN sifar undi. Jangan sekali-kali mendakwa mana-mana parti mendapat sifar undi, '
+        .'hilang undi, atau tidak bertanding berdasarkan senarai kosong itu. Rujuk angka yang MEMANG diketahui bagi '
+        .'senario tersebut (pemenang, majoriti, keluar mengundi, pengundi berdaftar). Begitu juga apabila '
+        .'`ayunan_undi` bernilai null: ayunan itu tidak diketahui, bukan sifar. ';
 
     public function __construct(
         protected ClaudeService $claude,
@@ -370,10 +378,24 @@ class ElectionComparisonService
                 ? $b['pemilih_berdaftar'] - $a['pemilih_berdaftar']
                 : null;
 
-            $parties = array_values(array_unique(array_merge($a['parti'] ?? [], $b['parti'] ?? [])));
-            $ayun = [];
-            foreach ($parties as $p) {
-                $ayun[$p] = round(($b['peratus_undi'][$p] ?? 0) - ($a['peratus_undi'][$p] ?? 0), 1);
+            // Senario ringkasan-sahaja (keputusan rasmi SPR lama) tiada pecahan
+            // per parti langsung. `parti` KOSONG bermakna TIDAK DIKETAHUI, bukan
+            // sifar undi — dan `?? 0` di bawah akan menjadikan setiap parti
+            // dalam senario yang satu lagi "jatuh ke sifar", mencetak ayunan
+            // yang direka sepenuhnya bersebelahan angka rasmi SPR.
+            //
+            // Ayunan hanya bermakna apabila KEDUA-DUA belah tahu pecahannya.
+            $adaPecahan = ! empty($a['parti']) && ! empty($b['parti']);
+
+            $ayun = null;
+            if ($adaPecahan) {
+                $parties = array_values(array_unique(array_merge($a['parti'], $b['parti'])));
+                $ayun = [];
+                foreach ($parties as $p) {
+                    // Di sini `?? 0` SAH: kedua-dua senario tahu pecahannya,
+                    // jadi parti yang tiada memang tidak bertanding.
+                    $ayun[$p] = round(($b['peratus_undi'][$p] ?? 0) - ($a['peratus_undi'][$p] ?? 0), 1);
+                }
             }
 
             // Peratusan hanya memerlukan $dPemilih !== null: sebaik sahaja

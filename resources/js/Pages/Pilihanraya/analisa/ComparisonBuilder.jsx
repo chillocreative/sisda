@@ -182,21 +182,24 @@ function AddScenarioForm({ comparisonId, position, onAdded }) {
                             </p>
                         ) : (
                             <>
+                                {/* SEMUA keputusan boleh dipilih. Yang tiada pecahan
+                                    calon tetap membawa keluar mengundi, pengundi
+                                    berdaftar dan undi ditolak — cukup untuk
+                                    dibandingkan. Angka yang tidak diketahui dipapar
+                                    "—", tidak pernah 0. */}
                                 <select value={resultId} onChange={(e) => setResultId(e.target.value)} className={t.input}>
                                     <option value="">— Pilih keputusan —</option>
                                     {rasmiList.map((r) => (
-                                        <option key={r.id} value={r.id} disabled={!r.sedia}>
+                                        <option key={r.id} value={r.id}>
                                             {r.label}{r.tarikh ? ` — ${r.tarikh}` : ''}
-                                            {r.sedia ? '' : ' — pecahan calon tidak disegerakkan'}
+                                            {r.sedia ? '' : ' — ringkasan sahaja'}
                                         </option>
                                     ))}
                                 </select>
-                                {/* Sync hanya mengambil pecahan calon bagi pilihan raya
-                                    terkini setiap kerusi; menjelaskannya di sini supaya
-                                    pilihan yang kelabu tidak kelihatan seperti pepijat. */}
                                 <p className={`${t.subtext} mt-1 text-xs`}>
-                                    Hanya pilihan raya terkini setiap kerusi mempunyai pecahan undi
-                                    setiap calon. Keputusan lama menyimpan ringkasan pemenang sahaja.
+                                    Keputusan bertanda &ldquo;ringkasan sahaja&rdquo; tiada pecahan undi
+                                    setiap calon — keluar mengundi dan pengundi berdaftar tetap
+                                    dibandingkan, dan pecahan parti dipapar &ldquo;—&rdquo;.
                                 </p>
                             </>
                         )}
@@ -291,8 +294,13 @@ function ScenarioChip({ scenario, comparisonId, onRemoved }) {
                 {scenario.aras_kerusi ? 'Seluruh kerusi' : `${scenario.row_count} kawasan`}
                 {' · '}Pemilih {fmt(totals.pemilih)} · Keluar {fmt(totals.keluar)}
             </div>
+            {/* "Tiada data undi" bermaksud sifar; keputusan rasmi ringkasan
+                bermaksud TIDAK DIKETAHUI. Perbezaan itu penting — ia dipapar
+                bersebelahan angka SPR yang sebenar. */}
             <div className="mt-1 text-xs text-slate-500">
-                {topParties.length ? topParties.join(' · ') : 'Tiada data undi'}
+                {topParties.length
+                    ? topParties.join(' · ')
+                    : (scenario.aras_kerusi ? 'Pecahan undi setiap parti — tidak diketahui' : 'Tiada data undi')}
             </div>
         </div>
     );
