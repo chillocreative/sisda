@@ -200,6 +200,7 @@ export default function AuthenticatedLayout({ children }) {
                     { name: 'Kaum Mengikut DM', href: route('pilihanraya.kaum-dm'), icon: PieChart },
                     { name: 'Scoreboard', href: route('pilihanraya.scoreboard'), icon: Trophy },
                     { name: 'Borang 14', href: route('pilihanraya.borang-14'), icon: FileSpreadsheet },
+                    { name: 'PACA', href: route('pilihanraya.paca'), icon: Users },
                     { name: 'Simulasi Pilihanraya', href: route('pilihanraya.simulasi'), icon: Brain },
                     // Minima memaparkan kad Garis Dasar rasmi tetapi tidak pernah
                     // dipautkan — ia hanya boleh dicapai dengan menaip URL.
