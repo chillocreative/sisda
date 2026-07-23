@@ -313,7 +313,7 @@ export default function Paca({ seats, parti = [] }) {
             <Head title="PACA" />
             <PilihanrayaShell
                 title="PACA"
-                subtitle="Susun roster Petugas Pengundian Awal (PA) dan Ketua PACABA mengikut Pusat Mengundi dan Saluran"
+                subtitle="Susun roster Petugas Pengundian Awal (PA) dan Ketua PACA mengikut Pusat Mengundi dan Saluran"
             >
                 <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm mb-5">
                     <h3 className="text-lg font-semibold text-slate-900 mb-4">Pilih Kerusi</h3>

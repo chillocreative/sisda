@@ -4,7 +4,7 @@ import { usePilihanrayaTheme } from '../components/PilihanrayaShell';
 import DragScroll from '../analisa/DragScroll';
 
 /**
- * Satu kad Pusat Mengundi: butiran Ketua PACABA, pautan awam per-Pusat
+ * Satu kad Pusat Mengundi: butiran Ketua PACA, pautan awam per-Pusat
  * (token unik — lihat PacaPublicController), dan setiap Saluran dengan
  * jadual slot (PA1..PAn + CA). `onChange`/`onTambahSaluran`/`onTambahSlot`
  * semuanya diselaraskan oleh Paca.jsx supaya penggabungan (merge) pokok
@@ -54,17 +54,17 @@ export default function PusatCard({ pusat, saving, parti = [], onChangePusat, on
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
                 <div>
-                    <label className={t.label}>Nama Ketua PACABA</label>
+                    <label className={t.label}>Nama Ketua PACA</label>
                     <input
                         className={t.input}
                         value={pusat.ketua_nama ?? ''}
                         disabled={saving}
                         onChange={(e) => onChangePusat(pusat.id, { ketua_nama: e.target.value })}
-                        placeholder="Nama Ketua PACABA"
+                        placeholder="Nama Ketua PACA"
                     />
                 </div>
                 <div>
-                    <label className={t.label}>No Tel Ketua PACABA</label>
+                    <label className={t.label}>No Tel Ketua PACA</label>
                     <input
                         className={t.input}
                         value={pusat.ketua_tel ?? ''}

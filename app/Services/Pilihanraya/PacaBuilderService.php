@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * Jambatan antara scoresheet Borang 14 (sumber struktur) dan roster PACABA
+ * Jambatan antara scoresheet Borang 14 (sumber struktur) dan roster PACA
  * (Pusat Mengundi -> Saluran -> slot syif). Satu PacaForm hanya boleh disemai
  * SEKALI daripada satu Borang14Form — suntingan seterusnya (nama ketua,
  * petugas, dsb.) tidak pernah ditimpa oleh semaian berulang.

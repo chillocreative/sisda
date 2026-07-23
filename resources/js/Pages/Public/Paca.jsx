@@ -235,7 +235,7 @@ export default function PublicPaca({ token, kerusi, pusat = [], parti = [] }) {
                             </div>
                             <div className="min-w-0">
                                 <h1 className="text-lg font-black text-slate-900 leading-tight">{kerusi || 'PACA'}</h1>
-                                <p className="text-xs text-slate-500 mt-0.5">Senarai Petugas PACABA</p>
+                                <p className="text-xs text-slate-500 mt-0.5">Senarai Petugas PACA</p>
                             </div>
                         </div>
                         <p className="text-sm text-slate-600 mt-3">

@@ -487,7 +487,7 @@ Route::middleware(['auth', 'admin'])->prefix('pilihanraya')->name('pilihanraya.'
     // bergantung pada tapisan senarai sahaja, id boleh diteka.
     Route::get('/borang-14/upload/{upload}/fail', [\App\Http\Controllers\Borang14Controller::class, 'muatTurunUpload'])->name('borang-14.upload.fail');
 
-    // PACA — roster petugas PACABA (Pusat->Saluran->slot), disemai daripada
+    // PACA — roster petugas PACA (Pusat->Saluran->slot), disemai daripada
     // struktur scoresheet Borang 14. Laluan awam per-Pusat (token) TIADA di
     // sini — lihat PacaPublicController (Tugasan 5), berdiri sendiri di luar
     // kumpulan auth ini.

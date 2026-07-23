@@ -19,7 +19,7 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 /**
- * Pengawal admin PACABA — pemilihan kerusi, pembinaan/pemuatan roster
+ * Pengawal admin PACA — pemilihan kerusi, pembinaan/pemuatan roster
  * Pusat->Saluran->slot, simpan (dengan sejarah), tambah PA/Saluran, dan
  * pemulihan snapshot. Laluan awam (token per-Pusat) TIADA di sini —
  * lihat PacaPublicController (Tugasan 5).
