@@ -33,9 +33,15 @@ class PacaBuilderService
      * TIDAK guna JSON_LENGTH (MySQL-sahaja, gagal di SQLite CI); tapis dalam
      * PHP sebaliknya.
      *
+     * $bandarId, jika diberi, melingkupkan senarai kepada kerusi Bandar itu
+     * sahaja (admin biasa); null (lalai) pulangkan semua kerusi (super_admin).
+     * Bandar kerusi diselesaikan dengan cara SAMA seperti
+     * PacaController::assertBolehAkses() — parlimen: kawasan_id ITU bandar;
+     * dun: bandar_id Kadun berkenaan.
+     *
      * @return array<int, array{kawasan_type:string, kawasan_id:int, jenis_pr:string, tahun:int, nama:string, negeri:string, parlimen:string, dun:?string, has_paca:bool}>
      */
-    public function seatsWithScoresheet(): array
+    public function seatsWithScoresheet(?int $bandarId = null): array
     {
         $existingPaca = PacaForm::query()
             ->get(['kawasan_type', 'kawasan_id', 'jenis_pr', 'tahun'])
@@ -52,6 +58,10 @@ class PacaBuilderService
             $isParlimen = $f->kawasan_type === Borang14Form::KAWASAN_PARLIMEN;
             $kawasan = $f->kawasan();
             $bandar = $isParlimen ? $kawasan : $kawasan?->bandar;
+
+            if ($bandarId !== null && (int) $bandar?->id !== $bandarId) {
+                continue;
+            }
 
             $kunci = $f->kawasan_type.'|'.$f->kawasan_id.'|'.$f->jenis_pr.'|'.$f->tahun;
 

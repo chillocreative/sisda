@@ -1,7 +1,10 @@
 <?php
 namespace Tests\Feature;
 
+use App\Models\Bandar;
 use App\Models\Borang14Form;
+use App\Models\Kadun;
+use App\Models\Negeri;
 use App\Models\PacaForm;
 use App\Services\Pilihanraya\PacaBuilderService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -67,5 +70,39 @@ class PacaBuilderServiceTest extends TestCase
         $seats = app(PacaBuilderService::class)->seatsWithScoresheet();
         $this->assertCount(1, $seats);
         $this->assertSame(41, $seats[0]['kawasan_id']);
+    }
+
+    /**
+     * seatsWithScoresheet(bandarId) mesti lingkupkan pemilih admin biasa
+     * kepada kerusi Bandar-nya sahaja; bandarId=null (super_admin) pulangkan
+     * kesemuanya.
+     */
+    public function test_seats_with_scoresheet_scopes_by_bandar(): void
+    {
+        $negeri = Negeri::create(['nama' => 'Negeri Sembilan']);
+        $bandarX = Bandar::create(['nama' => 'Bandar X', 'negeri_id' => $negeri->id]);
+        $bandarY = Bandar::create(['nama' => 'Bandar Y', 'negeri_id' => $negeri->id]);
+        $kadunX = Kadun::create(['nama' => 'Kadun X', 'bandar_id' => $bandarX->id]);
+        $kadunY = Kadun::create(['nama' => 'Kadun Y', 'bandar_id' => $bandarY->id]);
+
+        $rows = ['rows' => [['dm' => '041/03/01', 'pusat' => 'SK BUMBUNG LIMA', 'saluran' => '1']]];
+
+        Borang14Form::create([
+            'kawasan_type' => 'dun', 'kawasan_id' => $kadunX->id, 'jenis_pr' => 'prn', 'tahun' => 2027,
+            'penjuru' => 2, 'parties' => [], 'status' => 'published', 'source' => 'scoresheet', 'structure' => $rows,
+        ]);
+        Borang14Form::create([
+            'kawasan_type' => 'dun', 'kawasan_id' => $kadunY->id, 'jenis_pr' => 'prn', 'tahun' => 2027,
+            'penjuru' => 2, 'parties' => [], 'status' => 'published', 'source' => 'scoresheet', 'structure' => $rows,
+        ]);
+
+        $svc = app(PacaBuilderService::class);
+
+        $seatsX = $svc->seatsWithScoresheet($bandarX->id);
+        $this->assertCount(1, $seatsX);
+        $this->assertSame($kadunX->id, $seatsX[0]['kawasan_id']);
+
+        $seatsAll = $svc->seatsWithScoresheet();
+        $this->assertCount(2, $seatsAll);
     }
 }

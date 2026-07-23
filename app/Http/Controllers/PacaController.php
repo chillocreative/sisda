@@ -41,7 +41,7 @@ class PacaController extends Controller
         }
 
         return Inertia::render('Pilihanraya/Paca', [
-            'seats' => $this->builder->seatsWithScoresheet(),
+            'seats' => $this->builder->seatsWithScoresheet($user->isSuperAdmin() ? null : (int) $user->bandar_id),
         ]);
     }
 
