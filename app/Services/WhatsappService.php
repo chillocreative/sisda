@@ -77,6 +77,68 @@ class WhatsappService
         }
     }
 
+    /**
+     * Hantar satu fail (cth PDF) sebagai lampiran WhatsApp melalui Sendora
+     * (POST /api/v1/send-file). $fileBase64 ialah kandungan fail base64 TANPA
+     * awalan data URI. Mengembalikan false secara senyap jika Sendora tidak
+     * dikonfigur/aktif — pemanggil menukarnya kepada mesej ralat mesra.
+     */
+    public static function sendFile($phone, string $fileBase64, string $filename = 'document.pdf', string $mimetype = 'application/pdf', ?string $caption = null, string $type = 'document'): bool
+    {
+        $config = self::getConfig();
+
+        if (! $config || ! $config->is_active) {
+            Log::warning("Sendora not configured or inactive. File to {$phone} skipped.");
+
+            return false;
+        }
+
+        $phone = self::formatPhone($phone);
+
+        try {
+            $response = Http::timeout(30)
+                ->withToken($config->api_token)
+                ->acceptJson()
+                ->post(rtrim($config->api_url, '/').'/api/v1/send-file', [
+                    'device_id' => $config->device_id,
+                    'to' => $phone,
+                    'file_base64' => $fileBase64,
+                    'filename' => $filename,
+                    'mimetype' => $mimetype,
+                    'message' => $caption,
+                ]);
+
+            $success = $response->successful() && ($response->json('success') === true);
+
+            WhatsappMessage::create([
+                'phone' => $phone,
+                'message' => substr('[Fail] '.($caption ?? $filename), 0, 255),
+                'status' => $success ? 'sent' : 'failed',
+                'type' => $type,
+                'error' => $success ? null : ($response->json('message') ?? $response->body()),
+            ]);
+
+            if ($success) {
+                Log::info("WhatsApp file sent to {$phone} via Sendora");
+            } else {
+                Log::error("WhatsApp file failed to {$phone}. Status: {$response->status()}");
+            }
+
+            return $success;
+        } catch (\Exception $e) {
+            WhatsappMessage::create([
+                'phone' => $phone,
+                'message' => substr('[Fail] '.($caption ?? $filename), 0, 255),
+                'status' => 'failed',
+                'type' => $type,
+                'error' => $e->getMessage(),
+            ]);
+            Log::error("Sendora file error to {$phone}: ".$e->getMessage());
+
+            return false;
+        }
+    }
+
     public static function notifyAdmin($message, $type = 'admin_notify'): bool
     {
         $config = self::getConfig();

@@ -452,4 +452,69 @@ class PacaAdminTest extends TestCase
         $slotPa1 = $form->pusatList()->first()->saluranList()->first()->slots()->where('jawatan', 'PA1')->first();
         $this->assertSame('DALAM BANDAR', $slotPa1->petugas_nama);
     }
+
+    private function sendoraAktif(): void
+    {
+        \App\Models\SendoraSetting::create([
+            'api_url' => 'https://sendora.cc',
+            'api_token' => 'tok_test',
+            'device_id' => 73,
+            'admin_phone' => '0148885659',
+            'is_active' => true,
+        ]);
+    }
+
+    public function test_whatsapp_sends_roster_pdf_as_send_file_payload(): void
+    {
+        \Illuminate\Support\Facades\Http::fake([
+            '*/api/v1/send-file' => \Illuminate\Support\Facades\Http::response(['success' => true], 200),
+        ]);
+        $this->sendoraAktif();
+        $this->borang14();
+
+        $res = $this->actingAs($this->user())->postJson(route('pilihanraya.paca.whatsapp'), array_merge(
+            $this->kawasanPayload(),
+            ['telefon' => '012-3456789'],
+        ));
+
+        $res->assertOk();
+
+        \Illuminate\Support\Facades\Http::assertSent(function ($request) {
+            $body = $request->data();
+
+            return str_contains($request->url(), '/api/v1/send-file')
+                && $request->hasHeader('Authorization', 'Bearer tok_test')
+                && (int) $body['device_id'] === 73
+                && $body['to'] === '60123456789'                 // 012-3456789 -> antarabangsa
+                && $body['mimetype'] === 'application/pdf'
+                && ! empty($body['file_base64'])
+                && str_starts_with(base64_decode($body['file_base64'], true) ?: '', '%PDF');
+        });
+    }
+
+    public function test_whatsapp_returns_422_when_sendora_reports_failure(): void
+    {
+        \Illuminate\Support\Facades\Http::fake([
+            '*/api/v1/send-file' => \Illuminate\Support\Facades\Http::response(['success' => false, 'message' => 'device offline'], 422),
+        ]);
+        $this->sendoraAktif();
+        $this->borang14();
+
+        $res = $this->actingAs($this->user())->postJson(route('pilihanraya.paca.whatsapp'), array_merge(
+            $this->kawasanPayload(),
+            ['telefon' => '012-3456789'],
+        ));
+
+        $res->assertStatus(422);
+    }
+
+    public function test_whatsapp_requires_telefon(): void
+    {
+        $this->sendoraAktif();
+        $this->borang14();
+
+        $this->actingAs($this->user())->postJson(route('pilihanraya.paca.whatsapp'), $this->kawasanPayload())
+            ->assertStatus(422)
+            ->assertJsonValidationErrorFor('telefon');
+    }
 }

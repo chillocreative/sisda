@@ -117,6 +117,62 @@ class PacaController extends Controller
         ], 'roster-paca-'.$slug.'.pdf', 'a4', 'portrait');
     }
 
+    /**
+     * Jana PDF roster (keadaan tersimpan) dan hantar sebagai lampiran WhatsApp
+     * ke nombor yang admin masukkan, melalui Sendora (send-file). Klien
+     * menyimpan draf dahulu supaya PDF sepadan dengan skrin. Kegagalan Sendora
+     * dipulangkan sebagai 422 dengan mesej mesra (bukan ranap).
+     */
+    public function whatsapp(Request $request)
+    {
+        $user = auth()->user();
+        if (! $user->isSuperAdmin() && ! $user->isAdmin()) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $rules = $this->kawasanRules($request->input('kawasan_type'));
+        $rules['telefon'] = 'required|string|max:30';
+        $validated = $request->validate($rules);
+
+        $this->assertBolehAkses($user, $validated['kawasan_type'], (int) $validated['kawasan_id']);
+
+        $borang14 = Borang14Form::forKawasan($validated['kawasan_type'], $validated['kawasan_id'])
+            ->where('jenis_pr', $validated['jenis_pr'])
+            ->where('tahun', $validated['tahun'])
+            ->first();
+
+        if (! $borang14) {
+            abort(404, 'Borang 14 (scoresheet) bagi kerusi ini belum wujud.');
+        }
+
+        $form = $this->builder->buildFrom($borang14);
+        $kerusi = $this->namaKerusi($form);
+        $slug = $kerusi ? \Illuminate\Support\Str::slug($kerusi) : ('kerusi-'.$form->id);
+
+        $pdf = \App\Support\Pdf::raw('pdf.paca-roster', [
+            'kerusi' => $kerusi,
+            'tree' => $this->treePayload($form),
+            'dijana' => now()->format('d/m/Y H:i'),
+        ]);
+
+        $ok = \App\Services\WhatsappService::sendFile(
+            $validated['telefon'],
+            base64_encode($pdf),
+            'roster-paca-'.$slug.'.pdf',
+            'application/pdf',
+            'Roster Petugas PACA'.($kerusi ? ' — '.$kerusi : ''),
+            'paca_roster',
+        );
+
+        if (! $ok) {
+            return response()->json([
+                'message' => 'Gagal menghantar ke WhatsApp. Semak tetapan Sendora atau pastikan peranti berstatus disambung.',
+            ], 422);
+        }
+
+        return response()->json(['message' => 'Roster PACA berjaya dihantar ke WhatsApp.']);
+    }
+
     /** Nama kerusi untuk pengepala — 'DUN Juasseh' / 'Parlimen Segamat', atau null. */
     private function namaKerusi(PacaForm $form): ?string
     {

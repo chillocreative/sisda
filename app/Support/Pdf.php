@@ -15,7 +15,8 @@ use Illuminate\Http\Response;
  */
 class Pdf
 {
-    public static function download(string $view, array $data, string $filename, string $paper = 'a4', string $orientation = 'portrait'): Response
+    /** Render a Blade view to raw PDF bytes (for streaming, base64, attachments). */
+    public static function raw(string $view, array $data, string $paper = 'a4', string $orientation = 'portrait'): string
     {
         $options = new Options;
         $options->set('isRemoteEnabled', false);
@@ -28,7 +29,12 @@ class Pdf
         $dompdf->loadHtml(view($view, $data)->render());
         $dompdf->render();
 
-        return new Response($dompdf->output(), 200, [
+        return $dompdf->output();
+    }
+
+    public static function download(string $view, array $data, string $filename, string $paper = 'a4', string $orientation = 'portrait'): Response
+    {
+        return new Response(self::raw($view, $data, $paper, $orientation), 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ]);

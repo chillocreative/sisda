@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Head } from '@inertiajs/react';
 import axios from 'axios';
-import { Check, Copy, FileDown, History, Loader2, Save, Users } from 'lucide-react';
+import { Check, Copy, FileDown, History, Loader2, Save, Send, Users, X } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PilihanrayaShell, { usePilihanrayaTheme } from './components/PilihanrayaShell';
 import SeatPicker from './paca/SeatPicker';
@@ -108,6 +108,10 @@ function PacaEditor({ seat, parti }) {
     const [savedOk, setSavedOk] = useState(false);
     const [sejarahOpen, setSejarahOpen] = useState(false);
     const [copied, setCopied] = useState(false);
+    const [waOpen, setWaOpen] = useState(false);
+    const [waPhone, setWaPhone] = useState('');
+    const [waBusy, setWaBusy] = useState(false);
+    const [waMsg, setWaMsg] = useState(null); // { ok: boolean, text: string }
 
     const salinPautan = async () => {
         if (!draft?.public_url) return;
@@ -238,6 +242,35 @@ function PacaEditor({ seat, parti }) {
         });
     };
 
+    // Simpan draf dahulu (PDF sepadan skrin), kemudian jana PDF di pelayan dan
+    // hantar sebagai lampiran WhatsApp (Sendora send-file) ke nombor dimasukkan.
+    const hantarWhatsapp = async () => {
+        if (!seat || !waPhone.trim()) return;
+        setWaBusy(true);
+        setWaMsg(null);
+        const ok = await simpan();
+        if (!ok) {
+            setWaBusy(false);
+            setWaMsg({ ok: false, text: 'Gagal menyimpan roster sebelum hantar. Cuba lagi.' });
+            return;
+        }
+        try {
+            const { data } = await axios.post(route('pilihanraya.paca.whatsapp'), {
+                kawasan_type: seat.kawasan_type,
+                kawasan_id: seat.kawasan_id,
+                jenis_pr: seat.jenis_pr,
+                tahun: seat.tahun,
+                telefon: waPhone.trim(),
+            });
+            setWaMsg({ ok: true, text: data.message || 'Berjaya dihantar.' });
+            setTimeout(() => { setWaOpen(false); setWaMsg(null); setWaPhone(''); }, 1800);
+        } catch (e) {
+            setWaMsg({ ok: false, text: extractError(e, 'Gagal menghantar ke WhatsApp.') });
+        } finally {
+            setWaBusy(false);
+        }
+    };
+
     // Tatal ke kad Pusat tertentu apabila baris ringkasan diklik. scroll-mt
     // pada pembalut memberi ruang untuk bar tindakan lekat (sticky) di atas.
     const lompatKePusat = (pusatId) => {
@@ -291,6 +324,9 @@ function PacaEditor({ seat, parti }) {
                                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
                                 Muat Turun PDF
                             </button>
+                            <button type="button" onClick={() => { setWaMsg(null); setWaOpen(true); }} disabled={saving} className={t.buttonSecondary}>
+                                <Send className="h-4 w-4" /> Hantar WhatsApp
+                            </button>
                             <button type="button" onClick={simpan} disabled={saving} className={t.buttonPrimary}>
                                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                                 Simpan
@@ -329,6 +365,45 @@ function PacaEditor({ seat, parti }) {
                         onClose={() => setSejarahOpen(false)}
                         onPulih={pulih}
                     />
+
+                    {waOpen && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" onClick={() => !waBusy && setWaOpen(false)}>
+                            <div className="w-full max-w-md rounded-2xl bg-white shadow-xl p-5" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex items-center justify-between mb-1">
+                                    <h3 className="text-base font-semibold text-slate-900">Hantar Roster ke WhatsApp</h3>
+                                    <button type="button" onClick={() => !waBusy && setWaOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 -m-1" aria-label="Tutup">
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                </div>
+                                <p className="text-xs text-slate-500 mb-4">
+                                    PDF roster akan disimpan &amp; dihantar sebagai lampiran WhatsApp melalui Sendora ke nombor di bawah.
+                                </p>
+                                <label className={t.label}>No Telefon Penerima</label>
+                                <input
+                                    type="tel"
+                                    className={t.input}
+                                    value={waPhone}
+                                    disabled={waBusy}
+                                    onChange={(e) => setWaPhone(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' && waPhone.trim() && !waBusy) hantarWhatsapp(); }}
+                                    placeholder="012-3456789"
+                                    autoFocus
+                                />
+                                {waMsg && (
+                                    <p className={`mt-3 text-sm rounded-lg px-3 py-2 ${waMsg.ok ? 'text-emerald-700 bg-emerald-50 border border-emerald-200' : 'text-rose-800 bg-rose-50 border border-rose-300'}`}>
+                                        {waMsg.text}
+                                    </p>
+                                )}
+                                <div className="flex items-center justify-end gap-2 mt-5">
+                                    <button type="button" onClick={() => setWaOpen(false)} disabled={waBusy} className={t.buttonSecondary}>Batal</button>
+                                    <button type="button" onClick={hantarWhatsapp} disabled={waBusy || !waPhone.trim()} className={t.buttonPrimary}>
+                                        {waBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                                        Hantar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </>
             )}
         </div>
