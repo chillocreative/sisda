@@ -460,6 +460,8 @@ class PacaController extends Controller
             'kawasan_id' => $form->kawasan_id,
             'jenis_pr' => $form->jenis_pr,
             'tahun' => $form->tahun,
+            // SATU pautan awam per kerusi — memaparkan semua Pusat kerusi ini.
+            'public_url' => $form->public_token ? url('/paca/'.$form->public_token) : null,
             'pusat' => $form->pusatList()->with('saluranList.slots')->get()
                 ->map(fn ($p) => $this->pusatPayload($p))->all(),
         ];
@@ -473,10 +475,6 @@ class PacaController extends Controller
             'pusat' => $pusat->pusat,
             'ketua_nama' => $pusat->ketua_nama,
             'ketua_tel' => $pusat->ketua_tel,
-            'public_token' => $pusat->public_token,
-            // Laluan awam per-Pusat (Tugasan 5) — URL mentah, bukan route()
-            // bernama, kerana laluan itu belum wujud lagi pada Tugasan 4 ini.
-            'public_url' => url('/paca/'.$pusat->public_token),
             'urutan' => $pusat->urutan,
             'saluran' => $pusat->saluranList->map(fn ($s) => $this->saluranPayload($s))->all(),
         ];

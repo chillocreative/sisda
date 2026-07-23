@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Head } from '@inertiajs/react';
 import axios from 'axios';
-import { Check, History, Loader2, Save, Users } from 'lucide-react';
+import { Check, Copy, History, Loader2, Save, Users } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PilihanrayaShell, { usePilihanrayaTheme } from './components/PilihanrayaShell';
 import SeatPicker from './paca/SeatPicker';
@@ -106,6 +106,19 @@ function PacaEditor({ seat, parti }) {
     const [saveError, setSaveError] = useState('');
     const [savedOk, setSavedOk] = useState(false);
     const [sejarahOpen, setSejarahOpen] = useState(false);
+    const [copied, setCopied] = useState(false);
+
+    const salinPautan = async () => {
+        if (!draft?.public_url) return;
+        try {
+            await navigator.clipboard.writeText(draft.public_url);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch {
+            // Papan klip tidak tersedia (bukan konteks selamat) — pautan masih
+            // boleh disalin manual daripada URL yang dipaparkan.
+        }
+    };
 
     // Muatkan (atau bina, idempoten) pokok bagi kerusi yang dipilih. `seat`
     // sudah membawa kawasan_type/kawasan_id/jenis_pr/tahun terus daripada
@@ -242,6 +255,12 @@ function PacaEditor({ seat, parti }) {
                             )}
                         </div>
                         <div className="flex items-center gap-2">
+                            {draft?.public_url && (
+                                <button type="button" onClick={salinPautan} className={t.buttonSecondary}>
+                                    {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+                                    {copied ? 'Disalin!' : 'Salin Pautan Awam'}
+                                </button>
+                            )}
                             <button type="button" onClick={() => setSejarahOpen(true)} className={t.buttonSecondary}>
                                 <History className="h-4 w-4" /> Sejarah
                             </button>

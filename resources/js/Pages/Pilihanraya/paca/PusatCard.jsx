@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, Copy, Loader2, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { usePilihanrayaTheme } from '../components/PilihanrayaShell';
 import DragScroll from '../analisa/DragScroll';
 
@@ -12,7 +12,6 @@ import DragScroll from '../analisa/DragScroll';
  */
 export default function PusatCard({ pusat, saving, parti = [], onChangePusat, onChangeSlot, onTambahSaluran, onTambahSlot, onBuangSlot }) {
     const { t } = usePilihanrayaTheme();
-    const [copied, setCopied] = useState(false);
     const [addingSaluran, setAddingSaluran] = useState(false);
     const [addingSlotFor, setAddingSlotFor] = useState(null);
     const [buangingSlot, setBuangingSlot] = useState(null);
@@ -25,17 +24,6 @@ export default function PusatCard({ pusat, saving, parti = [], onChangePusat, on
             await onBuangSlot(slot.id);
         } finally {
             setBuangingSlot(null);
-        }
-    };
-
-    const salinPautan = async () => {
-        try {
-            await navigator.clipboard.writeText(pusat.public_url);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        } catch {
-            // Papan klip tidak tersedia (mis. bukan konteks selamat) — pautan
-            // masih boleh disalin secara manual daripada teks yang dipaparkan.
         }
     };
 
@@ -59,15 +47,9 @@ export default function PusatCard({ pusat, saving, parti = [], onChangePusat, on
 
     return (
         <div className={t.card}>
-            <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-                <div>
-                    <h3 className="text-lg font-semibold text-slate-900">{pusat.pusat}</h3>
-                    <p className={`${t.subtext} text-xs mt-0.5`}>{pusat.dm}</p>
-                </div>
-                <button type="button" onClick={salinPautan} className={t.buttonSecondary}>
-                    {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
-                    {copied ? 'Disalin!' : 'Salin Pautan Awam'}
-                </button>
+            <div className="mb-4">
+                <h3 className="text-lg font-semibold text-slate-900">{pusat.pusat}</h3>
+                <p className={`${t.subtext} text-xs mt-0.5`}>{pusat.dm}</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">

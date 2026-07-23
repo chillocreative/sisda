@@ -180,9 +180,41 @@ function BlokSaluran({ saluran, token, parti, slotAktif, setSlotAktif, onBerjaya
     );
 }
 
+/* ------------------------------ blok pusat ------------------------------ */
+
+function PusatBlok({ pusat, token, parti, slotAktif, setSlotAktif, onBerjaya }) {
+    return (
+        <section className="space-y-3">
+            <div className="px-1">
+                <h2 className="text-base font-black text-slate-900 leading-tight">{pusat.pusat}</h2>
+                <p className="text-xs text-slate-500 inline-flex items-center gap-1 mt-0.5">
+                    <MapPin className="h-3.5 w-3.5" /> DM {pusat.dm || '—'}
+                </p>
+            </div>
+            {pusat.saluran.length === 0 ? (
+                <div className="rounded-2xl bg-white border border-slate-200 p-6 text-center text-slate-500 text-sm">
+                    Tiada saluran untuk Pusat ini.
+                </div>
+            ) : (
+                pusat.saluran.map((s) => (
+                    <BlokSaluran
+                        key={s.id}
+                        saluran={s}
+                        token={token}
+                        parti={parti}
+                        slotAktif={slotAktif}
+                        setSlotAktif={setSlotAktif}
+                        onBerjaya={onBerjaya}
+                    />
+                ))
+            )}
+        </section>
+    );
+}
+
 /* -------------------------------- halaman -------------------------------- */
 
-export default function PublicPaca({ token, pusat, saluran = [], parti = [] }) {
+export default function PublicPaca({ token, kerusi, pusat = [], parti = [] }) {
     const [slotAktif, setSlotAktif] = useState(null);
     const [tunjukTerimaKasih, setTunjukTerimaKasih] = useState(false);
 
@@ -193,7 +225,7 @@ export default function PublicPaca({ token, pusat, saluran = [], parti = [] }) {
 
     return (
         <>
-            <Head title={`${pusat?.pusat || 'PACA'} — Senarai Petugas`} />
+            <Head title={`${kerusi || 'PACA'} — Senarai Petugas`} />
             <div className="min-h-screen bg-[#f5f6f8]">
                 <header className="border-b border-slate-200 bg-white">
                     <div className="max-w-lg mx-auto px-4 py-5">
@@ -202,19 +234,17 @@ export default function PublicPaca({ token, pusat, saluran = [], parti = [] }) {
                                 <Users className="h-5 w-5" />
                             </div>
                             <div className="min-w-0">
-                                <h1 className="text-lg font-black text-slate-900 leading-tight">{pusat?.pusat || '—'}</h1>
-                                <p className="text-xs text-slate-500 inline-flex items-center gap-1 mt-0.5">
-                                    <MapPin className="h-3.5 w-3.5" /> DM {pusat?.dm || '—'}
-                                </p>
+                                <h1 className="text-lg font-black text-slate-900 leading-tight">{kerusi || 'PACA'}</h1>
+                                <p className="text-xs text-slate-500 mt-0.5">Senarai Petugas PACABA</p>
                             </div>
                         </div>
                         <p className="text-sm text-slate-600 mt-3">
-                            Senarai Petugas PACABA — isi slot yang masih kosong.
+                            Isi slot yang masih kosong bagi mana-mana Pusat Mengundi di bawah.
                         </p>
                     </div>
                 </header>
 
-                <main className="max-w-lg mx-auto px-4 py-6 space-y-4">
+                <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
                     {tunjukTerimaKasih && (
                         <div className="rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 text-sm font-medium flex items-center gap-2">
                             <CheckCircle2 className="h-4 w-4 shrink-0" />
@@ -222,15 +252,15 @@ export default function PublicPaca({ token, pusat, saluran = [], parti = [] }) {
                         </div>
                     )}
 
-                    {saluran.length === 0 ? (
+                    {pusat.length === 0 ? (
                         <div className="rounded-2xl bg-white border border-slate-200 p-8 text-center text-slate-500 text-sm">
-                            Tiada saluran didaftarkan untuk Pusat ini.
+                            Tiada Pusat Mengundi didaftarkan untuk kerusi ini.
                         </div>
                     ) : (
-                        saluran.map((s) => (
-                            <BlokSaluran
-                                key={s.id}
-                                saluran={s}
+                        pusat.map((p) => (
+                            <PusatBlok
+                                key={p.id}
+                                pusat={p}
                                 token={token}
                                 parti={parti}
                                 slotAktif={slotAktif}

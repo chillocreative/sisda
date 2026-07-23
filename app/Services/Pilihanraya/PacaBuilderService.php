@@ -106,11 +106,19 @@ class PacaBuilderService
                 [
                     'borang14_form_id' => $form->id,
                     'created_by' => auth()->id(),
+                    // Token pautan awam per-KERUSI (satu pautan memaparkan semua
+                    // Pusat Mengundi kerusi ini).
+                    'public_token' => Str::random(32),
                 ],
             );
 
             if ($paca->wasRecentlyCreated) {
                 $this->semai($paca, $form);
+            }
+
+            // Kerusi yang dicipta sebelum token per-kerusi diperkenalkan.
+            if (! $paca->public_token) {
+                $paca->update(['public_token' => Str::random(32)]);
             }
 
             return $paca;

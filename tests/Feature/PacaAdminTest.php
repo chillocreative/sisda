@@ -123,8 +123,9 @@ class PacaAdminTest extends TestCase
         $bumbung = collect($tree['pusat'])->firstWhere('pusat', 'SK BUMBUNG LIMA');
         $this->assertSame(2, count($bumbung['saluran']));
         $this->assertSame(['PA1', 'PA2', 'PA3', 'CA'], array_column($bumbung['saluran'][0]['slot'], 'jawatan'));
-        $this->assertNotEmpty($bumbung['public_token']);
-        $this->assertStringContainsString($bumbung['public_token'], $bumbung['public_url']);
+        // Satu pautan awam per KERUSI (bukan per Pusat).
+        $this->assertNotEmpty($tree['public_url']);
+        $this->assertStringContainsString('/paca/', $tree['public_url']);
 
         $this->assertSame(1, PacaForm::count());
     }

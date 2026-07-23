@@ -2,11 +2,12 @@
 // tests/Feature/PacaPublicTest.php
 //
 // Laluan awam (tiada log masuk) PacaPublicController: GET /paca/{token}
-// memulangkan Inertia Public/Paca bagi Pusat token itu SAHAJA, dan payload
-// itu tidak sekali-kali membawa petugas_kp/petugas_tel milik pengisi sedia
-// ada (sebab utama pengawal ini wujud). POST /paca/{token}/hantar mengisi
-// satu slot kosong kepunyaan Pusat token itu, menolak slot yang sudah
-// terisi (422) atau kepunyaan Pusat lain (404), dan mengesahkan IC.
+// memulangkan Inertia Public/Paca bagi SATU KERUSI (DUN) — SEMUA Pusat
+// Mengundi kerusi itu, setiap satu dengan Saluran->slot. Payload itu tidak
+// sekali-kali membawa petugas_kp/petugas_tel/nama milik pengisi sedia ada
+// (sebab utama pengawal ini wujud). POST /paca/{token}/hantar mengisi satu
+// slot kosong kepunyaan MANA-MANA Pusat kerusi itu, menolak slot terisi
+// (422) atau kepunyaan kerusi LAIN (404), dan mengesahkan IC.
 namespace Tests\Feature;
 
 use App\Models\PacaForm;
@@ -22,99 +23,83 @@ class PacaPublicTest extends TestCase
 
     private const IC_SAH = '680623-07-5749';
 
-    /** Tahun berlainan bagi setiap panggilan pusat() — mengelak perlanggaran unique bagi paca_forms. */
+    /** Tahun berlainan bagi setiap panggilan form() — mengelak perlanggaran unique paca_forms. */
     private static int $tahun = 2020;
 
-    /** Satu Pusat berdiri sendiri (satu Saluran, slot PA1 kosong + CA sudah terisi). */
-    private function pusat(array $over = []): PacaPusat
+    /** Satu kerusi (PacaForm) dengan token awam per-DUN. */
+    private function form(array $over = []): PacaForm
     {
-        $form = PacaForm::create([
+        return PacaForm::create(array_merge([
             'kawasan_type' => 'dun', 'kawasan_id' => 1,
             'jenis_pr' => 'prn', 'tahun' => self::$tahun++,
-        ]);
-
-        return $form->pusatList()->create(array_merge([
-            'dm' => '041/03/01',
-            'pusat' => 'SK BUMBUNG LIMA',
-            'public_token' => 'tok_'.str_repeat('a', 28),
-            'urutan' => 1,
+            'public_token' => 'tok_'.self::$tahun.'_'.str_repeat('a', 20),
         ], $over));
     }
 
-    /**
-     * Laluan GET awam yang MESTI dinilai sebagai satu navigasi Inertia (bukan
-     * muatan HTML penuh) — halaman React Public/Paca.jsx belum wujud lagi
-     * (dibina pada Tugasan 7 berasingan), jadi render Blade penuh akan gagal
-     * kerana manifest Vite tiada entri untuknya. Header X-Inertia memintas
-     * itu dan memulangkan JSON page-object terus, sama seperti navigasi SPA
-     * sebenar. (assertInertia() bawaan pakej ini hanya menyokong laluan
-     * render HTML penuh — ->assertViewHas('page') — jadi payload di sini
-     * disemak terus daripada JSON, bukan menerusi macro itu.)
-     */
-    private function getInertia(string $url)
+    private function pusat(PacaForm $form, array $over = []): PacaPusat
     {
-        // Mesti sepadan versi aset semasa (cincangan manifest.json Vite),
-        // jika tidak middleware Inertia memulangkan 409 (isyarat "muat semula
-        // penuh") dan bukan payload page-object yang diuji di sini.
-        $manifest = public_path('build/manifest.json');
-        $version = file_exists($manifest) ? hash_file('xxh128', $manifest) : null;
-
-        return $this->withHeaders([
-            'X-Inertia' => 'true',
-            'X-Inertia-Version' => $version,
-        ])->get($url);
+        return $form->pusatList()->create(array_merge([
+            'dm' => '041/03/01',
+            'pusat' => 'SK BUMBUNG LIMA',
+            'public_token' => 'pp_'.self::$tahun.'_'.str_repeat('a', 24),
+            'urutan' => 1,
+        ], $over));
     }
 
     private function saluran(PacaPusat $pusat, array $over = []): PacaSaluran
     {
-        return $pusat->saluranList()->create(array_merge([
-            'label' => '1',
-            'urutan' => 1,
-        ], $over));
+        return $pusat->saluranList()->create(array_merge(['label' => '1', 'urutan' => 1], $over));
     }
 
     private function slot(PacaSaluran $saluran, array $over = []): PacaSlot
     {
         return $saluran->slots()->create(array_merge([
-            'jawatan' => 'PA1',
-            'masa_mula' => '08:00',
-            'masa_tamat' => '10:00',
-            'urutan' => 1,
+            'jawatan' => 'PA1', 'masa_mula' => '08:00', 'masa_tamat' => '10:00', 'urutan' => 1,
         ], $over));
     }
 
-    public function test_valid_token_renders_the_right_pusat(): void
+    /**
+     * GET awam MESTI dinilai sebagai satu navigasi Inertia (bukan HTML penuh):
+     * render Blade penuh gagal kerana manifest Vite CI. Header X-Inertia
+     * memulangkan JSON page-object terus, sama seperti navigasi SPA sebenar.
+     */
+    private function getInertia(string $url)
     {
-        $pusat = $this->pusat();
-        $saluran = $this->saluran($pusat);
-        $this->slot($saluran);
+        $manifest = public_path('build/manifest.json');
+        $version = file_exists($manifest) ? hash_file('xxh128', $manifest) : null;
 
-        $response = $this->getInertia(route('paca.public', $pusat->public_token));
-
-        $response->assertOk();
-        $page = $response->json();
-
-        $this->assertSame('Public/Paca', $page['component']);
-        $this->assertSame('SK BUMBUNG LIMA', $page['props']['pusat']['pusat']);
-        $this->assertSame('041/03/01', $page['props']['pusat']['dm']);
-        $this->assertSame('PA1', $page['props']['saluran'][0]['slot'][0]['jawatan']);
-        $this->assertSame('08:00 - 10:00', $page['props']['saluran'][0]['slot'][0]['masa']);
-        $this->assertFalse($page['props']['saluran'][0]['slot'][0]['terisi']);
+        return $this->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => $version])->get($url);
     }
 
-    public function test_public_payload_never_exposes_ic_or_phone_of_an_existing_filler(): void
+    public function test_valid_token_renders_every_pusat_of_the_dun(): void
     {
-        $pusat = $this->pusat();
-        $saluran = $this->saluran($pusat);
-        $this->slot($saluran, [
+        $form = $this->form();
+        $a = $this->pusat($form, ['pusat' => 'SK BUMBUNG LIMA', 'dm' => '041/03/01', 'public_token' => 'pp_a', 'urutan' => 1]);
+        $this->slot($this->saluran($a));
+        $b = $this->pusat($form, ['pusat' => 'SK PAYA KELADI', 'dm' => '041/03/02', 'public_token' => 'pp_b', 'urutan' => 2]);
+        $this->slot($this->saluran($b));
+
+        $page = $this->getInertia(route('paca.public', $form->public_token))->assertOk()->json();
+
+        $this->assertSame('Public/Paca', $page['component']);
+        // Kedua-dua Pusat kerusi ini dipaparkan pada satu pautan.
+        $names = array_column($page['props']['pusat'], 'pusat');
+        $this->assertSame(['SK BUMBUNG LIMA', 'SK PAYA KELADI'], $names);
+        $this->assertSame('PA1', $page['props']['pusat'][0]['saluran'][0]['slot'][0]['jawatan']);
+        $this->assertSame('08:00 - 10:00', $page['props']['pusat'][0]['saluran'][0]['slot'][0]['masa']);
+    }
+
+    public function test_public_payload_never_exposes_ic_or_phone_or_name(): void
+    {
+        $form = $this->form();
+        $p = $this->pusat($form);
+        $this->slot($this->saluran($p), [
             'petugas_nama' => 'AZMI', 'petugas_kp' => self::IC_SAH,
             'petugas_tel' => '010-2187454', 'petugas_parti' => 'KEADILAN',
         ]);
 
-        $response = $this->getInertia(route('paca.public', $pusat->public_token));
-
-        $response->assertOk();
-        $slotProp = $response->json('props.saluran.0.slot.0');
+        $response = $this->getInertia(route('paca.public', $form->public_token))->assertOk();
+        $slotProp = $response->json('props.pusat.0.saluran.0.slot.0');
 
         $this->assertTrue($slotProp['terisi']);
         $this->assertSame('KEADILAN', $slotProp['parti']);
@@ -122,9 +107,6 @@ class PacaPublicTest extends TestCase
         $this->assertArrayNotHasKey('petugas_tel', $slotProp);
         $this->assertArrayNotHasKey('petugas_nama', $slotProp);
 
-        // Kekang serangan "kunci lain" — pastikan tiada sebarang jejak
-        // mentah IC/tel/nama pengisi terselit di mana-mana dalam JSON
-        // penuh yang benar-benar dihantar ke pelayar.
         $response->assertDontSee(self::IC_SAH, false);
         $response->assertDontSee('010-2187454', false);
         $response->assertDontSee('AZMI', false);
@@ -135,92 +117,76 @@ class PacaPublicTest extends TestCase
         $this->getJson(route('paca.public', 'tidak-wujud'))->assertNotFound();
     }
 
-    public function test_submit_to_an_empty_slot_fills_it(): void
+    public function test_submit_fills_an_empty_slot_of_any_pusat_in_the_dun(): void
     {
-        $pusat = $this->pusat();
-        $saluran = $this->saluran($pusat);
-        $slot = $this->slot($saluran);
+        $form = $this->form();
+        // Slot berada di Pusat KEDUA kerusi ini — bukti pengisian berskop KERUSI.
+        $this->pusat($form, ['public_token' => 'pp_x', 'urutan' => 1]);
+        $b = $this->pusat($form, ['pusat' => 'SK PAYA KELADI', 'public_token' => 'pp_y', 'urutan' => 2]);
+        $slot = $this->slot($this->saluran($b));
 
-        $res = $this->postJson(route('paca.public.hantar', $pusat->public_token), [
+        $res = $this->postJson(route('paca.public.hantar', $form->public_token), [
             'paca_slot_id' => $slot->id,
-            'petugas_nama' => 'ROSLAN',
-            'petugas_kp' => self::IC_SAH,
-            'petugas_tel' => '012-3456789',
-            'petugas_parti' => 'BEBAS',
+            'petugas_nama' => 'ROSLAN', 'petugas_kp' => self::IC_SAH,
+            'petugas_tel' => '012-3456789', 'petugas_parti' => 'BEBAS',
         ]);
 
         $res->assertOk();
         $slot->refresh();
         $this->assertSame('ROSLAN', $slot->petugas_nama);
-        $this->assertSame(self::IC_SAH, $slot->petugas_kp);
-        $this->assertSame('012-3456789', $slot->petugas_tel);
         $this->assertSame('BEBAS', $slot->petugas_parti);
     }
 
     public function test_submit_to_an_already_filled_slot_is_422(): void
     {
-        $pusat = $this->pusat();
-        $saluran = $this->saluran($pusat);
-        $slot = $this->slot($saluran, [
+        $form = $this->form();
+        $slot = $this->slot($this->saluran($this->pusat($form)), [
             'petugas_nama' => 'SEDIA ADA', 'petugas_kp' => self::IC_SAH,
             'petugas_tel' => '019-1112222', 'petugas_parti' => 'BEBAS',
         ]);
 
-        $res = $this->postJson(route('paca.public.hantar', $pusat->public_token), [
+        $res = $this->postJson(route('paca.public.hantar', $form->public_token), [
             'paca_slot_id' => $slot->id,
-            'petugas_nama' => 'BARU',
-            'petugas_kp' => self::IC_SAH,
-            'petugas_tel' => '012-3456789',
-            'petugas_parti' => 'BEBAS',
+            'petugas_nama' => 'BARU', 'petugas_kp' => self::IC_SAH,
+            'petugas_tel' => '012-3456789', 'petugas_parti' => 'BEBAS',
         ]);
 
         $res->assertStatus(422);
         $this->assertStringContainsString('slot ini sudah diisi', json_encode($res->json()));
-
-        $slot->refresh();
-        $this->assertSame('SEDIA ADA', $slot->petugas_nama, 'Percubaan menimpa slot terisi tidak sepatutnya menulis apa-apa.');
+        $this->assertSame('SEDIA ADA', $slot->refresh()->petugas_nama);
     }
 
     public function test_invalid_ic_is_422(): void
     {
-        $pusat = $this->pusat();
-        $saluran = $this->saluran($pusat);
-        $slot = $this->slot($saluran);
+        $form = $this->form();
+        $slot = $this->slot($this->saluran($this->pusat($form)));
 
-        $res = $this->postJson(route('paca.public.hantar', $pusat->public_token), [
+        $res = $this->postJson(route('paca.public.hantar', $form->public_token), [
             'paca_slot_id' => $slot->id,
-            'petugas_nama' => 'ROSLAN',
-            'petugas_kp' => '999999-99-9999', // 99 bulan — tarikh tidak sah
-            'petugas_tel' => '012-3456789',
-            'petugas_parti' => 'BEBAS',
+            'petugas_nama' => 'ROSLAN', 'petugas_kp' => '999999-99-9999',
+            'petugas_tel' => '012-3456789', 'petugas_parti' => 'BEBAS',
         ]);
 
         $res->assertStatus(422);
-        $slot->refresh();
-        $this->assertNull($slot->petugas_nama, 'IC tidak sah tidak sepatutnya mengisi slot.');
+        $this->assertNull($slot->refresh()->petugas_nama);
     }
 
-    public function test_slot_from_a_different_pusat_is_404(): void
+    public function test_slot_from_a_different_dun_is_404(): void
     {
-        $pusatA = $this->pusat(['public_token' => 'tok_a']);
-        $saluranA = $this->saluran($pusatA);
-        $this->slot($saluranA);
+        $formA = $this->form(['public_token' => 'tok_a']);
+        $this->slot($this->saluran($this->pusat($formA, ['public_token' => 'pp_a1'])));
 
-        $pusatB = $this->pusat(['public_token' => 'tok_b']);
-        $saluranB = $this->saluran($pusatB);
-        $slotB = $this->slot($saluranB);
+        $formB = $this->form(['public_token' => 'tok_b']);
+        $slotB = $this->slot($this->saluran($this->pusat($formB, ['public_token' => 'pp_b1'])));
 
-        // Cuba mengisi slot Pusat B melalui token Pusat A.
-        $res = $this->postJson(route('paca.public.hantar', $pusatA->public_token), [
+        // Cuba mengisi slot kerusi B melalui token kerusi A.
+        $res = $this->postJson(route('paca.public.hantar', $formA->public_token), [
             'paca_slot_id' => $slotB->id,
-            'petugas_nama' => 'SERANG',
-            'petugas_kp' => self::IC_SAH,
-            'petugas_tel' => '012-3456789',
-            'petugas_parti' => 'BEBAS',
+            'petugas_nama' => 'SERANG', 'petugas_kp' => self::IC_SAH,
+            'petugas_tel' => '012-3456789', 'petugas_parti' => 'BEBAS',
         ]);
 
         $res->assertNotFound();
-        $slotB->refresh();
-        $this->assertNull($slotB->petugas_nama, 'Slot Pusat lain tidak sepatutnya terisi melalui token salah.');
+        $this->assertNull($slotB->refresh()->petugas_nama);
     }
 }

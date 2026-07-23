@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\PacaForm;
 use App\Models\PacaPusat;
 use App\Models\PacaSaluran;
 use App\Models\PacaSlot;
@@ -12,10 +13,11 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 /**
- * Laluan AWAM (tiada log masuk) bagi PACA: pautan per-Pusat (token boleh teka
- * sukar) yang dikongsi penyelaras kepada petugas, supaya petugas boleh
- * mendaftar diri ke dalam slot kosong. Berdiri sendiri di luar kumpulan
- * auth/admin — lihat PacaController untuk sisi pengurusan.
+ * Laluan AWAM (tiada log masuk) bagi PACA: pautan per-KERUSI (DUN) — token
+ * boleh teka sukar pada paca_forms — yang dikongsi penyelaras kepada petugas,
+ * supaya petugas boleh mendaftar diri ke dalam slot kosong mana-mana Pusat
+ * Mengundi kerusi itu. Berdiri sendiri di luar kumpulan auth/admin — lihat
+ * PacaController untuk sisi pengurusan.
  *
  * PERATURAN PRIVASI (sebab wujudnya pengawal ini): payload awam TIDAK PERNAH
  * membawa petugas_kp atau petugas_tel milik sesiapa — pelawat pautan awam
@@ -25,40 +27,53 @@ use Inertia\Inertia;
  */
 class PacaPublicController extends Controller
 {
-    /** Halaman awam /paca/{token} — pokok Saluran->slot bagi satu Pusat, tanpa PII pengisi. */
+    /** Halaman awam /paca/{token} — SEMUA Pusat->Saluran->slot bagi satu kerusi, tanpa PII pengisi. */
     public function show(string $token)
     {
-        $pusat = PacaPusat::with('saluranList.slots')
+        $form = PacaForm::with('pusatList.saluranList.slots')
             ->where('public_token', $token)
             ->firstOrFail();
 
         return Inertia::render('Public/Paca', [
             'token' => $token,
+            'kerusi' => $this->namaKerusi($form),
             // Senarai parti daripada Data Induk > Keahlian Parti untuk dropdown.
             'parti' => \App\Models\KeahlianParti::orderBy('sort_order')->orderBy('nama')
                 ->pluck('nama')->map(fn ($n) => trim($n))->filter()->unique()->values(),
-            'pusat' => [
-                'dm' => $pusat->dm,
-                'pusat' => $pusat->pusat,
-            ],
-            'saluran' => $pusat->saluranList->map(fn (PacaSaluran $s) => [
-                'id' => $s->id,
-                'label' => $s->label,
-                'slot' => $s->slots->map(fn (PacaSlot $sl) => $this->slotAwamPayload($sl))->all(),
+            'pusat' => $form->pusatList->map(fn (PacaPusat $p) => [
+                'id' => $p->id,
+                'dm' => $p->dm,
+                'pusat' => $p->pusat,
+                'saluran' => $p->saluranList->map(fn (PacaSaluran $s) => [
+                    'id' => $s->id,
+                    'label' => $s->label,
+                    'slot' => $s->slots->map(fn (PacaSlot $sl) => $this->slotAwamPayload($sl))->all(),
+                ])->all(),
             ])->all(),
         ]);
     }
 
+    /** Nama kerusi untuk pengepala awam — 'DUN Juasseh' / 'Parlimen Segamat', atau null. */
+    private function namaKerusi(PacaForm $form): ?string
+    {
+        $isParlimen = $form->kawasan_type === 'parlimen';
+        $nama = $isParlimen
+            ? \App\Models\Bandar::whereKey($form->kawasan_id)->value('nama')
+            : \App\Models\Kadun::whereKey($form->kawasan_id)->value('nama');
+
+        return $nama ? (($isParlimen ? 'Parlimen ' : 'DUN ').$nama) : null;
+    }
+
     /**
      * Petugas mendaftar diri ke dalam satu slot kosong. Slot mesti kepunyaan
-     * Pusat token ini (id boleh diteka — semakan whereHas menghalang
-     * pengisian slot Pusat lain melalui token sendiri) DAN masih kosong.
-     * Dibalut DB::transaction dengan lockForUpdate supaya dua petugas yang
-     * cuba mengisi slot terbuka yang sama serentak tidak berlanggar senyap.
+     * MANA-MANA Pusat kerusi token ini (id boleh diteka — semakan whereHas
+     * menghalang pengisian slot kerusi LAIN melalui token sendiri) DAN masih
+     * kosong. Dibalut DB::transaction dengan lockForUpdate supaya dua petugas
+     * yang cuba mengisi slot terbuka yang sama serentak tidak berlanggar senyap.
      */
     public function hantar(Request $request, string $token)
     {
-        $pusat = PacaPusat::where('public_token', $token)->firstOrFail();
+        $form = PacaForm::where('public_token', $token)->firstOrFail();
 
         $validated = $request->validate([
             'paca_slot_id' => 'required|integer',
@@ -75,11 +90,11 @@ class PacaPublicController extends Controller
         }
 
         $slot = PacaSlot::whereKey($validated['paca_slot_id'])
-            ->whereHas('saluran', fn ($q) => $q->where('paca_pusat_id', $pusat->id))
+            ->whereHas('saluran.pusat', fn ($q) => $q->where('paca_form_id', $form->id))
             ->first();
 
         if (! $slot) {
-            abort(404, 'Slot tidak wujud bagi Pusat ini.');
+            abort(404, 'Slot tidak wujud bagi kerusi ini.');
         }
 
         DB::transaction(function () use ($validated, $slot) {
