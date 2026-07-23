@@ -90,26 +90,31 @@ class PacaBuilderService
      */
     public function buildFrom(Borang14Form $form): PacaForm
     {
-        $paca = PacaForm::firstOrCreate(
-            [
-                'kawasan_type' => $form->kawasan_type,
-                'kawasan_id' => $form->kawasan_id,
-                'jenis_pr' => $form->jenis_pr,
-                'tahun' => $form->tahun,
-            ],
-            [
-                'borang14_form_id' => $form->id,
-                'created_by' => auth()->id(),
-            ],
-        );
+        // firstOrCreate DAN semai() dalam SATU transaksi. Jika penyemaian
+        // gagal separuh jalan (cth nama pusat melebihi 255 aksara di bawah
+        // MySQL strict), PacaForm kosong itu TIDAK boleh kekal — jika tidak
+        // wasRecentlyCreated menjadi false selama-lamanya dan kerusi itu jadi
+        // roster kosong yang tidak boleh disemai semula.
+        return DB::transaction(function () use ($form) {
+            $paca = PacaForm::firstOrCreate(
+                [
+                    'kawasan_type' => $form->kawasan_type,
+                    'kawasan_id' => $form->kawasan_id,
+                    'jenis_pr' => $form->jenis_pr,
+                    'tahun' => $form->tahun,
+                ],
+                [
+                    'borang14_form_id' => $form->id,
+                    'created_by' => auth()->id(),
+                ],
+            );
 
-        if ($paca->wasRecentlyCreated) {
-            DB::transaction(function () use ($paca, $form) {
+            if ($paca->wasRecentlyCreated) {
                 $this->semai($paca, $form);
-            });
-        }
+            }
 
-        return $paca;
+            return $paca;
+        });
     }
 
     /**
