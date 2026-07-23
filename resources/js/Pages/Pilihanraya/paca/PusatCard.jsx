@@ -1,9 +1,7 @@
 import { useState } from 'react';
-import { Check, Copy, Loader2, Plus } from 'lucide-react';
+import { Check, Copy, Loader2, Plus, Trash2 } from 'lucide-react';
 import { usePilihanrayaTheme } from '../components/PilihanrayaShell';
-
-/** Ejaan jawatan mesra-baca — 'PA1'/'PA2'/... kekal seperti mana dihantar server, 'CA' dipaparkan penuh. */
-const labelJawatan = (jawatan) => (jawatan === 'CA' ? 'Ketua PACABA (CA)' : jawatan);
+import DragScroll from '../analisa/DragScroll';
 
 /**
  * Satu kad Pusat Mengundi: butiran Ketua PACABA, pautan awam per-Pusat
@@ -12,11 +10,23 @@ const labelJawatan = (jawatan) => (jawatan === 'CA' ? 'Ketua PACABA (CA)' : jawa
  * semuanya diselaraskan oleh Paca.jsx supaya penggabungan (merge) pokok
  * selepas tindakan server berlaku di SATU tempat sahaja.
  */
-export default function PusatCard({ pusat, saving, onChangePusat, onChangeSlot, onTambahSaluran, onTambahSlot }) {
+export default function PusatCard({ pusat, saving, parti = [], onChangePusat, onChangeSlot, onTambahSaluran, onTambahSlot, onBuangSlot }) {
     const { t } = usePilihanrayaTheme();
     const [copied, setCopied] = useState(false);
     const [addingSaluran, setAddingSaluran] = useState(false);
     const [addingSlotFor, setAddingSlotFor] = useState(null);
+    const [buangingSlot, setBuangingSlot] = useState(null);
+
+    const buangSlot = async (slot) => {
+        const adaData = slot.petugas_nama || slot.petugas_kp || slot.petugas_tel || slot.petugas_parti;
+        if (adaData && !window.confirm(`Buang slot ${slot.jawatan}? Butiran petugas yang telah diisi akan hilang.`)) return;
+        setBuangingSlot(slot.id);
+        try {
+            await onBuangSlot(slot.id);
+        } finally {
+            setBuangingSlot(null);
+        }
+    };
 
     const salinPautan = async () => {
         try {
@@ -99,7 +109,7 @@ export default function PusatCard({ pusat, saving, onChangePusat, onChangeSlot, 
                             </button>
                         </div>
 
-                        <div className="overflow-x-auto">
+                        <DragScroll>
                             <table className="min-w-full">
                                 <thead>
                                     <tr>
@@ -110,12 +120,13 @@ export default function PusatCard({ pusat, saving, onChangePusat, onChangeSlot, 
                                         <th className={t.tableHead}>No K/P</th>
                                         <th className={t.tableHead}>No Tel</th>
                                         <th className={t.tableHead}>Parti</th>
+                                        <th className={t.tableHead}><span className="sr-only">Tindakan</span></th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {saluran.slot.map((slot) => (
                                         <tr key={slot.id} className={t.tableRow}>
-                                            <td className={`${t.tableCell} font-medium whitespace-nowrap`}>{labelJawatan(slot.jawatan)}</td>
+                                            <td className={`${t.tableCell} font-medium whitespace-nowrap`}>{slot.jawatan}</td>
                                             <td className={t.tableCell}>
                                                 <input
                                                     type="time"
@@ -165,20 +176,39 @@ export default function PusatCard({ pusat, saving, onChangePusat, onChangeSlot, 
                                                 />
                                             </td>
                                             <td className={t.tableCell}>
-                                                <input
-                                                    className={`${t.input} min-w-[130px]`}
-                                                    list="paca-parti-list"
+                                                <select
+                                                    className={`${t.input} min-w-[150px]`}
                                                     value={slot.petugas_parti ?? ''}
                                                     disabled={saving}
-                                                    onChange={(e) => onChangeSlot(pusat.id, saluran.id, slot.id, { petugas_parti: e.target.value })}
-                                                    placeholder="Parti"
-                                                />
+                                                    onChange={(e) => onChangeSlot(pusat.id, saluran.id, slot.id, { petugas_parti: e.target.value || null })}
+                                                >
+                                                    <option value="">— Pilih Parti —</option>
+                                                    {/* Kekalkan nilai tersimpan walaupun ia tiada dalam Data Induk
+                                                        (mis. data lama) supaya ia tidak hilang secara senyap. */}
+                                                    {slot.petugas_parti && !parti.includes(slot.petugas_parti) && (
+                                                        <option value={slot.petugas_parti}>{slot.petugas_parti}</option>
+                                                    )}
+                                                    {parti.map((p) => <option key={p} value={p}>{p}</option>)}
+                                                </select>
+                                            </td>
+                                            <td className={t.tableCell}>
+                                                {saluran.slot.length > 1 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => buangSlot(slot)}
+                                                        disabled={saving || buangingSlot === slot.id}
+                                                        title={`Buang ${slot.jawatan}`}
+                                                        className="inline-flex items-center justify-center text-slate-400 hover:text-red-600 disabled:opacity-50"
+                                                    >
+                                                        {buangingSlot === slot.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                                                    </button>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
-                        </div>
+                        </DragScroll>
                     </div>
                 ))}
             </div>

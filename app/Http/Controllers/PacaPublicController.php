@@ -34,6 +34,9 @@ class PacaPublicController extends Controller
 
         return Inertia::render('Public/Paca', [
             'token' => $token,
+            // Senarai parti daripada Data Induk > Keahlian Parti untuk dropdown.
+            'parti' => \App\Models\KeahlianParti::orderBy('sort_order')->orderBy('nama')
+                ->pluck('nama')->map(fn ($n) => trim($n))->filter()->unique()->values(),
             'pusat' => [
                 'dm' => $pusat->dm,
                 'pusat' => $pusat->pusat,

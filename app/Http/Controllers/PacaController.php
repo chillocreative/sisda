@@ -42,6 +42,9 @@ class PacaController extends Controller
 
         return Inertia::render('Pilihanraya/Paca', [
             'seats' => $this->builder->seatsWithScoresheet($user->isSuperAdmin() ? null : (int) $user->bandar_id),
+            // Senarai parti daripada Data Induk > Keahlian Parti untuk dropdown.
+            'parti' => \App\Models\KeahlianParti::orderBy('sort_order')->orderBy('nama')
+                ->pluck('nama')->map(fn ($n) => trim($n))->filter()->unique()->values(),
         ]);
     }
 
@@ -401,6 +404,40 @@ class PacaController extends Controller
     }
 
     /** Labelkan semula jawatan seluruh Saluran mengikut urutan (CA kekal terakhir). */
+    /** Buang satu slot (PA); saluran mesti kekal ada sekurang-kurangnya satu. */
+    public function buangSlot(Request $request)
+    {
+        $user = auth()->user();
+        if (! $user->isSuperAdmin() && ! $user->isAdmin()) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $validated = $request->validate([
+            'paca_slot_id' => 'required|integer|exists:paca_slot,id',
+        ]);
+
+        $slot = PacaSlot::with('saluran.pusat.form')->findOrFail($validated['paca_slot_id']);
+        $saluran = $slot->saluran;
+        $form = $saluran->pusat->form;
+
+        $this->assertBolehAkses($user, $form->kawasan_type, (int) $form->kawasan_id);
+
+        if ($saluran->slots()->count() <= 1) {
+            throw ValidationException::withMessages([
+                'paca_slot_id' => 'Saluran mesti ada sekurang-kurangnya satu slot.',
+            ]);
+        }
+
+        DB::transaction(function () use ($slot, $saluran) {
+            $slot->delete();
+            // relabel() menetapkan semula PA1..PAn + CA mengikut kedudukan baharu,
+            // jadi membuang PA2 menjadikan bekas PA3 sebagai PA2, dan CA kekal akhir.
+            $this->relabelSaluran($saluran);
+        });
+
+        return response()->json(['paca' => $this->treePayload($form->fresh())]);
+    }
+
     private function relabelSaluran(PacaSaluran $saluran): void
     {
         $slots = $saluran->slots()->orderBy('urutan')->get();

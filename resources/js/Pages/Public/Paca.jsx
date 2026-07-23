@@ -5,8 +5,6 @@ import { MapPin, Users, CheckCircle2, Loader2, X } from 'lucide-react';
 
 /* ------------------------------- helpers ------------------------------- */
 
-// Senarai parti biasa untuk datalist — petugas boleh taip nilai lain juga.
-const PARTI_SENARAI = ['KEADILAN', 'DAP', 'AMANAH', 'PKR', 'UMNO', 'PAS', 'BERSATU'];
 
 // Petunjuk ringan sahaja di sisi klien — pelayan adalah sumber kebenaran.
 // Terima format berdash (NNNNNN-NN-NNNN) atau 12 digit berturutan.
@@ -14,7 +12,7 @@ const icKelihatanSah = (kp) => /^\d{6}-\d{2}-\d{4}$/.test(kp) || /^\d{12}$/.test
 
 /* ------------------------------ borang slot ----------------------------- */
 
-function BorangSlot({ slot, token, onBerjaya, onBatal }) {
+function BorangSlot({ slot, token, partiSenarai = [], onBerjaya, onBatal }) {
     const [nama, setNama] = useState('');
     const [kp, setKp] = useState('');
     const [tel, setTel] = useState('');
@@ -92,15 +90,13 @@ function BorangSlot({ slot, token, onBerjaya, onBatal }) {
 
             <label className="block">
                 <span className="text-xs font-medium text-slate-600 mb-1 block">Parti</span>
-                <input
-                    type="text" value={parti} onChange={(e) => setParti(e.target.value)}
-                    list="paca-senarai-parti"
+                <select
+                    value={parti} onChange={(e) => setParti(e.target.value)}
                     className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-400 focus:outline-none"
-                    placeholder="Contoh: KEADILAN"
-                />
-                <datalist id="paca-senarai-parti">
-                    {PARTI_SENARAI.map((p) => <option key={p} value={p} />)}
-                </datalist>
+                >
+                    <option value="">— Pilih Parti —</option>
+                    {partiSenarai.map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
             </label>
 
             {ralat && (
@@ -120,7 +116,7 @@ function BorangSlot({ slot, token, onBerjaya, onBatal }) {
 
 /* ------------------------------ baris slot ------------------------------ */
 
-function BarisSlot({ slot, token, aktif, onBuka, onTutup, onBerjaya }) {
+function BarisSlot({ slot, token, parti, aktif, onBuka, onTutup, onBerjaya }) {
     return (
         <li className="py-3 first:pt-0 last:pb-0">
             <div className="flex items-center justify-between gap-3">
@@ -152,7 +148,7 @@ function BarisSlot({ slot, token, aktif, onBuka, onTutup, onBerjaya }) {
             </div>
 
             {aktif && !slot.terisi && (
-                <BorangSlot slot={slot} token={token} onBerjaya={onBerjaya} onBatal={onTutup} />
+                <BorangSlot slot={slot} token={token} partiSenarai={parti} onBerjaya={onBerjaya} onBatal={onTutup} />
             )}
         </li>
     );
@@ -160,7 +156,7 @@ function BarisSlot({ slot, token, aktif, onBuka, onTutup, onBerjaya }) {
 
 /* -------------------------------- saluran -------------------------------- */
 
-function BlokSaluran({ saluran, token, slotAktif, setSlotAktif, onBerjaya }) {
+function BlokSaluran({ saluran, token, parti, slotAktif, setSlotAktif, onBerjaya }) {
     return (
         <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-4 sm:p-5">
             <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-2">
@@ -172,6 +168,7 @@ function BlokSaluran({ saluran, token, slotAktif, setSlotAktif, onBerjaya }) {
                         key={slot.id}
                         slot={slot}
                         token={token}
+                        parti={parti}
                         aktif={slotAktif === slot.id}
                         onBuka={() => setSlotAktif(slot.id)}
                         onTutup={() => setSlotAktif(null)}
@@ -185,7 +182,7 @@ function BlokSaluran({ saluran, token, slotAktif, setSlotAktif, onBerjaya }) {
 
 /* -------------------------------- halaman -------------------------------- */
 
-export default function PublicPaca({ token, pusat, saluran = [] }) {
+export default function PublicPaca({ token, pusat, saluran = [], parti = [] }) {
     const [slotAktif, setSlotAktif] = useState(null);
     const [tunjukTerimaKasih, setTunjukTerimaKasih] = useState(false);
 
@@ -235,6 +232,7 @@ export default function PublicPaca({ token, pusat, saluran = [] }) {
                                 key={s.id}
                                 saluran={s}
                                 token={token}
+                                parti={parti}
                                 slotAktif={slotAktif}
                                 setSlotAktif={setSlotAktif}
                                 onBerjaya={segarkan}

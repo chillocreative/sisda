@@ -23,6 +23,10 @@ export default function DragScroll({ children, className = '' }) {
     const onDown = (e) => {
         const el = ref.current;
         if (!el || !scrollable) return;
+        // Jangan rampas mousedown yang bermula pada kawalan borang — jika tidak,
+        // mengklik ke dalam input/select dalam jadual akan mencetuskan seretan
+        // dan mematikan pemilihan teks. Seret hanya pada kawasan bukan-kawalan.
+        if (e.target.closest('input, select, textarea, button, a, [contenteditable="true"]')) return;
         drag.current = { down: true, startX: e.pageX - el.offsetLeft, scrollLeft: el.scrollLeft };
     };
     const onMove = (e) => {

@@ -496,6 +496,7 @@ Route::middleware(['auth', 'admin'])->prefix('pilihanraya')->name('pilihanraya.'
     Route::post('/paca/simpan', [\App\Http\Controllers\PacaController::class, 'simpan'])->name('paca.simpan')->middleware('throttle:30,1');
     Route::post('/paca/saluran/tambah', [\App\Http\Controllers\PacaController::class, 'tambahSaluran'])->name('paca.saluran.tambah')->middleware('throttle:30,1');
     Route::post('/paca/slot/tambah', [\App\Http\Controllers\PacaController::class, 'tambahSlot'])->name('paca.slot.tambah')->middleware('throttle:30,1');
+    Route::post('/paca/slot/buang', [\App\Http\Controllers\PacaController::class, 'buangSlot'])->name('paca.slot.buang')->middleware('throttle:30,1');
     Route::get('/paca/sejarah', [\App\Http\Controllers\PacaController::class, 'sejarah'])->name('paca.sejarah');
     Route::post('/paca/pulih', [\App\Http\Controllers\PacaController::class, 'pulih'])->name('paca.pulih')->middleware('throttle:20,1');
 

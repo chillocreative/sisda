@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Head } from '@inertiajs/react';
 import axios from 'axios';
 import { Check, History, Loader2, Save, Users } from 'lucide-react';
@@ -8,7 +8,6 @@ import SeatPicker from './paca/SeatPicker';
 import PusatCard from './paca/PusatCard';
 import SejarahDrawer from './paca/SejarahDrawer';
 
-const HARDCODED_PARTI = ['KEADILAN', 'DAP', 'AMANAH', 'PKR', 'UMNO', 'PAS', 'BERSATU/PPBM'];
 
 /**
  * Gabungkan pokok BAHARU daripada server (selepas Tambah Saluran/Tambah PA)
@@ -98,7 +97,7 @@ const extractError = (e, fallback) => {
     return data.message || fallback;
 };
 
-function PacaEditor({ seat }) {
+function PacaEditor({ seat, parti }) {
     const { t } = usePilihanrayaTheme();
     const [draft, setDraft] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -132,18 +131,6 @@ function PacaEditor({ seat }) {
         return () => { cancelled = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [seat?.kawasan_type, seat?.kawasan_id, seat?.jenis_pr, seat?.tahun]);
-
-    const partiOptions = useMemo(() => {
-        const fromDraft = (draft?.pusat ?? [])
-            .flatMap((p) => p.saluran.flatMap((s) => s.slot.map((sl) => sl.petugas_parti)))
-            .filter(Boolean);
-        const seen = new Map();
-        [...HARDCODED_PARTI, ...fromDraft].forEach((nama) => {
-            const key = nama.trim().toUpperCase();
-            if (key && !seen.has(key)) seen.set(key, nama.trim());
-        });
-        return [...seen.values()].sort((a, b) => a.localeCompare(b, 'ms'));
-    }, [draft]);
 
     const changePusat = (pusatId, patch) => {
         setSavedOk(false);
@@ -192,6 +179,18 @@ function PacaEditor({ seat }) {
         }
     };
 
+    const buangSlot = async (slotId) => {
+        setSaveError('');
+        try {
+            // Buang mengubah struktur saluran (relabel PA); gabung dengan respons
+            // server supaya jawatan/urutan sentiasa sepadan DB.
+            const { data } = await axios.post(route('pilihanraya.paca.slot.buang'), { paca_slot_id: slotId });
+            setDraft((prev) => mergeTree(prev, data.paca));
+        } catch (e) {
+            setSaveError(extractError(e, 'Gagal membuang slot.'));
+        }
+    };
+
     const simpan = async () => {
         if (!draft) return;
         setSaving(true);
@@ -218,9 +217,6 @@ function PacaEditor({ seat }) {
 
     return (
         <div>
-            <datalist id="paca-parti-list">
-                {partiOptions.map((p) => <option key={p} value={p} />)}
-            </datalist>
 
             {loading && (
                 <div className="flex items-center gap-2 text-sm text-slate-500 py-8 justify-center">
@@ -268,10 +264,12 @@ function PacaEditor({ seat }) {
                                 key={pusat.id}
                                 pusat={pusat}
                                 saving={saving}
+                                parti={parti}
                                 onChangePusat={changePusat}
                                 onChangeSlot={changeSlot}
                                 onTambahSaluran={tambahSaluran}
                                 onTambahSlot={tambahSlot}
+                                onBuangSlot={buangSlot}
                             />
                         ))}
                     </div>
@@ -288,7 +286,7 @@ function PacaEditor({ seat }) {
     );
 }
 
-export default function Paca({ seats }) {
+export default function Paca({ seats, parti = [] }) {
     const [seat, setSeat] = useState(null);
 
     return (
@@ -310,7 +308,7 @@ export default function Paca({ seats }) {
                     )}
                 </div>
 
-                {seat && <PacaEditor key={`${seat.kawasan_type}-${seat.kawasan_id}-${seat.jenis_pr}-${seat.tahun}`} seat={seat} />}
+                {seat && <PacaEditor key={`${seat.kawasan_type}-${seat.kawasan_id}-${seat.jenis_pr}-${seat.tahun}`} seat={seat} parti={parti} />}
             </PilihanrayaShell>
         </AuthenticatedLayout>
     );

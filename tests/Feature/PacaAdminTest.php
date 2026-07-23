@@ -207,6 +207,48 @@ class PacaAdminTest extends TestCase
         $this->assertNull(collect($saluran['slot'])->firstWhere('jawatan', 'CA')['masa_tamat']);
     }
 
+    public function test_delete_slot_removes_the_row_and_relabels(): void
+    {
+        $this->borang14();
+        $user = $this->user();
+        $tree = $this->pacaTree($user);
+        $saluranId = $tree['pusat'][0]['saluran'][0]['id'];
+        // Buang PA2 daripada [PA1, PA2, PA3, CA] -> [PA1, PA2(bekas PA3), CA].
+        $pa2 = collect($tree['pusat'][0]['saluran'][0]['slot'])->firstWhere('jawatan', 'PA2');
+
+        $res = $this->actingAs($user)->postJson(route('pilihanraya.paca.slot.buang'), [
+            'paca_slot_id' => $pa2['id'],
+        ]);
+
+        $res->assertOk();
+        $saluran = collect(collect($res->json('paca.pusat'))->firstWhere('id', $tree['pusat'][0]['id'])['saluran'])
+            ->firstWhere('id', $saluranId);
+
+        $this->assertSame(['PA1', 'PA2', 'CA'], array_column($saluran['slot'], 'jawatan'));
+        $this->assertFalse(collect($saluran['slot'])->contains('id', $pa2['id']));
+    }
+
+    public function test_delete_slot_refuses_to_empty_a_saluran(): void
+    {
+        $this->borang14();
+        $user = $this->user();
+        $tree = $this->pacaTree($user);
+        $saluranId = $tree['pusat'][0]['saluran'][0]['id'];
+
+        // Buang sehingga tinggal satu slot.
+        $ids = array_column($tree['pusat'][0]['saluran'][0]['slot'], 'id');
+        foreach (array_slice($ids, 0, count($ids) - 1) as $id) {
+            $this->actingAs($user)->postJson(route('pilihanraya.paca.slot.buang'), ['paca_slot_id' => $id])->assertOk();
+        }
+
+        // Slot terakhir tidak boleh dibuang — saluran mesti ada sekurang-kurangnya satu.
+        $this->actingAs($user)
+            ->postJson(route('pilihanraya.paca.slot.buang'), ['paca_slot_id' => end($ids)])
+            ->assertStatus(422);
+
+        $this->assertSame(1, \App\Models\PacaSaluran::whereKey($saluranId)->first()->slots()->count());
+    }
+
     public function test_add_saluran_appends_with_default_slots(): void
     {
         $this->borang14();
