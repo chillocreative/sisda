@@ -18,6 +18,15 @@ Route::get('/scoreboard/{kadun}/data', [\App\Http\Controllers\ScoreboardControll
 Route::get('/scoreboard/{kadun?}', [\App\Http\Controllers\ScoreboardController::class, 'publicShow'])
     ->whereNumber('kadun')->name('scoreboard.public');
 
+// Public per-Pusat PACA link — no login required. A coordinator shares this
+// token URL with a petugas, who self-registers into an empty slot. See
+// PacaPublicController for the privacy rule (never petugas_kp/petugas_tel of
+// existing fillers). Standalone — NOT inside the auth/admin 'pilihanraya' group.
+Route::get('/paca/{token}', [\App\Http\Controllers\PacaPublicController::class, 'show'])
+    ->name('paca.public');
+Route::post('/paca/{token}/hantar', [\App\Http\Controllers\PacaPublicController::class, 'hantar'])
+    ->name('paca.public.hantar')->middleware('throttle:20,1');
+
 Route::get('/dashboard', [\App\Http\Controllers\DashboardController::class, 'index'])
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
