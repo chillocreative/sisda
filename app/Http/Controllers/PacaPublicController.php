@@ -65,11 +65,12 @@ class PacaPublicController extends Controller
     }
 
     /**
-     * Petugas mendaftar diri ke dalam satu slot kosong. Slot mesti kepunyaan
-     * MANA-MANA Pusat kerusi token ini (id boleh diteka — semakan whereHas
-     * menghalang pengisian slot kerusi LAIN melalui token sendiri) DAN masih
-     * kosong. Dibalut DB::transaction dengan lockForUpdate supaya dua petugas
-     * yang cuba mengisi slot terbuka yang sama serentak tidak berlanggar senyap.
+     * Petugas mendaftar diri ke dalam satu slot — kosong ATAU terisi (kemas
+     * kini/tulis ganti dibenarkan supaya petugas boleh membetulkan butiran
+     * sendiri). Slot mesti kepunyaan MANA-MANA Pusat kerusi token ini (id
+     * boleh diteka — semakan whereHas menghalang pengisian slot kerusi LAIN
+     * melalui token sendiri). Dibalut DB::transaction dengan lockForUpdate
+     * supaya tulisan serentak ke slot yang sama tidak berlanggar senyap.
      */
     public function hantar(Request $request, string $token)
     {
@@ -98,16 +99,12 @@ class PacaPublicController extends Controller
         }
 
         DB::transaction(function () use ($validated, $slot) {
-            // Kunci baris dan semak semula ia masih kosong di dalam
-            // transaksi ini — dua petugas boleh cuba mengisi slot terbuka
-            // yang sama serentak antara semakan di atas dan tulisan ini.
+            // Kunci baris untuk menyerikan tulisan serentak. Slot yang SUDAH
+            // diisi BOLEH dikemas kini (ditulis ganti) — petugas membetulkan
+            // butiran sendiri melalui pautan awam. Nama/KP/Tel kekal WAJIB
+            // (lihat validate di atas), jadi kemaskini hanya MENGGANTIKAN
+            // dengan pendaftaran sah lain, bukan mengosongkan slot.
             $terkini = PacaSlot::whereKey($slot->id)->lockForUpdate()->first();
-
-            if ($terkini->petugas_nama !== null) {
-                throw ValidationException::withMessages([
-                    'paca_slot_id' => 'slot ini sudah diisi',
-                ]);
-            }
 
             $terkini->update([
                 'petugas_nama' => $validated['petugas_nama'],

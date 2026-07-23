@@ -137,8 +137,11 @@ class PacaPublicTest extends TestCase
         $this->assertSame('BEBAS', $slot->petugas_parti);
     }
 
-    public function test_submit_to_an_already_filled_slot_is_422(): void
+    public function test_submit_to_a_filled_slot_overwrites_it(): void
     {
+        // Slot terisi BOLEH dikemas kini melalui pautan awam — petugas
+        // membetulkan butiran sendiri. Nama/KP/Tel kekal wajib, jadi kemaskini
+        // hanya MENGGANTIKAN dengan pendaftaran sah lain, bukan mengosongkan.
         $form = $this->form();
         $slot = $this->slot($this->saluran($this->pusat($form)), [
             'petugas_nama' => 'SEDIA ADA', 'petugas_kp' => self::IC_SAH,
@@ -148,12 +151,14 @@ class PacaPublicTest extends TestCase
         $res = $this->postJson(route('paca.public.hantar', $form->public_token), [
             'paca_slot_id' => $slot->id,
             'petugas_nama' => 'BARU', 'petugas_kp' => self::IC_SAH,
-            'petugas_tel' => '012-3456789', 'petugas_parti' => 'BEBAS',
+            'petugas_tel' => '012-3456789', 'petugas_parti' => 'PAKATAN HARAPAN',
         ]);
 
-        $res->assertStatus(422);
-        $this->assertStringContainsString('slot ini sudah diisi', json_encode($res->json()));
-        $this->assertSame('SEDIA ADA', $slot->refresh()->petugas_nama);
+        $res->assertOk();
+        $slot->refresh();
+        $this->assertSame('BARU', $slot->petugas_nama);
+        $this->assertSame('012-3456789', $slot->petugas_tel);
+        $this->assertSame('PAKATAN HARAPAN', $slot->petugas_parti);
     }
 
     public function test_invalid_ic_is_422(): void
