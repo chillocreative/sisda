@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Head } from '@inertiajs/react';
 import axios from 'axios';
 import { Check, Copy, FileDown, History, Loader2, Save, Send, Users, X } from 'lucide-react';
@@ -410,8 +410,24 @@ function PacaEditor({ seat, parti }) {
     );
 }
 
-export default function Paca({ seats, parti = [] }) {
-    const [seat, setSeat] = useState(null);
+export default function Paca({ seats, parti = [], rememberedFilters = {} }) {
+    // Pulihkan kerusi terakhir dipilih daripada `rememberedFilters` — prop
+    // sejagat yang disemai oleh RememberFilters (sesi, dibersihkan pada logout,
+    // skop 'paca'). Cari padanan dalam `seats` semasa; abaikan jika tiada
+    // padanan (mis. scoresheet dibuang atau skop admin bertukar). Sama seperti
+    // War Room/Analisa/Borang 14 yang turut menyemai daripada rememberedFilters.
+    const restored = useMemo(() => {
+        const rf = rememberedFilters || {};
+        if (!rf.kawasan_type || !rf.kawasan_id) return null;
+        return seats.find((s) =>
+            s.kawasan_type === rf.kawasan_type
+            && String(s.kawasan_id) === String(rf.kawasan_id)
+            && s.jenis_pr === rf.jenis_pr
+            && String(s.tahun) === String(rf.tahun),
+        ) ?? null;
+    }, [seats, rememberedFilters]);
+
+    const [seat, setSeat] = useState(restored);
 
     return (
         <AuthenticatedLayout>
@@ -428,7 +444,7 @@ export default function Paca({ seats, parti = [] }) {
                             kerusi yang telah mempunyai Borang 14 (scoresheet).
                         </p>
                     ) : (
-                        <SeatPicker seats={seats} onSelect={setSeat} />
+                        <SeatPicker seats={seats} initial={restored} onSelect={setSeat} />
                     )}
                 </div>
 

@@ -35,13 +35,17 @@ function Field({ label, icon: Icon, children }) {
  * (kawasan_type=parlimen) tidak bertembung dengan id Kadun yang berlainan
  * ruang nombor.
  */
-export default function SeatPicker({ seats, onSelect }) {
+export default function SeatPicker({ seats, onSelect, initial = null }) {
     const { t } = usePilihanrayaTheme();
 
-    const [negeri, setNegeri] = useState('');
-    const [parlimen, setParlimen] = useState('');
-    const [kawasanKey, setKawasanKey] = useState('');
-    const [prKey, setPrKey] = useState('');
+    // Semai dropdown daripada kerusi tersimpan (sesi) supaya pilihan kekal
+    // apabila pengguna kembali ke halaman. `initial` ialah objek kerusi penuh
+    // yang sudah dipadan dengan `seats` oleh induk (Paca.jsx) — jadi negeri/
+    // parlimen/kawasan pasti wujud dalam pilihan.
+    const [negeri, setNegeri] = useState(initial?.negeri ?? '');
+    const [parlimen, setParlimen] = useState(initial?.parlimen ?? '');
+    const [kawasanKey, setKawasanKey] = useState(initial ? kawasanKeyOf(initial) : '');
+    const [prKey, setPrKey] = useState(initial ? prKeyOf(initial) : '');
 
     const negeriOptions = useMemo(() => uniqSorted(seats.map((s) => s.negeri)), [seats]);
 

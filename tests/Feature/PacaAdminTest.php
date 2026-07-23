@@ -517,4 +517,30 @@ class PacaAdminTest extends TestCase
             ->assertStatus(422)
             ->assertJsonValidationErrorFor('telefon');
     }
+
+    public function test_seat_selection_is_remembered_until_logout(): void
+    {
+        $this->borang14();
+        $user = $this->user();
+
+        // Memilih kerusi (XHR data()) menyimpan skop 'paca' dalam sesi.
+        $this->actingAs($user)
+            ->getJson(route('pilihanraya.paca.data', $this->kawasanPayload()))
+            ->assertOk()
+            ->assertSessionHas('sticky_filters.paca');
+
+        // Kembali ke halaman PACA (GET kosong) -> rememberedFilters dikongsi
+        // supaya SeatPicker boleh menyemai semula dropdown.
+        $this->actingAs($user)
+            ->get(route('pilihanraya.paca'))
+            ->assertInertia(fn ($page) => $page
+                ->where('rememberedFilters.kawasan_type', 'dun')
+                ->where('rememberedFilters.kawasan_id', (string) $this->kadun->id));
+
+        // Log keluar membatalkan sesi -> pilihan dilupakan (kunci tiada lagi).
+        $this->post(route('logout'));
+        $this->actingAs($user)
+            ->get(route('pilihanraya.paca'))
+            ->assertInertia(fn ($page) => $page->missing('rememberedFilters.kawasan_type'));
+    }
 }

@@ -100,6 +100,19 @@ return [
         'keys' => ['kawasan'],
     ],
 
+    // PACA: SeatPicker sentiasa memaksa satu kerusi sebenar (Negeri->Parlimen->
+    // DUN[->PR]) — tiada pilihan "Semua", jadi tiada konsep "kosongkan" untuk
+    // dipecahkan (sama seperti kaum_dm/minima). Memulihkan kerusi terakhir
+    // pada navigasi kosong ialah gelagat yang betul. Laluan XHR data()
+    // berkongsi skop halaman supaya pemuatan roster merangkap penyimpanan;
+    // .pdf/.whatsapp SENGAJA TIDAK disenaraikan (POST tidak diubah langsung,
+    // dan .pdf hanya mencetak kerusi terpilih semasa — tiada nilai baharu
+    // untuk diingat). Paca.jsx menyemai SeatPicker daripada rememberedFilters.
+    'paca' => [
+        'routes' => ['pilihanraya.paca', 'pilihanraya.paca.data'],
+        'keys' => ['kawasan_type', 'kawasan_id', 'jenis_pr', 'tahun'],
+    ],
+
     // Analisa/KawasanPicker.jsx menyemai negeriId/bandarId/kadunId daripada
     // rememberedFilters dan mengosongkan skop sepenuhnya (EmptyState, tiada
     // XHR) apabila dikosongkan — tiada risiko "Semua" palsu sambil data
