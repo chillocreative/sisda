@@ -1,5 +1,9 @@
 import { useMemo, useState } from 'react';
-import { CalendarDays, Landmark, ListFilter, Map, MapPin } from 'lucide-react';
+// `Map` diimport sebagai MapIcon — mengimportnya sebagai `Map` menindih
+// pembina global Map, jadi `new Map()` di bawah (kawasanOptions) melempar
+// "Map is not a constructor" dan halaman menjadi putih apabila Parlimen
+// dipilih. Jangan namakan mana-mana ikon lucide dengan nama global (Map/Set).
+import { CalendarDays, Landmark, ListFilter, Map as MapIcon, MapPin } from 'lucide-react';
 import { usePilihanrayaTheme } from '../components/PilihanrayaShell';
 
 const JENIS_PR_LABEL = { pru: 'PRU', prn: 'PRN', prk: 'PRK' };
@@ -82,7 +86,7 @@ export default function SeatPicker({ seats, onSelect }) {
 
     return (
         <div className={`grid grid-cols-1 sm:grid-cols-2 ${needsPrChoice ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-3`}>
-            <Field label="Negeri" icon={Map}>
+            <Field label="Negeri" icon={MapIcon}>
                 <select
                     className={t.input}
                     value={negeri}
