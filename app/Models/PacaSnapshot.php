@@ -29,6 +29,9 @@ class PacaSnapshot extends Model
 
     public function form(): BelongsTo
     {
-        return $this->belongsTo(PacaForm::class);
+        // Kunci asing DIEKSPLISIT — sama seperti PacaPusat::form(), tekaan
+        // lalai ('form_id') tidak sepadan dengan lajur migrasi sebenar
+        // ('paca_form_id'); tanpa ini eager-load senyap memulangkan null.
+        return $this->belongsTo(PacaForm::class, 'paca_form_id');
     }
 }

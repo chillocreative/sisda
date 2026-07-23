@@ -14,7 +14,14 @@ class PacaPusat extends Model
 
     public function form(): BelongsTo
     {
-        return $this->belongsTo(PacaForm::class);
+        // Kunci asing DIEKSPLISIT — tekaan lalai Laravel bagi kaedah
+        // bernama form() ialah 'form_id', tetapi lajur sebenar (migrasi
+        // Tugasan 1) ialah 'paca_form_id'. Tanpa ini, eager-load senyap
+        // memulangkan null (bukan ralat SQL, kerana lajur 'form_id' langsung
+        // tiada pada model ini) — Tugasan 4 (tambahSaluran/tambahSlot yang
+        // menyusuri pusat->form) pecah dengan "Attempt to read property...
+        // on null" tanpa petunjuk sebabnya.
+        return $this->belongsTo(PacaForm::class, 'paca_form_id');
     }
 
     public function saluranList(): HasMany

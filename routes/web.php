@@ -478,6 +478,18 @@ Route::middleware(['auth', 'admin'])->prefix('pilihanraya')->name('pilihanraya.'
     // bergantung pada tapisan senarai sahaja, id boleh diteka.
     Route::get('/borang-14/upload/{upload}/fail', [\App\Http\Controllers\Borang14Controller::class, 'muatTurunUpload'])->name('borang-14.upload.fail');
 
+    // PACA — roster petugas PACABA (Pusat->Saluran->slot), disemai daripada
+    // struktur scoresheet Borang 14. Laluan awam per-Pusat (token) TIADA di
+    // sini — lihat PacaPublicController (Tugasan 5), berdiri sendiri di luar
+    // kumpulan auth ini.
+    Route::get('/paca', [\App\Http\Controllers\PacaController::class, 'index'])->name('paca');
+    Route::get('/paca/data', [\App\Http\Controllers\PacaController::class, 'data'])->name('paca.data');
+    Route::post('/paca/simpan', [\App\Http\Controllers\PacaController::class, 'simpan'])->name('paca.simpan')->middleware('throttle:30,1');
+    Route::post('/paca/saluran/tambah', [\App\Http\Controllers\PacaController::class, 'tambahSaluran'])->name('paca.saluran.tambah')->middleware('throttle:30,1');
+    Route::post('/paca/slot/tambah', [\App\Http\Controllers\PacaController::class, 'tambahSlot'])->name('paca.slot.tambah')->middleware('throttle:30,1');
+    Route::get('/paca/sejarah', [\App\Http\Controllers\PacaController::class, 'sejarah'])->name('paca.sejarah');
+    Route::post('/paca/pulih', [\App\Http\Controllers\PacaController::class, 'pulih'])->name('paca.pulih')->middleware('throttle:20,1');
+
     // War Room tab data (lazy-loaded, cached aggregates)
     Route::get('/api/overview', [\App\Http\Controllers\PilihanrayaController::class, 'overview'])->name('api.overview');
     Route::get('/api/composition', [\App\Http\Controllers\PilihanrayaController::class, 'composition'])->name('api.composition');
