@@ -6,6 +6,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PilihanrayaShell, { usePilihanrayaTheme } from './components/PilihanrayaShell';
 import SeatPicker from './paca/SeatPicker';
 import PusatCard from './paca/PusatCard';
+import RingkasanPaca from './paca/RingkasanPaca';
 import SejarahDrawer from './paca/SejarahDrawer';
 
 
@@ -221,6 +222,12 @@ function PacaEditor({ seat, parti }) {
         }
     };
 
+    // Tatal ke kad Pusat tertentu apabila baris ringkasan diklik. scroll-mt
+    // pada pembalut memberi ruang untuk bar tindakan lekat (sticky) di atas.
+    const lompatKePusat = (pusatId) => {
+        document.getElementById(`pusat-${pusatId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
     const pulih = async (snapshotId) => {
         const { data } = await axios.post(route('pilihanraya.paca.pulih'), { snapshot_id: snapshotId });
         setDraft(data.paca);
@@ -277,19 +284,22 @@ function PacaEditor({ seat, parti }) {
                         </div>
                     )}
 
+                    <RingkasanPaca pusatList={draft.pusat} onLompat={lompatKePusat} />
+
                     <div className="space-y-5">
                         {draft.pusat.map((pusat) => (
-                            <PusatCard
-                                key={pusat.id}
-                                pusat={pusat}
-                                saving={saving}
-                                parti={parti}
-                                onChangePusat={changePusat}
-                                onChangeSlot={changeSlot}
-                                onTambahSaluran={tambahSaluran}
-                                onTambahSlot={tambahSlot}
-                                onBuangSlot={buangSlot}
-                            />
+                            <div key={pusat.id} id={`pusat-${pusat.id}`} className="scroll-mt-24">
+                                <PusatCard
+                                    pusat={pusat}
+                                    saving={saving}
+                                    parti={parti}
+                                    onChangePusat={changePusat}
+                                    onChangeSlot={changeSlot}
+                                    onTambahSaluran={tambahSaluran}
+                                    onTambahSlot={tambahSlot}
+                                    onBuangSlot={buangSlot}
+                                />
+                            </div>
                         ))}
                     </div>
 
