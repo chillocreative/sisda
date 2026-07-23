@@ -171,13 +171,25 @@ function PacaEditor({ seat }) {
     };
 
     const tambahSaluran = async (pusatId) => {
-        const { data } = await axios.post(route('pilihanraya.paca.saluran.tambah'), { paca_pusat_id: pusatId });
-        setDraft((prev) => mergeTree(prev, data.paca));
+        setSaveError('');
+        try {
+            const { data } = await axios.post(route('pilihanraya.paca.saluran.tambah'), { paca_pusat_id: pusatId });
+            setDraft((prev) => mergeTree(prev, data.paca));
+        } catch (e) {
+            // Tanpa ini, kegagalan (skop 403, throttle 429, rangkaian) hilang
+            // senyap — spinner berhenti dan tiada apa muncul.
+            setSaveError(extractError(e, 'Gagal menambah saluran.'));
+        }
     };
 
     const tambahSlot = async (saluranId) => {
-        const { data } = await axios.post(route('pilihanraya.paca.slot.tambah'), { paca_saluran_id: saluranId });
-        setDraft((prev) => mergeTree(prev, data.paca));
+        setSaveError('');
+        try {
+            const { data } = await axios.post(route('pilihanraya.paca.slot.tambah'), { paca_saluran_id: saluranId });
+            setDraft((prev) => mergeTree(prev, data.paca));
+        } catch (e) {
+            setSaveError(extractError(e, 'Gagal menambah PA.'));
+        }
     };
 
     const simpan = async () => {
