@@ -23,7 +23,7 @@ Route::get('/scoreboard/{kadun?}', [\App\Http\Controllers\ScoreboardController::
 // PacaPublicController for the privacy rule (never petugas_kp/petugas_tel of
 // existing fillers). Standalone — NOT inside the auth/admin 'pilihanraya' group.
 Route::get('/paca/{token}', [\App\Http\Controllers\PacaPublicController::class, 'show'])
-    ->name('paca.public');
+    ->name('paca.public')->middleware('throttle:60,1');
 Route::post('/paca/{token}/hantar', [\App\Http\Controllers\PacaPublicController::class, 'hantar'])
     ->name('paca.public.hantar')->middleware('throttle:20,1');
 
