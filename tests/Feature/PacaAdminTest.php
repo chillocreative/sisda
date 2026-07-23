@@ -267,6 +267,30 @@ class PacaAdminTest extends TestCase
         $this->assertSame('AZMI', $slotPa1->petugas_nama, 'Pulih mesti mengembalikan petugas yang disimpan snapshot itu.');
     }
 
+    public function test_save_rejects_malformed_slot_time(): void
+    {
+        $this->borang14();
+        $user = $this->user();
+        $tree = $this->pacaTree($user);
+
+        $payload = $this->simpanPayloadFrom($tree, function ($data, $slot) {
+            if ($slot['jawatan'] === 'PA1') {
+                // masa_tamat sengaja dibiar null supaya semakan perniagaan
+                // minimumMet() (yang terlepas pasang bila salah satu masa
+                // kosong) tidak "menangkap" nilai tidak sah ini secara
+                // kebetulan — hanya date_format:H:i patut menolaknya.
+                $data['masa_mula'] = '99:99';
+                $data['masa_tamat'] = null;
+            }
+
+            return $data;
+        });
+
+        $res = $this->actingAs($user)->postJson(route('pilihanraya.paca.simpan'), $payload);
+
+        $res->assertStatus(422);
+    }
+
     public function test_out_of_scope_admin_gets_403(): void
     {
         $this->borang14();
