@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Head } from '@inertiajs/react';
 import axios from 'axios';
-import { Check, Copy, History, Loader2, Save, Users } from 'lucide-react';
+import { Check, Copy, FileDown, History, Loader2, Save, Users } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PilihanrayaShell, { usePilihanrayaTheme } from './components/PilihanrayaShell';
 import SeatPicker from './paca/SeatPicker';
@@ -206,7 +206,7 @@ function PacaEditor({ seat, parti }) {
     };
 
     const simpan = async () => {
-        if (!draft) return;
+        if (!draft) return false;
         setSaving(true);
         setSaveError('');
         setSavedOk(false);
@@ -215,11 +215,27 @@ function PacaEditor({ seat, parti }) {
             setDraft(data.paca);
             setSavedOk(true);
             setTimeout(() => setSavedOk(false), 3000);
+            return true;
         } catch (e) {
             setSaveError(extractError(e, 'Gagal menyimpan roster PACA.'));
+            return false;
         } finally {
             setSaving(false);
         }
+    };
+
+    // Simpan draf semasa DAHULU supaya PDF sepadan dengan skrin, kemudian
+    // muat turun. Endpoint PDF menjana daripada keadaan DB (tersimpan).
+    const muatTurunPdf = async () => {
+        if (!seat) return;
+        const ok = await simpan();
+        if (!ok) return;
+        window.location.href = route('pilihanraya.paca.pdf', {
+            kawasan_type: seat.kawasan_type,
+            kawasan_id: seat.kawasan_id,
+            jenis_pr: seat.jenis_pr,
+            tahun: seat.tahun,
+        });
     };
 
     // Tatal ke kad Pusat tertentu apabila baris ringkasan diklik. scroll-mt
@@ -270,6 +286,10 @@ function PacaEditor({ seat, parti }) {
                             )}
                             <button type="button" onClick={() => setSejarahOpen(true)} className={t.buttonSecondary}>
                                 <History className="h-4 w-4" /> Sejarah
+                            </button>
+                            <button type="button" onClick={muatTurunPdf} disabled={saving} className={t.buttonSecondary}>
+                                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+                                Muat Turun PDF
                             </button>
                             <button type="button" onClick={simpan} disabled={saving} className={t.buttonPrimary}>
                                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}

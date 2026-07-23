@@ -493,6 +493,7 @@ Route::middleware(['auth', 'admin'])->prefix('pilihanraya')->name('pilihanraya.'
     // kumpulan auth ini.
     Route::get('/paca', [\App\Http\Controllers\PacaController::class, 'index'])->name('paca');
     Route::get('/paca/data', [\App\Http\Controllers\PacaController::class, 'data'])->name('paca.data');
+    Route::get('/paca/pdf', [\App\Http\Controllers\PacaController::class, 'pdf'])->name('paca.pdf');
     Route::post('/paca/simpan', [\App\Http\Controllers\PacaController::class, 'simpan'])->name('paca.simpan')->middleware('throttle:30,1');
     Route::post('/paca/saluran/tambah', [\App\Http\Controllers\PacaController::class, 'tambahSaluran'])->name('paca.saluran.tambah')->middleware('throttle:30,1');
     Route::post('/paca/slot/tambah', [\App\Http\Controllers\PacaController::class, 'tambahSlot'])->name('paca.slot.tambah')->middleware('throttle:30,1');

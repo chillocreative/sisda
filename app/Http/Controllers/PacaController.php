@@ -82,6 +82,53 @@ class PacaController extends Controller
     }
 
     /**
+     * Jana PDF roster PACA bagi satu kerusi (keadaan TERSIMPAN dalam DB).
+     * Klien menyimpan draf semasa dahulu (lihat Paca.jsx) sebelum memanggil
+     * ini, supaya PDF sepadan dengan apa yang admin lihat di skrin. Kebenaran
+     * disemak sama seperti data()/simpan() — id kawasan boleh diteka.
+     */
+    public function pdf(Request $request)
+    {
+        $user = auth()->user();
+        if (! $user->isSuperAdmin() && ! $user->isAdmin()) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $validated = $request->validate($this->kawasanRules($request->input('kawasan_type')));
+        $this->assertBolehAkses($user, $validated['kawasan_type'], (int) $validated['kawasan_id']);
+
+        $borang14 = Borang14Form::forKawasan($validated['kawasan_type'], $validated['kawasan_id'])
+            ->where('jenis_pr', $validated['jenis_pr'])
+            ->where('tahun', $validated['tahun'])
+            ->first();
+
+        if (! $borang14) {
+            abort(404, 'Borang 14 (scoresheet) bagi kerusi ini belum wujud.');
+        }
+
+        $form = $this->builder->buildFrom($borang14);
+        $kerusi = $this->namaKerusi($form);
+        $slug = $kerusi ? \Illuminate\Support\Str::slug($kerusi) : ('kerusi-'.$form->id);
+
+        return \App\Support\Pdf::download('pdf.paca-roster', [
+            'kerusi' => $kerusi,
+            'tree' => $this->treePayload($form),
+            'dijana' => now()->format('d/m/Y H:i'),
+        ], 'roster-paca-'.$slug.'.pdf', 'a4', 'portrait');
+    }
+
+    /** Nama kerusi untuk pengepala — 'DUN Juasseh' / 'Parlimen Segamat', atau null. */
+    private function namaKerusi(PacaForm $form): ?string
+    {
+        $isParlimen = $form->kawasan_type === Borang14Form::KAWASAN_PARLIMEN;
+        $nama = $isParlimen
+            ? \App\Models\Bandar::whereKey($form->kawasan_id)->value('nama')
+            : Kadun::whereKey($form->kawasan_id)->value('nama');
+
+        return $nama ? (($isParlimen ? 'Parlimen ' : 'DUN ').$nama) : null;
+    }
+
+    /**
      * Simpan keseluruhan pokok (ketua Pusat + petugas/masa setiap slot).
      * Snapshot PRA-suntingan ditulis dahulu (mirip Borang14) supaya sejarah
      * menyimpan apa yang WUJUD sebelum suntingan ini, dan 'pulih' boleh
