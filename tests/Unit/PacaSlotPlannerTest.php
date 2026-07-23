@@ -36,6 +36,38 @@ class PacaSlotPlannerTest extends TestCase
         $this->assertSame(['PA1','PA2','CA'], array_column($this->p->relabel($mislabelled), 'jawatan'));
     }
 
+    public function test_relabel_preserves_times_and_petugas_data(): void
+    {
+        // relabel() hanya tukar jawatan; masa dan petugas yang sudah diisi
+        // MESTI kekal — jika tidak, menambah PA akan memadam data petugas.
+        $in = [[
+            'jawatan' => 'salah', 'urutan' => 1, 'masa_mula' => '08:00', 'masa_tamat' => '10:30',
+            'petugas_nama' => 'AZMI', 'petugas_kp' => '680623-07-5749',
+        ]];
+        $out = $this->p->relabel($in)[0];
+
+        $this->assertSame('CA', $out['jawatan']);        // satu slot -> CA
+        $this->assertSame('08:00', $out['masa_mula']);
+        $this->assertSame('10:30', $out['masa_tamat']);
+        $this->assertSame('AZMI', $out['petugas_nama']);
+        $this->assertSame('680623-07-5749', $out['petugas_kp']);
+    }
+
+    public function test_default_count_of_one_is_just_ca(): void
+    {
+        $slots = $this->p->defaultSlots(1);
+        $this->assertSame(['CA'], array_column($slots, 'jawatan'));
+        $this->assertNull($slots[0]['masa_tamat']);
+    }
+
+    public function test_minimum_accepts_non_zero_padded_typed_times(): void
+    {
+        // Masa yang ditaip pengguna boleh datang sebagai '9:30' bukan '09:30'.
+        // 08:00 -> 9:30 ialah 90 minit, mesti gagal minimum 2 jam.
+        $this->assertFalse($this->p->minimumMet(['jawatan'=>'PA1','masa_mula'=>'8:00','masa_tamat'=>'9:30']));
+        $this->assertTrue($this->p->minimumMet(['jawatan'=>'PA1','masa_mula'=>'8:00','masa_tamat'=>'10:00']));
+    }
+
     public function test_minimum_two_hours_enforced_for_pa_not_ca(): void
     {
         $this->assertFalse($this->p->minimumMet(['jawatan'=>'PA1','masa_mula'=>'08:00','masa_tamat'=>'09:30']));

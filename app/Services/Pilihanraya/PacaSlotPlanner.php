@@ -107,6 +107,12 @@ class PacaSlotPlanner
      */
     private function masaKeMinit(string $masa): int
     {
-        return ((int) substr($masa, 0, 2)) * 60 + ((int) substr($masa, 3, 2));
+        // Pisah pada ':' — BUKAN offset tetap. Masa yang ditaip pengguna
+        // pada laluan simpan boleh datang tanpa sifar di hadapan ('9:30'),
+        // dan substr(,3,2) akan tersilap baca '0' menjadikannya 9:00 secara
+        // senyap. explode menangani '9:30' dan '09:30' sama.
+        [$jam, $minit] = array_pad(explode(':', $masa, 2), 2, '0');
+
+        return ((int) $jam) * 60 + ((int) $minit);
     }
 }
