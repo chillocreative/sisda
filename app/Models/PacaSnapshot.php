@@ -11,6 +11,11 @@ class PacaSnapshot extends Model
 
     protected $casts = [
         'data' => 'array',
+        // Tanpa cast ini, $timestamps=false bermakna created_at pulang sebagai
+        // rentetan mentah, bukan Carbon — sejarah PACA (Tugasan 4/5) yang
+        // memanggil ->diffForHumans()/->format() akan gagal. Setiap model
+        // bertarikh lain dalam app mengembalikan Carbon; ini menyamainya.
+        'created_at' => 'datetime',
     ];
 
     public $timestamps = false;
