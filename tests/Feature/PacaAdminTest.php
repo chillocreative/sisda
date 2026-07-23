@@ -279,4 +279,110 @@ class PacaAdminTest extends TestCase
 
         $this->assertSame(0, PacaForm::count(), 'Kerusi di luar Bandar admin ini tidak sepatutnya sempat dibina.');
     }
+
+    /**
+     * Laluan kanak-kanak (child-id endpoints) menyelesaikan skop daripada
+     * baris kanak-kanak itu sendiri (Pusat/Saluran/PacaForm/Snapshot), BUKAN
+     * daripada parameter kawasan_type/kawasan_id di URL. Jika assertBolehAkses
+     * tercicir daripada mana-mana satu kaedah ini pada masa hadapan, ujian
+     * ini mesti gagal (403 dijangka, bukan 200/422) DAN tiada tulisan DB
+     * berlaku.
+     */
+    public function test_child_id_endpoints_reject_admin_outside_the_owning_bandar(): void
+    {
+        $this->borang14();
+        $owner = $this->user(); // super_admin — bina & simpan dahulu supaya id kanak-kanak & snapshot sedia ada
+        $tree = $this->pacaTree($owner);
+
+        $isi = $this->simpanPayloadFrom($tree, function ($data, $slot) {
+            if ($slot['jawatan'] === 'PA1') {
+                $data['petugas_nama'] = 'ASAL';
+            }
+
+            return $data;
+        });
+        $this->actingAs($owner)->postJson(route('pilihanraya.paca.simpan'), $isi)->assertOk();
+
+        $form = PacaForm::findOrFail($tree['id']);
+        $pusatId = $tree['pusat'][0]['id'];
+        $saluranId = $tree['pusat'][0]['saluran'][0]['id'];
+        $snapshot = PacaSnapshot::where('paca_form_id', $form->id)->latest('id')->first();
+
+        $bandarLain = Bandar::create(['nama' => 'Bandar Lain', 'negeri_id' => $this->kadun->bandar->negeri_id]);
+        $adminLain = $this->user('admin', ['bandar_id' => $bandarLain->id]);
+
+        // paca.simpan — pelanggan luar Bandar cuba menimpa petugas.
+        $payloadSimpan = $this->simpanPayloadFrom($this->pacaTree($owner), function ($data, $slot) {
+            if ($slot['jawatan'] === 'PA1') {
+                $data['petugas_nama'] = 'SERANG';
+            }
+
+            return $data;
+        });
+        $this->actingAs($adminLain)
+            ->postJson(route('pilihanraya.paca.simpan'), $payloadSimpan)
+            ->assertForbidden();
+        $slotPa1 = $form->pusatList()->first()->saluranList()->first()->slots()->where('jawatan', 'PA1')->first();
+        $this->assertSame('ASAL', $slotPa1->petugas_nama, 'paca.simpan luar Bandar tidak sepatutnya menulis apa-apa.');
+
+        // paca.saluran.tambah
+        $bilanganSaluranAsal = $form->pusatList()->first()->saluranList()->count();
+        $this->actingAs($adminLain)
+            ->postJson(route('pilihanraya.paca.saluran.tambah'), ['paca_pusat_id' => $pusatId])
+            ->assertForbidden();
+        $this->assertSame(
+            $bilanganSaluranAsal,
+            $form->pusatList()->first()->saluranList()->count(),
+            'paca.saluran.tambah luar Bandar tidak sepatutnya menambah baris.'
+        );
+
+        // paca.slot.tambah
+        $bilanganSlotAsal = $form->pusatList()->first()->saluranList()->first()->slots()->count();
+        $this->actingAs($adminLain)
+            ->postJson(route('pilihanraya.paca.slot.tambah'), ['paca_saluran_id' => $saluranId])
+            ->assertForbidden();
+        $this->assertSame(
+            $bilanganSlotAsal,
+            $form->pusatList()->first()->saluranList()->first()->slots()->count(),
+            'paca.slot.tambah luar Bandar tidak sepatutnya menambah baris.'
+        );
+
+        // paca.sejarah
+        $this->actingAs($adminLain)
+            ->getJson(route('pilihanraya.paca.sejarah', ['paca_form_id' => $form->id]))
+            ->assertForbidden();
+
+        // paca.pulih
+        $this->actingAs($adminLain)
+            ->postJson(route('pilihanraya.paca.pulih'), ['snapshot_id' => $snapshot->id])
+            ->assertForbidden();
+        $slotPa1->refresh();
+        $this->assertSame('ASAL', $slotPa1->petugas_nama, 'paca.pulih luar Bandar tidak sepatutnya menulis apa-apa.');
+    }
+
+    /** Laluan bahagia: admin biasa DALAM Bandar kerusi itu sendiri dibenarkan simpan(). */
+    public function test_plain_admin_in_same_bandar_can_simpan(): void
+    {
+        $this->borang14();
+        $owner = $this->user(); // super_admin — bina pokok dahulu
+        $tree = $this->pacaTree($owner);
+
+        $adminSamaBandar = $this->user('admin', ['bandar_id' => $this->kadun->bandar_id]);
+
+        $payload = $this->simpanPayloadFrom($tree, function ($data, $slot) {
+            if ($slot['jawatan'] === 'PA1') {
+                $data['petugas_nama'] = 'DALAM BANDAR';
+            }
+
+            return $data;
+        });
+
+        $this->actingAs($adminSamaBandar)
+            ->postJson(route('pilihanraya.paca.simpan'), $payload)
+            ->assertOk();
+
+        $form = PacaForm::findOrFail($tree['id']);
+        $slotPa1 = $form->pusatList()->first()->saluranList()->first()->slots()->where('jawatan', 'PA1')->first();
+        $this->assertSame('DALAM BANDAR', $slotPa1->petugas_nama);
+    }
 }
