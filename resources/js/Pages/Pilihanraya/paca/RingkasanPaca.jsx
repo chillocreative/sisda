@@ -37,9 +37,13 @@ function warnaCip(terisi, jumlah) {
 }
 
 export default function RingkasanPaca({ pusatList, onLompat }) {
+    // Sentiasa mula DITUTUP. Senarai Pusat boleh menjangkau ratusan baris dan
+    // menolak borang roster jauh ke bawah skrin; ringkasan di kepala kad sudah
+    // memberi keseluruhan gambaran tanpa perlu dibuka.
+    //
     // Hook mesti dipanggil sebelum sebarang early return — jika tidak, kiraan
     // hook berubah antara render apabila pusatList bertukar kepada kosong.
-    const [buka, setBuka] = useState(true);
+    const [buka, setBuka] = useState(false);
     const senaraiId = useId();
 
     if (!pusatList || pusatList.length === 0) return null;
