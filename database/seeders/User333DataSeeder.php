@@ -29,15 +29,15 @@ class User333DataSeeder extends Seeder
         $this->createHasilCulaan($user->id, 'Pinang Tunggal', 3);
         $this->createDataPengundi($user->id, 'Pinang Tunggal', 3);
 
-        // 2. Invisible Data (Same Bandar, Different KADUN - Penaga)
-        // We'll assign these to Admin (ID 1) or just create them with User 333 ID but different KADUN 
-        // (technically a user shouldn't be able to submit for other KADUNs, but for testing visibility logic it works)
+        // 2. Invisible Data (Same Bandar, Different DUN - Penaga)
+        // We'll assign these to Admin (ID 1) or just create them with User 333 ID but different DUN 
+        // (technically a user shouldn't be able to submit for other DUNs, but for testing visibility logic it works)
         // Better to assign to Admin (ID 1) to simulate other users' data
         $adminId = 1;
         $this->createHasilCulaan($adminId, 'Penaga', 2);
         $this->createDataPengundi($adminId, 'Penaga', 2);
 
-        // 3. Invisible Data (Same Bandar, Different KADUN - Bertam)
+        // 3. Invisible Data (Same Bandar, Different DUN - Bertam)
         $this->createHasilCulaan($adminId, 'Bertam', 2);
         $this->createDataPengundi($adminId, 'Bertam', 2);
 

@@ -95,7 +95,7 @@ class PilihanrayaController extends Controller
         return $parties !== [] ? $parties : self::SIMULASI_PARTIES;
     }
 
-    /** Latest DPPR voter counts by kaum for the selected Parlimen/KADUN. */
+    /** Latest DPPR voter counts by kaum for the selected Parlimen/DUN. */
     public function simulasiPengundi(Request $request)
     {
         return response()->json($this->analytics->pengundiByKaum($this->f($request)));

@@ -153,8 +153,8 @@ export default function Dashboard({
         });
     };
 
-    // Cascade: selecting a parent narrows every descendant (Negeri → Bandar → KADUN → MPKK),
-    // so picking just a Negeri already narrows KADUN (via its Bandar) and MPKK (via its KADUN).
+    // Cascade: selecting a parent narrows every descendant (Negeri → Bandar → DUN → MPKK),
+    // so picking just a Negeri already narrows DUN (via its Bandar) and MPKK (via its DUN).
     const filteredBandar = filters.negeri ? bandarList.filter((b) => String(b.negeri_id) === String(filters.negeri)) : bandarList;
     const bandarIds = new Set(filteredBandar.map((b) => String(b.id)));
     const filteredKadun = filters.bandar
@@ -212,13 +212,13 @@ export default function Dashboard({
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">KADUN</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">DUN</label>
                             <select
                                 value={filters.kadun}
                                 onChange={(e) => applyFilters({ kadun: e.target.value, mpkk: '' })}
                                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                             >
-                                <option value="">Semua KADUN</option>
+                                <option value="">Semua DUN</option>
                                 {filteredKadun.map((kadun) => (
                                     <option key={kadun.id} value={kadun.id}>{kadun.nama}</option>
                                 ))}
@@ -360,7 +360,7 @@ export default function Dashboard({
                     <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-slate-600">Bilangan KADUN</p>
+                                <p className="text-sm font-medium text-slate-600">Bilangan DUN</p>
                                 <p className="text-3xl font-bold text-slate-900 mt-2">{kadunCount.toLocaleString()}</p>
                             </div>
                             <div className="p-3 bg-purple-100 rounded-lg">
@@ -597,7 +597,7 @@ export default function Dashboard({
                             <table className="w-full">
                                 <thead className="bg-slate-50">
                                     <tr>
-                                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">KADUN</th>
+                                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">DUN</th>
                                         <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Pengundi</th>
                                         <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Rekod</th>
                                         <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">PH</th>

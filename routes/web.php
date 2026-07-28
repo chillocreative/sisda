@@ -114,7 +114,7 @@ Route::middleware('auth')->group(function () {
     Route::put('/master-data/parlimen/{parlimen}', [\App\Http\Controllers\MasterDataController::class, 'parlimenUpdate'])->name('master-data.parlimen.update');
     Route::delete('/master-data/parlimen/{parlimen}', [\App\Http\Controllers\MasterDataController::class, 'parlimenDestroy'])->name('master-data.parlimen.destroy');
 
-    // KADUN
+    // DUN
     Route::get('/master-data/kadun', [\App\Http\Controllers\MasterDataController::class, 'kadunIndex'])->name('master-data.kadun.index'); // For all or filtered
     Route::get('/master-data/kadun/{bandarId}', [\App\Http\Controllers\MasterDataController::class, 'kadunIndex'])->name('master-data.kadun.filter'); // Specific filter
     Route::post('/master-data/kadun', [\App\Http\Controllers\MasterDataController::class, 'kadunStore'])->name('master-data.kadun.store');
@@ -283,7 +283,7 @@ Route::middleware('auth')->group(function () {
                 // Show counts
                 $messages[] = 'Negeri: '.\App\Models\Negeri::count();
                 $messages[] = 'Parlimen: '.\App\Models\Bandar::count();
-                $messages[] = 'KADUN: '.\App\Models\Kadun::count();
+                $messages[] = 'DUN: '.\App\Models\Kadun::count();
                 $messages[] = 'Daerah Mengundi: '.\App\Models\DaerahMengundi::count();
                 $messages[] = 'Lokaliti: '.\App\Models\Lokaliti::count();
             } catch (\Exception $e) {

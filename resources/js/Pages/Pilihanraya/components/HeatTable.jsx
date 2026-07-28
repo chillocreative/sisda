@@ -8,7 +8,7 @@ const PAGE_SIZE = 20;
  * Constituency ranking table with percentage-intensity heat cells,
  * client-side sorting and simple pagination.
  */
-export default function HeatTable({ rows, title = 'Ranking KADUN' }) {
+export default function HeatTable({ rows, title = 'Ranking DUN' }) {
     const { t } = usePilihanrayaTheme();
     const [sortKey, setSortKey] = useState('score');
     const [sortDir, setSortDir] = useState('asc');
@@ -50,7 +50,7 @@ export default function HeatTable({ rows, title = 'Ranking KADUN' }) {
     });
 
     const columns = [
-        { key: 'name', label: 'KADUN' },
+        { key: 'name', label: 'DUN' },
         { key: 'parlimen', label: 'Parlimen' },
         { key: 'roll_total', label: 'Daftar' },
         { key: 'canvassed', label: 'Diculaan' },

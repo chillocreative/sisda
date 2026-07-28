@@ -2,7 +2,7 @@ import { usePilihanrayaTheme } from './PilihanrayaShell';
 import { EMPTY_FILTERS } from '../filters';
 
 /**
- * Cascading Negeri → Parlimen → KADUN filter plus an optional date
+ * Cascading Negeri → Parlimen → DUN filter plus an optional date
  * range. Pure controlled component — parent owns the filter state and
  * the tab data layer refetches when it changes.
  */
@@ -54,9 +54,9 @@ export default function FilterBar({ filters, onChange, negeriList, parlimenList,
                     </select>
                 </div>
                 <div>
-                    <label className={t.label}>KADUN</label>
+                    <label className={t.label}>DUN</label>
                     <select value={filters.kadun_id} onChange={(e) => set('kadun_id', e.target.value)} className={t.input}>
-                        <option value="">Semua KADUN {selectedParlimen ? `(${selectedParlimen.nama})` : ''}</option>
+                        <option value="">Semua DUN {selectedParlimen ? `(${selectedParlimen.nama})` : ''}</option>
                         {kadunOptions.map((k) => (
                             <option key={k.id} value={k.id}>{k.nama}</option>
                         ))}

@@ -167,7 +167,7 @@ function GambaranTab({ data }) {
                     iconColor="text-red-500"
                 />
                 <KpiCard label="Kerusi Parlimen" value={data.seats.parlimen} icon={Landmark} iconBg="bg-violet-500/15" iconColor="text-violet-500" />
-                <KpiCard label="KADUN" value={data.seats.kadun} icon={Vote} iconBg="bg-violet-500/15" iconColor="text-violet-500" />
+                <KpiCard label="DUN" value={data.seats.kadun} icon={Vote} iconBg="bg-violet-500/15" iconColor="text-violet-500" />
                 <KpiCard
                     label="Daerah Mengundi / Lokaliti"
                     value={`${data.seats.daerah_mengundi} / ${data.seats.lokaliti}`}
@@ -417,7 +417,7 @@ function SentimenTab({ data }) {
                     <TrendChart data={data.weeklyTrend} />
                 </div>
             </div>
-            <HeatTable rows={data.kadunHeatRows} title="Ranking & Peta Haba KADUN" />
+            <HeatTable rows={data.kadunHeatRows} title="Ranking & Peta Haba DUN" />
         </div>
     );
 }

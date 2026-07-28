@@ -41,7 +41,7 @@ export default function Register({ negeriList = [], bandarList = [], kadunList =
         }
     }, [data.negeri_id]);
 
-    // Filter KADUN when Bandar changes
+    // Filter DUN when Bandar changes
     useEffect(() => {
         if (data.bandar_id) {
             const filtered = kadunList.filter(k => k.bandar_id == data.bandar_id);
@@ -185,9 +185,9 @@ export default function Register({ negeriList = [], bandarList = [], kadunList =
                         <InputError message={errors.bandar_id} className="mt-2" />
                     </div>
 
-                    {/* KADUN */}
+                    {/* DUN */}
                     <div>
-                        <InputLabel htmlFor="kadun_id" value="KADUN" className="text-slate-700" />
+                        <InputLabel htmlFor="kadun_id" value="DUN" className="text-slate-700" />
                         <select
                             id="kadun_id"
                             value={data.kadun_id}
@@ -196,7 +196,7 @@ export default function Register({ negeriList = [], bandarList = [], kadunList =
                             required
                             disabled={!data.bandar_id}
                         >
-                            <option value="">Pilih KADUN</option>
+                            <option value="">Pilih DUN</option>
                             {filteredKadun.map((kadun) => (
                                 <option key={kadun.id} value={kadun.id}>{kadun.nama}</option>
                             ))}

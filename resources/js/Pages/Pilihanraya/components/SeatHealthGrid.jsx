@@ -10,7 +10,7 @@ const LEGEND = [
 ];
 
 /**
- * Visual seat map: Parlimen cards each containing their KADUN chips,
+ * Visual seat map: Parlimen cards each containing their DUN chips,
  * coloured by health category.
  */
 export default function SeatHealthGrid({ parlimenRows, kadunRows }) {
@@ -83,7 +83,7 @@ export default function SeatHealthGrid({ parlimenRows, kadunRows }) {
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                         {(kadunByParlimen[parlimen.name] || []).map(chip)}
                         {(kadunByParlimen[parlimen.name] || []).length === 0 && (
-                            <p className={`${t.subtext} text-xs col-span-full`}>Tiada KADUN diculaan di bawah parlimen ini.</p>
+                            <p className={`${t.subtext} text-xs col-span-full`}>Tiada DUN diculaan di bawah parlimen ini.</p>
                         )}
                     </div>
                 </div>
@@ -91,7 +91,7 @@ export default function SeatHealthGrid({ parlimenRows, kadunRows }) {
 
             {(kadunByParlimen['Lain-lain'] || []).length > 0 && (
                 <div className={t.card}>
-                    <h3 className={`text-base font-semibold ${t.text} mb-3`}>KADUN Tanpa Parlimen Direkod</h3>
+                    <h3 className={`text-base font-semibold ${t.text} mb-3`}>DUN Tanpa Parlimen Direkod</h3>
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                         {kadunByParlimen['Lain-lain'].map(chip)}
                     </div>

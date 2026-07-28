@@ -40,7 +40,7 @@ class DataPengundiExport implements FromQuery, WithHeadings, WithMapping
             'Negeri',
             'Bandar',
             'Parlimen',
-            'KADUN',
+            'DUN',
             'Keahlian Parti',
             'Kecenderungan Politik',
             'Tarikh Dicipta',

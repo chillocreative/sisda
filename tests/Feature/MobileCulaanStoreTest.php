@@ -222,7 +222,7 @@ class MobileCulaanStoreTest extends TestCase
             'no_ic' => '900202025555',
             'no_tel' => '0199998888',
             'alamat' => 'Rumah Rahsia, Kampung Lain',
-            'kadun' => 'KADUN LAIN', // outside the caller's scope
+            'kadun' => 'DUN LAIN', // outside the caller's scope
         ]);
 
         $response = $this->postJson('/api/mobile/culaan', $this->maskedPayload($stranger->id))
@@ -244,7 +244,7 @@ class MobileCulaanStoreTest extends TestCase
             'no_ic' => '900202029999',
             'no_tel' => '0177776666',
             'alamat' => 'Rumah Rahsia, Kampung Lain',
-            'kadun' => 'KADUN LAIN',
+            'kadun' => 'DUN LAIN',
             'parlimen' => 'SEGAMAT',
         ]);
 
@@ -268,7 +268,7 @@ class MobileCulaanStoreTest extends TestCase
             'id' => $stranger->id,
             'no_tel' => '0177776666',
             'alamat' => 'Rumah Rahsia, Kampung Lain',
-            'kadun' => 'KADUN LAIN',
+            'kadun' => 'DUN LAIN',
         ]);
     }
 
@@ -397,7 +397,7 @@ class MobileCulaanStoreTest extends TestCase
         $stranger = DataPengundi::factory()->create([
             'no_ic' => '900303035555',
             'umur' => 50,
-            'kadun' => 'KADUN LAIN', // outside the caller's scope
+            'kadun' => 'DUN LAIN', // outside the caller's scope
         ]);
 
         $payload = $this->maskedPayload($stranger->id, [

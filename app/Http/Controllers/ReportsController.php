@@ -1365,14 +1365,14 @@ class ReportsController extends Controller
             return response()->json([]);
         }
 
-        // Find KADUN
+        // Find DUN
         $kadun = \App\Models\Kadun::whereRaw('LOWER(nama) = ?', [strtolower($kadunNama)])->first();
 
         if (!$kadun) {
             return response()->json([]);
         }
 
-        // Get MPKK for this KADUN
+        // Get MPKK for this DUN
         $mpkkList = \App\Models\Mpkk::where('kadun_id', $kadun->id)
             ->orderBy('nama')
             ->get();
@@ -1381,7 +1381,7 @@ class ReportsController extends Controller
     }
 
     /**
-     * Get KADUN by Bandar name.
+     * Get DUN by Bandar name.
      */
     public function getKadunByBandar(Request $request)
     {
@@ -1391,7 +1391,7 @@ class ReportsController extends Controller
             return response()->json([]);
         }
 
-        // Primary: query voter database for distinct KADUN values
+        // Primary: query voter database for distinct DUN values
         $activeBatchIds = \App\Models\UploadBatch::activeIds();
         if (! empty($activeBatchIds)) {
             $voterKadun = \App\Models\PangkalanDataPengundi::whereIn('upload_batch_id', $activeBatchIds)

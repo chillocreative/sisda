@@ -226,7 +226,7 @@ export default function UserDashboard() {
                                     <p className="text-slate-900">{selectedRecord.bandar}</p>
                                 </div>
                                 <div>
-                                    <label className="text-sm font-medium text-slate-600">KADUN</label>
+                                    <label className="text-sm font-medium text-slate-600">DUN</label>
                                     <p className="text-slate-900">{selectedRecord.kadun}</p>
                                 </div>
                             </div>

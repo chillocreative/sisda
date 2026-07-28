@@ -70,7 +70,7 @@ export default function Index({ kadun, bandarList, selectedBandar, filters }) {
     };
 
     const handleDelete = (id) => {
-        if (confirm('Adakah anda pasti mahu memadam KADUN ini?')) {
+        if (confirm('Adakah anda pasti mahu memadam DUN ini?')) {
             router.delete(route('master-data.kadun.destroy', id));
         }
     };
@@ -82,7 +82,7 @@ export default function Index({ kadun, bandarList, selectedBandar, filters }) {
 
     return (
         <AuthenticatedLayout>
-            <Head title={selectedBandar ? `KADUN - ${selectedBandar.nama}` : 'KADUN'} />
+            <Head title={selectedBandar ? `DUN - ${selectedBandar.nama}` : 'DUN'} />
 
             <div className="space-y-6">
                 {/* Header */}
@@ -98,7 +98,7 @@ export default function Index({ kadun, bandarList, selectedBandar, filters }) {
                         )}
                         <div>
                             <h1 className="text-2xl font-bold text-slate-900">
-                                {selectedBandar ? `KADUN - ${selectedBandar.nama}` : 'Semua KADUN'}
+                                {selectedBandar ? `DUN - ${selectedBandar.nama}` : 'Semua DUN'}
                             </h1>
                             <p className="text-sm text-slate-600 mt-1">Urus senarai Kawasan Dewan Undangan Negeri</p>
                         </div>
@@ -108,7 +108,7 @@ export default function Index({ kadun, bandarList, selectedBandar, filters }) {
                         className="flex items-center space-x-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors"
                     >
                         <Plus className="h-4 w-4" />
-                        <span>Tambah KADUN</span>
+                        <span>Tambah DUN</span>
                     </button>
                 </div>
 
@@ -121,7 +121,7 @@ export default function Index({ kadun, bandarList, selectedBandar, filters }) {
                                 type="text"
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
-                                placeholder="Cari KADUN atau kod DUN..."
+                                placeholder="Cari nama atau kod DUN..."
                                 className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                             />
                         </div>
@@ -156,7 +156,7 @@ export default function Index({ kadun, bandarList, selectedBandar, filters }) {
                             <thead className="bg-slate-50 border-b border-slate-200">
                                 <tr>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase w-16">Bil</th>
-                                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Nama KADUN</th>
+                                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Nama DUN</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Kod DUN</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Parlimen (Bandar)</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Negeri</th>
@@ -305,7 +305,7 @@ export default function Index({ kadun, bandarList, selectedBandar, filters }) {
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-xl max-w-md w-full p-6">
                         <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-xl font-bold text-slate-900">Tambah KADUN</h2>
+                            <h2 className="text-xl font-bold text-slate-900">Tambah DUN</h2>
                             <button
                                 onClick={() => {
                                     setShowAddModal(false);
@@ -319,7 +319,7 @@ export default function Index({ kadun, bandarList, selectedBandar, filters }) {
                         <form onSubmit={handleAdd} className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Nama KADUN <span className="text-rose-500">*</span>
+                                    Nama DUN <span className="text-rose-500">*</span>
                                 </label>
                                 <input
                                     type="text"

@@ -42,7 +42,7 @@ export default function BattlefieldTable({ data }) {
                     <thead>
                         <tr>
                             <th className={t.tableHead}>#</th>
-                            <th className={t.tableHead}>KADUN</th>
+                            <th className={t.tableHead}>DUN</th>
                             <th className={t.tableHead}>Parlimen</th>
                             <th className={t.tableHead}>Metrik</th>
                             <th className={t.tableHead}>Putih / Kelabu / Hitam</th>

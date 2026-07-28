@@ -67,7 +67,7 @@ const List<SectionSpec> _allSections = [
   ]),
   SectionSpec(key: 'kawasan', title: 'Kawasan Mengundi', fields: [
     FieldSpec(key: 'parlimen', label: 'Parlimen', kind: FieldKind.text, required: true),
-    FieldSpec(key: 'kadun', label: 'DUN / Kadun', kind: FieldKind.text, required: true),
+    FieldSpec(key: 'kadun', label: 'DUN', kind: FieldKind.text, required: true),
     FieldSpec(key: 'mpkk', label: 'MPKK', kind: FieldKind.text),
     FieldSpec(key: 'daerah_mengundi', label: 'Daerah Mengundi', kind: FieldKind.text),
     FieldSpec(key: 'lokaliti', label: 'Lokaliti', kind: FieldKind.text),

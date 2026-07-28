@@ -51,7 +51,7 @@ class MasterDataController extends Controller
                 'route' => 'master-data.parlimen.index'
             ],
             [
-                'name' => 'KADUN',
+                'name' => 'DUN',
                 'count' => Kadun::count(),
                 'icon' => 'Vote',
                 'color' => 'amber',
@@ -434,7 +434,7 @@ class MasterDataController extends Controller
     }
 
     /**
-     * Display a listing of KADUN.
+     * Display a listing of DUN.
      */
     public function kadunIndex(Request $request, $bandarId = null)
     {
@@ -447,7 +447,7 @@ class MasterDataController extends Controller
 
         $query = Kadun::with('bandar.negeri');
 
-        // Admin Restriction: Only view KADUN in their assigned Parlimen
+        // Admin Restriction: Only view DUN in their assigned Parlimen
         if ($user->isAdmin()) {
             $query->where('bandar_id', $user->bandar_id);
         } elseif ($bandarId) {
@@ -482,7 +482,7 @@ class MasterDataController extends Controller
     }
 
     /**
-     * Store a newly created KADUN.
+     * Store a newly created DUN.
      */
     public function kadunStore(Request $request)
     {
@@ -499,7 +499,7 @@ class MasterDataController extends Controller
             'bandar_id' => 'required|exists:bandar,id',
         ]);
 
-        // Admin Restriction: Can only add KADUN to their assigned Parlimen
+        // Admin Restriction: Can only add DUN to their assigned Parlimen
         if ($user->isAdmin() && $validated['bandar_id'] != $user->bandar_id) {
             abort(403, 'Unauthorized action.');
         }
@@ -510,11 +510,11 @@ class MasterDataController extends Controller
             ? route('master-data.kadun.index', $request->bandar_id)
             : route('master-data.kadun.index');
 
-        return redirect($redirectRoute)->with('success', 'KADUN berjaya ditambah');
+        return redirect($redirectRoute)->with('success', 'DUN berjaya ditambah');
     }
 
     /**
-     * Update the specified KADUN.
+     * Update the specified DUN.
      */
     public function kadunUpdate(Request $request, Kadun $kadun)
     {
@@ -525,7 +525,7 @@ class MasterDataController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
-        // Admin Restriction: Can only update KADUN in their assigned Parlimen
+        // Admin Restriction: Can only update DUN in their assigned Parlimen
         if ($user->isAdmin() && $kadun->bandar_id != $user->bandar_id) {
             abort(403, 'Unauthorized action.');
         }
@@ -536,7 +536,7 @@ class MasterDataController extends Controller
             'bandar_id' => 'required|exists:bandar,id',
         ]);
 
-        // Admin Restriction: Cannot move KADUN to another Parlimen
+        // Admin Restriction: Cannot move DUN to another Parlimen
         if ($user->isAdmin() && $validated['bandar_id'] != $user->bandar_id) {
             abort(403, 'Unauthorized action.');
         }
@@ -547,11 +547,11 @@ class MasterDataController extends Controller
             ? route('master-data.kadun.index', $kadun->bandar_id)
             : route('master-data.kadun.index');
 
-        return redirect($redirectRoute)->with('success', 'KADUN berjaya dikemaskini');
+        return redirect($redirectRoute)->with('success', 'DUN berjaya dikemaskini');
     }
 
     /**
-     * Remove the specified KADUN.
+     * Remove the specified DUN.
      */
     public function kadunDestroy(Kadun $kadun)
     {
@@ -562,7 +562,7 @@ class MasterDataController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
-        // Admin Restriction: Can only delete KADUN in their assigned Parlimen
+        // Admin Restriction: Can only delete DUN in their assigned Parlimen
         if ($user->isAdmin() && $kadun->bandar_id != $user->bandar_id) {
             abort(403, 'Unauthorized action.');
         }
@@ -574,7 +574,7 @@ class MasterDataController extends Controller
             ? route('master-data.kadun.index', $bandarId)
             : route('master-data.kadun.index');
 
-        return redirect($redirectRoute)->with('success', 'KADUN berjaya dipadam');
+        return redirect($redirectRoute)->with('success', 'DUN berjaya dipadam');
     }
 
     /**
@@ -617,7 +617,7 @@ class MasterDataController extends Controller
 
         $mpkk = $query->orderBy('nama', 'asc')->paginate(15);
         
-        // Admin can only see KADUN in their Parlimen, Super Admin can see all
+        // Admin can only see DUN in their Parlimen, Super Admin can see all
         $kadunList = $user->isSuperAdmin() 
             ? Kadun::with('bandar')->orderBy('nama')->get()
             : Kadun::with('bandar')->where('bandar_id', $user->bandar_id)->orderBy('nama')->get();
@@ -650,7 +650,7 @@ class MasterDataController extends Controller
             'kuota_parti' => 'nullable|string|max:50',
         ]);
 
-        // Admin Restriction: Can only add MPKK to KADUN in their assigned Parlimen
+        // Admin Restriction: Can only add MPKK to DUN in their assigned Parlimen
         if ($user->isAdmin()) {
             $kadun = Kadun::find($validated['kadun_id']);
             if (!$kadun || $kadun->bandar_id != $user->bandar_id) {
@@ -690,7 +690,7 @@ class MasterDataController extends Controller
             'kuota_parti' => 'nullable|string|max:50',
         ]);
 
-        // Admin Restriction: Cannot move MPKK to KADUN in another Parlimen
+        // Admin Restriction: Cannot move MPKK to DUN in another Parlimen
         if ($user->isAdmin()) {
             $kadun = Kadun::find($validated['kadun_id']);
             if (!$kadun || $kadun->bandar_id != $user->bandar_id) {

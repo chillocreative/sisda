@@ -160,7 +160,7 @@ export default function Index({ mpkk, kadunList, selectedKadun, filters }) {
                                 <tr>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase w-16">Bil</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Parlimen</th>
-                                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Nama KADUN</th>
+                                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Nama DUN</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase">Nama MPKK</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase w-36">Kuota Parti</th>
                                     <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 uppercase w-32">Tindakan</th>
@@ -192,7 +192,7 @@ export default function Index({ mpkk, kadunList, selectedKadun, filters }) {
                                                         onChange={(e) => setEditData('kadun_id', e.target.value)}
                                                         className="w-full px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                                                     >
-                                                        <option value="">Pilih KADUN</option>
+                                                        <option value="">Pilih DUN</option>
                                                         {kadunList.map((kadun) => (
                                                             <option key={kadun.id} value={kadun.id}>
                                                                 {kadun.nama} ({kadun.bandar?.nama})
@@ -355,14 +355,14 @@ export default function Index({ mpkk, kadunList, selectedKadun, filters }) {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    KADUN <span className="text-rose-500">*</span>
+                                    DUN <span className="text-rose-500">*</span>
                                 </label>
                                 <select
                                     value={addData.kadun_id}
                                     onChange={(e) => setAddData('kadun_id', e.target.value)}
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                                 >
-                                    <option value="">Pilih KADUN</option>
+                                    <option value="">Pilih DUN</option>
                                     {kadunList.map((kadun) => (
                                         <option key={kadun.id} value={kadun.id}>
                                             {kadun.nama} ({kadun.bandar?.nama})

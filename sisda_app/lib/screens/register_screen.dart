@@ -67,7 +67,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedNegeri == null || _selectedBandar == null || _selectedKadun == null) {
-      setState(() => _errorMessage = 'Sila pilih Negeri, Bandar dan KADUN.');
+      setState(() => _errorMessage = 'Sila pilih Negeri, Bandar dan DUN.');
       return;
     }
 
@@ -248,13 +248,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         ),
                         const SizedBox(height: 14),
 
-                        // KADUN
+                        // DUN
                         DropdownButtonFormField<int>(
                           initialValue: _selectedKadun,
-                          decoration: const InputDecoration(labelText: 'KADUN', prefixIcon: Icon(Icons.how_to_vote_outlined)),
+                          decoration: const InputDecoration(labelText: 'DUN', prefixIcon: Icon(Icons.how_to_vote_outlined)),
                           items: _kadunList.map((k) => DropdownMenuItem<int>(value: k['id'], child: Text(k['nama'] ?? ''))).toList(),
                           onChanged: (v) => setState(() => _selectedKadun = v),
-                          validator: (v) => v == null ? 'Sila pilih KADUN' : null,
+                          validator: (v) => v == null ? 'Sila pilih DUN' : null,
                         ),
                         const SizedBox(height: 20),
 

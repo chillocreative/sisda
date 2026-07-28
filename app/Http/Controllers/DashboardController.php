@@ -145,7 +145,7 @@ class DashboardController extends Controller
         $totalPengundi = $rollBase()->distinct()->count('no_ic');
         $kadunCount = $rollBase()->whereNotNull('kadun')->where('kadun', '!=', '')->distinct()->count('kadun');
         // Total canvassing records = hasil_culaan + data_pengundi (both non-deceased).
-        // This matches the "Rekod" column in the KADUN and Petugas tables.
+        // This matches the "Rekod" column in the DUN and Petugas tables.
         $totalCulaan = (clone $culaanQuery)->where('is_deceased', false)->count()
             + (clone $pengundiQuery)->where('is_deceased', false)->count();
 
@@ -248,7 +248,7 @@ class DashboardController extends Controller
         }
 
         // Kawasan Paling Aktif — standalone, sorted by total rekod count.
-        // Not affected by dashboard filters. Top 5 = KADUNs with the most
+        // Not affected by dashboard filters. Top 5 = DUNs with the most
         // canvassing records (data_pengundi + hasil_culaan), not biggest roll.
         $dpKadunCounts = DataPengundi::where('is_deceased', false)
             ->whereNotNull('kadun')->where('kadun', '!=', '')
@@ -278,7 +278,7 @@ class DashboardController extends Controller
         // Sokongan Politik Mengikut DUN — only meaningful once a Parlimen is
         // picked: without one the chart puts DUNs from unrelated states side by
         // side. Lists EVERY DUN in the chosen Parlimen from Data Induk (not just
-        // the ones carrying canvass records) and ignores the KADUN drill, so the
+        // the ones carrying canvass records) and ignores the DUN drill, so the
         // whole Parlimen stays visible when a single DUN is focused.
         //
         // A DUN with no canvass record reports null, not 0: "nobody has been

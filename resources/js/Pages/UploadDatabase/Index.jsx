@@ -170,10 +170,10 @@ export default function Index({ batches, flash, negeriList = [], parlimenList = 
                             <span>Senarai pengundi <strong>OKU</strong> — tandakan jika fail ini mengandungi pengundi berstatus OKU. Pengundi dalam senarai ini akan ditanda OKU di Data Pengundi.</span>
                         </label>
 
-                        {/* Optional seat assignment — for files with no Negeri/Parlimen/Kadun columns */}
+                        {/* Optional seat assignment — for files with no Negeri/Parlimen/DUN columns */}
                         <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-3">
                             <p className="text-sm font-medium text-slate-700">Tetapkan kawasan <span className="font-normal text-slate-500">(pilihan)</span></p>
-                            <p className="text-xs text-slate-500">Guna jika fail <strong>tiada lajur Negeri/Parlimen/Kadun</strong> (cth. senarai penyokong satu DUN). Setiap baris yang tiada kawasan akan ditandakan kawasan yang dipilih, supaya data kelihatan dalam War Room. Biarkan kosong jika fail sudah ada lajur kawasan.</p>
+                            <p className="text-xs text-slate-500">Guna jika fail <strong>tiada lajur Negeri/Parlimen/DUN</strong> (cth. senarai penyokong satu DUN). Setiap baris yang tiada kawasan akan ditandakan kawasan yang dipilih, supaya data kelihatan dalam War Room. Biarkan kosong jika fail sudah ada lajur kawasan.</p>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 <select
                                     value={data.assign_negeri_id}
@@ -198,7 +198,7 @@ export default function Index({ batches, flash, negeriList = [], parlimenList = 
                                     disabled={!data.assign_parlimen_id}
                                     className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-slate-400 disabled:bg-slate-100 disabled:text-slate-400"
                                 >
-                                    <option value="">Kadun —</option>
+                                    <option value="">DUN —</option>
                                     {kadunOptions.map((k) => <option key={k.id} value={k.id}>{k.nama}</option>)}
                                 </select>
                             </div>

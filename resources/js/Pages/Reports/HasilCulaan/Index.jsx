@@ -496,7 +496,7 @@ export default function Index({ hasilCulaan, icCounts = {}, filters, filterOptio
                                     <div className="mt-1 text-slate-900">{viewingItem.negeri}</div>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-500">KADUN</label>
+                                    <label className="block text-sm font-medium text-slate-500">DUN</label>
                                     <div className="mt-1 text-slate-900">{viewingItem.kadun}</div>
                                 </div>
                                 <div>

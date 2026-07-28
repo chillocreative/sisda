@@ -40,7 +40,7 @@ class HasilCulaanExport implements FromCollection, WithHeadings, WithMapping
             'Poskod',
             'Negeri',
             'Bandar',
-            'KADUN',
+            'DUN',
             'Bil. Isi Rumah',
             'Pendapatan Isi Rumah',
             'Kategori Pekerjaan',

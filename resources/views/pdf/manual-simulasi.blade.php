@@ -195,7 +195,7 @@
         </tr>
         <tr>
             <td class="col-label">Taklimat</td>
-            <td>Jana dokumen taklimat eksekutif untuk peringkat nasional, negeri, parlimen atau KADUN</td>
+            <td>Jana dokumen taklimat eksekutif untuk peringkat nasional, negeri, parlimen atau DUN</td>
             <td>Laporan AI / Export</td>
         </tr>
     </tbody>
@@ -228,16 +228,16 @@
     <tbody>
         <tr>
             <td class="col-label">Negeri</td>
-            <td>Tapis mengikut negeri. Memilih negeri akan memuat semula senarai Parlimen dan KADUN secara automatik.</td>
+            <td>Tapis mengikut negeri. Memilih negeri akan memuat semula senarai Parlimen dan DUN secara automatik.</td>
             <td class="col-tip">Kosongkan untuk paparan seluruh negara.</td>
         </tr>
         <tr>
             <td class="col-label">Parlimen</td>
-            <td>Tapis mengikut kawasan Parlimen (Bandar). Akan menyempitkan senarai KADUN kepada yang berada di bawah Parlimen tersebut.</td>
+            <td>Tapis mengikut kawasan Parlimen (Bandar). Akan menyempitkan senarai DUN kepada yang berada di bawah Parlimen tersebut.</td>
             <td class="col-tip">Bergantung kepada pilihan Negeri.</td>
         </tr>
         <tr>
-            <td class="col-label">KADUN</td>
+            <td class="col-label">DUN</td>
             <td>Tapis kepada satu kerusi dewan undangan negeri sahaja. Berguna untuk analisis kerusi tunggal.</td>
             <td class="col-tip">Bergantung kepada pilihan Parlimen.</td>
         </tr>
@@ -248,7 +248,7 @@
     <div class="box-title">Cara Penggunaan Terbaik</div>
     Gunakan <strong>tanpa penapis</strong> (skop nasional) untuk ramalan keseluruhan. Gunakan penapis
     <strong>Parlimen</strong> untuk analisis kawasan bagi perancangan kempen tempatan. Penapis
-    <strong>KADUN</strong> berguna ketika menyemak kerusi berayun secara individu dalam War Gaming.
+    <strong>DUN</strong> berguna ketika menyemak kerusi berayun secara individu dalam War Gaming.
 </div>
 
 <div class="pagebreak"></div>
@@ -404,7 +404,7 @@
     <tbody>
         <tr>
             <td class="col-label">Kerusi</td>
-            <td>Nama kawasan KADUN yang dianalisis.</td>
+            <td>Nama kawasan DUN yang dianalisis.</td>
         </tr>
         <tr>
             <td class="col-label">Kebarangkalian PH</td>
@@ -663,7 +663,7 @@
     </thead>
     <tbody>
         <tr>
-            <td class="col-label">KADUN</td>
+            <td class="col-label">DUN</td>
             <td>
                 Nama kawasan. Tanda <strong>(*)</strong> di selepas nama bermaksud data culaan untuk
                 kerusi ini adalah <em>nipis</em> (kurang daripada 30 rekod culaan unik). Kebarangkalian
@@ -866,7 +866,7 @@
         <tr>
             <td class="col-label">Nombor &amp; Nama Kawasan</td>
             <td>
-                Nombor ranking keutamaan (#1 = tertinggi) dan nama kawasan KADUN atau Parlimen.
+                Nombor ranking keutamaan (#1 = tertinggi) dan nama kawasan DUN atau Parlimen.
                 Kerusi ranking atas adalah yang paling memerlukan peruntukan sumber segera.
             </td>
         </tr>
@@ -935,7 +935,7 @@
                 <strong>Nasional</strong> — Merangkumi semua kawasan dalam sistem.<br>
                 <strong>Negeri</strong> — Laporan khusus untuk satu negeri.<br>
                 <strong>Parlimen</strong> — Laporan untuk kawasan Parlimen/Bandar.<br>
-                <strong>KADUN</strong> — Laporan terperinci untuk satu kerusi ADUN.
+                <strong>DUN</strong> — Laporan terperinci untuk satu kerusi ADUN.
             </td>
         </tr>
         <tr>
@@ -1241,12 +1241,12 @@
             </td>
         </tr>
         <tr>
-            <td class="col-label">KADUN</td>
+            <td class="col-label">DUN</td>
             <td>Kawasan Dewan Undangan Negeri — kerusi dewan undangan negeri (ADUN). Unit analisis utama dalam Pusat Simulasi.</td>
         </tr>
         <tr>
             <td class="col-label">Parlimen / Bandar</td>
-            <td>Kawasan Parlimen — gabungan beberapa KADUN di bawah satu Ahli Parlimen.</td>
+            <td>Kawasan Parlimen — gabungan beberapa DUN di bawah satu Ahli Parlimen.</td>
         </tr>
         <tr>
             <td class="col-label">Majoriti</td>
@@ -1327,10 +1327,10 @@
             </td>
         </tr>
         <tr>
-            <td class="col-label">Mengapa ramalan berbeza apabila saya menukar penapis Negeri/Parlimen/KADUN?</td>
+            <td class="col-label">Mengapa ramalan berbeza apabila saya menukar penapis Negeri/Parlimen/DUN?</td>
             <td>
                 Setiap ramalan dikira berdasarkan data dalam skop yang dipilih. Mengecilkan skop
-                kepada satu KADUN menghasilkan ramalan berdasarkan data kerusi tersebut sahaja,
+                kepada satu DUN menghasilkan ramalan berdasarkan data kerusi tersebut sahaja,
                 bukan keseluruhan. Ini adalah tingkah laku yang betul.
             </td>
         </tr>

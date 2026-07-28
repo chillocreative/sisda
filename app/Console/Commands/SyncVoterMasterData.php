@@ -10,7 +10,7 @@ class SyncVoterMasterData extends Command
 {
     protected $signature = 'voter:sync-master-data {--batch= : Specific batch ID (default: all active batches)}';
 
-    protected $description = 'Sync master data (Negeri, Parlimen, KADUN, DM, Lokaliti) from voter database';
+    protected $description = 'Sync master data (Negeri, Parlimen, DUN, DM, Lokaliti) from voter database';
 
     public function handle(): int
     {

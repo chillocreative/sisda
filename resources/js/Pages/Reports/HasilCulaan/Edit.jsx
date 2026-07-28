@@ -25,7 +25,7 @@ const FIELD_LABELS = {
     negeri: 'Negeri',
     bandar: 'Bandar',
     parlimen: 'Parlimen',
-    kadun: 'KADUN',
+    kadun: 'DUN',
     mpkk: 'MPKK',
     daerah_mengundi: 'Daerah Mengundi',
     lokaliti: 'Lokaliti',
@@ -154,7 +154,7 @@ export default function Edit({
         nota: hasilCulaan.nota || '',
     });
 
-    // Fetch KADUN and Daerah Mengundi when Parlimen changes
+    // Fetch DUN and Daerah Mengundi when Parlimen changes
     useEffect(() => {
         const fetchKadun = async () => {
             if (!data.parlimen) {
@@ -192,7 +192,7 @@ export default function Edit({
                     }
                 }
             } catch (error) {
-                console.error('Error fetching KADUN/DM:', error);
+                console.error('Error fetching DUN/DM:', error);
                 setKadunOptions([]);
                 setDaerahMengundiOptions([]);
             } finally {
@@ -204,7 +204,7 @@ export default function Edit({
         fetchKadun();
     }, [data.parlimen]);
 
-    // Fetch MPKK options when KADUN changes
+    // Fetch MPKK options when DUN changes
     useEffect(() => {
         const fetchMpkk = async () => {
             if (!data.kadun) {
@@ -1480,9 +1480,9 @@ export default function Edit({
                                     {errors.parlimen && <p className="text-sm text-rose-600 mt-1">{errors.parlimen}</p>}
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">KADUN <span className="text-rose-500">*</span></label>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">DUN <span className="text-rose-500">*</span></label>
                                     <select value={data.kadun} onChange={(e) => setData({...data, kadun: e.target.value, mpkk: ''})} disabled className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400" required>
-                                        <option value="">{loadingKadun ? "Memuat..." : "Pilih KADUN"}</option>
+                                        <option value="">{loadingKadun ? "Memuat..." : "Pilih DUN"}</option>
                                         {kadunOptions.map((item) => (<option key={item.id} value={item.nama}>{item.nama}</option>))}
                                         {data.kadun && !kadunOptions.some(k => k.nama === data.kadun) && (
                                             <option value={data.kadun}>{data.kadun}</option>
@@ -1928,7 +1928,7 @@ export default function Edit({
                                                     <div><span className="font-medium text-slate-700">Lokaliti:</span> {record.lokaliti}</div>
                                                 )}
                                                 {record.kadun && (
-                                                    <div><span className="font-medium text-slate-700">KADUN:</span> {record.kadun}</div>
+                                                    <div><span className="font-medium text-slate-700">DUN:</span> {record.kadun}</div>
                                                 )}
                                             </div>
                                             {(record.kad_pengenalan || record.nota) && (

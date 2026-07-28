@@ -66,7 +66,7 @@ class DptParserService
         if (preg_match('/PARLIMEN\s*:\s*P\.\d+\s+(.+?)$/mi', $text, $m)) {
             $info['parlimen'] = trim($m[1]);
         }
-        // Extract KADUN from "BAHAGIAN PILIHAN RAYA NEGERI : N.XX NAME"
+        // Extract DUN from "BAHAGIAN PILIHAN RAYA NEGERI : N.XX NAME"
         if (preg_match('/NEGERI\s*:\s*N\.\d+\s+(.+?)$/mi', $text, $m)) {
             $info['kadun'] = trim($m[1]);
         }

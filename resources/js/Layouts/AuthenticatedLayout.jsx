@@ -69,7 +69,7 @@ export default function AuthenticatedLayout({ children }) {
         ...(user.role === 'super_admin' ? [{ name: 'Negeri', href: route('master-data.negeri.index'), icon: MapPin }] : []),
         { name: 'Parlimen', href: route('master-data.parlimen.index'), icon: Landmark },
         { name: 'Bandar', href: route('master-data.bandar.index'), icon: Building2 },
-        { name: 'KADUN', href: route('master-data.kadun.index'), icon: Vote },
+        { name: 'DUN', href: route('master-data.kadun.index'), icon: Vote },
         { name: 'MPKK', href: route('master-data.mpkk.index'), icon: Users2 },
         { name: 'Daerah Mengundi', href: route('master-data.daerah-mengundi.index'), icon: Map },
         { name: 'Tujuan Sumbangan', href: route('master-data.tujuan-sumbangan.index'), icon: Gift },

@@ -69,7 +69,7 @@ class PenangMpkkSeeder extends Seeder
             $kadun = Kadun::where('nama', $kadunName)->first();
 
             if (!$kadun) {
-                $this->command->error("KADUN {$kadunName} not found!");
+                $this->command->error("DUN {$kadunName} not found!");
                 continue;
             }
 

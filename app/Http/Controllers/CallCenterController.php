@@ -22,7 +22,7 @@ class CallCenterController extends Controller
         return Inertia::render('CallCenter/Index', [
             'locality' => [
                 'bandar' => $user->bandar?->nama ?? 'Seluruh Negara',
-                'kadun' => $user->kadun?->nama ?? 'Semua KADUN',
+                'kadun' => $user->kadun?->nama ?? 'Semua DUN',
                 'is_restricted' => !$user->isSuperAdmin()
             ]
         ]);
@@ -43,7 +43,7 @@ class CallCenterController extends Controller
         return Inertia::render('CallCenter/Scripts/Index', [
             'locality' => [
                 'bandar' => $user->bandar?->nama ?? 'Seluruh Negara',
-                'kadun' => $user->kadun?->nama ?? 'Semua KADUN',
+                'kadun' => $user->kadun?->nama ?? 'Semua DUN',
                 'is_restricted' => !$user->isSuperAdmin()
             ]
         ]);
@@ -64,7 +64,7 @@ class CallCenterController extends Controller
         return Inertia::render('CallCenter/Agent/Index', [
             'locality' => [
                 'bandar' => $user->bandar?->nama ?? 'Seluruh Negara',
-                'kadun' => $user->kadun?->nama ?? 'Semua KADUN',
+                'kadun' => $user->kadun?->nama ?? 'Semua DUN',
                 'is_restricted' => !$user->isSuperAdmin()
             ]
         ]);
@@ -85,7 +85,7 @@ class CallCenterController extends Controller
         return Inertia::render('CallCenter/Analytics/Index', [
             'locality' => [
                 'bandar' => $user->bandar?->nama ?? 'Seluruh Negara',
-                'kadun' => $user->kadun?->nama ?? 'Semua KADUN',
+                'kadun' => $user->kadun?->nama ?? 'Semua DUN',
                 'is_restricted' => !$user->isSuperAdmin()
             ]
         ]);
@@ -106,7 +106,7 @@ class CallCenterController extends Controller
         return Inertia::render('CallCenter/Analytics/AI', [
             'locality' => [
                 'bandar' => $user->bandar?->nama ?? 'Seluruh Negara',
-                'kadun' => $user->kadun?->nama ?? 'Semua KADUN',
+                'kadun' => $user->kadun?->nama ?? 'Semua DUN',
                 'is_restricted' => !$user->isSuperAdmin()
             ]
         ]);
@@ -127,7 +127,7 @@ class CallCenterController extends Controller
         return Inertia::render('CallCenter/Agent/History', [
             'locality' => [
                 'bandar' => $user->bandar?->nama ?? 'Seluruh Negara',
-                'kadun' => $user->kadun?->nama ?? 'Semua KADUN',
+                'kadun' => $user->kadun?->nama ?? 'Semua DUN',
                 'is_restricted' => !$user->isSuperAdmin()
             ]
         ]);

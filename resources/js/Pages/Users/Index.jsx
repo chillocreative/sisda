@@ -537,7 +537,7 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
                                         </select>
                                         {formData.role === 'ketua_paca_dun' && (
                                             <p className="mt-1.5 text-xs text-violet-700">
-                                                Hanya melihat Pilihanraya &gt; PACA bagi KADUN yang dipilih di bawah.
+                                                Hanya melihat Pilihanraya &gt; PACA bagi DUN yang dipilih di bawah.
                                             </p>
                                         )}
                                     </div>
@@ -590,7 +590,7 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
                                         </select>
                                     </div>
                                     <div>
-                                        <InputLabel value="KADUN" required />
+                                        <InputLabel value="DUN" required />
                                         <select
                                             value={formData.kadun_id}
                                             onChange={(e) => setFormData({ ...formData, kadun_id: e.target.value })}
@@ -598,7 +598,7 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
                                             required
                                             disabled={!formData.bandar_id}
                                         >
-                                            <option value="">Pilih KADUN</option>
+                                            <option value="">Pilih DUN</option>
                                             {filteredKadun.map(k => (
                                                 <option key={k.id} value={k.id}>{k.nama}</option>
                                             ))}

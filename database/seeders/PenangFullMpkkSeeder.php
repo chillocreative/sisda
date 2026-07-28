@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Seeds full MPKK list for Pulau Pinang from the official
- * "Senarai Nama MPKK dan Kuota Parti" PDF (5 daerah, 40 KADUN).
+ * "Senarai Nama MPKK dan Kuota Parti" PDF (5 daerah, 40 DUN).
  *
  * Idempotent: matches existing MPKK by case-insensitive (kadun_id, nama)
  * so re-running updates kuota_parti instead of creating duplicates.
@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\DB;
 class PenangFullMpkkSeeder extends Seeder
 {
     /**
-     * KADUN names from the PDF that differ from existing DB spelling.
+     * DUN names from the PDF that differ from existing DB spelling.
      * key = PDF spelling, value = DB canonical spelling.
      */
     private array $kadunAliases = [
@@ -71,7 +71,7 @@ class PenangFullMpkkSeeder extends Seeder
                 ->first();
 
             if (!$kadun) {
-                $this->command->warn("KADUN not found: {$kadunName} (looked up as {$lookupName})");
+                $this->command->warn("DUN not found: {$kadunName} (looked up as {$lookupName})");
                 $skipped += count($mpkkList);
                 continue;
             }

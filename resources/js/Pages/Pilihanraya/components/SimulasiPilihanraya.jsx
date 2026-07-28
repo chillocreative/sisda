@@ -84,7 +84,7 @@ export default function SimulasiPilihanraya({ filters, simulasiParties = [], pen
     );
     const lastParty = parties[parties.length - 1];
 
-    /* ---- DPPR autofill: pull latest roll when Parlimen/KADUN changes ---- */
+    /* ---- DPPR autofill: pull latest roll when Parlimen/DUN changes ---- */
     const lastFetchKey = useRef(null);
     useEffect(() => {
         if (!filters?.parlimen_id) return; // keep manual/default values until a seat is picked

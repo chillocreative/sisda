@@ -24,7 +24,7 @@ class VoterDetailScreen extends ConsumerWidget {
     ('negeri', 'Negeri'),
     ('bandar', 'Bandar'),
     ('parlimen', 'Parlimen'),
-    ('kadun', 'Kadun'),
+    ('kadun', 'DUN'),
     ('mpkk', 'MPKK'),
     ('daerah_mengundi', 'Daerah Mengundi'),
     ('lokaliti', 'Lokaliti'),
