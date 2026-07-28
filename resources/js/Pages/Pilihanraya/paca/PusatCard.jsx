@@ -16,6 +16,67 @@ import DragScroll from '../analisa/DragScroll';
  */
 const labelSlot = (slot) => slot.jawatan_papar ?? slot.jawatan;
 
+/**
+ * Kawalan medan slot diekstrak supaya susun atur JADUAL (>=md) dan susun atur
+ * KAD BERTINDAN (mobil) berkongsi SATU takrifan. Menduplikasi <input> mentah
+ * dalam dua susun atur ialah cara pasti ia terpesong — lihat amaran pertindihan
+ * HasilCulaan Create/Edit dalam CLAUDE.md.
+ */
+function MedanTeks({ t, slot, name, type = 'text', placeholder, saving, onUbah, className = '' }) {
+    return (
+        <input
+            type={type}
+            className={`${t.input} ${className}`}
+            value={slot[name] ?? ''}
+            disabled={saving}
+            placeholder={placeholder}
+            onChange={(e) => onUbah({ [name]: e.target.value })}
+        />
+    );
+}
+
+function MedanParti({ t, slot, parti, saving, onUbah, className = '' }) {
+    return (
+        <select
+            className={`${t.input} ${className}`}
+            value={slot.petugas_parti ?? ''}
+            disabled={saving}
+            onChange={(e) => onUbah({ petugas_parti: e.target.value || null })}
+        >
+            <option value="">— Pilih Parti —</option>
+            {/* Kekalkan nilai tersimpan walaupun ia tiada dalam Data Induk
+                (mis. data lama) supaya ia tidak hilang secara senyap. */}
+            {slot.petugas_parti && !parti.includes(slot.petugas_parti) && (
+                <option value={slot.petugas_parti}>{slot.petugas_parti}</option>
+            )}
+            {parti.map((p) => <option key={p} value={p}>{p}</option>)}
+        </select>
+    );
+}
+
+/** Nota di bawah Masa Tamat — hanya bagi slot CA yang masih kosong. */
+function NotaCa({ t, slot }) {
+    if (slot.jawatan !== 'CA' || slot.masa_tamat) return null;
+
+    return <p className={`${t.subtext} text-xs mt-0.5`}>kosong = selesai</p>;
+}
+
+function ButangBuang({ slot, boleh, saving, buanging, onBuang, className = '' }) {
+    if (!boleh) return null;
+
+    return (
+        <button
+            type="button"
+            onClick={() => onBuang(slot)}
+            disabled={saving || buanging}
+            title={`Buang ${labelSlot(slot)}`}
+            className={`inline-flex items-center justify-center text-slate-400 hover:text-red-600 disabled:opacity-50 ${className}`}
+        >
+            {buanging ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+        </button>
+    );
+}
+
 export default function PusatCard({ pusat, saving, parti = [], onChangePusat, onChangeSlot, onTambahSaluran, onTambahSlot, onBuangSlot }) {
     const { t } = usePilihanrayaTheme();
     const [addingSaluran, setAddingSaluran] = useState(false);
@@ -54,8 +115,8 @@ export default function PusatCard({ pusat, saving, parti = [], onChangePusat, on
     return (
         <div className={t.card}>
             <div className="mb-4">
-                <h3 className="text-lg font-semibold text-slate-900">{pusat.pusat}</h3>
-                <p className={`${t.subtext} text-xs mt-0.5`}>{pusat.dm}</p>
+                <h3 className="text-base sm:text-lg font-semibold text-slate-900 break-words">{pusat.pusat}</h3>
+                <p className={`${t.subtext} text-xs mt-0.5 break-words`}>{pusat.dm}</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
@@ -97,106 +158,124 @@ export default function PusatCard({ pusat, saving, parti = [], onChangePusat, on
                             </button>
                         </div>
 
-                        <DragScroll>
-                            <table className="min-w-full">
-                                <thead>
-                                    <tr>
-                                        <th className={t.tableHead}>Jawatan</th>
-                                        <th className={t.tableHead}>Masa Mula</th>
-                                        <th className={t.tableHead}>Masa Tamat</th>
-                                        <th className={t.tableHead}>Nama</th>
-                                        <th className={t.tableHead}>No K/P</th>
-                                        <th className={t.tableHead}>No Tel</th>
-                                        <th className={t.tableHead}>Parti</th>
-                                        <th className={t.tableHead}><span className="sr-only">Tindakan</span></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {saluran.slot.map((slot) => (
-                                        <tr key={slot.id} className={t.tableRow}>
-                                            <td className={`${t.tableCell} font-medium whitespace-nowrap`}>{labelSlot(slot)}</td>
-                                            <td className={t.tableCell}>
-                                                <input
-                                                    type="time"
-                                                    className={`${t.input} w-32`}
-                                                    value={slot.masa_mula ?? ''}
-                                                    disabled={saving}
-                                                    onChange={(e) => onChangeSlot(pusat.id, saluran.id, slot.id, { masa_mula: e.target.value })}
-                                                />
-                                            </td>
-                                            <td className={t.tableCell}>
-                                                <input
-                                                    type="time"
-                                                    className={`${t.input} w-32`}
-                                                    value={slot.masa_tamat ?? ''}
-                                                    disabled={saving}
-                                                    onChange={(e) => onChangeSlot(pusat.id, saluran.id, slot.id, { masa_tamat: e.target.value })}
-                                                />
-                                                {slot.jawatan === 'CA' && !slot.masa_tamat && (
-                                                    <p className={`${t.subtext} text-xs mt-0.5`}>kosong = selesai</p>
-                                                )}
-                                            </td>
-                                            <td className={t.tableCell}>
-                                                <input
-                                                    className={`${t.input} min-w-[140px]`}
-                                                    value={slot.petugas_nama ?? ''}
-                                                    disabled={saving}
-                                                    onChange={(e) => onChangeSlot(pusat.id, saluran.id, slot.id, { petugas_nama: e.target.value })}
-                                                    placeholder="Nama"
-                                                />
-                                            </td>
-                                            <td className={t.tableCell}>
-                                                <input
-                                                    className={`${t.input} min-w-[130px]`}
-                                                    value={slot.petugas_kp ?? ''}
-                                                    disabled={saving}
-                                                    onChange={(e) => onChangeSlot(pusat.id, saluran.id, slot.id, { petugas_kp: e.target.value })}
-                                                    placeholder="No K/P"
-                                                />
-                                            </td>
-                                            <td className={t.tableCell}>
-                                                <input
-                                                    className={`${t.input} min-w-[120px]`}
-                                                    value={slot.petugas_tel ?? ''}
-                                                    disabled={saving}
-                                                    onChange={(e) => onChangeSlot(pusat.id, saluran.id, slot.id, { petugas_tel: e.target.value })}
-                                                    placeholder="No Tel"
-                                                />
-                                            </td>
-                                            <td className={t.tableCell}>
-                                                <select
-                                                    className={`${t.input} min-w-[150px]`}
-                                                    value={slot.petugas_parti ?? ''}
-                                                    disabled={saving}
-                                                    onChange={(e) => onChangeSlot(pusat.id, saluran.id, slot.id, { petugas_parti: e.target.value || null })}
-                                                >
-                                                    <option value="">— Pilih Parti —</option>
-                                                    {/* Kekalkan nilai tersimpan walaupun ia tiada dalam Data Induk
-                                                        (mis. data lama) supaya ia tidak hilang secara senyap. */}
-                                                    {slot.petugas_parti && !parti.includes(slot.petugas_parti) && (
-                                                        <option value={slot.petugas_parti}>{slot.petugas_parti}</option>
-                                                    )}
-                                                    {parti.map((p) => <option key={p} value={p}>{p}</option>)}
-                                                </select>
-                                            </td>
-                                            <td className={t.tableCell}>
-                                                {saluran.slot.length > 1 && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => buangSlot(slot)}
-                                                        disabled={saving || buangingSlot === slot.id}
-                                                        title={`Buang ${labelSlot(slot)}`}
-                                                        className="inline-flex items-center justify-center text-slate-400 hover:text-red-600 disabled:opacity-50"
-                                                    >
-                                                        {buangingSlot === slot.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                                                    </button>
-                                                )}
-                                            </td>
+                        {/* >=md: jadual penuh. Seretan mendatar boleh diterima
+                            apabila semua lajur hampir muat. */}
+                        <div className="hidden md:block">
+                            <DragScroll>
+                                <table className="min-w-full">
+                                    <thead>
+                                        <tr>
+                                            <th className={t.tableHead}>Jawatan</th>
+                                            <th className={t.tableHead}>Masa Mula</th>
+                                            <th className={t.tableHead}>Masa Tamat</th>
+                                            <th className={t.tableHead}>Nama</th>
+                                            <th className={t.tableHead}>No K/P</th>
+                                            <th className={t.tableHead}>No Tel</th>
+                                            <th className={t.tableHead}>Parti</th>
+                                            <th className={t.tableHead}><span className="sr-only">Tindakan</span></th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </DragScroll>
+                                    </thead>
+                                    <tbody>
+                                        {saluran.slot.map((slot) => {
+                                            const ubah = (patch) => onChangeSlot(pusat.id, saluran.id, slot.id, patch);
+
+                                            return (
+                                                <tr key={slot.id} className={t.tableRow}>
+                                                    <td className={`${t.tableCell} font-medium whitespace-nowrap`}>{labelSlot(slot)}</td>
+                                                    <td className={t.tableCell}>
+                                                        <MedanTeks t={t} slot={slot} name="masa_mula" type="time" saving={saving} onUbah={ubah} className="w-32" />
+                                                    </td>
+                                                    <td className={t.tableCell}>
+                                                        <MedanTeks t={t} slot={slot} name="masa_tamat" type="time" saving={saving} onUbah={ubah} className="w-32" />
+                                                        <NotaCa t={t} slot={slot} />
+                                                    </td>
+                                                    <td className={t.tableCell}>
+                                                        <MedanTeks t={t} slot={slot} name="petugas_nama" placeholder="Nama" saving={saving} onUbah={ubah} className="min-w-[140px]" />
+                                                    </td>
+                                                    <td className={t.tableCell}>
+                                                        <MedanTeks t={t} slot={slot} name="petugas_kp" placeholder="No K/P" saving={saving} onUbah={ubah} className="min-w-[130px]" />
+                                                    </td>
+                                                    <td className={t.tableCell}>
+                                                        <MedanTeks t={t} slot={slot} name="petugas_tel" placeholder="No Tel" saving={saving} onUbah={ubah} className="min-w-[120px]" />
+                                                    </td>
+                                                    <td className={t.tableCell}>
+                                                        <MedanParti t={t} slot={slot} parti={parti} saving={saving} onUbah={ubah} className="min-w-[150px]" />
+                                                    </td>
+                                                    <td className={t.tableCell}>
+                                                        <ButangBuang
+                                                            slot={slot}
+                                                            boleh={saluran.slot.length > 1}
+                                                            saving={saving}
+                                                            buanging={buangingSlot === slot.id}
+                                                            onBuang={buangSlot}
+                                                        />
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </DragScroll>
+                        </div>
+
+                        {/* <md: satu kad bertindan setiap slot. Jadual 8 lajur
+                            penuh input tidak boleh digunakan pada telefon —
+                            setiap petugas akan memerlukan seretan mendatar
+                            berulang kali. Medan dikongsi dengan jadual di atas. */}
+                        <div className="md:hidden space-y-3">
+                            {saluran.slot.map((slot) => {
+                                const ubah = (patch) => onChangeSlot(pusat.id, saluran.id, slot.id, patch);
+
+                                return (
+                                    <div key={slot.id} className="rounded-lg border border-slate-200 p-3">
+                                        <div className="flex items-center justify-between gap-2 mb-2">
+                                            <span className="text-sm font-semibold text-slate-900">{labelSlot(slot)}</span>
+                                            <ButangBuang
+                                                slot={slot}
+                                                boleh={saluran.slot.length > 1}
+                                                saving={saving}
+                                                buanging={buangingSlot === slot.id}
+                                                onBuang={buangSlot}
+                                                className="-m-1 p-1"
+                                            />
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2 mb-2">
+                                            <div>
+                                                <label className={t.label}>Masa Mula</label>
+                                                <MedanTeks t={t} slot={slot} name="masa_mula" type="time" saving={saving} onUbah={ubah} />
+                                            </div>
+                                            <div>
+                                                <label className={t.label}>Masa Tamat</label>
+                                                <MedanTeks t={t} slot={slot} name="masa_tamat" type="time" saving={saving} onUbah={ubah} />
+                                                <NotaCa t={t} slot={slot} />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <div>
+                                                <label className={t.label}>Nama</label>
+                                                <MedanTeks t={t} slot={slot} name="petugas_nama" placeholder="Nama" saving={saving} onUbah={ubah} />
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <div>
+                                                    <label className={t.label}>No K/P</label>
+                                                    <MedanTeks t={t} slot={slot} name="petugas_kp" placeholder="No K/P" saving={saving} onUbah={ubah} />
+                                                </div>
+                                                <div>
+                                                    <label className={t.label}>No Tel</label>
+                                                    <MedanTeks t={t} slot={slot} name="petugas_tel" placeholder="No Tel" saving={saving} onUbah={ubah} />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className={t.label}>Parti</label>
+                                                <MedanParti t={t} slot={slot} parti={parti} saving={saving} onUbah={ubah} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
                 ))}
             </div>

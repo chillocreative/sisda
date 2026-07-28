@@ -53,7 +53,7 @@ export default function RingkasanPaca({ pusatList, onLompat }) {
     const peratus = totalSlot > 0 ? Math.round((totalTerisi / totalSlot) * 100) : 0;
 
     return (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 mb-5">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-5 mb-5">
             {/* Kepala kad = suis buka/tutup. Ringkasan (kiraan, lencana, bar
                 kemajuan) sengaja KEKAL kelihatan apabila ditutup — yang
                 dilipat hanyalah senarai terperinci setiap Pusat. */}
@@ -76,12 +76,12 @@ export default function RingkasanPaca({ pusatList, onLompat }) {
                         </p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold">
-                        <CheckCircle2 className="h-3.5 w-3.5" /> {lengkap} Lengkap
+                <div className="flex flex-wrap items-center gap-2 pl-7 sm:pl-0">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold whitespace-nowrap">
+                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0" /> {lengkap} Lengkap
                     </span>
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs font-semibold">
-                        <CircleDashed className="h-3.5 w-3.5" /> {belum} Belum Lengkap
+                    <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs font-semibold whitespace-nowrap">
+                        <CircleDashed className="h-3.5 w-3.5 shrink-0" /> {belum} Belum Lengkap
                     </span>
                 </div>
             </button>

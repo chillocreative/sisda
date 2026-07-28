@@ -16,7 +16,10 @@ export function tokens() {
         page: 'rounded-2xl bg-slate-50 p-4 sm:p-6 min-h-[80vh]',
         heading: 'text-2xl font-bold text-slate-900',
         subheading: 'text-sm text-slate-500',
-        card: 'bg-white rounded-xl border border-slate-200 p-6 shadow-sm',
+        // Padding responsif: p-6 memakan 48px daripada lebar skrin telefon,
+        // yang ketara pada kad padat borang seperti PusatCard. Tiada perubahan
+        // pada >=640px.
+        card: 'bg-white rounded-xl border border-slate-200 p-4 sm:p-6 shadow-sm',
         cardTight: 'bg-white rounded-xl border border-slate-200 p-4 shadow-sm',
         cardTitle: 'text-lg font-semibold text-slate-900 mb-4',
         text: 'text-slate-900',

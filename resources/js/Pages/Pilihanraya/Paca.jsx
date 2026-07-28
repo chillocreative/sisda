@@ -335,7 +335,7 @@ function PacaEditor({ seat, parti, bolehUrusStruktur = true }) {
             {!loading && !loadError && draft && (
                 <>
                     <div className="sticky top-0 z-10 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 mb-4 bg-slate-50/95 backdrop-blur border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
-                        <div>
+                        <div className="w-full sm:w-auto">
                             {saveError && (
                                 <p className="text-sm bg-rose-50 border border-rose-300 text-rose-800 rounded-lg px-3 py-2">{saveError}</p>
                             )}
@@ -345,31 +345,35 @@ function PacaEditor({ seat, parti, bolehUrusStruktur = true }) {
                                 </p>
                             )}
                         </div>
-                        <div className="flex items-center gap-2">
+                        {/* Mobil: grid 2 lajur supaya bilangan butang yang berubah
+                            (pautan awam / Sejarah / Bina Semula bergantung pada
+                            peranan) sentiasa tersusun kemas dan tiada limpahan
+                            mendatar. >=sm kembali kepada baris biasa. */}
+                        <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:flex sm:flex-wrap sm:items-center sm:justify-end">
                             {draft?.public_url && (
-                                <button type="button" onClick={salinPautan} className={t.buttonSecondary}>
+                                <button type="button" onClick={salinPautan} className={`${t.buttonSecondary} justify-center`}>
                                     {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
                                     {copied ? 'Disalin!' : 'Salin Pautan Awam'}
                                 </button>
                             )}
                             {bolehUrusStruktur && (
                                 <>
-                                    <button type="button" onClick={() => setSejarahOpen(true)} className={t.buttonSecondary}>
+                                    <button type="button" onClick={() => setSejarahOpen(true)} className={`${t.buttonSecondary} justify-center`}>
                                         <History className="h-4 w-4" /> Sejarah
                                     </button>
-                                    <button type="button" onClick={() => { setRebuildErr(''); setRebuildOpen(true); }} disabled={saving} className={t.buttonSecondary}>
+                                    <button type="button" onClick={() => { setRebuildErr(''); setRebuildOpen(true); }} disabled={saving} className={`${t.buttonSecondary} justify-center`}>
                                         <RefreshCw className="h-4 w-4" /> Bina Semula Roster
                                     </button>
                                 </>
                             )}
-                            <button type="button" onClick={muatTurunPdf} disabled={saving} className={t.buttonSecondary}>
+                            <button type="button" onClick={muatTurunPdf} disabled={saving} className={`${t.buttonSecondary} justify-center`}>
                                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
                                 Muat Turun PDF
                             </button>
-                            <button type="button" onClick={() => { setWaMsg(null); setWaOpen(true); }} disabled={saving} className={t.buttonSecondary}>
+                            <button type="button" onClick={() => { setWaMsg(null); setWaOpen(true); }} disabled={saving} className={`${t.buttonSecondary} justify-center`}>
                                 <Send className="h-4 w-4" /> Hantar WhatsApp
                             </button>
-                            <button type="button" onClick={simpan} disabled={saving} className={t.buttonPrimary}>
+                            <button type="button" onClick={simpan} disabled={saving} className={`${t.buttonPrimary} col-span-2 sm:col-span-1 justify-center`}>
                                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                                 Simpan
                             </button>
@@ -520,18 +524,18 @@ export default function Paca({ seats, parti = [], rememberedFilters = {}, kerusi
                 title="PACA"
                 subtitle="Susun roster Petugas Pengundian Awal (PA) dan Ketua PACA mengikut Pusat Mengundi dan Saluran"
             >
-                <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm mb-5">
+                <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-6 shadow-sm mb-5">
                     {kerusiTerkunci ? (
                         <div className="flex items-center gap-3">
-                            <div className="rounded-lg bg-violet-50 p-2">
+                            <div className="rounded-lg bg-violet-50 p-2 shrink-0">
                                 <Users className="h-5 w-5 text-violet-700" />
                             </div>
-                            <div>
+                            <div className="min-w-0">
                                 <p className="text-xs uppercase tracking-wide text-slate-500">Kerusi Anda</p>
-                                <p className="text-lg font-semibold text-slate-900">
+                                <p className="text-base sm:text-lg font-semibold text-slate-900 break-words">
                                     DUN {kerusiTerkunci.dun ?? kerusiTerkunci.nama}
                                 </p>
-                                <p className="text-sm text-slate-500">
+                                <p className="text-xs sm:text-sm text-slate-500 break-words">
                                     {kerusiTerkunci.negeri} · {kerusiTerkunci.parlimen} · {String(kerusiTerkunci.jenis_pr).toUpperCase()} {kerusiTerkunci.tahun}
                                 </p>
                             </div>
