@@ -200,6 +200,17 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user is Ketua PACA DUN.
+     *
+     * Peranan berskop DUN tunggal: hanya menu Pilihanraya > PACA, dan hanya
+     * kerusi DUN pada $this->kadun_id. Lihat PacaController::assertBolehAkses().
+     */
+    public function isKetuaPacaDun()
+    {
+        return $this->role === 'ketua_paca_dun';
+    }
+
+    /**
      * Check if user is approved.
      */
     public function isApproved()

@@ -105,8 +105,14 @@ export default function AuthenticatedLayout({ children }) {
         { name: 'Indeks Panggilan', href: route('call-center.history.index'), icon: List },
     ];
 
+    // Ketua PACA DUN tiada papan pemuka — /dashboard mengalih ke PACA
+    // (DashboardController). Jangan paparkan pautan yang hanya melantun.
+    const isKetuaPacaDun = user.role === 'ketua_paca_dun';
+
     const navigation = [
-        { name: 'Dashboard', href: route('dashboard'), icon: LayoutDashboard, current: route().current('dashboard') },
+        ...(isKetuaPacaDun ? [] : [
+            { name: 'Dashboard', href: route('dashboard'), icon: LayoutDashboard, current: route().current('dashboard') }
+        ]),
         // User Approval (Super Admin and Admin only)
         ...(user.role === 'super_admin' || user.role === 'admin' ? [
             { name: 'Kelulusan User', href: route('user-approval.index'), icon: UserCheck, current: route().current('user-approval.*') }
@@ -206,6 +212,22 @@ export default function AuthenticatedLayout({ children }) {
                     // dipautkan — ia hanya boleh dicapai dengan menaip URL.
                     { name: 'Minima', href: route('pilihanraya.minima'), icon: Target },
                     { name: 'Jawatankuasa', href: route('pilihanraya.jawatankuasa.index'), icon: ClipboardList },
+                ]
+            }
+        ] : []),
+        // Pilihanraya untuk Ketua PACA DUN — SATU submenu sahaja (PACA).
+        // Laluan lain dalam /pilihanraya kekal di belakang middleware `admin`;
+        // menu ini sengaja tidak berkongsi tatasusunan submenu di atas supaya
+        // menambah item Pilihanraya baharu tidak membocorkannya ke sini.
+        ...(isKetuaPacaDun ? [
+            {
+                name: 'Pilihanraya',
+                href: route('pilihanraya.paca'),
+                icon: Swords,
+                current: route().current('pilihanraya.paca*'),
+                hasSubmenu: true,
+                submenu: [
+                    { name: 'PACA', href: route('pilihanraya.paca'), icon: Users },
                 ]
             }
         ] : []),

@@ -39,9 +39,14 @@ class PacaBuilderService
      * PacaController::assertBolehAkses() — parlimen: kawasan_id ITU bandar;
      * dun: bandar_id Kadun berkenaan.
      *
+     * $kadunId, jika diberi, melingkupkan senarai kepada SATU kerusi DUN
+     * (ketua_paca_dun). Kerusi Parlimen sentiasa disingkir dalam mod ini —
+     * tiada DUN untuk dipadankan. Sepadan dengan cabang ketua_paca_dun dalam
+     * PacaController::assertBolehAkses(); kedua-duanya mesti kekal seiring.
+     *
      * @return array<int, array{kawasan_type:string, kawasan_id:int, jenis_pr:string, tahun:int, nama:string, negeri:string, parlimen:string, dun:?string, has_paca:bool}>
      */
-    public function seatsWithScoresheet(?int $bandarId = null): array
+    public function seatsWithScoresheet(?int $bandarId = null, ?int $kadunId = null): array
     {
         $existingPaca = PacaForm::query()
             ->get(['kawasan_type', 'kawasan_id', 'jenis_pr', 'tahun'])
@@ -56,6 +61,11 @@ class PacaBuilderService
             }
 
             $isParlimen = $f->kawasan_type === Borang14Form::KAWASAN_PARLIMEN;
+
+            if ($kadunId !== null && ($isParlimen || (int) $f->kawasan_id !== $kadunId)) {
+                continue;
+            }
+
             $kawasan = $f->kawasan();
             $bandar = $isParlimen ? $kawasan : $kawasan?->bandar;
 

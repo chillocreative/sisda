@@ -125,6 +125,8 @@ class FilterScopesTest extends TestCase
             'pilihanraya.jawatankuasa.index' => 'jawatankuasa',
             'pilihanraya.kaum-dm' => 'kaum_dm',
             'pilihanraya.minima' => 'minima',
+            'pilihanraya.paca' => 'paca',
+            'pilihanraya.paca.data' => 'paca',
             'pilihanraya.scoreboard' => 'scoreboard',
             'pilihanraya.scoreboard.data' => 'scoreboard',
             'pilihanraya.war-room' => 'war_room',

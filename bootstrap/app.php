@@ -22,6 +22,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'super_admin' => \App\Http\Middleware\EnsureSuperAdmin::class,
             'admin' => \App\Http\Middleware\EnsureAdmin::class,
+            // Admin + Ketua PACA DUN — laluan /pilihanraya/paca/* sahaja.
+            'paca' => \App\Http\Middleware\EnsurePacaAccess::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

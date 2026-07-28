@@ -32,19 +32,34 @@ class PacaController extends Controller
     ) {
     }
 
-    /** Halaman admin PACA — senarai kerusi berscoresheet untuk pemilih. */
+    /**
+     * Halaman PACA — senarai kerusi berscoresheet untuk pemilih.
+     *
+     * Ketua PACA DUN mendapat SATU DUN sahaja. Apabila kerusi itu wujud, ia
+     * dihantar sebagai `kerusiTerkunci` supaya klien memilihnya automatik dan
+     * menyembunyikan dropdown Negeri/Parlimen/DUN sepenuhnya.
+     */
     public function index(Request $request)
     {
         $user = auth()->user();
-        if (! $user->isSuperAdmin() && ! $user->isAdmin()) {
-            abort(403, 'Unauthorized action.');
-        }
+        $this->assertPeranan($user);
+
+        $ketuaPaca = $user->isKetuaPacaDun();
+
+        $seats = $this->builder->seatsWithScoresheet(
+            $user->isSuperAdmin() || $ketuaPaca ? null : (int) $user->bandar_id,
+            $ketuaPaca ? (int) $user->kadun_id : null,
+        );
 
         return Inertia::render('Pilihanraya/Paca', [
-            'seats' => $this->builder->seatsWithScoresheet($user->isSuperAdmin() ? null : (int) $user->bandar_id),
+            'seats' => $seats,
             // Senarai parti daripada Data Induk > Keahlian Parti untuk dropdown.
             'parti' => \App\Models\KeahlianParti::orderBy('sort_order')->orderBy('nama')
                 ->pluck('nama')->map(fn ($n) => trim($n))->filter()->unique()->values(),
+            // Kerusi tunggal yang dikunci (Ketua PACA DUN) — null bagi admin.
+            'kerusiTerkunci' => $ketuaPaca ? ($seats[0] ?? null) : null,
+            // Bina Semula Roster + Sejarah/Pulih memusnah roster — admin sahaja.
+            'bolehUrusStruktur' => ! $ketuaPaca,
         ]);
     }
 
@@ -56,9 +71,7 @@ class PacaController extends Controller
     public function data(Request $request)
     {
         $user = auth()->user();
-        if (! $user->isSuperAdmin() && ! $user->isAdmin()) {
-            abort(403, 'Unauthorized action.');
-        }
+        $this->assertPeranan($user);
 
         $validated = $request->validate($this->kawasanRules($request->input('kawasan_type')));
 
@@ -90,9 +103,7 @@ class PacaController extends Controller
     public function pdf(Request $request)
     {
         $user = auth()->user();
-        if (! $user->isSuperAdmin() && ! $user->isAdmin()) {
-            abort(403, 'Unauthorized action.');
-        }
+        $this->assertPeranan($user);
 
         $validated = $request->validate($this->kawasanRules($request->input('kawasan_type')));
         $this->assertBolehAkses($user, $validated['kawasan_type'], (int) $validated['kawasan_id']);
@@ -126,9 +137,7 @@ class PacaController extends Controller
     public function whatsapp(Request $request)
     {
         $user = auth()->user();
-        if (! $user->isSuperAdmin() && ! $user->isAdmin()) {
-            abort(403, 'Unauthorized action.');
-        }
+        $this->assertPeranan($user);
 
         $rules = $this->kawasanRules($request->input('kawasan_type'));
         $rules['telefon'] = 'required|string|max:30';
@@ -194,9 +203,7 @@ class PacaController extends Controller
     public function simpan(Request $request)
     {
         $user = auth()->user();
-        if (! $user->isSuperAdmin() && ! $user->isAdmin()) {
-            abort(403, 'Unauthorized action.');
-        }
+        $this->assertPeranan($user);
 
         $validated = $request->validate($this->pacaRules());
 
@@ -284,9 +291,7 @@ class PacaController extends Controller
     public function tambahSaluran(Request $request)
     {
         $user = auth()->user();
-        if (! $user->isSuperAdmin() && ! $user->isAdmin()) {
-            abort(403, 'Unauthorized action.');
-        }
+        $this->assertPeranan($user);
 
         $validated = $request->validate([
             'paca_pusat_id' => 'required|integer|exists:paca_pusat,id',
@@ -322,9 +327,7 @@ class PacaController extends Controller
     public function tambahSlot(Request $request)
     {
         $user = auth()->user();
-        if (! $user->isSuperAdmin() && ! $user->isAdmin()) {
-            abort(403, 'Unauthorized action.');
-        }
+        $this->assertPeranan($user);
 
         $validated = $request->validate([
             'paca_saluran_id' => 'required|integer|exists:paca_saluran,id',
@@ -584,10 +587,40 @@ class PacaController extends Controller
         ];
     }
 
-    /** Kebenaran: super_admin lulus semua; admin biasa dilingkup pada Bandar-nya sendiri. */
+    /**
+     * Gerbang peranan bagi operasi PACA harian (baca + sunting roster).
+     * Operasi memusnah — binaSemula(), pulih() dan sejarah() yang memandunya —
+     * mengekalkan semakan admin-sahaja sebaris di dalam kaedah masing-masing.
+     */
+    private function assertPeranan(User $user): void
+    {
+        if (! $user->isSuperAdmin() && ! $user->isAdmin() && ! $user->isKetuaPacaDun()) {
+            abort(403, 'Unauthorized action.');
+        }
+    }
+
+    /**
+     * Kebenaran kerusi: super_admin lulus semua; admin biasa dilingkup pada
+     * Bandar-nya sendiri; ketua_paca_dun dilingkup pada SATU DUN
+     * (users.kadun_id) — kerusi Parlimen sentiasa ditolak kerana tiada DUN
+     * untuk dipadankan.
+     *
+     * Dipanggil SEBELUM sebarang carian Borang14Form supaya kawasan_id yang
+     * diteka tidak boleh membezakan "wujud" (404) daripada "tiada kebenaran".
+     */
     private function assertBolehAkses(User $user, string $kawasanType, int $kawasanId): void
     {
         if ($user->isSuperAdmin()) {
+            return;
+        }
+
+        if ($user->isKetuaPacaDun()) {
+            if ($kawasanType !== Borang14Form::KAWASAN_DUN
+                || $user->kadun_id === null
+                || (int) $user->kadun_id !== $kawasanId) {
+                abort(403, 'Unauthorized action.');
+            }
+
             return;
         }
 
@@ -605,9 +638,7 @@ class PacaController extends Controller
     public function buangSlot(Request $request)
     {
         $user = auth()->user();
-        if (! $user->isSuperAdmin() && ! $user->isAdmin()) {
-            abort(403, 'Unauthorized action.');
-        }
+        $this->assertPeranan($user);
 
         $validated = $request->validate([
             'paca_slot_id' => 'required|integer|exists:paca_slot,id',

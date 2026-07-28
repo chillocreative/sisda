@@ -98,7 +98,11 @@ const extractError = (e, fallback) => {
     return data.message || fallback;
 };
 
-function PacaEditor({ seat, parti }) {
+// `bolehUrusStruktur` false bagi Ketua PACA DUN — Sejarah dan Bina Semula
+// Roster memadam/menulis ganti keseluruhan roster, jadi kedua-duanya
+// disembunyikan. Pengawal turut menolak kedua-dua endpoint itu dengan 403;
+// ini semata-mata supaya butang yang pasti gagal tidak dipaparkan.
+function PacaEditor({ seat, parti, bolehUrusStruktur = true }) {
     const { t } = usePilihanrayaTheme();
     const [draft, setDraft] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -348,12 +352,16 @@ function PacaEditor({ seat, parti }) {
                                     {copied ? 'Disalin!' : 'Salin Pautan Awam'}
                                 </button>
                             )}
-                            <button type="button" onClick={() => setSejarahOpen(true)} className={t.buttonSecondary}>
-                                <History className="h-4 w-4" /> Sejarah
-                            </button>
-                            <button type="button" onClick={() => { setRebuildErr(''); setRebuildOpen(true); }} disabled={saving} className={t.buttonSecondary}>
-                                <RefreshCw className="h-4 w-4" /> Bina Semula Roster
-                            </button>
+                            {bolehUrusStruktur && (
+                                <>
+                                    <button type="button" onClick={() => setSejarahOpen(true)} className={t.buttonSecondary}>
+                                        <History className="h-4 w-4" /> Sejarah
+                                    </button>
+                                    <button type="button" onClick={() => { setRebuildErr(''); setRebuildOpen(true); }} disabled={saving} className={t.buttonSecondary}>
+                                        <RefreshCw className="h-4 w-4" /> Bina Semula Roster
+                                    </button>
+                                </>
+                            )}
                             <button type="button" onClick={muatTurunPdf} disabled={saving} className={t.buttonSecondary}>
                                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
                                 Muat Turun PDF
@@ -393,12 +401,14 @@ function PacaEditor({ seat, parti }) {
                         ))}
                     </div>
 
-                    <SejarahDrawer
-                        open={sejarahOpen}
-                        pacaFormId={draft.id}
-                        onClose={() => setSejarahOpen(false)}
-                        onPulih={pulih}
-                    />
+                    {bolehUrusStruktur && (
+                        <SejarahDrawer
+                            open={sejarahOpen}
+                            pacaFormId={draft.id}
+                            onClose={() => setSejarahOpen(false)}
+                            onPulih={pulih}
+                        />
+                    )}
 
                     {rebuildOpen && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" onClick={() => !rebuildBusy && setRebuildOpen(false)}>
@@ -480,7 +490,7 @@ function PacaEditor({ seat, parti }) {
     );
 }
 
-export default function Paca({ seats, parti = [], rememberedFilters = {} }) {
+export default function Paca({ seats, parti = [], rememberedFilters = {}, kerusiTerkunci = null, bolehUrusStruktur = true }) {
     // Pulihkan kerusi terakhir dipilih daripada `rememberedFilters` — prop
     // sejagat yang disemai oleh RememberFilters (sesi, dibersihkan pada logout,
     // skop 'paca'). Cari padanan dalam `seats` semasa; abaikan jika tiada
@@ -497,7 +507,11 @@ export default function Paca({ seats, parti = [], rememberedFilters = {} }) {
         ) ?? null;
     }, [seats, rememberedFilters]);
 
-    const [seat, setSeat] = useState(restored);
+    // Ketua PACA DUN dikunci pada satu kerusi — pengawal menghantarnya sebagai
+    // `kerusiTerkunci`. Pemilih kerusi disembunyikan sepenuhnya: tiada apa-apa
+    // untuk dipilih, dan dropdown Negeri/Parlimen akan menyenaraikan kawasan
+    // yang mereka tiada kebenaran ke atasnya.
+    const [seat, setSeat] = useState(kerusiTerkunci ?? restored);
 
     return (
         <AuthenticatedLayout>
@@ -507,18 +521,37 @@ export default function Paca({ seats, parti = [], rememberedFilters = {} }) {
                 subtitle="Susun roster Petugas Pengundian Awal (PA) dan Ketua PACA mengikut Pusat Mengundi dan Saluran"
             >
                 <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm mb-5">
-                    <h3 className="text-lg font-semibold text-slate-900 mb-4">Pilih Kerusi</h3>
-                    {seats.length === 0 ? (
-                        <p className="text-sm text-slate-500 flex items-center gap-2">
-                            <Users className="h-4 w-4" /> Tiada kerusi berscoresheet ditemui. PACA hanya boleh disediakan untuk
-                            kerusi yang telah mempunyai Borang 14 (scoresheet).
-                        </p>
+                    {kerusiTerkunci ? (
+                        <div className="flex items-center gap-3">
+                            <div className="rounded-lg bg-violet-50 p-2">
+                                <Users className="h-5 w-5 text-violet-700" />
+                            </div>
+                            <div>
+                                <p className="text-xs uppercase tracking-wide text-slate-500">Kerusi Anda</p>
+                                <p className="text-lg font-semibold text-slate-900">
+                                    DUN {kerusiTerkunci.dun ?? kerusiTerkunci.nama}
+                                </p>
+                                <p className="text-sm text-slate-500">
+                                    {kerusiTerkunci.negeri} · {kerusiTerkunci.parlimen} · {String(kerusiTerkunci.jenis_pr).toUpperCase()} {kerusiTerkunci.tahun}
+                                </p>
+                            </div>
+                        </div>
                     ) : (
-                        <SeatPicker seats={seats} initial={restored} onSelect={setSeat} />
+                        <>
+                            <h3 className="text-lg font-semibold text-slate-900 mb-4">Pilih Kerusi</h3>
+                            {seats.length === 0 ? (
+                                <p className="text-sm text-slate-500 flex items-center gap-2">
+                                    <Users className="h-4 w-4" /> Tiada kerusi berscoresheet ditemui. PACA hanya boleh disediakan untuk
+                                    kerusi yang telah mempunyai Borang 14 (scoresheet).
+                                </p>
+                            ) : (
+                                <SeatPicker seats={seats} initial={restored} onSelect={setSeat} />
+                            )}
+                        </>
                     )}
                 </div>
 
-                {seat && <PacaEditor key={`${seat.kawasan_type}-${seat.kawasan_id}-${seat.jenis_pr}-${seat.tahun}`} seat={seat} parti={parti} />}
+                {seat && <PacaEditor key={`${seat.kawasan_type}-${seat.kawasan_id}-${seat.jenis_pr}-${seat.tahun}`} seat={seat} parti={parti} bolehUrusStruktur={bolehUrusStruktur} />}
             </PilihanrayaShell>
         </AuthenticatedLayout>
     );

@@ -24,6 +24,8 @@ if (!$user->isSuperAdmin() && !$user->isAdmin()) {
 
 Roles: `super_admin` (everything) → `admin` (scoped to their Bandar) → `super_user` / `user` (scoped to their Kadun; may only edit own submissions). Login is by **telephone**, not email. New accounts are `pending` until approved.
 
+`ketua_paca_dun` is orthogonal to that ladder: it sees **one menu** (Pilihanraya > PACA) and **one seat** (the DUN on `users.kadun_id`), and cannot rebuild or restore a roster. Registration always creates `user`; an Admin assigns this role afterwards. Because of it the `/paca/*` routes live in their own group behind the `paca` middleware alias (`EnsurePacaAccess`) rather than the `admin` group that guards the rest of `/pilihanraya` — adding a route to the wrong group silently widens or narrows access. `DashboardController::index()` must keep an explicit branch per role: unmatched roles fall through to the **national Super Admin dashboard**.
+
 **Claude config is in the database, not `.env`.** API key + model live on `claude_settings` (encrypted), managed at `/settings/claude`. There is no `ANTHROPIC_*`/`CLAUDE_*` env var. `document_model` is a separate vision-capable override for scoresheets/PDFs. Usage/cost is logged to `ai_usage_logs`.
 
 **Two-phase AI pattern** (`ElectionComparisonService`): call 1 uses `chatWithWebSearch` for prose; call 2 re-submits that prose to a tool-free `chat()` for strict JSON. Tool-using models write poor JSON mid-loop. Every AI path has a deterministic fallback and never throws.

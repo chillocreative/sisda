@@ -28,6 +28,14 @@ class DashboardController extends Controller
     {
         $user = auth()->user();
 
+        // Ketua PACA DUN tiada papan pemuka — satu-satunya skrin mereka ialah
+        // Pilihanraya > PACA. Cabang ini WAJIB berada sebelum apa-apa yang
+        // lain: tanpa padanan eksplisit, peranan yang tidak dikenali jatuh
+        // melalui ke papan pemuka Super Admin peringkat kebangsaan di bawah.
+        if ($user->isKetuaPacaDun()) {
+            return redirect()->route('pilihanraya.paca');
+        }
+
         // Show simplified dashboard for Admin, Super User and Regular users
         if ($user->isAdmin() || $user->isSuperUser() || $user->isUser()) {
             return Inertia::render('Dashboard/UserDashboard');

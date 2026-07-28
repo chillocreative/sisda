@@ -181,6 +181,7 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
         switch (role) {
             case 'super_admin': return 'bg-rose-100 text-rose-800';
             case 'admin': return 'bg-sky-100 text-sky-800';
+            case 'ketua_paca_dun': return 'bg-violet-100 text-violet-800';
             default: return 'bg-slate-100 text-slate-800';
         }
     };
@@ -198,6 +199,7 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
             case 'super_admin': return 'Super Admin';
             case 'admin': return 'Admin';
             case 'super_user': return 'Super User';
+            case 'ketua_paca_dun': return 'Ketua PACA DUN';
             default: return 'User';
         }
     };
@@ -325,6 +327,7 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
                                     <option value="super_admin">Super Admin</option>
                                     <option value="admin">Admin</option>
                                     <option value="super_user">Super User</option>
+                                    <option value="ketua_paca_dun">Ketua PACA DUN</option>
                                     <option value="user">User</option>
                                 </select>
                             </div>
@@ -524,6 +527,7 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
                                         >
                                             <option value="user">User</option>
                                             <option value="super_user">Super User</option>
+                                            <option value="ketua_paca_dun">Ketua PACA DUN</option>
                                             {currentUser.role === 'super_admin' && (
                                                 <>
                                                     <option value="admin">Admin</option>
@@ -531,6 +535,11 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
                                                 </>
                                             )}
                                         </select>
+                                        {formData.role === 'ketua_paca_dun' && (
+                                            <p className="mt-1.5 text-xs text-violet-700">
+                                                Hanya melihat Pilihanraya &gt; PACA bagi KADUN yang dipilih di bawah.
+                                            </p>
+                                        )}
                                     </div>
                                     <div>
                                         <InputLabel value="Status" required />

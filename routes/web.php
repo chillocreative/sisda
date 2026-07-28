@@ -487,23 +487,6 @@ Route::middleware(['auth', 'admin'])->prefix('pilihanraya')->name('pilihanraya.'
     // bergantung pada tapisan senarai sahaja, id boleh diteka.
     Route::get('/borang-14/upload/{upload}/fail', [\App\Http\Controllers\Borang14Controller::class, 'muatTurunUpload'])->name('borang-14.upload.fail');
 
-    // PACA — roster petugas PACA (Pusat->Saluran->slot), disemai daripada
-    // struktur scoresheet Borang 14. Laluan awam per-Pusat (token) TIADA di
-    // sini — lihat PacaPublicController (Tugasan 5), berdiri sendiri di luar
-    // kumpulan auth ini.
-    Route::get('/paca', [\App\Http\Controllers\PacaController::class, 'index'])->name('paca');
-    Route::get('/paca/data', [\App\Http\Controllers\PacaController::class, 'data'])->name('paca.data');
-    Route::get('/paca/pdf', [\App\Http\Controllers\PacaController::class, 'pdf'])->name('paca.pdf');
-    Route::post('/paca/whatsapp', [\App\Http\Controllers\PacaController::class, 'whatsapp'])->name('paca.whatsapp')->middleware('throttle:20,1');
-    Route::post('/paca/simpan', [\App\Http\Controllers\PacaController::class, 'simpan'])->name('paca.simpan')->middleware('throttle:30,1');
-    // Memadam setiap baris roster lalu menyemai semula — hadkan lebih ketat.
-    Route::post('/paca/bina-semula', [\App\Http\Controllers\PacaController::class, 'binaSemula'])->name('paca.bina-semula')->middleware('throttle:10,1');
-    Route::post('/paca/saluran/tambah', [\App\Http\Controllers\PacaController::class, 'tambahSaluran'])->name('paca.saluran.tambah')->middleware('throttle:30,1');
-    Route::post('/paca/slot/tambah', [\App\Http\Controllers\PacaController::class, 'tambahSlot'])->name('paca.slot.tambah')->middleware('throttle:30,1');
-    Route::post('/paca/slot/buang', [\App\Http\Controllers\PacaController::class, 'buangSlot'])->name('paca.slot.buang')->middleware('throttle:30,1');
-    Route::get('/paca/sejarah', [\App\Http\Controllers\PacaController::class, 'sejarah'])->name('paca.sejarah');
-    Route::post('/paca/pulih', [\App\Http\Controllers\PacaController::class, 'pulih'])->name('paca.pulih')->middleware('throttle:20,1');
-
     // War Room tab data (lazy-loaded, cached aggregates)
     Route::get('/api/overview', [\App\Http\Controllers\PilihanrayaController::class, 'overview'])->name('api.overview');
     Route::get('/api/composition', [\App\Http\Controllers\PilihanrayaController::class, 'composition'])->name('api.composition');
@@ -541,6 +524,31 @@ Route::middleware(['auth', 'admin'])->prefix('pilihanraya')->name('pilihanraya.'
     Route::post('/jawatankuasa/upload/commit', [\App\Http\Controllers\KeanggotaanJawatankuasaController::class, 'commit'])->name('jawatankuasa.upload.commit');
     Route::post('/jawatankuasa/bulk-delete', [\App\Http\Controllers\KeanggotaanJawatankuasaController::class, 'bulkDestroy'])->name('jawatankuasa.bulk-destroy');
     Route::post('/jawatankuasa/resync', [\App\Http\Controllers\KeanggotaanJawatankuasaController::class, 'resync'])->name('jawatankuasa.resync');
+});
+
+// PACA — roster petugas PACA (Pusat->Saluran->slot), disemai daripada struktur
+// scoresheet Borang 14. Laluan awam per-Pusat (token) TIADA di sini — lihat
+// PacaPublicController (Tugasan 5), berdiri sendiri di luar kumpulan auth.
+//
+// Kumpulan berasingan daripada baki /pilihanraya kerana `ketua_paca_dun`
+// dibenarkan MASUK ke sini sahaja — bukan War Room, Borang 14 atau Analisa.
+// Prefix dan nama kekal `pilihanraya.` supaya URL/route() tidak berubah.
+// Skop DUN sebenar dikuatkuasakan dalam PacaController, bukan di sini.
+Route::middleware(['auth', 'paca'])->prefix('pilihanraya')->name('pilihanraya.')->group(function () {
+    Route::get('/paca', [\App\Http\Controllers\PacaController::class, 'index'])->name('paca');
+    Route::get('/paca/data', [\App\Http\Controllers\PacaController::class, 'data'])->name('paca.data');
+    Route::get('/paca/pdf', [\App\Http\Controllers\PacaController::class, 'pdf'])->name('paca.pdf');
+    Route::post('/paca/whatsapp', [\App\Http\Controllers\PacaController::class, 'whatsapp'])->name('paca.whatsapp')->middleware('throttle:20,1');
+    Route::post('/paca/simpan', [\App\Http\Controllers\PacaController::class, 'simpan'])->name('paca.simpan')->middleware('throttle:30,1');
+    // Memadam setiap baris roster lalu menyemai semula — admin sahaja
+    // (dikuatkuasakan dalam pengawal), dan hadkan lebih ketat.
+    Route::post('/paca/bina-semula', [\App\Http\Controllers\PacaController::class, 'binaSemula'])->name('paca.bina-semula')->middleware('throttle:10,1');
+    Route::post('/paca/saluran/tambah', [\App\Http\Controllers\PacaController::class, 'tambahSaluran'])->name('paca.saluran.tambah')->middleware('throttle:30,1');
+    Route::post('/paca/slot/tambah', [\App\Http\Controllers\PacaController::class, 'tambahSlot'])->name('paca.slot.tambah')->middleware('throttle:30,1');
+    Route::post('/paca/slot/buang', [\App\Http\Controllers\PacaController::class, 'buangSlot'])->name('paca.slot.buang')->middleware('throttle:30,1');
+    // Sejarah ialah UI untuk pulih() — kedua-duanya admin sahaja.
+    Route::get('/paca/sejarah', [\App\Http\Controllers\PacaController::class, 'sejarah'])->name('paca.sejarah');
+    Route::post('/paca/pulih', [\App\Http\Controllers\PacaController::class, 'pulih'])->name('paca.pulih')->middleware('throttle:20,1');
 });
 
 // Keanggotaan (party membership) — upload, manual CRUD & analysis (super_admin & admin)
