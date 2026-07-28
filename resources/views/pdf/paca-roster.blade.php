@@ -55,7 +55,6 @@
         .pusat-head { border-bottom: 1.5px solid #cbd5e1; padding-bottom: 5px; margin-bottom: 8px; }
         .pusat-name { font-size: 13px; font-weight: bold; color: #0f172a; }
         .pusat-dm { font-size: 8.5px; color: #94a3b8; margin-top: 1px; }
-        .pusat-meta { font-size: 9px; color: #475569; margin-top: 4px; }
         .badge { display: inline-block; font-size: 8px; font-weight: bold; padding: 2px 8px; border-radius: 3px; letter-spacing: 0.04em; }
         .badge-ok { background: #dcfce7; color: #15803d; }
         .badge-no { background: #fef3c7; color: #b45309; }
@@ -77,7 +76,7 @@
     <div class="header">
         <div class="header-logo">SISDA · Sistem Data Pengundi</div>
         <div class="header-title">Senarai Petugas PACA{{ $kerusi ? ' — '.$kerusi : '' }}</div>
-        <div class="header-sub">Roster Petugas Pengundian Awal (PA) &amp; Ketua PACA · Dijana {{ $dijana }}</div>
+        <div class="header-sub">Roster Petugas Pengundian Awal (PA) · Dijana {{ $dijana }}</div>
     </div>
     <div class="accent-bar"></div>
 
@@ -114,7 +113,6 @@
                     <span class="badge {{ $lengkap ? 'badge-ok' : 'badge-no' }}" style="float:right">{{ $lengkap ? 'LENGKAP' : 'BELUM LENGKAP' }} · {{ $pTerisi }}/{{ $pSlot }}</span>
                     <div class="pusat-name">{{ $p['pusat'] }}</div>
                     @if (!empty($p['dm']))<div class="pusat-dm">{{ $p['dm'] }}</div>@endif
-                    <div class="pusat-meta">Ketua PACA: <b>{{ $atau($p['ketua_nama']) }}</b> &nbsp;·&nbsp; Tel: {{ $atau($p['ketua_tel']) }}</div>
                 </div>
 
                 @foreach ($p['saluran'] as $s)

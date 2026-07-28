@@ -4,7 +4,7 @@ import { usePilihanrayaTheme } from '../components/PilihanrayaShell';
 import DragScroll from '../analisa/DragScroll';
 
 /**
- * Satu kad Pusat Mengundi: butiran Ketua PACA, pautan awam per-Pusat
+ * Satu kad Pusat Mengundi: pautan awam per-Pusat
  * (token unik — lihat PacaPublicController), dan setiap Saluran dengan
  * jadual slot (PA1..PAn + CA). `onChange`/`onTambahSaluran`/`onTambahSlot`
  * semuanya diselaraskan oleh Paca.jsx supaya penggabungan (merge) pokok
@@ -77,7 +77,7 @@ function ButangBuang({ slot, boleh, saving, buanging, onBuang, className = '' })
     );
 }
 
-export default function PusatCard({ pusat, saving, parti = [], onChangePusat, onChangeSlot, onTambahSaluran, onTambahSlot, onBuangSlot }) {
+export default function PusatCard({ pusat, saving, parti = [], onChangeSlot, onTambahSaluran, onTambahSlot, onBuangSlot }) {
     const { t } = usePilihanrayaTheme();
     const [addingSaluran, setAddingSaluran] = useState(false);
     const [addingSlotFor, setAddingSlotFor] = useState(null);
@@ -117,29 +117,6 @@ export default function PusatCard({ pusat, saving, parti = [], onChangePusat, on
             <div className="mb-4">
                 <h3 className="text-base sm:text-lg font-semibold text-slate-900 break-words">{pusat.pusat}</h3>
                 <p className={`${t.subtext} text-xs mt-0.5 break-words`}>{pusat.dm}</p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
-                <div>
-                    <label className={t.label}>Nama Ketua PACA</label>
-                    <input
-                        className={t.input}
-                        value={pusat.ketua_nama ?? ''}
-                        disabled={saving}
-                        onChange={(e) => onChangePusat(pusat.id, { ketua_nama: e.target.value })}
-                        placeholder="Nama Ketua PACA"
-                    />
-                </div>
-                <div>
-                    <label className={t.label}>No Tel Ketua PACA</label>
-                    <input
-                        className={t.input}
-                        value={pusat.ketua_tel ?? ''}
-                        disabled={saving}
-                        onChange={(e) => onChangePusat(pusat.id, { ketua_tel: e.target.value })}
-                        placeholder="No Telefon"
-                    />
-                </div>
             </div>
 
             <div className="space-y-5">

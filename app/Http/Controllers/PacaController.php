@@ -194,7 +194,7 @@ class PacaController extends Controller
     }
 
     /**
-     * Simpan keseluruhan pokok (ketua Pusat + petugas/masa setiap slot).
+     * Simpan keseluruhan pokok (petugas/masa setiap slot).
      * Snapshot PRA-suntingan ditulis dahulu (mirip Borang14) supaya sejarah
      * menyimpan apa yang WUJUD sebelum suntingan ini, dan 'pulih' boleh
      * mengembalikannya. Tempoh minimum 2 jam dikuatkuasakan SELEPAS
@@ -400,7 +400,7 @@ class PacaController extends Controller
      * sebenarnya nama kampung/taman, bukan 11 pusat mengundi sebenar.
      *
      * Dua pengawal, kerana ini memadam baris:
-     *  1) ENGGAN berjalan sebaik sahaja ada petugas atau Ketua PACA direkod —
+     *  1) ENGGAN berjalan sebaik sahaja ada petugas direkod —
      *     pendaftaran melalui pautan awam tidak boleh lenyap tanpa disedari.
      *  2) Snapshot 'before_rebuild' diambil dahulu, dalam transaksi yang sama.
      */
@@ -458,10 +458,9 @@ class PacaController extends Controller
      */
     private function assertRosterKosong(PacaForm $form): void
     {
-        $adaKetua = $form->pusatList()
-            ->where(fn ($q) => $q->whereNotNull('ketua_nama')->orWhereNotNull('ketua_tel'))
-            ->exists();
-
+        // ketua_nama/ketua_tel TIDAK disemak — medan itu sudah ditanggalkan
+        // daripada borang, jadi nilai lama tidak boleh dikosongkan oleh
+        // pengguna dan akan menyekat bina semula selama-lamanya.
         $adaPetugas = PacaSlot::whereHas(
             'saluran.pusat',
             fn ($q) => $q->where('paca_form_id', $form->id),
@@ -472,9 +471,9 @@ class PacaController extends Controller
             ->orWhereNotNull('petugas_parti'),
         )->exists();
 
-        if ($adaKetua || $adaPetugas) {
+        if ($adaPetugas) {
             throw ValidationException::withMessages([
-                'kawasan_id' => 'Roster ini sudah mempunyai petugas atau Ketua PACA yang direkod. '
+                'kawasan_id' => 'Roster ini sudah mempunyai petugas yang direkod. '
                     .'Bina semula akan memadam kesemuanya — kosongkan butiran berkenaan dahulu jika '
                     .'anda benar-benar mahu membina semula daripada struktur Borang 14.',
             ]);

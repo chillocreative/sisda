@@ -1,1 +1,0 @@
-const n={negeri_id:"",parlimen_id:"",kadun_id:"",tarikh_dari:"",tarikh_hingga:"",umur_dari:"",umur_hingga:"",status_pengundi:""};function a(r){return Object.fromEntries(Object.entries(r).filter(([,i])=>i!==""&&i!=null))}export{n as E,a as c};

@@ -13,7 +13,7 @@ import SejarahDrawer from './paca/SejarahDrawer';
 /**
  * Gabungkan pokok BAHARU daripada server (selepas Tambah Saluran/Tambah PA)
  * ke dalam draf SEDIA ADA di skrin — kekalkan medan yang pengguna sedang
- * sunting (ketua_nama/tel, masa, petugas) bagi baris yang SUDAH wujud dalam
+ * sunting (masa, petugas) bagi baris yang SUDAH wujud dalam
  * draf, dan hanya AMBIL baris baharu (Saluran/slot yang baru ditambah)
  * daripada server. Tanpa ini, klik "Tambah PA" pada satu Saluran akan
  * menggantikan keseluruhan pokok dengan versi DB semasa dan membuang
@@ -34,8 +34,6 @@ function mergeTree(draft, serverTree) {
 
             return {
                 ...sp,
-                ketua_nama: op.ketua_nama,
-                ketua_tel: op.ketua_tel,
                 saluran: sp.saluran.map((ss) => {
                     const os = oldSaluranById.get(ss.id);
                     if (!os) return ss;
@@ -156,14 +154,6 @@ function PacaEditor({ seat, parti, bolehUrusStruktur = true }) {
         return () => { cancelled = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [seat?.kawasan_type, seat?.kawasan_id, seat?.jenis_pr, seat?.tahun]);
-
-    const changePusat = (pusatId, patch) => {
-        setSavedOk(false);
-        setDraft((prev) => ({
-            ...prev,
-            pusat: prev.pusat.map((p) => (p.id === pusatId ? { ...p, ...patch } : p)),
-        }));
-    };
 
     const changeSlot = (pusatId, saluranId, slotId, patch) => {
         setSavedOk(false);
@@ -289,7 +279,7 @@ function PacaEditor({ seat, parti, bolehUrusStruktur = true }) {
     // anggaran DPT yang menyenaraikan lokaliti sebagai Pusat Mengundi) —
     // membetulkan struktur sahaja tidak menyentuh roster yang sudah wujud.
     // Pelayan mengambil snapshot dahulu dan menolak permintaan ini sebaik
-    // sahaja ada petugas atau Ketua PACA direkod.
+    // sahaja ada petugas direkod.
     const binaSemula = async () => {
         if (!seat) return;
         setRebuildBusy(true);
@@ -395,7 +385,6 @@ function PacaEditor({ seat, parti, bolehUrusStruktur = true }) {
                                     pusat={pusat}
                                     saving={saving}
                                     parti={parti}
-                                    onChangePusat={changePusat}
                                     onChangeSlot={changeSlot}
                                     onTambahSaluran={tambahSaluran}
                                     onTambahSlot={tambahSlot}
@@ -433,7 +422,7 @@ function PacaEditor({ seat, parti, bolehUrusStruktur = true }) {
                                 <ul className="mt-3 text-xs text-slate-600 space-y-1.5 list-disc pl-5">
                                     <li>Snapshot roster semasa disimpan dahulu — boleh dilihat dalam Sejarah.</li>
                                     <li>Pautan awam kerusi ini kekal sah (tidak bertukar).</li>
-                                    <li>Permintaan ini ditolak jika ada petugas atau Ketua PACA yang sudah direkod.</li>
+                                    <li>Permintaan ini ditolak jika ada petugas yang sudah direkod.</li>
                                     <li>Betulkan struktur di Borang 14 &rsaquo; Struktur dahulu, kemudian bina semula di sini.</li>
                                 </ul>
                                 {rebuildErr && (
@@ -522,7 +511,7 @@ export default function Paca({ seats, parti = [], rememberedFilters = {}, kerusi
             <Head title="PACA" />
             <PilihanrayaShell
                 title="PACA"
-                subtitle="Susun roster Petugas Pengundian Awal (PA) dan Ketua PACA mengikut Pusat Mengundi dan Saluran"
+                subtitle="Susun roster Petugas Pengundian Awal (PA) mengikut Pusat Mengundi dan Saluran"
             >
                 <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-6 shadow-sm mb-5">
                     {kerusiTerkunci ? (

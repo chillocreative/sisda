@@ -605,7 +605,12 @@ class PacaAdminTest extends TestCase
         $this->assertSame(2, count($this->pacaTree($user)['pusat']));
     }
 
-    public function test_rebuild_is_refused_once_a_ketua_paca_is_named(): void
+    /**
+     * Medan Ketua PACA sudah ditanggalkan daripada borang, jadi nilai lama
+     * TIDAK boleh menyekat bina semula — pengguna tiada cara untuk
+     * mengosongkannya. Hanya butiran petugas yang masih mengunci roster.
+     */
+    public function test_rebuild_is_allowed_when_only_a_ketua_paca_is_named(): void
     {
         $this->borang14();
         $user = $this->user();
@@ -617,7 +622,7 @@ class PacaAdminTest extends TestCase
 
         $this->actingAs($user)
             ->postJson(route('pilihanraya.paca.bina-semula'), $this->kawasanPayload())
-            ->assertStatus(422);
+            ->assertOk();
     }
 
     public function test_rebuild_is_scoped_to_the_admin_bandar(): void
