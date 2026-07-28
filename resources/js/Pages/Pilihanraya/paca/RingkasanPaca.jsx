@@ -78,6 +78,15 @@ export default function RingkasanPaca({ pusatList, onLompat }) {
                         <p className="text-xs text-slate-500 mt-0.5">
                             {totalTerisi} / {totalSlot} petugas didaftarkan ({peratus}%)
                         </p>
+                        {/* Petunjuk hanya semasa TERTUTUP — sesudah dibuka,
+                            statusnya sudah terpampang di bawah, jadi teks ini
+                            akan mengarahkan pengguna kepada sesuatu yang sedia
+                            kelihatan. */}
+                        {!buka && (
+                            <p className="text-xs text-slate-500 group-hover:text-slate-900 underline decoration-dotted underline-offset-2 mt-1 transition">
+                                Klik sini untuk lihat keseluruhan status
+                            </p>
+                        )}
                     </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 pl-7 sm:pl-0">
