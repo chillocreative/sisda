@@ -126,8 +126,36 @@ class PacaBuilderService
     }
 
     /**
-     * Semaian sebenar — dipanggil sekali sahaja, di dalam transaksi, hanya
-     * untuk PacaForm yang baru dicipta.
+     * Buang SETIAP Pusat/Saluran/slot roster ini dan semai semula daripada
+     * struktur Borang 14 semasa. PacaForm itu sendiri (dan public_token-nya)
+     * dikekalkan supaya pautan awam yang sudah diedarkan tidak mati.
+     *
+     * Wujud kerana buildFrom() menyemai SEKALI sahaja: apabila struktur
+     * Borang 14 yang disemai daripadanya ternyata salah — mis. struktur
+     * anggaran DPT, di mana Borang14Reference::deriveFromDpt() menyenaraikan
+     * setiap LOKALITI sebagai satu Pusat Mengundi — membetulkan struktur itu
+     * tidak menyentuh roster yang sudah tersemai. Tanpa laluan ini roster
+     * berkenaan kekal salah selama-lamanya.
+     *
+     * Ini MEMUSNAHKAN data petugas. Pemanggil bertanggungjawab menolaknya
+     * apabila roster sudah berisi dan mengambil snapshot dahulu — lihat
+     * PacaController::binaSemula().
+     */
+    public function binaSemula(PacaForm $paca, Borang14Form $form): void
+    {
+        DB::transaction(function () use ($paca, $form) {
+            // Saluran dan slot ikut melalui cascadeOnDelete (lihat migrasi
+            // 2026_07_23_100000_create_paca_tables).
+            $paca->pusatList()->delete();
+
+            $this->semai($paca, $form);
+        });
+    }
+
+    /**
+     * Semaian sebenar — dipanggil di dalam transaksi, untuk PacaForm yang baru
+     * dicipta (buildFrom) atau yang dikosongkan untuk dibina semula
+     * (binaSemula).
      */
     private function semai(PacaForm $paca, Borang14Form $form): void
     {

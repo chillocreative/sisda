@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Head } from '@inertiajs/react';
 import axios from 'axios';
-import { Check, Copy, FileDown, History, Loader2, Save, Send, Users, X } from 'lucide-react';
+import { AlertTriangle, Check, Copy, FileDown, History, Loader2, RefreshCw, Save, Send, Users, X } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PilihanrayaShell, { usePilihanrayaTheme } from './components/PilihanrayaShell';
 import SeatPicker from './paca/SeatPicker';
@@ -112,6 +112,9 @@ function PacaEditor({ seat, parti }) {
     const [waPhone, setWaPhone] = useState('');
     const [waBusy, setWaBusy] = useState(false);
     const [waMsg, setWaMsg] = useState(null); // { ok: boolean, text: string }
+    const [rebuildOpen, setRebuildOpen] = useState(false);
+    const [rebuildBusy, setRebuildBusy] = useState(false);
+    const [rebuildErr, setRebuildErr] = useState('');
 
     const salinPautan = async () => {
         if (!draft?.public_url) return;
@@ -277,6 +280,34 @@ function PacaEditor({ seat, parti }) {
         document.getElementById(`pusat-${pusatId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
+    // Buang roster sedia ada dan semai semula daripada struktur Borang 14
+    // SEMASA. Untuk roster yang tersemai daripada struktur yang salah (mis.
+    // anggaran DPT yang menyenaraikan lokaliti sebagai Pusat Mengundi) —
+    // membetulkan struktur sahaja tidak menyentuh roster yang sudah wujud.
+    // Pelayan mengambil snapshot dahulu dan menolak permintaan ini sebaik
+    // sahaja ada petugas atau Ketua PACA direkod.
+    const binaSemula = async () => {
+        if (!seat) return;
+        setRebuildBusy(true);
+        setRebuildErr('');
+        try {
+            const { data } = await axios.post(route('pilihanraya.paca.bina-semula'), {
+                kawasan_type: seat.kawasan_type,
+                kawasan_id: seat.kawasan_id,
+                jenis_pr: seat.jenis_pr,
+                tahun: seat.tahun,
+            });
+            setDraft(data.paca);
+            setRebuildOpen(false);
+            setSaveError('');
+            setSavedOk(false);
+        } catch (e) {
+            setRebuildErr(extractError(e, 'Gagal membina semula roster.'));
+        } finally {
+            setRebuildBusy(false);
+        }
+    };
+
     const pulih = async (snapshotId) => {
         const { data } = await axios.post(route('pilihanraya.paca.pulih'), { snapshot_id: snapshotId });
         setDraft(data.paca);
@@ -319,6 +350,9 @@ function PacaEditor({ seat, parti }) {
                             )}
                             <button type="button" onClick={() => setSejarahOpen(true)} className={t.buttonSecondary}>
                                 <History className="h-4 w-4" /> Sejarah
+                            </button>
+                            <button type="button" onClick={() => { setRebuildErr(''); setRebuildOpen(true); }} disabled={saving} className={t.buttonSecondary}>
+                                <RefreshCw className="h-4 w-4" /> Bina Semula Roster
                             </button>
                             <button type="button" onClick={muatTurunPdf} disabled={saving} className={t.buttonSecondary}>
                                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
@@ -365,6 +399,42 @@ function PacaEditor({ seat, parti }) {
                         onClose={() => setSejarahOpen(false)}
                         onPulih={pulih}
                     />
+
+                    {rebuildOpen && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" onClick={() => !rebuildBusy && setRebuildOpen(false)}>
+                            <div className="w-full max-w-md rounded-2xl bg-white shadow-xl p-5" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex items-center justify-between mb-1">
+                                    <h3 className="text-base font-semibold text-slate-900">Bina Semula Roster</h3>
+                                    <button type="button" onClick={() => !rebuildBusy && setRebuildOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 -m-1" aria-label="Tutup">
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                </div>
+                                <div className="mt-3 text-sm rounded-lg px-3 py-2.5 bg-amber-50 border border-amber-200 text-amber-900 flex gap-2">
+                                    <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                                    <span>
+                                        Kesemua {draft.pusat.length} Pusat Mengundi, Saluran dan slot roster ini akan
+                                        <strong> dibuang</strong> dan disemai semula daripada struktur Borang 14 semasa.
+                                    </span>
+                                </div>
+                                <ul className="mt-3 text-xs text-slate-600 space-y-1.5 list-disc pl-5">
+                                    <li>Snapshot roster semasa disimpan dahulu — boleh dilihat dalam Sejarah.</li>
+                                    <li>Pautan awam kerusi ini kekal sah (tidak bertukar).</li>
+                                    <li>Permintaan ini ditolak jika ada petugas atau Ketua PACA yang sudah direkod.</li>
+                                    <li>Betulkan struktur di Borang 14 &rsaquo; Struktur dahulu, kemudian bina semula di sini.</li>
+                                </ul>
+                                {rebuildErr && (
+                                    <p className="mt-3 text-sm rounded-lg px-3 py-2 text-rose-800 bg-rose-50 border border-rose-300">{rebuildErr}</p>
+                                )}
+                                <div className="flex items-center justify-end gap-2 mt-5">
+                                    <button type="button" onClick={() => setRebuildOpen(false)} disabled={rebuildBusy} className={t.buttonSecondary}>Batal</button>
+                                    <button type="button" onClick={binaSemula} disabled={rebuildBusy} className={t.buttonPrimary}>
+                                        {rebuildBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                                        Bina Semula
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {waOpen && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" onClick={() => !waBusy && setWaOpen(false)}>

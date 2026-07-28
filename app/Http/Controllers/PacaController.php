@@ -385,6 +385,100 @@ class PacaController extends Controller
     }
 
     /**
+     * Bina semula roster daripada struktur Borang 14 SEMASA — buang setiap
+     * Pusat/Saluran/slot dan semai semula.
+     *
+     * Sebab wujud: buildFrom() menyemai SEKALI sahaja (wasRecentlyCreated),
+     * jadi roster yang disemai daripada struktur yang salah kekal salah
+     * walaupun struktur itu sudah dibetulkan. Kes sebenar: kerusi tanpa
+     * scoresheet mengambil struktur anggaran DPT, di mana
+     * Borang14Reference::deriveFromDpt() menyenaraikan setiap LOKALITI
+     * sebagai satu Pusat Mengundi — satu DUN menghasilkan 85 "Pusat" yang
+     * sebenarnya nama kampung/taman, bukan 11 pusat mengundi sebenar.
+     *
+     * Dua pengawal, kerana ini memadam baris:
+     *  1) ENGGAN berjalan sebaik sahaja ada petugas atau Ketua PACA direkod —
+     *     pendaftaran melalui pautan awam tidak boleh lenyap tanpa disedari.
+     *  2) Snapshot 'before_rebuild' diambil dahulu, dalam transaksi yang sama.
+     */
+    public function binaSemula(Request $request)
+    {
+        $user = auth()->user();
+        if (! $user->isSuperAdmin() && ! $user->isAdmin()) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $validated = $request->validate($this->kawasanRules($request->input('kawasan_type')));
+        $this->assertBolehAkses($user, $validated['kawasan_type'], (int) $validated['kawasan_id']);
+
+        $borang14 = Borang14Form::forKawasan($validated['kawasan_type'], $validated['kawasan_id'])
+            ->where('jenis_pr', $validated['jenis_pr'])
+            ->where('tahun', $validated['tahun'])
+            ->first();
+
+        if (! $borang14) {
+            abort(404, 'Borang 14 (scoresheet) bagi kerusi ini belum wujud.');
+        }
+
+        $form = PacaForm::where('kawasan_type', $validated['kawasan_type'])
+            ->where('kawasan_id', $validated['kawasan_id'])
+            ->where('jenis_pr', $validated['jenis_pr'])
+            ->where('tahun', $validated['tahun'])
+            ->first();
+
+        if (! $form) {
+            abort(404, 'Roster PACA bagi kerusi ini belum wujud — pilih kerusi untuk membinanya.');
+        }
+
+        $this->assertRosterKosong($form);
+
+        DB::transaction(function () use ($form, $borang14, $user) {
+            PacaSnapshot::create([
+                'paca_form_id' => $form->id,
+                'data' => $this->treePayload($form),
+                'reason' => 'before_rebuild',
+                'created_by' => $user->id,
+                'created_at' => now(),
+            ]);
+
+            $this->builder->binaSemula($form, $borang14);
+        });
+
+        return response()->json(['paca' => $this->treePayload($form->fresh())]);
+    }
+
+    /**
+     * Tolak bina semula jika roster sudah membawa data manusia. Disemak
+     * terhadap DB (bukan payload klien) supaya pendaftaran yang masuk melalui
+     * pautan AWAM turut dikira — klien admin tidak pernah melihatnya
+     * (PacaPublicController menyembunyikan PII).
+     */
+    private function assertRosterKosong(PacaForm $form): void
+    {
+        $adaKetua = $form->pusatList()
+            ->where(fn ($q) => $q->whereNotNull('ketua_nama')->orWhereNotNull('ketua_tel'))
+            ->exists();
+
+        $adaPetugas = PacaSlot::whereHas(
+            'saluran.pusat',
+            fn ($q) => $q->where('paca_form_id', $form->id),
+        )->where(fn ($q) => $q
+            ->whereNotNull('petugas_nama')
+            ->orWhereNotNull('petugas_kp')
+            ->orWhereNotNull('petugas_tel')
+            ->orWhereNotNull('petugas_parti'),
+        )->exists();
+
+        if ($adaKetua || $adaPetugas) {
+            throw ValidationException::withMessages([
+                'kawasan_id' => 'Roster ini sudah mempunyai petugas atau Ketua PACA yang direkod. '
+                    .'Bina semula akan memadam kesemuanya — kosongkan butiran berkenaan dahulu jika '
+                    .'anda benar-benar mahu membina semula daripada struktur Borang 14.',
+            ]);
+        }
+    }
+
+    /**
      * Pulihkan pokok semasa daripada satu snapshot — kemas kini baris
      * SEDIA ADA (dipadan mengikut id) kepada nilai yang disimpan snapshot
      * itu. Baris yang ditambah SELEPAS snapshot diambil (melalui Tambah

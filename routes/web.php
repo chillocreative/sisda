@@ -496,6 +496,8 @@ Route::middleware(['auth', 'admin'])->prefix('pilihanraya')->name('pilihanraya.'
     Route::get('/paca/pdf', [\App\Http\Controllers\PacaController::class, 'pdf'])->name('paca.pdf');
     Route::post('/paca/whatsapp', [\App\Http\Controllers\PacaController::class, 'whatsapp'])->name('paca.whatsapp')->middleware('throttle:20,1');
     Route::post('/paca/simpan', [\App\Http\Controllers\PacaController::class, 'simpan'])->name('paca.simpan')->middleware('throttle:30,1');
+    // Memadam setiap baris roster lalu menyemai semula — hadkan lebih ketat.
+    Route::post('/paca/bina-semula', [\App\Http\Controllers\PacaController::class, 'binaSemula'])->name('paca.bina-semula')->middleware('throttle:10,1');
     Route::post('/paca/saluran/tambah', [\App\Http\Controllers\PacaController::class, 'tambahSaluran'])->name('paca.saluran.tambah')->middleware('throttle:30,1');
     Route::post('/paca/slot/tambah', [\App\Http\Controllers\PacaController::class, 'tambahSlot'])->name('paca.slot.tambah')->middleware('throttle:30,1');
     Route::post('/paca/slot/buang', [\App\Http\Controllers\PacaController::class, 'buangSlot'])->name('paca.slot.buang')->middleware('throttle:30,1');

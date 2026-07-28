@@ -523,6 +523,126 @@ class PacaAdminTest extends TestCase
             ->assertJsonValidationErrorFor('telefon');
     }
 
+    /**
+     * binaSemula(): roster yang disemai daripada struktur Borang 14 yang SALAH
+     * (mis. anggaran DPT yang menyenaraikan lokaliti sebagai Pusat Mengundi)
+     * mesti boleh dibina semula selepas struktur itu dibetulkan. Tanpa ini
+     * buildFrom() menyemai sekali sahaja dan roster kekal salah selamanya.
+     */
+    public function test_rebuild_reseeds_the_roster_from_the_corrected_structure(): void
+    {
+        $borang14 = $this->borang14();
+        $user = $this->user();
+
+        $asal = $this->pacaTree($user);
+        $this->assertSame(['SK BUMBUNG LIMA', 'SK PAYA KELADI'], array_column($asal['pusat'], 'pusat'));
+
+        // Struktur dibetulkan di luar PACA (panel Struktur Borang 14).
+        $borang14->update(['structure' => ['rows' => [
+            ['dm' => '041/03/01', 'pusat' => 'SEKOLAH KEBANGSAAN TENGKEK', 'saluran' => '1'],
+            ['dm' => '041/03/01', 'pusat' => 'SEKOLAH KEBANGSAAN TENGKEK', 'saluran' => '2'],
+        ]]]);
+
+        // data() SAHAJA tidak menyemai semula — itulah pepijatnya.
+        $this->assertSame(2, count($this->pacaTree($user)['pusat']));
+
+        $baharu = $this->actingAs($user)
+            ->postJson(route('pilihanraya.paca.bina-semula'), $this->kawasanPayload())
+            ->assertOk()
+            ->json('paca');
+
+        $this->assertSame(['SEKOLAH KEBANGSAAN TENGKEK'], array_column($baharu['pusat'], 'pusat'));
+        $this->assertSame(2, count($baharu['pusat'][0]['saluran']));
+        // PacaForm yang SAMA — pautan awam kekal sah.
+        $this->assertSame($asal['id'], $baharu['id']);
+        $this->assertSame($asal['public_url'], $baharu['public_url']);
+        // Baris lama benar-benar hilang (cascade), bukan sekadar tersembunyi.
+        $this->assertSame(1, \App\Models\PacaPusat::where('paca_form_id', $asal['id'])->count());
+    }
+
+    public function test_rebuild_snapshots_the_old_roster_first(): void
+    {
+        $this->borang14();
+        $user = $this->user();
+        $asal = $this->pacaTree($user);
+
+        $this->actingAs($user)
+            ->postJson(route('pilihanraya.paca.bina-semula'), $this->kawasanPayload())
+            ->assertOk();
+
+        $snap = PacaSnapshot::where('paca_form_id', $asal['id'])->latest('id')->first();
+        $this->assertNotNull($snap);
+        $this->assertSame('before_rebuild', $snap->reason);
+        $this->assertSame(['SK BUMBUNG LIMA', 'SK PAYA KELADI'], array_column($snap->data['pusat'], 'pusat'));
+    }
+
+    /**
+     * Bina semula MEMBUANG setiap baris — jadi ia mesti enggan berjalan sebaik
+     * sahaja ada petugas didaftarkan (termasuk melalui pautan awam), bukan
+     * memusnahkan pendaftaran mereka secara senyap.
+     */
+    public function test_rebuild_is_refused_once_any_petugas_is_registered(): void
+    {
+        $this->borang14();
+        $user = $this->user();
+        $tree = $this->pacaTree($user);
+
+        $payload = $this->simpanPayloadFrom($tree, function ($data, $slot) {
+            if ($slot['jawatan'] === 'PA1') {
+                $data['petugas_nama'] = 'AZMI BIN OSMAN';
+            }
+
+            return $data;
+        });
+        $this->actingAs($user)->postJson(route('pilihanraya.paca.simpan'), $payload)->assertOk();
+
+        $this->actingAs($user)
+            ->postJson(route('pilihanraya.paca.bina-semula'), $this->kawasanPayload())
+            ->assertStatus(422)
+            ->assertJsonValidationErrorFor('kawasan_id');
+
+        // Roster kekal utuh.
+        $this->assertSame(2, count($this->pacaTree($user)['pusat']));
+    }
+
+    public function test_rebuild_is_refused_once_a_ketua_paca_is_named(): void
+    {
+        $this->borang14();
+        $user = $this->user();
+        $tree = $this->pacaTree($user);
+
+        $payload = $this->simpanPayloadFrom($tree);
+        $payload['pusat'][0]['ketua_nama'] = 'HALIM BIN ABU';
+        $this->actingAs($user)->postJson(route('pilihanraya.paca.simpan'), $payload)->assertOk();
+
+        $this->actingAs($user)
+            ->postJson(route('pilihanraya.paca.bina-semula'), $this->kawasanPayload())
+            ->assertStatus(422);
+    }
+
+    public function test_rebuild_is_scoped_to_the_admin_bandar(): void
+    {
+        $this->borang14();
+        $this->pacaTree($this->user());
+
+        $negeriLain = Negeri::create(['nama' => 'Johor']);
+        $bandarLain = Bandar::create(['nama' => 'Segamat', 'negeri_id' => $negeriLain->id]);
+        $admin = $this->user('admin', ['bandar_id' => $bandarLain->id]);
+
+        $this->actingAs($admin)
+            ->postJson(route('pilihanraya.paca.bina-semula'), $this->kawasanPayload())
+            ->assertStatus(403);
+    }
+
+    public function test_rebuild_404s_when_no_roster_exists_yet(): void
+    {
+        $this->borang14();
+
+        $this->actingAs($this->user())
+            ->postJson(route('pilihanraya.paca.bina-semula'), $this->kawasanPayload())
+            ->assertStatus(404);
+    }
+
     public function test_seat_selection_is_remembered_until_logout(): void
     {
         $this->borang14();
