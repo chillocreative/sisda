@@ -51,7 +51,7 @@ function BorangSlot({ slot, token, partiSenarai = [], sediaAda = false, onBerjay
     return (
         <form onSubmit={hantar} className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
             <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-slate-700">{sediaAda ? 'Kemaskini' : 'Isi'} Slot {slot.jawatan}</span>
+                <span className="text-sm font-semibold text-slate-700">{sediaAda ? 'Kemaskini' : 'Isi'} Slot {slot.jawatan_papar ?? slot.jawatan}</span>
                 <button type="button" onClick={onBatal} className="text-slate-400 hover:text-slate-600 p-1 -m-1" aria-label="Batal">
                     <X className="h-4 w-4" />
                 </button>
@@ -127,7 +127,7 @@ function BarisSlot({ slot, token, parti, aktif, onBuka, onTutup, onBerjaya }) {
         <li className="py-3 first:pt-0 last:pb-0">
             <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                    <div className="text-sm font-semibold text-slate-900">{slot.jawatan}</div>
+                    <div className="text-sm font-semibold text-slate-900">{slot.jawatan_papar ?? slot.jawatan}</div>
                     {slot.masa && <div className="text-xs text-slate-500">{slot.masa}</div>}
                 </div>
 

@@ -60,6 +60,28 @@ class PacaSlotPlannerTest extends TestCase
         $this->assertNull($slots[0]['masa_tamat']);
     }
 
+    public function test_label_papar_gives_ca_the_next_pa_number(): void
+    {
+        // Empat slot: PA1..PA3 diikuti CA, yang dipapar sebagai 'PA4 / CA'.
+        $slots = $this->p->defaultSlots();
+        $papar = [];
+        foreach ($slots as $i => $slot) {
+            $papar[] = $this->p->labelPapar($slot['jawatan'], $i + 1);
+        }
+
+        $this->assertSame(['PA1', 'PA2', 'PA3', 'PA4 / CA'], $papar);
+    }
+
+    public function test_label_papar_follows_slot_count_per_saluran(): void
+    {
+        // Nombor mengikut kedudukan, bukan nilai tetap.
+        $this->assertSame('PA6 / CA', $this->p->labelPapar('CA', 6));
+        // Saluran satu slot: tiada PA di atasnya -> 'PA1 / CA'.
+        $this->assertSame('PA1 / CA', $this->p->labelPapar('CA', 1));
+        // Slot bukan CA kekal seperti sedia ada.
+        $this->assertSame('PA2', $this->p->labelPapar('PA2', 2));
+    }
+
     public function test_minimum_accepts_non_zero_padded_typed_times(): void
     {
         // Masa yang ditaip pengguna boleh datang sebagai '9:30' bukan '09:30'.

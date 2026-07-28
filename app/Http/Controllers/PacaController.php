@@ -589,15 +589,18 @@ class PacaController extends Controller
             'id' => $saluran->id,
             'label' => $saluran->label,
             'urutan' => $saluran->urutan,
-            'slot' => $saluran->slots->map(fn ($s) => $this->slotPayload($s))->all(),
+            // Kedudukan sebenar dalam senarai (bukan lajur `urutan`) menentukan
+            // nombor pada label paparan CA — lihat PacaSlotPlanner::labelPapar().
+            'slot' => $saluran->slots->values()->map(fn ($s, $i) => $this->slotPayload($s, $i + 1))->all(),
         ];
     }
 
-    private function slotPayload(PacaSlot $slot): array
+    private function slotPayload(PacaSlot $slot, int $kedudukan): array
     {
         return [
             'id' => $slot->id,
             'jawatan' => $slot->jawatan,
+            'jawatan_papar' => $this->planner->labelPapar($slot->jawatan, $kedudukan),
             'masa_mula' => $slot->masa_mula,
             'masa_tamat' => $slot->masa_tamat,
             'urutan' => $slot->urutan,

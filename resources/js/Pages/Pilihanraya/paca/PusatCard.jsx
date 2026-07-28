@@ -10,6 +10,12 @@ import DragScroll from '../analisa/DragScroll';
  * semuanya diselaraskan oleh Paca.jsx supaya penggabungan (merge) pokok
  * selepas tindakan server berlaku di SATU tempat sahaja.
  */
+/**
+ * Label paparan slot — pelayan menghantar `jawatan_papar` ('PA4 / CA' bagi
+ * slot terakhir). `jawatan` mentah kekal untuk logik, bukan paparan.
+ */
+const labelSlot = (slot) => slot.jawatan_papar ?? slot.jawatan;
+
 export default function PusatCard({ pusat, saving, parti = [], onChangePusat, onChangeSlot, onTambahSaluran, onTambahSlot, onBuangSlot }) {
     const { t } = usePilihanrayaTheme();
     const [addingSaluran, setAddingSaluran] = useState(false);
@@ -18,7 +24,7 @@ export default function PusatCard({ pusat, saving, parti = [], onChangePusat, on
 
     const buangSlot = async (slot) => {
         const adaData = slot.petugas_nama || slot.petugas_kp || slot.petugas_tel || slot.petugas_parti;
-        if (adaData && !window.confirm(`Buang slot ${slot.jawatan}? Butiran petugas yang telah diisi akan hilang.`)) return;
+        if (adaData && !window.confirm(`Buang slot ${labelSlot(slot)}? Butiran petugas yang telah diisi akan hilang.`)) return;
         setBuangingSlot(slot.id);
         try {
             await onBuangSlot(slot.id);
@@ -108,7 +114,7 @@ export default function PusatCard({ pusat, saving, parti = [], onChangePusat, on
                                 <tbody>
                                     {saluran.slot.map((slot) => (
                                         <tr key={slot.id} className={t.tableRow}>
-                                            <td className={`${t.tableCell} font-medium whitespace-nowrap`}>{slot.jawatan}</td>
+                                            <td className={`${t.tableCell} font-medium whitespace-nowrap`}>{labelSlot(slot)}</td>
                                             <td className={t.tableCell}>
                                                 <input
                                                     type="time"
@@ -179,7 +185,7 @@ export default function PusatCard({ pusat, saving, parti = [], onChangePusat, on
                                                         type="button"
                                                         onClick={() => buangSlot(slot)}
                                                         disabled={saving || buangingSlot === slot.id}
-                                                        title={`Buang ${slot.jawatan}`}
+                                                        title={`Buang ${labelSlot(slot)}`}
                                                         className="inline-flex items-center justify-center text-slate-400 hover:text-red-600 disabled:opacity-50"
                                                     >
                                                         {buangingSlot === slot.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}

@@ -134,7 +134,7 @@
                             @foreach ($s['slot'] as $sl)
                                 @php $terisi = trim((string) ($sl['petugas_nama'] ?? '')) !== ''; @endphp
                                 <tr>
-                                    <td class="jawatan">{{ $sl['jawatan'] }}</td>
+                                    <td class="jawatan">{{ $sl['jawatan_papar'] ?? $sl['jawatan'] }}</td>
                                     <td class="{{ $terisi ? '' : 'kosong' }}">{{ $terisi ? $sl['petugas_nama'] : $dash }}</td>
                                     <td class="{{ $atau($sl['petugas_kp']) === $dash ? 'kosong' : '' }}">{{ $atau($sl['petugas_kp']) }}</td>
                                     <td class="{{ $atau($sl['petugas_tel']) === $dash ? 'kosong' : '' }}">{{ $atau($sl['petugas_tel']) }}</td>

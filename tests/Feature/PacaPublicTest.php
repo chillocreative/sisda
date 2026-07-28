@@ -89,6 +89,23 @@ class PacaPublicTest extends TestCase
         $this->assertSame('08:00 - 10:00', $page['props']['pusat'][0]['saluran'][0]['slot'][0]['masa']);
     }
 
+    public function test_public_payload_labels_ca_with_the_next_pa_number(): void
+    {
+        $form = $this->form();
+        $pusat = $this->pusat($form, ['pusat' => 'SK BUMBUNG LIMA', 'dm' => '041/03/01', 'public_token' => 'pp_a']);
+        $saluran = $this->saluran($pusat);
+        $this->slot($saluran);
+        $this->slot($saluran, ['jawatan' => 'PA2', 'masa_mula' => '10:00', 'masa_tamat' => '12:00', 'urutan' => 2]);
+        $this->slot($saluran, ['jawatan' => 'CA', 'masa_mula' => '12:00', 'masa_tamat' => null, 'urutan' => 3]);
+
+        $page = $this->getInertia(route('paca.public', $form->public_token))->assertOk()->json();
+        $slot = $page['props']['pusat'][0]['saluran'][0]['slot'];
+
+        $this->assertSame(['PA1', 'PA2', 'PA3 / CA'], array_column($slot, 'jawatan_papar'));
+        // Nilai LOGIK kekal 'CA' — pelabelan semula/tempoh minimum bergantung padanya.
+        $this->assertSame('CA', $slot[2]['jawatan']);
+    }
+
     public function test_public_payload_never_exposes_ic_or_phone_or_name(): void
     {
         $form = $this->form();

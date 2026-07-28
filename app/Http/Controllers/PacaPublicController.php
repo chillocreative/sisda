@@ -6,6 +6,7 @@ use App\Models\PacaForm;
 use App\Models\PacaPusat;
 use App\Models\PacaSaluran;
 use App\Models\PacaSlot;
+use App\Services\Pilihanraya\PacaSlotPlanner;
 use App\Support\MalaysianIc;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -27,6 +28,11 @@ use Inertia\Inertia;
  */
 class PacaPublicController extends Controller
 {
+    public function __construct(
+        private readonly PacaSlotPlanner $planner,
+    ) {
+    }
+
     /** Halaman awam /paca/{token} — SEMUA Pusat->Saluran->slot bagi satu kerusi, tanpa PII pengisi. */
     public function show(string $token)
     {
@@ -47,7 +53,8 @@ class PacaPublicController extends Controller
                 'saluran' => $p->saluranList->map(fn (PacaSaluran $s) => [
                     'id' => $s->id,
                     'label' => $s->label,
-                    'slot' => $s->slots->map(fn (PacaSlot $sl) => $this->slotAwamPayload($sl))->all(),
+                    'slot' => $s->slots->values()
+                        ->map(fn (PacaSlot $sl, int $i) => $this->slotAwamPayload($sl, $i + 1))->all(),
                 ])->all(),
             ])->all(),
         ]);
@@ -135,13 +142,14 @@ class PacaPublicController extends Controller
      * spread model) supaya penambahan lajur baharu pada PacaSlot pada masa
      * hadapan tidak senyap bocor ke laluan awam ini.
      */
-    private function slotAwamPayload(PacaSlot $slot): array
+    private function slotAwamPayload(PacaSlot $slot, int $kedudukan): array
     {
         $terisi = $slot->petugas_nama !== null;
 
         return [
             'id' => $slot->id,
             'jawatan' => $slot->jawatan,
+            'jawatan_papar' => $this->planner->labelPapar($slot->jawatan, $kedudukan),
             'masa' => $this->formatMasa($slot->masa_mula, $slot->masa_tamat),
             'terisi' => $terisi,
             // Parti pengisi untuk pandangan liputan sahaja — nama, no K/P

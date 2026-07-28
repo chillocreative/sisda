@@ -67,6 +67,22 @@ class PacaSlotPlanner
     }
 
     /**
+     * Label PAPARAN bagi satu slot (borang admin, borang awam, PDF roster).
+     * Slot terakhir memikul juga nombor PA seterusnya — 'PA4 / CA' apabila
+     * ada PA1..PA3 di atasnya — supaya bilangan petugas satu saluran jelas
+     * kepada pembaca. Slot lain memaparkan jawatannya sendiri.
+     *
+     * `jawatan` dalam DB kekal 'CA' semata-mata: ia nilai LOGIK (pengecualian
+     * tempoh 2 jam, penanda 'kosong = selesai'). Jangan simpan teks ini.
+     *
+     * @param int $kedudukan kedudukan 1-asas slot dalam saluran
+     */
+    public function labelPapar(?string $jawatan, int $kedudukan): string
+    {
+        return $jawatan === 'CA' ? 'PA'.$kedudukan.' / CA' : (string) $jawatan;
+    }
+
+    /**
      * Tempoh minimum 2 jam dikuatkuasakan hanya untuk slot BUKAN CA yang
      * mempunyai masa_mula DAN masa_tamat, dan tempohnya kurang 120 minit.
      * Slot CA (tiada masa_tamat) dikecualikan; slot PA yang belum diisi
