@@ -1,4 +1,5 @@
-import { CheckCircle2, CircleDashed } from 'lucide-react';
+import { useId, useState } from 'react';
+import { CheckCircle2, ChevronDown, CircleDashed } from 'lucide-react';
 
 /**
  * Papan pemantauan status pendaftaran PACA bagi kerusi terpilih.
@@ -36,6 +37,11 @@ function warnaCip(terisi, jumlah) {
 }
 
 export default function RingkasanPaca({ pusatList, onLompat }) {
+    // Hook mesti dipanggil sebelum sebarang early return — jika tidak, kiraan
+    // hook berubah antara render apabila pusatList bertukar kepada kosong.
+    const [buka, setBuka] = useState(true);
+    const senaraiId = useId();
+
     if (!pusatList || pusatList.length === 0) return null;
 
     const ringkas = pusatList.map((p) => ({ id: p.id, pusat: p.pusat, dm: p.dm, ...kiraPusat(p) }));
@@ -48,12 +54,27 @@ export default function RingkasanPaca({ pusatList, onLompat }) {
 
     return (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 mb-5">
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                <div>
-                    <h3 className="text-base font-semibold text-slate-900">Status Pendaftaran PACA</h3>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                        {totalTerisi} / {totalSlot} petugas didaftarkan ({peratus}%)
-                    </p>
+            {/* Kepala kad = suis buka/tutup. Ringkasan (kiraan, lencana, bar
+                kemajuan) sengaja KEKAL kelihatan apabila ditutup — yang
+                dilipat hanyalah senarai terperinci setiap Pusat. */}
+            <button
+                type="button"
+                onClick={() => setBuka((v) => !v)}
+                aria-expanded={buka}
+                aria-controls={senaraiId}
+                className="group w-full text-left flex flex-wrap items-center justify-between gap-3 mb-4 rounded-lg -m-1 p-1 hover:bg-slate-50 transition"
+            >
+                <div className="flex items-center gap-2.5 min-w-0">
+                    <ChevronDown
+                        className={`h-5 w-5 shrink-0 text-slate-400 group-hover:text-slate-600 transition-transform ${buka ? '' : '-rotate-90'}`}
+                        aria-hidden="true"
+                    />
+                    <div className="min-w-0">
+                        <h3 className="text-base font-semibold text-slate-900">Status Pendaftaran PACA</h3>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                            {totalTerisi} / {totalSlot} petugas didaftarkan ({peratus}%)
+                        </p>
+                    </div>
                 </div>
                 <div className="flex items-center gap-2">
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold">
@@ -63,14 +84,16 @@ export default function RingkasanPaca({ pusatList, onLompat }) {
                         <CircleDashed className="h-3.5 w-3.5" /> {belum} Belum Lengkap
                     </span>
                 </div>
-            </div>
+            </button>
 
             {/* Bar kemajuan keseluruhan */}
-            <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden mb-5">
+            <div className={`h-2 w-full rounded-full bg-slate-100 overflow-hidden ${buka ? 'mb-5' : ''}`}>
                 <div className="h-full bg-emerald-500 transition-all" style={{ width: `${peratus}%` }} />
             </div>
 
-            <ul className="divide-y divide-slate-100">
+            {/* Kekal dalam DOM (kelas `hidden` Tailwind, bukan render bersyarat)
+                supaya aria-controls sentiasa merujuk elemen yang wujud. */}
+            <ul id={senaraiId} className={`divide-y divide-slate-100 ${buka ? '' : 'hidden'}`}>
                 {ringkas.map((r) => (
                     <li key={r.id}>
                         <button
