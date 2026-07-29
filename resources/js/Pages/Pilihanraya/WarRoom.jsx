@@ -241,6 +241,30 @@ const RACE_COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#14
 const UMUR_COLORS = ['#f97316', '#eab308', '#22c55e', '#06b6d4', '#8b5cf6', '#ec4899', '#ef4444', '#0ea5e9'];
 const RADIAN = Math.PI / 180;
 
+/**
+ * Peratusan sesuatu angka terhadap asasnya, siap dipaparkan.
+ * Pulangkan `null` bila angka itu tiada atau asasnya sifar — peratus yang
+ * tidak boleh dikira mesti hilang daripada paparan, bukan menjadi "0.0%".
+ */
+function peratus(value, base) {
+    if (value === null || value === undefined || !base) return null;
+    return `${((value / base) * 100).toFixed(1)}%`;
+}
+
+/**
+ * Sel jadual jajar-kanan: angka utama dengan peratusannya terhadap `base`
+ * di sebelahnya. Angka yang tiada dipaparkan sebagai "—", bukan sifar.
+ */
+function SelAngka({ value, base, className = '' }) {
+    const pct = peratus(value, base);
+    return (
+        <td className={`${className} whitespace-nowrap`} style={{ textAlign: 'right' }}>
+            {value === null || value === undefined ? '—' : value.toLocaleString()}
+            {pct && <span className="ml-1.5 text-xs font-normal text-slate-400">({pct})</span>}
+        </td>
+    );
+}
+
 function KomposisiTab({ data }) {
     const { t } = usePilihanrayaTheme();
 
@@ -383,20 +407,20 @@ function KomposisiTab({ data }) {
                                     {data.culaanByDm.map((row) => (
                                         <tr key={row.dm} className={t.tableRow}>
                                             <td className={t.tableCell}>{row.dm}</td>
-                                            <td className={t.tableCell} style={{ textAlign: 'right' }}>{row.putih.toLocaleString()}</td>
-                                            <td className={t.tableCell} style={{ textAlign: 'right' }}>{row.kelabu.toLocaleString()}</td>
-                                            <td className={t.tableCell} style={{ textAlign: 'right' }}>{row.hitam.toLocaleString()}</td>
-                                            <td className={`${t.tableCell} font-bold`} style={{ textAlign: 'right' }}>{row.jumlah.toLocaleString()}</td>
+                                            <SelAngka value={row.putih} base={row.jumlah} className={t.tableCell} />
+                                            <SelAngka value={row.kelabu} base={row.jumlah} className={t.tableCell} />
+                                            <SelAngka value={row.hitam} base={row.jumlah} className={t.tableCell} />
+                                            <SelAngka value={row.jumlah} base={dmTotals.jumlah} className={`${t.tableCell} font-bold`} />
                                         </tr>
                                     ))}
                                 </tbody>
                                 <tfoot>
                                     <tr className={`${t.tableRow} font-semibold`}>
                                         <td className={t.tableCell}>Jumlah Keseluruhan</td>
-                                        <td className={t.tableCell} style={{ textAlign: 'right' }}>{dmTotals.putih.toLocaleString()}</td>
-                                        <td className={t.tableCell} style={{ textAlign: 'right' }}>{dmTotals.kelabu.toLocaleString()}</td>
-                                        <td className={t.tableCell} style={{ textAlign: 'right' }}>{dmTotals.hitam.toLocaleString()}</td>
-                                        <td className={`${t.tableCell} font-bold`} style={{ textAlign: 'right' }}>{dmTotals.jumlah.toLocaleString()}</td>
+                                        <SelAngka value={dmTotals.putih} base={dmTotals.jumlah} className={t.tableCell} />
+                                        <SelAngka value={dmTotals.kelabu} base={dmTotals.jumlah} className={t.tableCell} />
+                                        <SelAngka value={dmTotals.hitam} base={dmTotals.jumlah} className={t.tableCell} />
+                                        <SelAngka value={dmTotals.jumlah} base={dmTotals.jumlah} className={`${t.tableCell} font-bold`} />
                                     </tr>
                                 </tfoot>
                             </table>
