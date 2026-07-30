@@ -269,7 +269,7 @@ export default function Senarai({ members, filters, parlimenList = [], dunList =
     const [viewing, setViewing] = useState(null);
     const scrollRef = useDragScroll();
 
-    const baseParams = { search, status_kawasan: filters.status_kawasan, parlimen: filters.parlimen, dun: filters.dun, daerah_mengundi: filters.daerah_mengundi, lokaliti: filters.lokaliti, bangsa: filters.bangsa, jantina: filters.jantina, status_anggota: filters.status_anggota, sentimen: filters.sentimen, sayap: filters.sayap };
+    const baseParams = { search, status_kawasan: filters.status_kawasan, parlimen: filters.parlimen, dun: filters.dun, sumber_dun: filters.sumber_dun, daerah_mengundi: filters.daerah_mengundi, lokaliti: filters.lokaliti, bangsa: filters.bangsa, jantina: filters.jantina, status_anggota: filters.status_anggota, sentimen: filters.sentimen, sayap: filters.sayap };
     const exportParams = Object.fromEntries(Object.entries(baseParams).filter(([, v]) => v));
 
     const applyFilters = (extra = {}) => {
@@ -325,11 +325,21 @@ export default function Senarai({ members, filters, parlimenList = [], dunList =
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">DUN</label>
-                        <select value={filters.dun || ''} onChange={(e) => applyFilters({ dun: e.target.value, daerah_mengundi: '', lokaliti: '' })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                        <select value={filters.dun || ''} onChange={(e) => applyFilters({ dun: e.target.value, daerah_mengundi: '', lokaliti: '', sumber_dun: '' })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
                             <option value="">Semua DUN</option>
                             {dunList.map((d) => <option key={d} value={d}>{d}</option>)}
                         </select>
                     </div>
+                    {filters.dun && (
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Sumber DUN</label>
+                            <select value={filters.sumber_dun || ''} onChange={(e) => applyFilters({ sumber_dun: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                                <option value="">Semua Sumber</option>
+                                <option value="fail">Daripada Fail DUN Ini</option>
+                                <option value="dpt_sahaja">Padanan DPT Sahaja</option>
+                            </select>
+                        </div>
+                    )}
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Daerah Mengundi</label>
                         <select value={filters.daerah_mengundi || ''} onChange={(e) => applyFilters({ daerah_mengundi: e.target.value, lokaliti: '' })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">

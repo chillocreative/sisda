@@ -429,7 +429,7 @@ class KeanggotaanController extends Controller
 
         return Inertia::render('Keanggotaan/Senarai', [
             'members' => $members,
-            'filters' => $request->only(['search', 'status_kawasan', 'parlimen', 'dun', 'daerah_mengundi', 'lokaliti', 'bangsa', 'jantina', 'status_anggota', 'sentimen', 'sayap']),
+            'filters' => $request->only(['search', 'status_kawasan', 'parlimen', 'dun', 'sumber_dun', 'daerah_mengundi', 'lokaliti', 'bangsa', 'jantina', 'status_anggota', 'sentimen', 'sayap']),
             'parlimenList' => $this->parlimenList(),
             'dunList' => $this->dunList($request),
             'dmList' => $this->dmList($request),
@@ -453,6 +453,19 @@ class KeanggotaanController extends Controller
         }
         if ($dun = $request->input('dun')) {
             $query->where(fn ($q) => $q->where('matched_kadun', $dun)->orWhere('dun', $dun));
+
+            // The DUN filter above is a union of two independent sources, so a
+            // DUN can hold more members than the file that was uploaded for it.
+            // This splits the union so the extras can be inspected:
+            //   fail       = carried this DUN's label on its upload batch
+            //   dpt_sahaja = pulled in only by the voter-roll IC match
+            $sumber = $request->input('sumber_dun');
+            if ($sumber === 'fail') {
+                $query->where('dun', $dun);
+            } elseif ($sumber === 'dpt_sahaja') {
+                $query->where('matched_kadun', $dun)
+                    ->where(fn ($q) => $q->whereNull('dun')->orWhere('dun', '!=', $dun));
+            }
         }
         if ($dm = $request->input('daerah_mengundi')) {
             $query->where('matched_daerah_mengundi', $dm);
@@ -737,15 +750,20 @@ class KeanggotaanController extends Controller
         $lokalitiList = $this->lokalitiList($request);
 
         $total = $base()->count();
-        // Kawasan (DPT/DPPR roll membership) is a Cabang-level property: a
-        // "luar kawasan" member is not in the roll and therefore has no
-        // matched_kadun, so scoping by DUN would always zero them out. Count
-        // these against the whole Parlimen/Cabang so the cards stay meaningful
-        // when a DUN is focused. (dicula/baru still drill down with the DUN.)
-        $kawasanTotal = (clone $parlimenBase())->count();
-        $dalam = (clone $parlimenBase())->where('status_kawasan', 'dalam_kawasan')->count();
-        $luar = (clone $parlimenBase())->where('status_kawasan', 'luar_kawasan')->count();
-        $tiadaDppr = (clone $parlimenBase())->where('status_kawasan', 'tiada_dppr')->count();
+        // Kawasan (DPT/DPPR roll membership) follows the full drill, so these
+        // cards can never report more members than the "Jumlah Ahli" they sit
+        // beside. This used to be counted Cabang-wide because a "luar kawasan"
+        // member has no matched_kadun and a DUN scope would zero them out —
+        // no longer true since every imported member carries its batch's DUN
+        // label and the DUN filter matches on matched_kadun OR dun.
+        $kawasanTotal = $total;
+        $dalam = (clone $base())->where('status_kawasan', 'dalam_kawasan')->count();
+        $luar = (clone $base())->where('status_kawasan', 'luar_kawasan')->count();
+        $tiadaDppr = (clone $base())->where('status_kawasan', 'tiada_dppr')->count();
+        // Whole-Cabang headcount — the denominator for the "luar cabang / luar
+        // DUN" cards below, which are Cabang-scoped by definition and would
+        // otherwise be divided by the (smaller) DUN roster.
+        $cabangTotal = (clone $parlimenBase())->count();
         $dicula = (clone $base())->where('is_dicula', true)->count();
         $baru = (clone $base())->where('is_pendaftaran_baru', true)->count();
 
@@ -860,6 +878,7 @@ class KeanggotaanController extends Controller
             'summary' => [
                 'total' => $total,
                 'kawasan_total' => $kawasanTotal,
+                'cabang_total' => $cabangTotal,
                 'dalam_kawasan' => $dalam,
                 'luar_kawasan' => $luar,
                 'tiada_dppr' => $tiadaDppr,
@@ -884,7 +903,7 @@ class KeanggotaanController extends Controller
             'dmList' => $dmList,
             'lokalitiList' => $lokalitiList,
             'bangsaList' => $this->bangsaList(),
-            'filters' => $request->only(['parlimen', 'dun', 'daerah_mengundi', 'lokaliti', 'status_kawasan', 'bangsa', 'jantina', 'status_anggota', 'sentimen', 'sayap']),
+            'filters' => $request->only(['parlimen', 'dun', 'sumber_dun', 'daerah_mengundi', 'lokaliti', 'status_kawasan', 'bangsa', 'jantina', 'status_anggota', 'sentimen', 'sayap']),
         ]);
     }
 

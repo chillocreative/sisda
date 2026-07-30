@@ -91,9 +91,13 @@ const BANGSA_COLORS = [
 
 export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBangsa = [], byDun, byDm = [], byColor, byJantina, wings, parlimenList = [], dunList = [], dmList = [], lokalitiList = [], bangsaList = [], filters = {} }) {
     const pct = (n) => (summary.total > 0 ? Math.round((n / summary.total) * 100) : 0);
-    // Kawasan cards are scoped to the whole Parlimen/Cabang, so their % is
-    // relative to the Cabang member total, not the (DUN-filtered) Jumlah Ahli.
+    // Kawasan cards follow the same drill as Jumlah Ahli, so their % shares its
+    // denominator. kawasan_total is kept as the explicit base the server used.
     const pctK = (n) => (summary.kawasan_total > 0 ? Math.round((n / summary.kawasan_total) * 100) : 0);
+    // The "luar cabang / luar DUN" cards count members from across the whole
+    // Cabang, so they must be divided by the Cabang headcount — dividing them
+    // by the (smaller) DUN roster can push the figure past 100%.
+    const pctC = (n) => (summary.cabang_total > 0 ? Math.round((n / summary.cabang_total) * 100) : 0);
     const kawasanPie = [
         { name: 'Dalam Kawasan', value: summary.dalam_kawasan, fill: '#10b981' },
         { name: 'Tiada DPPR/DPT', value: summary.tiada_dppr || 0, fill: '#ef4444' },
@@ -222,7 +226,7 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
                   <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <Kpi label="Jumlah Ahli" value={summary.total.toLocaleString()} sub={`Aktif/ EKYC - ${(summary.aktif_ekyc ?? 0).toLocaleString()}`} icon={Users} />
-                    <Kpi label="Dalam Kawasan" value={summary.dalam_kawasan.toLocaleString()} sub={`${pctK(summary.dalam_kawasan)}% daripada cabang`} icon={MapPin} color="text-emerald-600" />
+                    <Kpi label="Dalam Kawasan" value={summary.dalam_kawasan.toLocaleString()} sub={`${pctK(summary.dalam_kawasan)}% daripada ahli`} icon={MapPin} color="text-emerald-600" />
                     <Kpi label="Tiada DPPR/DPT" value={(summary.tiada_dppr || 0).toLocaleString()} sub={`${pctK(summary.tiada_dppr || 0)}% — tidak ditemui dalam senarai pengundi`} icon={UserX} color="text-red-600" />
                     <Kpi label="Dicula (Hitam)" value={summary.dicula.toLocaleString()} sub={`${pct(summary.dicula)}% disokong pembangkang`} icon={Crosshair} color="text-red-600" />
                 </div>
@@ -433,7 +437,7 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
                     <Kpi
                         label={filters.parlimen ? `Daftar Mengundi di Luar Parlimen ${filters.parlimen}` : 'Daftar Mengundi di Luar Parlimen Cabang'}
                         value={(summary.luar_parlimen || 0).toLocaleString()}
-                        sub={`${pct(summary.luar_parlimen || 0)}% daripada ahli — berdaftar mengundi di luar cabang`}
+                        sub={`${pctC(summary.luar_parlimen || 0)}% daripada ahli cabang — berdaftar mengundi di luar cabang`}
                         icon={MapPin}
                         color="text-amber-600"
                     />
@@ -441,7 +445,7 @@ export default function Analisa({ summary, ageBands, byParlimen, byNegeri, byBan
                         <Kpi
                             label={`Daftar Mengundi di Luar DUN ${filters.dun}`}
                             value={(summary.luar_dun || 0).toLocaleString()}
-                            sub={`${pct(summary.luar_dun || 0)}% daripada ahli — berdaftar mengundi di luar DUN ini`}
+                            sub={`${pctC(summary.luar_dun || 0)}% daripada ahli cabang — berdaftar mengundi di luar DUN ini`}
                             icon={MapPin}
                             color="text-amber-600"
                         />
