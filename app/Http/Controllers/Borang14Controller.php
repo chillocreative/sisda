@@ -193,6 +193,7 @@ class Borang14Controller extends Controller
             'jenis_pr' => 'required|in:pru,prn,prk',
             'tahun'    => 'required|integer|between:1959,2100',
             'penjuru'  => 'required|integer|in:2,3,4,5,6',
+            'contest'  => ['required', Rule::in([Borang14Vote::CONTEST_DUN, Borang14Vote::CONTEST_PARLIMEN])],
             'pusat'    => 'nullable|string|max:255',
             'saluran'  => 'required|string|max:50',
             'slot'     => 'required|integer|in:1,2,3,4,5,6,90,91',   // 90 = ditolak (C), 91 = tidak dimasukkan (D)
@@ -212,6 +213,7 @@ class Borang14Controller extends Controller
         Borang14Vote::updateOrCreate(
             [
                 'borang14_form_id' => $form->id,
+                'contest' => $validated['contest'],
                 'pusat'   => $validated['pusat'] ?? '',
                 'saluran' => $validated['saluran'],
                 'slot'    => $validated['slot'],
@@ -383,7 +385,7 @@ class Borang14Controller extends Controller
                 Borang14Snapshot::create([
                     'borang14_form_id' => $form->id,
                     'structure' => $form->structure,
-                    'votes' => $form->votes()->get(['pusat', 'saluran', 'slot', 'undi'])->toArray(),
+                    'votes' => $form->votes()->get(['contest', 'pusat', 'saluran', 'slot', 'undi'])->toArray(),
                     'parties' => $form->parties,
                     'reason' => 'before_structure_edit',
                     'created_by' => $request->user()?->id,
@@ -1254,7 +1256,7 @@ class Borang14Controller extends Controller
             Borang14Snapshot::create([
                 'borang14_form_id' => $form->id,
                 'structure' => $form->structure,
-                'votes' => $form->votes()->get(['pusat', 'saluran', 'slot', 'undi'])->toArray(),
+                'votes' => $form->votes()->get(['contest', 'pusat', 'saluran', 'slot', 'undi'])->toArray(),
                 'parties' => $form->parties,
                 'reason' => 'before_scoresheet_overwrite',
                 'created_by' => $request->user()?->id,
@@ -1394,10 +1396,11 @@ class Borang14Controller extends Controller
      * kelakuan ini SAMA seperti tulis ganti — tiada baris sedia ada untuk
      * ditambah kepada, jadi ia berkelakuan seperti "set" seperti sebelum ini.
      */
-    private function putVote(Borang14Form $form, array $row, int $slot, int $undi): void
+    private function putVote(Borang14Form $form, array $row, int $slot, int $undi, ?string $contest = null): void
     {
         $key = [
             'borang14_form_id' => $form->id,
+            'contest' => $contest ?? $form->contestSendiri(),
             'pusat' => (string) ($row['pusat'] ?? ''),
             'saluran' => $this->normalizeSaluran($row['saluran'] ?? null),
             'slot' => $slot,
@@ -1457,6 +1460,9 @@ class Borang14Controller extends Controller
         foreach ($snap->votes as $v) {
             Borang14Vote::create([
                 'borang14_form_id' => $form->id,
+                // Snapshot lama tiada `contest` — anggap ia pertandingan borang
+                // itu sendiri, iaitu satu-satunya yang wujud ketika itu.
+                'contest' => $v['contest'] ?? $form->contestSendiri(),
                 'pusat' => $v['pusat'], 'saluran' => $v['saluran'],
                 'slot' => $v['slot'], 'undi' => $v['undi'],
             ]);
@@ -1680,7 +1686,7 @@ class Borang14Controller extends Controller
                 'tahun' => $form->tahun,
                 'status' => $form->status,
                 'structure' => $form->structure,
-                'votes' => $form->votes()->get(['pusat', 'saluran', 'slot', 'undi'])->toArray(),
+                'votes' => $form->votes()->get(['contest', 'pusat', 'saluran', 'slot', 'undi'])->toArray(),
                 'parties' => $form->parties,
                 'deleted_by' => $request->user()?->id,
             ]);

@@ -487,7 +487,7 @@ class Borang14StrukturManualTest extends TestCase
 
         $this->actingAs($this->user())->postJson(route('pilihanraya.borang-14.vote'), [
             'kawasan_type' => 'dun', 'kawasan_id' => $this->kadun->id, 'jenis_pr' => 'prn', 'tahun' => 2027,
-            'penjuru' => 2, 'pusat' => 'SK TENGKEK', 'saluran' => '2', 'slot' => 1, 'undi' => 250,
+            'penjuru' => 2, 'contest' => 'dun', 'pusat' => 'SK TENGKEK', 'saluran' => '2', 'slot' => 1, 'undi' => 250,
         ])->assertOk();
 
         $res = $this->actingAs($this->user())->getJson(route('pilihanraya.borang-14.data', [
@@ -647,7 +647,7 @@ class Borang14StrukturManualTest extends TestCase
         // membuktikan kunci tulis dan kunci baca kini sepadan.
         $this->actingAs($this->user())->postJson(route('pilihanraya.borang-14.vote'), [
             'kawasan_type' => 'dun', 'kawasan_id' => $this->kadun->id, 'jenis_pr' => 'prn', 'tahun' => 2027,
-            'penjuru' => 2, 'pusat' => 'SK TENGKEK', 'saluran' => '1', 'slot' => 1, 'undi' => 77,
+            'penjuru' => 2, 'contest' => 'dun', 'pusat' => 'SK TENGKEK', 'saluran' => '1', 'slot' => 1, 'undi' => 77,
         ])->assertOk();
 
         $res = $this->actingAs($this->user())->getJson(route('pilihanraya.borang-14.data', [

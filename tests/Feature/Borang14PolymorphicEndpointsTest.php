@@ -128,12 +128,12 @@ class Borang14PolymorphicEndpointsTest extends TestCase
 
         $this->actingAs($user)->postJson(route('pilihanraya.borang-14.vote'), [
             'kawasan_type' => 'dun', 'kawasan_id' => $kadun->id, 'jenis_pr' => 'prn', 'tahun' => 2023,
-            'penjuru' => 2, 'pusat' => 'PM Ujian', 'saluran' => '1', 'slot' => 90, 'undi' => 7,
+            'penjuru' => 2, 'contest' => 'dun', 'pusat' => 'PM Ujian', 'saluran' => '1', 'slot' => 90, 'undi' => 7,
         ])->assertOk()->assertJson(['ok' => true]);
 
         $this->actingAs($user)->postJson(route('pilihanraya.borang-14.vote'), [
             'kawasan_type' => 'dun', 'kawasan_id' => $kadun->id, 'jenis_pr' => 'prn', 'tahun' => 2023,
-            'penjuru' => 2, 'pusat' => 'PM Ujian', 'saluran' => '1', 'slot' => 91, 'undi' => 3,
+            'penjuru' => 2, 'contest' => 'dun', 'pusat' => 'PM Ujian', 'saluran' => '1', 'slot' => 91, 'undi' => 3,
         ])->assertOk()->assertJson(['ok' => true]);
 
         $form = Borang14Form::forKawasan('dun', $kadun->id)->where('jenis_pr', 'prn')->where('tahun', 2023)->first();
@@ -153,7 +153,7 @@ class Borang14PolymorphicEndpointsTest extends TestCase
 
         $this->actingAs($this->user())->postJson(route('pilihanraya.borang-14.vote'), [
             'kawasan_type' => 'parlimen', 'kawasan_id' => $bandar->id, 'jenis_pr' => 'prn', 'tahun' => 2023,
-            'penjuru' => 2, 'pusat' => 'PM Ujian', 'saluran' => '1', 'slot' => 1, 'undi' => 42,
+            'penjuru' => 2, 'contest' => 'parlimen', 'pusat' => 'PM Ujian', 'saluran' => '1', 'slot' => 1, 'undi' => 42,
         ])->assertOk()->assertJson(['ok' => true]);
 
         $form = Borang14Form::forKawasan('parlimen', $bandar->id)->where('jenis_pr', 'prn')->where('tahun', 2023)->first();
@@ -170,7 +170,7 @@ class Borang14PolymorphicEndpointsTest extends TestCase
 
         $this->actingAs($this->user())->postJson(route('pilihanraya.borang-14.vote'), [
             'kawasan_type' => 'dun', 'kawasan_id' => $bandar->id, 'jenis_pr' => 'prn', 'tahun' => 2023,
-            'penjuru' => 2, 'pusat' => 'PM Ujian', 'saluran' => '1', 'slot' => 1, 'undi' => 42,
+            'penjuru' => 2, 'contest' => 'dun', 'pusat' => 'PM Ujian', 'saluran' => '1', 'slot' => 1, 'undi' => 42,
         ])->assertStatus(422);
     }
 
