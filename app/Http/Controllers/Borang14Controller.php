@@ -35,6 +35,13 @@ class Borang14Controller extends Controller
     /** Folder scoresheet pada disk 'private' — tidak boleh dicapai melalui URL. */
     private const SCORESHEET_DIR = 'borang14-scoresheets';
 
+    /**
+     * Skop borang yang merekod DUA pertandingan sekaligus (PRU + PRN pada
+     * scoresheet yang sama). Skop lain ialah nama pertandingan itu sendiri
+     * ('parlimen' / 'dun'), jadi hanya nilai ketiga ini perlukan pemalar.
+     */
+    private const SKOP_KEDUA = 'kedua';
+
     /** Penjuru dropdown → number of party columns. */
     private const PENJURU = [
         2 => '1 vs 1',
@@ -203,7 +210,20 @@ class Borang14Controller extends Controller
         ];
     }
 
-    /** Persist the chosen party names for a (kawasan, jenis PR, tahun) scenario. */
+    /**
+     * Persist the chosen party names for a (kawasan, jenis PR, tahun) scenario.
+     *
+     * `skop` menyatakan BERAPA pertandingan yang direkod oleh borang ini:
+     * 'parlimen', 'dun', atau 'kedua' (serentak). Tiada `skop` bermakna skop
+     * TUNGGAL yang sepadan dengan kawasan borang — muatan sebelum ciri ini,
+     * dan laluan yang jauh paling biasa; ia mesti kekal serupa-bit.
+     *
+     * Apabila skop = 'kedua', senarai calon RATA daripada scoresheet dipisahkan
+     * mengikut tanda `kontes` setiap parti: calon Parlimen dinomborkan semula
+     * 1..n pada borang TAKRIFAN Parlimen, calon DUN dinomborkan semula 1..m
+     * pada borang DUN ini. Pemisahan itu SENDIRI ialah satu-satunya rekod
+     * penetapan pertandingan — tiada lajur tambahan yang boleh menyimpang.
+     */
     public function saveParties(Request $request)
     {
         $kawasanType = $request->input('kawasan_type');
@@ -215,24 +235,291 @@ class Borang14Controller extends Controller
             'jenis_pr' => 'required|in:pru,prn,prk',
             'tahun'    => 'required|integer|between:1959,2100',
             'penjuru'  => 'required|integer|in:2,3,4,5,6',
+            // Skop pertandingan borang. Nullable dengan sengaja: klien lama
+            // (dan setiap borang sedia ada) tidak menghantarnya langsung.
+            'skop'     => ['nullable', Rule::in([Borang14Form::KAWASAN_PARLIMEN, Borang14Form::KAWASAN_DUN, self::SKOP_KEDUA])],
             'parties'  => 'array',
             'parties.*.slot' => 'required|integer|min:1|max:6',
             'parties.*.keahlian_parti_id' => 'nullable|integer',
             'parties.*.nama' => 'nullable|string|max:100',
             'parties.*.calon' => 'nullable|string|max:150',
+            // WAJIB bagi setiap parti apabila skop = kedua — dikuatkuasakan di
+            // bawah dan bukan dengan required_if, kerana skop lalai dikira
+            // daripada kawasan_type borang dan bukan daripada muatan sahaja.
+            'parties.*.kontes' => ['nullable', Rule::in([Borang14Vote::CONTEST_PARLIMEN, Borang14Vote::CONTEST_DUN])],
         ]);
 
-        $form = Borang14Form::updateOrCreate(
-            [
-                'kawasan_type' => $validated['kawasan_type'],
-                'kawasan_id'   => $validated['kawasan_id'],
-                'jenis_pr'     => $validated['jenis_pr'],
-                'tahun'        => $validated['tahun'],
-            ],
-            ['penjuru' => $validated['penjuru'], 'parties' => $validated['parties'] ?? []],
-        );
+        // Pertandingan borang ini SENDIRI — sama dengan kawasannya, dan skop
+        // lalai apabila pemanggil tidak menyatakan apa-apa.
+        $sendiri = $validated['kawasan_type'] === Borang14Form::KAWASAN_PARLIMEN
+            ? Borang14Form::KAWASAN_PARLIMEN
+            : Borang14Form::KAWASAN_DUN;
+        $skop = $validated['skop'] ?? $sendiri;
+        $parties = $validated['parties'] ?? [];
 
-        return response()->json(['ok' => true, 'form_id' => $form->id]);
+        $form = Borang14Form::forKawasan($validated['kawasan_type'], $validated['kawasan_id'])
+            ->where('jenis_pr', $validated['jenis_pr'])
+            ->where('tahun', $validated['tahun'])
+            ->first();
+
+        $skopSemasa = $this->skopSemasa($form, $sendiri);
+
+        // ---- Laluan SATU pertandingan: tepat seperti sebelum ciri skop.
+        if ($skop === $sendiri) {
+            // Satu-satunya tambahan: menukar skop KELUAR daripada susunan dua
+            // pertandingan sesudah undi wujud akan menomborkan semula slot dan
+            // memindahkan undi kepada calon yang salah.
+            if ($skop !== $skopSemasa) {
+                $this->assertTiadaUndi($form);
+            }
+
+            $form = Borang14Form::updateOrCreate(
+                [
+                    'kawasan_type' => $validated['kawasan_type'],
+                    'kawasan_id'   => $validated['kawasan_id'],
+                    'jenis_pr'     => $validated['jenis_pr'],
+                    'tahun'        => $validated['tahun'],
+                ],
+                [
+                    'penjuru' => $validated['penjuru'],
+                    // `kontes` ialah keadaan UI semasa penetapan sahaja dan
+                    // TIDAK PERNAH disimpan: dalam skop tunggal, pertandingan
+                    // borang sudah menyatakan segalanya.
+                    'parties' => array_map(function ($p) {
+                        unset($p['kontes']);
+
+                        return $p;
+                    }, $parties),
+                ],
+            );
+
+            return response()->json(['ok' => true, 'form_id' => $form->id]);
+        }
+
+        // ---- Skop yang melibatkan pertandingan Parlimen pada borang DUN.
+        // Pautan hanya wujud dari borang DUN ke borang Parlimen, tidak pernah
+        // sebaliknya: borang Parlimen ITU SENDIRI ialah takrifan calon PRU.
+        if ($validated['kawasan_type'] !== Borang14Form::KAWASAN_DUN) {
+            throw ValidationException::withMessages([
+                'skop' => $skop === self::SKOP_KEDUA
+                    ? 'Skop "Kedua-duanya (serentak)" hanya sah bagi borang DUN. Borang Parlimen itu sendiri '.
+                        'ialah takrifan calon PRU, jadi ia tidak boleh dipaut kepada dirinya sendiri.'
+                    : 'Borang Parlimen hanya boleh merekod pertandingan Parlimen. Simpan pertandingan DUN '.
+                        'pada borang DUN berkenaan.',
+            ]);
+        }
+
+        // Pisahkan senarai rata mengikut tanda pertandingan setiap parti.
+        if ($skop === self::SKOP_KEDUA) {
+            foreach ($parties as $p) {
+                if (empty($p['kontes'])) {
+                    throw ValidationException::withMessages([
+                        'parties' => 'Setiap calon mesti ditanda milik pertandingan Parlimen atau DUN apabila '.
+                            'skop borang ialah kedua-duanya (serentak).',
+                    ]);
+                }
+            }
+
+            $calonParlimen = $this->nomborSemula($parties, Borang14Vote::CONTEST_PARLIMEN);
+            $calonDun = $this->nomborSemula($parties, Borang14Vote::CONTEST_DUN);
+
+            $this->assertBilanganCalon($calonParlimen, 'Parlimen');
+            $this->assertBilanganCalon($calonDun, 'DUN');
+        } else {
+            // Skop "Parlimen sahaja" pada borang DUN: pasukan ini melaporkan
+            // bahagian PRU sahaja. Borang DUN kekal tanpa calonnya sendiri.
+            $calonParlimen = $this->nomborSemula($parties, null);
+            $calonDun = [];
+
+            $this->assertBilanganCalon($calonParlimen, 'Parlimen');
+        }
+
+        $indukId = (int) Kadun::whereKey($validated['kawasan_id'])->value('bandar_id');
+        if ($indukId <= 0) {
+            throw ValidationException::withMessages([
+                'skop' => 'DUN ini tiada Parlimen induk dalam data kawasan, jadi pertandingan Parlimen tidak '.
+                    'dapat dipautkan. Betulkan Parlimen induk DUN ini dalam Data Induk terlebih dahulu.',
+            ]);
+        }
+
+        // Lubang yang sama seperti togol serentak pada panel Struktur: borang
+        // Parlimen yang SUDAH berstruktur dibaca TERUS oleh roll-up, jadi undi
+        // PRU pada borang DUN tidak akan dikira langsung.
+        $this->assertTakrifanParlimenMasihKosong(['parlimen_id' => $indukId, 'tahun' => $validated['tahun']]);
+
+        // Tolak — jangan petakan semula. Menomborkan semula slot pada baris undi
+        // sebenar boleh menukar undi calon A menjadi undi calon B secara senyap.
+        if ($skop !== $skopSemasa || $this->penetapanBerubah($form, $calonParlimen, $calonDun)) {
+            $this->assertTiadaUndi($form);
+        }
+
+        [$form, $definisi] = DB::transaction(function () use ($validated, $skop, $indukId, $calonParlimen, $calonDun) {
+            // Borang TAKRIFAN calon PRU yang dikongsi semua DUN dalam Parlimen
+            // ini, dikunci pada TAHUN borang DUN ini sendiri — pautan rentas
+            // tahun akan menjumlahkan undi tahun lain ke dalam keputusan.
+            $definisi = Borang14Form::firstOrCreate(
+                [
+                    'kawasan_type' => Borang14Form::KAWASAN_PARLIMEN,
+                    'kawasan_id'   => $indukId,
+                    'jenis_pr'     => 'pru',
+                    'tahun'        => $validated['tahun'],
+                ],
+                ['penjuru' => count($calonParlimen), 'parties' => []],
+            );
+
+            // SENGAJA tanpa 'structure': kekosongan struktur pada borang
+            // takrifan ialah SATU-SATUNYA isyarat yang menyuruh Borang14RollUp
+            // mengumpul borang DUN dan bukan membaca terus dari sini.
+            $definisi->update(['penjuru' => count($calonParlimen), 'parties' => $calonParlimen]);
+
+            $form = Borang14Form::firstOrCreate(
+                [
+                    'kawasan_type' => $validated['kawasan_type'],
+                    'kawasan_id'   => $validated['kawasan_id'],
+                    'jenis_pr'     => $validated['jenis_pr'],
+                    'tahun'        => $validated['tahun'],
+                ],
+                ['penjuru' => 2, 'parties' => []],
+            );
+
+            $form->update(array_merge(
+                ['parties' => $calonDun, 'borang14_form_parlimen_id' => $definisi->id],
+                // penjuru borang DUN hanya bermakna apabila ia benar-benar
+                // merekod pertandingan DUN; dalam skop Parlimen-sahaja ia
+                // dibiarkan seperti sedia ada, bukan dipaksa kepada 0/kiraan PRU.
+                $skop === self::SKOP_KEDUA ? ['penjuru' => count($calonDun)] : [],
+            ));
+
+            return [$form, $definisi];
+        });
+
+        return response()->json(['ok' => true, 'form_id' => $form->id, 'form_parlimen_id' => $definisi->id]);
+    }
+
+    /**
+     * Skop yang sedang DISIMPAN pada borang ini, dibaca semula daripada cara
+     * senarai calon dipisahkan — bukan daripada mana-mana lajur "skop".
+     *
+     * Pautan SEMATA-MATA (togol serentak pada panel Struktur, calon PRU belum
+     * dinamakan) BUKAN skop dua pertandingan: takrifan yang masih kosong tidak
+     * menomborkan apa-apa slot, jadi menyimpan calon DUN seperti biasa di
+     * atasnya tidak boleh memindahkan undi sesiapa.
+     */
+    private function skopSemasa(?Borang14Form $form, string $sendiri): string
+    {
+        if (! $form || $form->borang14_form_parlimen_id === null) {
+            return $sendiri;
+        }
+
+        $definisi = $form->formParlimen;
+        if (! $definisi || empty($definisi->parties)) {
+            return $sendiri;
+        }
+
+        return empty($form->parties) ? Borang14Form::KAWASAN_PARLIMEN : self::SKOP_KEDUA;
+    }
+
+    /**
+     * Adakah penetapan calon kepada pertandingan berubah berbanding apa yang
+     * tersimpan? Dibandingkan pada kedua-dua borang sekaligus — memindahkan
+     * satu calon merentas pertandingan boleh mengekalkan BILANGAN setiap
+     * pertandingan tetapi tetap menukar maksud setiap nombor slot.
+     */
+    private function penetapanBerubah(?Borang14Form $form, array $calonParlimen, array $calonDun): bool
+    {
+        if (! $form) {
+            return true;
+        }
+
+        $definisi = $form->borang14_form_parlimen_id !== null ? $form->formParlimen : null;
+
+        return $this->sidikCalon($definisi?->parties ?? []) !== $this->sidikCalon($calonParlimen)
+            || $this->sidikCalon($form->parties ?? []) !== $this->sidikCalon($calonDun);
+    }
+
+    /** Cap jari senarai calon untuk perbandingan sahaja — bukan untuk disimpan. */
+    private function sidikCalon(array $parties): array
+    {
+        return array_map(fn ($p) => [
+            'slot' => isset($p['slot']) ? (int) $p['slot'] : null,
+            'keahlian_parti_id' => isset($p['keahlian_parti_id']) && $p['keahlian_parti_id'] !== null
+                ? (int) $p['keahlian_parti_id']
+                : null,
+            'nama' => trim((string) ($p['nama'] ?? '')),
+            'calon' => trim((string) ($p['calon'] ?? '')),
+        ], array_values($parties));
+    }
+
+    /**
+     * Ambil calon bagi SATU pertandingan daripada senarai rata dan nomborkan
+     * semula 1..n. Tanda `kontes` DIBUANG daripada apa yang disimpan: selepas
+     * pemisahan, borang mana calon itu duduk sudah menyatakan segalanya, dan
+     * dua salinan penetapan yang sama pasti menyimpang cepat atau lambat.
+     */
+    private function nomborSemula(array $parties, ?string $kontes): array
+    {
+        $dipilih = $kontes === null
+            ? $parties
+            : array_filter($parties, fn ($p) => ($p['kontes'] ?? null) === $kontes);
+
+        $slot = 0;
+
+        return array_map(function ($p) use (&$slot) {
+            unset($p['kontes']);
+            $p['slot'] = ++$slot;
+
+            return $p;
+        }, array_values($dipilih));
+    }
+
+    /**
+     * Satu pertandingan mesti ada 2..6 calon. Satu calon bukan pertandingan,
+     * dan lebih daripada 6 melebihi had lajur `penjuru` sedia ada.
+     */
+    private function assertBilanganCalon(array $calon, string $namaKontes): void
+    {
+        $bilangan = count($calon);
+
+        if ($bilangan < 2) {
+            throw ValidationException::withMessages([
+                'parties' => "Pertandingan {$namaKontes} hanya mempunyai {$bilangan} calon. Setiap pertandingan ".
+                    'mesti mempunyai sekurang-kurangnya 2 calon.',
+            ]);
+        }
+
+        if ($bilangan > 6) {
+            throw ValidationException::withMessages([
+                'parties' => "Pertandingan {$namaKontes} mempunyai {$bilangan} calon. Had bagi satu pertandingan ".
+                    'ialah 6 calon.',
+            ]);
+        }
+    }
+
+    /**
+     * Undi sedia ada MENGUNCI penetapan pertandingan. Menomborkan semula slot
+     * calon pada borang yang sudah ada undi bermakna undi calon A boleh menjadi
+     * undi calon B — kegagalan paling teruk dalam sistem ini, dan sepenuhnya
+     * senyap. Kedua-dua pertandingan disemak, bukan satu.
+     */
+    private function assertTiadaUndi(?Borang14Form $form): void
+    {
+        if (! $form) {
+            return;
+        }
+
+        $adaUndi = $form->votesFor(Borang14Vote::CONTEST_PARLIMEN)->exists()
+            || $form->votesFor(Borang14Vote::CONTEST_DUN)->exists();
+
+        if (! $adaUndi) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'skop' => 'Borang ini sudah mempunyai undi yang dikunci masuk. Menukar skop pertandingan atau '.
+                'penetapan calon akan menomborkan semula slot calon, lalu undi yang sudah direkod akan '.
+                'terpakai pada calon yang salah. Kosongkan undi kedua-dua pertandingan terlebih dahulu '.
+                'jika penetapan ini benar-benar perlu diubah.',
+        ]);
     }
 
     /** Upsert a single editable cell (auto-save on blur). */
