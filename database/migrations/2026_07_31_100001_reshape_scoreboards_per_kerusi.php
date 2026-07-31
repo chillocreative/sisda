@@ -26,28 +26,43 @@ return new class extends Migration
     /** Digunakan sekali sahaja untuk mengisi pihak_kami papan sedia ada. */
     private const PH_PARTIES = ['KEADILAN', 'PKR', 'DAP', 'AMANAH', 'MUDA'];
 
+    /**
+     * PENTING: jangan tukar semak ini kepada Schema::hasColumn('kawasan_type').
+     * kawasan_type ialah lajur PERTAMA yang dicipta oleh up(), bukan yang
+     * terakhir. Pada MySQL, ALTER TABLE ADD COLUMN komit serta-merta — jika
+     * transaksi data atau mana-mana ALTER selepasnya gagal separuh jalan,
+     * lajur baharu itu tetap kekal wujud walaupun migrasi belum selesai.
+     * Deploy seterusnya akan `migrate --force`, nampak kawasan_type sudah
+     * ada, pulang awal — dan Laravel merekodkan migrasi ini sebagai BERJAYA
+     * walaupun backfill/collapse/index baharu tidak pernah berjalan. Itu
+     * meninggalkan data pilihan raya sebenar dalam keadaan separuh migrasi
+     * secara senyap.
+     *
+     * Sebaliknya semak ARTIFACT TERAKHIR yang up() cipta —
+     * index scoreboards_kerusi_unique — supaya:
+     *   (a) larian kedua pada pangkalan data yang sudah lengkap terus tiada
+     *       kesan (no-op), dan
+     *   (b) larian selepas kegagalan separuh jalan MENYAMBUNG kerja yang
+     *       tinggal, bukan melangkauinya — setiap langkah di bawah menyemak
+     *       keadaannya sendiri dahulu sebelum bertindak.
+     */
     public function up(): void
     {
-        if (Schema::hasColumn('scoreboards', 'kawasan_type')) {
-            return; // Sudah dibentuk semula.
+        if (Schema::hasIndex('scoreboards', 'scoreboards_kerusi_unique', 'unique')) {
+            return; // Sudah dibentuk semula sepenuhnya.
         }
 
-        Schema::table('scoreboards', function (Blueprint $table) {
-            $table->string('kawasan_type', 10)->nullable()->after('id');
-            $table->unsignedBigInteger('kawasan_id')->nullable()->after('kawasan_type');
-            $table->string('status', 10)->default('draf')->after('minima');
-            $table->string('kod', 12)->nullable()->after('status');
-            $table->json('pihak_kami')->nullable()->after('candidates');
-            // Seorang admin Parlimen dan pemilik DUN boleh menyunting papan yang
-            // SAMA. Tiada kunci dibina; kita hanya menjadikan perlanggaran
-            // KELIHATAN dengan menunjukkan siapa menyimpan terakhir.
-            $table->foreignId('updated_by')->nullable()->after('pihak_kami')
-                ->constrained('users')->nullOnDelete();
-        });
+        $this->addSeatColumnsIfMissing();
+        $this->addUpdatedByForeignKeyIfMissing();
 
         // Pemadaman fail TIDAK boleh berlaku di dalam transaksi: jika transaksi
         // digulung semula, baris pangkalan data kembali tetapi fail imej sudah
         // hilang selama-lamanya. Kumpul dahulu, padam selepas komit.
+        //
+        // Ketiga-tiga langkah ini selamat diulang: backfillSeats/backfillPihakKami
+        // hanya menulis semula nilai yang sama jika sudah betul, dan
+        // collapseDuplicateBoards tiada kesan apabila tiada lagi kerusi berpapan
+        // berganda (kes larian kedua/sambungan selepas kegagalan separuh jalan).
         $yatim = [];
         DB::transaction(function () use (&$yatim) {
             $this->backfillSeats();
@@ -61,21 +76,151 @@ return new class extends Migration
             }
         }
 
-        // FK dahulu, kemudian index unique (ralat 1553), kemudian lajur nullable.
+        // FK dahulu, kemudian index unique (ralat 1553), kemudian lajur nullable,
+        // kemudian FK+index baharu — setiap satu menyemak keadaan sedia ada
+        // dahulu (lihat docblock up()).
+        $this->dropOldBorangFormIdConstraintsIfPresent();
+        $this->makeBorangFormIdNullableIfNeeded();
+        $this->addNewBorangFormIdConstraintsIfMissing();
+    }
+
+    /**
+     * Lajur kerusi + updated_by (TANPA FK updated_by — lihat
+     * addUpdatedByForeignKeyIfMissing()). Satu ALTER TABLE sahaja (semua
+     * ->string()/->json()/->unsignedBigInteger() di sini digabung Laravel
+     * menjadi satu statement), jadi ia sendiri atomik: semua lajur tercipta
+     * atau tiada satu pun — cukup semak SATU lajur (kawasan_type) untuk tahu
+     * sama ada langkah ini sudah selesai.
+     */
+    private function addSeatColumnsIfMissing(): void
+    {
+        if (Schema::hasColumn('scoreboards', 'kawasan_type')) {
+            return;
+        }
+
         Schema::table('scoreboards', function (Blueprint $table) {
-            $table->dropForeign(['borang14_form_id']);
+            $table->string('kawasan_type', 10)->nullable()->after('id');
+            $table->unsignedBigInteger('kawasan_id')->nullable()->after('kawasan_type');
+            $table->string('status', 10)->default('draf')->after('minima');
+            $table->string('kod', 12)->nullable()->after('status');
+            $table->json('pihak_kami')->nullable()->after('candidates');
+            // Seorang admin Parlimen dan pemilik DUN boleh menyunting papan yang
+            // SAMA. Tiada kunci dibina; kita hanya menjadikan perlanggaran
+            // KELIHATAN dengan menunjukkan siapa menyimpan terakhir.
+            $table->unsignedBigInteger('updated_by')->nullable()->after('pihak_kami');
         });
+    }
+
+    /**
+     * FK diasingkan daripada penciptaan lajur updated_by (bukan
+     * ->foreignId()->constrained() dalam satu blok) supaya ia boleh disemak
+     * dan disambung semula secara berasingan jika ALTER TABLE ADD COLUMN
+     * berjaya tetapi ALTER TABLE ADD CONSTRAINT yang menyusul gagal.
+     */
+    private function addUpdatedByForeignKeyIfMissing(): void
+    {
+        if ($this->hasForeignKeyOnColumn('scoreboards', 'updated_by')) {
+            return;
+        }
+
         Schema::table('scoreboards', function (Blueprint $table) {
-            $table->dropUnique(['borang14_form_id']);
+            $table->foreign('updated_by', 'scoreboards_updated_by_foreign')
+                ->references('id')->on('users')->nullOnDelete();
         });
+    }
+
+    private function dropOldBorangFormIdConstraintsIfPresent(): void
+    {
+        // Kedua-dua FK lama (cascadeOnDelete) dan baharu (nullOnDelete) rujuk
+        // borang14_forms pada lajur yang sama, jadi bezakan ikut on_delete:
+        // hanya gugurkan jika ia MASIH FK lama. Jika ini larian sambungan
+        // yang sudah sampai ke FK baharu, jangan sentuh — mengelak
+        // gugur-cipta-semula yang tidak perlu.
+        if ($this->hasForeignKeyOnColumn('scoreboards', 'borang14_form_id')
+            && ! $this->foreignKeyIsNullOnDelete('scoreboards', 'borang14_form_id')) {
+            Schema::table('scoreboards', function (Blueprint $table) {
+                $table->dropForeign(['borang14_form_id']);
+            });
+        }
+
+        if (Schema::hasIndex('scoreboards', 'scoreboards_borang14_form_id_unique', 'unique')) {
+            Schema::table('scoreboards', function (Blueprint $table) {
+                $table->dropUnique(['borang14_form_id']);
+            });
+        }
+    }
+
+    private function makeBorangFormIdNullableIfNeeded(): void
+    {
+        if ($this->columnIsNullable('scoreboards', 'borang14_form_id')) {
+            return;
+        }
+
         Schema::table('scoreboards', function (Blueprint $table) {
             $table->unsignedBigInteger('borang14_form_id')->nullable()->change();
         });
-        Schema::table('scoreboards', function (Blueprint $table) {
-            $table->foreign('borang14_form_id')->references('id')->on('borang14_forms')->nullOnDelete();
-            $table->unique(['kawasan_type', 'kawasan_id'], 'scoreboards_kerusi_unique');
-            $table->unique('kod', 'scoreboards_kod_unique');
-        });
+    }
+
+    private function addNewBorangFormIdConstraintsIfMissing(): void
+    {
+        if (! $this->hasForeignKeyOnColumn('scoreboards', 'borang14_form_id')) {
+            Schema::table('scoreboards', function (Blueprint $table) {
+                $table->foreign('borang14_form_id')->references('id')->on('borang14_forms')->nullOnDelete();
+            });
+        }
+
+        if (! Schema::hasIndex('scoreboards', 'scoreboards_kerusi_unique', 'unique')) {
+            Schema::table('scoreboards', function (Blueprint $table) {
+                $table->unique(['kawasan_type', 'kawasan_id'], 'scoreboards_kerusi_unique');
+            });
+        }
+
+        if (! Schema::hasIndex('scoreboards', 'scoreboards_kod_unique', 'unique')) {
+            Schema::table('scoreboards', function (Blueprint $table) {
+                $table->unique('kod', 'scoreboards_kod_unique');
+            });
+        }
+    }
+
+    /**
+     * SQLite tidak menamakan constraint FK (PRAGMA foreign_key_list tiada
+     * lajur nama), jadi Schema::getForeignKeys() memulangkan 'name' => null
+     * bagi setiap FK pada pemacu itu — carian ikut NAMA constraint akan
+     * sentiasa gagal di SQLite walaupun FK itu wujud. Padan ikut LAJUR
+     * tempatan sebaliknya (portable pada MySQL & SQLite, keduanya mengisi
+     * 'columns').
+     */
+    private function hasForeignKeyOnColumn(string $table, string $column): bool
+    {
+        foreach (Schema::getForeignKeys($table) as $fk) {
+            if (in_array($column, $fk['columns'], true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function foreignKeyIsNullOnDelete(string $table, string $column): bool
+    {
+        foreach (Schema::getForeignKeys($table) as $fk) {
+            if (in_array($column, $fk['columns'], true)) {
+                return $fk['on_delete'] === 'set null';
+            }
+        }
+
+        return false;
+    }
+
+    private function columnIsNullable(string $table, string $column): bool
+    {
+        foreach (Schema::getColumns($table) as $col) {
+            if ($col['name'] === $column) {
+                return $col['nullable'];
+            }
+        }
+
+        return false;
     }
 
     /**
