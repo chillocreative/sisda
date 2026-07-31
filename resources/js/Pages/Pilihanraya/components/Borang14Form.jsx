@@ -11,7 +11,16 @@ export const fmt = (n) => (n == null || Number.isNaN(n) ? '0' : Number(n).toLoca
 // and must render as an honest '—', never a fabricated 0.
 export const fmtOrDash = (n) => (n == null ? '—' : fmt(n));
 export const pct = (num, den) => (den == null || den <= 0 ? '—' : `${((num / den) * 100).toFixed(1)}%`);
-export const cellKey = (pusat, saluran, slot) => `${pusat ?? ''}|${saluran}|${slot}`;
+// Kunci sel grid kemasukan. `contest` ialah komponen PERTAMA dan WAJIB: pada
+// borang serentak, jalur PRU dan jalur PRN berkongsi (pusat, saluran, slot)
+// yang SAMA, jadi kunci tanpa contest akan membuat satu jalur menulis ganti
+// satu lagi dalam votes/cellStatus/requestSeq — pepijat tulis-ganti senyap
+// yang sama seperti key-drift dahulu, cuma satu lapisan lebih tinggi.
+//
+// BENTUK INI IALAH KONTRAK MERENTAS SEMPADAN — Borang14Controller::cellKey()
+// di server mesti menghasilkan rentetan yang SERUPA BIT, kerana peta `votes`
+// datang daripadanya. Jika ia menyimpang, setiap sel dipapar kosong.
+export const cellKey = (contest, pusat, saluran, slot) => `${contest}|${pusat ?? ''}|${saluran}|${slot}`;
 
 // Undi Awal & Undi Pos are combined into a single row only for DUN Buloh Kasap.
 export const BULOH_KASAP_KADUN_ID = 41;
@@ -83,15 +92,18 @@ export function SaveStatusDot({ status }) {
 
 /* --------------------------- per-pusat table --------------------------- */
 
-export function VoteTable({ block, partyNames, votes, onSave, anchorId, cellStatus = {} }) {
+// `contest` menentukan ruang nama kunci sel jadual ini DAN pertandingan yang
+// ditulis oleh autosimpan. Ia WAJIB — tiada nilai lalai, kerana lalai yang
+// senyap pada skrin dua jalur bermakna undi PRU ditulis ke pertandingan PRN.
+export function VoteTable({ block, partyNames, votes, onSave, anchorId, contest, cellStatus = {} }) {
     const { t } = usePilihanrayaTheme();
     const nParties = partyNames.length;
 
     const rows = block.saluran.map((s) => {
         const slots = Array.from({ length: nParties }, (_, i) =>
-            votes[cellKey(block.pusat, String(s.no), i + 1)] ?? 0);
-        const ditolak = votes[cellKey(block.pusat, String(s.no), 90)] ?? 0;
-        const tidakMasuk = votes[cellKey(block.pusat, String(s.no), 91)] ?? 0;
+            votes[cellKey(contest, block.pusat, String(s.no), i + 1)] ?? 0);
+        const ditolak = votes[cellKey(contest, block.pusat, String(s.no), 90)] ?? 0;
+        const tidakMasuk = votes[cellKey(contest, block.pusat, String(s.no), 91)] ?? 0;
         const undian = slots.reduce((a, b) => a + b, 0);         // JUMLAH UNDIAN = Σ undi calon
         const keluar = undian + ditolak + tidakMasuk;            // (A) = Σ undi + (C) + (D)
         return {
@@ -142,7 +154,7 @@ export function VoteTable({ block, partyNames, votes, onSave, anchorId, cellStat
                             <tr key={r.no} className={t.tableRow}>
                                 <td className={`${t.tableCell} font-medium whitespace-nowrap`}>Saluran {r.no}</td>
                                 {r.slots.map((v, i) => {
-                                    const key = cellKey(block.pusat, String(r.no), i + 1);
+                                    const key = cellKey(contest, block.pusat, String(r.no), i + 1);
                                     return (
                                         <td key={i} className="px-2 py-1">
                                             <div className="flex items-center justify-end gap-1.5">
@@ -152,14 +164,14 @@ export function VoteTable({ block, partyNames, votes, onSave, anchorId, cellStat
                                                     value={v}
                                                     invalid={cellStatus[key] === 'error'}
                                                     max={r.berdaftar != null ? Math.max(0, r.berdaftar - (r.keluar - v)) : null}
-                                                    onCommit={(undi) => onSave(block.pusat, String(r.no), i + 1, undi)}
+                                                    onCommit={(undi) => onSave(block.pusat, String(r.no), i + 1, undi, contest)}
                                                 />
                                             </div>
                                         </td>
                                     );
                                 })}
                                 {[{ slot: 90, v: r.ditolak }, { slot: 91, v: r.tidakMasuk }].map(({ slot, v }) => {
-                                    const key = cellKey(block.pusat, String(r.no), slot);
+                                    const key = cellKey(contest, block.pusat, String(r.no), slot);
                                     return (
                                         <td key={slot} className="px-2 py-1">
                                             <div className="flex items-center justify-end gap-1.5">
@@ -168,7 +180,7 @@ export function VoteTable({ block, partyNames, votes, onSave, anchorId, cellStat
                                                     value={v}
                                                     invalid={cellStatus[key] === 'error'}
                                                     max={r.berdaftar != null ? Math.max(0, r.berdaftar - (r.keluar - v)) : null}
-                                                    onCommit={(undi) => onSave(block.pusat, String(r.no), slot, undi)}
+                                                    onCommit={(undi) => onSave(block.pusat, String(r.no), slot, undi, contest)}
                                                 />
                                             </div>
                                         </td>
@@ -205,7 +217,7 @@ export function VoteTable({ block, partyNames, votes, onSave, anchorId, cellStat
 
 /* ----------------------- undi awal / undi pos -------------------------- */
 
-export function UndiAwalPosTable({ partyNames, votes, onSave, rows, cellStatus = {} }) {
+export function UndiAwalPosTable({ partyNames, votes, onSave, rows, contest, cellStatus = {} }) {
     const { t } = usePilihanrayaTheme();
     const nParties = partyNames.length;
 
@@ -233,9 +245,9 @@ export function UndiAwalPosTable({ partyNames, votes, onSave, rows, cellStatus =
                     <tbody>
                         {rows.map(({ label, berdaftar }) => {
                             const slots = Array.from({ length: nParties }, (_, i) =>
-                                votes[cellKey('', label, i + 1)] ?? 0);
-                            const ditolak = votes[cellKey('', label, 90)] ?? 0;
-                            const tidakMasuk = votes[cellKey('', label, 91)] ?? 0;
+                                votes[cellKey(contest, '', label, i + 1)] ?? 0);
+                            const ditolak = votes[cellKey(contest, '', label, 90)] ?? 0;
+                            const tidakMasuk = votes[cellKey(contest, '', label, 91)] ?? 0;
                             const undian = slots.reduce((a, b) => a + b, 0);
                             const keluar = undian + ditolak + tidakMasuk;
                             const status = leadStatus(slots);
@@ -244,7 +256,7 @@ export function UndiAwalPosTable({ partyNames, votes, onSave, rows, cellStatus =
                                 <tr key={label} className={t.tableRow}>
                                     <td className={`${t.tableCell} font-medium whitespace-nowrap`}>{label}</td>
                                     {slots.map((v, i) => {
-                                        const key = cellKey('', label, i + 1);
+                                        const key = cellKey(contest, '', label, i + 1);
                                         return (
                                             <td key={i} className="px-2 py-1">
                                                 <div className="flex items-center justify-end gap-1.5">
@@ -254,14 +266,14 @@ export function UndiAwalPosTable({ partyNames, votes, onSave, rows, cellStatus =
                                                         value={v}
                                                         invalid={cellStatus[key] === 'error'}
                                                         max={null}
-                                                        onCommit={(undi) => onSave('', label, i + 1, undi)}
+                                                        onCommit={(undi) => onSave('', label, i + 1, undi, contest)}
                                                     />
                                                 </div>
                                             </td>
                                         );
                                     })}
                                     {[{ slot: 90, v: ditolak }, { slot: 91, v: tidakMasuk }].map(({ slot, v }) => {
-                                        const key = cellKey('', label, slot);
+                                        const key = cellKey(contest, '', label, slot);
                                         return (
                                             <td key={slot} className="px-2 py-1">
                                                 <div className="flex items-center justify-end gap-1.5">
@@ -270,7 +282,7 @@ export function UndiAwalPosTable({ partyNames, votes, onSave, rows, cellStatus =
                                                         value={v}
                                                         invalid={cellStatus[key] === 'error'}
                                                         max={null}
-                                                        onCommit={(undi) => onSave('', label, slot, undi)}
+                                                        onCommit={(undi) => onSave('', label, slot, undi, contest)}
                                                     />
                                                 </div>
                                             </td>

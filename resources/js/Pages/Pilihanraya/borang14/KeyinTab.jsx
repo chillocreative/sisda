@@ -33,6 +33,12 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
     const kawasanId = kawasanType === 'parlimen' ? parlimenId : kadunId;
     const geographyComplete = Boolean(negeriId && jenisPr && kawasanType && kawasanId && tahun);
 
+    // Pertandingan borang ini SENDIRI — cerminan tepat `Borang14Form::contestSendiri()`
+    // di server: kawasan Parlimen merekod undi PRU, kawasan DUN merekod undi PRN.
+    // Nilai `Borang14Vote::CONTEST_*` memang sama dengan `kawasan_type`, jadi tiada
+    // pemetaan tambahan di sini — satu pemetaan lagi hanya akan hanyut.
+    const contestSendiri = kawasanType === 'parlimen' ? 'parlimen' : 'dun';
+
     const [penjuru, setPenjuru] = useState('');
     const [parties, setParties] = useState([]); // [{slot, keahlian_parti_id, nama, calon?}]
     const [reference, setReference] = useState(null);
@@ -228,10 +234,10 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
         const accumulate = (pusat, saluran, rowBerdaftar) => {
             if (rowBerdaftar != null) { berdaftarKnown = true; berdaftar += rowBerdaftar; }
             for (let i = 0; i < nParties; i++) {
-                partyTotals[i] += votes[cellKey(pusat, saluran, i + 1)] ?? 0;
+                partyTotals[i] += votes[cellKey(contestSendiri, pusat, saluran, i + 1)] ?? 0;
             }
-            ditolak += votes[cellKey(pusat, saluran, 90)] ?? 0;
-            tidakDimasukkan += votes[cellKey(pusat, saluran, 91)] ?? 0;
+            ditolak += votes[cellKey(contestSendiri, pusat, saluran, 90)] ?? 0;
+            tidakDimasukkan += votes[cellKey(contestSendiri, pusat, saluran, 91)] ?? 0;
         };
 
         blocks.forEach((b) => {
@@ -241,7 +247,7 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
 
         const keluar = partyTotals.reduce((a, b) => a + b, 0) + ditolak + tidakDimasukkan;
         return { partyTotals, ditolak, tidakDimasukkan, keluar, berdaftar, berdaftarKnown };
-    }, [blocks, votes, partyNames, undiAwalPosRows]);
+    }, [blocks, votes, partyNames, undiAwalPosRows, contestSendiri]);
 
     const persistParties = useCallback((next) => {
         if (!kawasanType || !kawasanId || !jenisPr || !tahun || !penjuru) return;
@@ -262,19 +268,13 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
         persistParties(next);
     };
 
-    // Pertandingan borang ini SENDIRI — cerminan tepat `Borang14Form::contestSendiri()`
-    // di server: kawasan Parlimen merekod undi PRU, kawasan DUN merekod undi PRN.
-    // Nilai `Borang14Vote::CONTEST_*` memang sama dengan `kawasan_type`, jadi tiada
-    // pemetaan tambahan di sini — satu pemetaan lagi hanya akan hanyut.
-    const contestSendiri = kawasanType === 'parlimen' ? 'parlimen' : 'dun';
-
     // `contest` WAJIB pada setiap POST undi (server 422 tanpanya) supaya undi
     // tidak pernah senyap-senyap ditulis ke pertandingan yang salah pada borang
     // serentak. Ia melalaikan kepada pertandingan borang ini sendiri — satu-satunya
     // pertandingan yang boleh dipapar buat masa ini; pemanggil dua jalur kelak
     // menghantarnya secara eksplisit.
     const saveVote = useCallback((pusat, saluran, slot, undi, contest = contestSendiri) => {
-        const key = cellKey(pusat, saluran, slot);
+        const key = cellKey(contest, pusat, saluran, slot);
         // Claim this request as the latest for the cell *before* the await —
         // a later re-edit of the same cell will bump this again, and only
         // the resolution whose seq still matches the ref may write status.
@@ -553,6 +553,7 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                                 votes={votes}
                                 onSave={saveVote}
                                 anchorId={pusatAnchors[i]?.anchorId}
+                                contest={contestSendiri}
                                 cellStatus={cellStatus}
                             />
                         ))}
@@ -565,6 +566,7 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                                 votes={votes}
                                 onSave={saveVote}
                                 rows={undiAwalPosRows}
+                                contest={contestSendiri}
                                 cellStatus={cellStatus}
                             />
                         </div>

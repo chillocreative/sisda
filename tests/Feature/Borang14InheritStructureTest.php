@@ -194,7 +194,7 @@ class Borang14InheritStructureTest extends TestCase
 
         $res->assertOk();
         $this->assertSame(
-            ['SK Juasseh|1|1' => 77],
+            ['dun|SK Juasseh|1|1' => 77],
             $res->json('votes'),
             'Must return only the TARGET election own votes at this cell, never the source election value (300).',
         );

@@ -305,12 +305,14 @@ class Borang14PdfTest extends TestCase
         ];
         // Party undi: 6 + 4 = 10 (Jumlah Undian). Ditolak (C) = 2, Tidak
         // Dimasukkan (D) = 1. Screen's Jumlah Keluar = undi + C + D = 13.
-        $votes = ['PM Ujian|1|1' => 6, 'PM Ujian|1|2' => 4, 'PM Ujian|1|90' => 2, 'PM Ujian|1|91' => 1];
+        // Kunci sel membawa contest sebagai komponen pertama — sama seperti
+        // Borang14Controller::cellKey().
+        $votes = ['dun|PM Ujian|1|1' => 6, 'dun|PM Ujian|1|2' => 4, 'dun|PM Ujian|1|90' => 2, 'dun|PM Ujian|1|91' => 1];
 
         $html = view('pdf.borang14', [
             'reference' => $reference, 'penjuru' => 2, 'penjuruLabel' => '1 vs 1',
             'parties' => [['slot' => 1, 'nama' => 'PARTI A'], ['slot' => 2, 'nama' => 'PARTI B']],
-            'votes' => $votes, 'logo' => null, 'isBulohKasap' => false,
+            'votes' => $votes, 'contest' => 'dun', 'logo' => null, 'isBulohKasap' => false,
         ])->render();
 
         $rows = $this->tableRows($html, 0);
@@ -350,12 +352,12 @@ class Borang14PdfTest extends TestCase
         ];
         // No Ditolak/Tidak Dimasukkan votes given — those cells are a REAL
         // zero and must still print "0", not "—".
-        $votes = ['PM Ujian|1|1' => 6, 'PM Ujian|1|2' => 4];
+        $votes = ['dun|PM Ujian|1|1' => 6, 'dun|PM Ujian|1|2' => 4];
 
         $html = view('pdf.borang14', [
             'reference' => $reference, 'penjuru' => 2, 'penjuruLabel' => '1 vs 1',
             'parties' => [['slot' => 1, 'nama' => 'PARTI A'], ['slot' => 2, 'nama' => 'PARTI B']],
-            'votes' => $votes, 'logo' => null, 'isBulohKasap' => false,
+            'votes' => $votes, 'contest' => 'dun', 'logo' => null, 'isBulohKasap' => false,
         ])->render();
 
         $rows = $this->tableRows($html, 0);

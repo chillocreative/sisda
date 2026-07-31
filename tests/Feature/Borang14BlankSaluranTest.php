@@ -123,7 +123,8 @@ class Borang14BlankSaluranTest extends TestCase
         ]))->assertOk();
 
         // The reference built from the frozen structure carries the saluran
-        // label the frontend will key its lookup on (cellKey = `${pusat}|${saluran}|${slot}`).
+        // label the frontend will key its lookup on
+        // (cellKey = `${contest}|${pusat}|${saluran}|${slot}`).
         // The writer's stored saluran MUST equal that same value — any drift and
         // the cell renders 0 even though the vote is safely in the DB.
         $blocks = $res->json('reference.daerah_mengundi.0.pusat_mengundi.0');
@@ -133,7 +134,7 @@ class Borang14BlankSaluranTest extends TestCase
 
         $this->assertSame($referenceSaluranNo, $storedSaluran, 'Writer (putVote) and reader (referenceFromStructure) must normalise blank saluran to the SAME value.');
 
-        $cellKey = 'PM UJIAN|' . $referenceSaluranNo . '|1';
+        $cellKey = 'dun|PM UJIAN|' . $referenceSaluranNo . '|1';
         $this->assertSame(11, $res->json('votes.' . $cellKey), 'The vote must be reachable under the exact cellKey the frontend computes — a mismatch renders 0 despite the DB holding the real number.');
     }
 }

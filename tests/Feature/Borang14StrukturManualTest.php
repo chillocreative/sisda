@@ -494,7 +494,7 @@ class Borang14StrukturManualTest extends TestCase
             'kawasan_type' => 'dun', 'kawasan_id' => $this->kadun->id, 'jenis_pr' => 'prn', 'tahun' => 2027,
         ]));
 
-        $this->assertSame(250, $res->json('votes.SK TENGKEK|2|1'));
+        $this->assertSame(250, $res->json('votes.dun|SK TENGKEK|2|1'));
     }
 
     public function test_renaming_a_pusat_carries_its_votes_across(): void
@@ -654,7 +654,7 @@ class Borang14StrukturManualTest extends TestCase
             'kawasan_type' => 'dun', 'kawasan_id' => $this->kadun->id, 'jenis_pr' => 'prn', 'tahun' => 2027,
         ]));
 
-        $this->assertSame(77, $res->json('votes.SK TENGKEK|1|1'));
+        $this->assertSame(77, $res->json('votes.dun|SK TENGKEK|1|1'));
     }
 
     public function test_undi_pos_false_deletes_the_undi_pos_row_votes(): void

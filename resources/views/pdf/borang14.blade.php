@@ -1,6 +1,8 @@
 @php
     // --- helpers -------------------------------------------------------------
-    $key = fn ($pusat, $saluran, $slot) => ($pusat ?? '') . '|' . $saluran . '|' . $slot;
+    // Serupa bit dengan Borang14Controller::cellKey() — contest dahulu, kerana
+    // sel PRU dan PRN boleh berkongsi (pusat, saluran, slot) yang sama.
+    $key = fn ($pusat, $saluran, $slot) => $contest . '|' . ($pusat ?? '') . '|' . $saluran . '|' . $slot;
     $nParties = (int) $penjuru;
     $partyNames = [];
     for ($i = 0; $i < $nParties; $i++) {

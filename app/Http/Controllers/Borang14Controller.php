@@ -97,14 +97,12 @@ class Borang14Controller extends Controller
 
         ['reference' => $reference, 'inherited_from' => $inheritedFrom, 'asal' => $asal] = $this->resolveReference($kawasanType, $kawasanId, $form);
 
-        // SATU pertandingan sahaja. Kunci sel grid ini ialah (pusat|saluran|slot)
-        // TANPA contest, jadi pada borang serentak votes() tanpa penapis akan
-        // membuat undi PRU menulis ganti undi PRN pada sel yang sama — grid
-        // memapar angka pertandingan yang salah. Skrin dua jalur (Tugasan 6)
-        // memanggil dengan contest yang eksplisit.
+        // Jalur pertandingan borang ini SENDIRI. Kunci sel membawa contest
+        // sebagai komponen pertama, jadi jalur PRU di bawah boleh berkongsi
+        // ruang nama yang sama tanpa satu menulis ganti satu lagi.
         $votes = $form
             ? $form->votesFor($form->contestSendiri())->get(['pusat', 'saluran', 'slot', 'undi'])
-                ->mapWithKeys(fn ($v) => [$this->cellKey($v->pusat, $v->saluran, $v->slot) => $v->undi])
+                ->mapWithKeys(fn ($v) => [$this->cellKey($form->contestSendiri(), $v->pusat, $v->saluran, $v->slot) => $v->undi])
             : collect();
 
         $payload = [
@@ -151,7 +149,57 @@ class Borang14Controller extends Controller
             $payload['inherited_from'] = $inheritedFrom;
         }
 
+        // Sengaja DITINGGALKAN (bukan sekadar null) apabila borang ini tidak
+        // dipaut: muatan satu pertandingan mesti kekal serupa-bit dengan hari
+        // ini, kerana itulah kes yang paling biasa dan ia sudah di produksi.
+        if ($kontesParlimen = $this->kontesParlimen($form)) {
+            $payload['kontes_parlimen'] = $kontesParlimen;
+        }
+
         return response()->json($payload);
+    }
+
+    /**
+     * Jalur PRU bagi skrin dua jalur: pertandingan Parlimen yang dipaut kepada
+     * borang DUN ini, berserta undi PRU yang direkod PADA borang DUN ini.
+     *
+     * Pulangkan null apabila tiada pautan — pemanggil meninggalkan kunci itu
+     * sepenuhnya supaya muatan satu pertandingan tidak berubah langsung.
+     *
+     * `penjuru` DI SINI datang daripada borang PARLIMEN, bukan borang DUN.
+     * Pertandingan Parlimen mempunyai bilangan calonnya sendiri (3 di P133
+     * berbanding 2 bagi N34); membaca penjuru borang DUN akan menolak atau
+     * mengosongkan lajur calon secara senyap.
+     */
+    private function kontesParlimen(?Borang14Form $form): ?array
+    {
+        if (! $form || $form->borang14_form_parlimen_id === null) {
+            return null;
+        }
+
+        $parlimen = $form->formParlimen;
+        if (! $parlimen) {
+            // Pautan menjadi yatim (borang Parlimen dipadam antara baca).
+            // Kembali kepada mod satu pertandingan; jangan reka jalur kosong.
+            return null;
+        }
+
+        return [
+            'id' => $parlimen->id,
+            // Nullable dengan sengaja — penjuru yang belum ditetapkan ialah
+            // "tidak diketahui", bukan sifar lajur.
+            'penjuru' => $parlimen->penjuru,
+            'parties' => $parlimen->parties ?? [],
+            'kawasan_nama' => $parlimen->kawasanNama(),
+            // Undi PRU yang direkod pada borang DUN INI — bukan pada borang
+            // Parlimen. Setiap DUN menyimpan keratan PRU-nya sendiri; jumlah
+            // Parlimen ialah kerja Borang14RollUp, bukan skrin ini.
+            'votes' => $form->votesFor(Borang14Vote::CONTEST_PARLIMEN)
+                ->get(['pusat', 'saluran', 'slot', 'undi'])
+                ->mapWithKeys(fn ($v) => [
+                    $this->cellKey(Borang14Vote::CONTEST_PARLIMEN, $v->pusat, $v->saluran, $v->slot) => $v->undi,
+                ]),
+        ];
     }
 
     /** Persist the chosen party names for a (kawasan, jenis PR, tahun) scenario. */
@@ -1102,12 +1150,15 @@ class Borang14Controller extends Controller
                 $parties[] = ['slot' => $i + 1, 'nama' => $nama];
             }
         }
-        // Sama seperti data(): borang PDF ini ialah rekod SATU pertandingan,
-        // dan kunci selnya tidak membawa contest — undi pertandingan lain akan
-        // menulis ganti sel yang sama dan mencetak angka yang salah.
+        // Borang PDF ini ialah rekod SATU pertandingan — pertandingan borang
+        // itu sendiri. Kunci selnya membawa contest yang sama seperti grid
+        // kemasukan supaya hanya ADA SATU bentuk kunci dalam aplikasi ini;
+        // blade pdf.borang14 membina kunci yang serupa daripada $contest.
+        $contestPdf = $form?->contestSendiri()
+            ?? ($isParlimen ? Borang14Vote::CONTEST_PARLIMEN : Borang14Vote::CONTEST_DUN);
         $votes = $form
-            ? $form->votesFor($form->contestSendiri())->get()->mapWithKeys(fn ($v) => [
-                $this->cellKey($v->pusat, $v->saluran, $v->slot) => $v->undi,
+            ? $form->votesFor($contestPdf)->get()->mapWithKeys(fn ($v) => [
+                $this->cellKey($contestPdf, $v->pusat, $v->saluran, $v->slot) => $v->undi,
             ])->all()
             : [];
 
@@ -1119,6 +1170,7 @@ class Borang14Controller extends Controller
             'penjuruLabel' => self::PENJURU[$validated['penjuru']] ?? '',
             'parties'   => $parties,
             'votes'     => $votes,
+            'contest'   => $contestPdf,
             'logo'      => $logo,
             'inheritedFrom' => $inheritedFrom,
             // Buloh Kasap's Undi Awal/Pos merge is a DUN-only exception — a
@@ -1798,9 +1850,20 @@ class Borang14Controller extends Controller
         return response()->json(['ok' => true]);
     }
 
-    private function cellKey(?string $pusat, string $saluran, int $slot): string
+    /**
+     * Kunci sel grid kemasukan. `contest` ialah komponen PERTAMA dan WAJIB:
+     * pada borang serentak, sel PRU dan PRN berkongsi (pusat, saluran, slot)
+     * yang sama, jadi kunci tanpa contest akan membuat satu menulis ganti
+     * satu lagi dalam keadaan frontend.
+     *
+     * BENTUK INI IALAH KONTRAK MERENTAS SEMPADAN — `cellKey()` dalam
+     * resources/js/Pages/Pilihanraya/components/Borang14Form.jsx mesti
+     * menghasilkan rentetan yang SERUPA BIT. Jika ia menyimpang, setiap sel
+     * dipapar kosong.
+     */
+    private function cellKey(string $contest, ?string $pusat, string $saluran, int $slot): string
     {
-        return ($pusat ?? '') . '|' . $saluran . '|' . $slot;
+        return $contest . '|' . ($pusat ?? '') . '|' . $saluran . '|' . $slot;
     }
 
     private function logoDataUri(): ?string

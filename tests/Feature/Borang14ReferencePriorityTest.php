@@ -130,8 +130,8 @@ class Borang14ReferencePriorityTest extends TestCase
         }
 
         // Dan undi itu memang boleh dibaca semula melalui kunci yang sama.
-        $this->assertSame(48, $data['votes']['SEKOLAH KEBANGSAAN TENGKEK|1|1']);
-        $this->assertSame(102, $data['votes']['SEKOLAH KEBANGSAAN TENGKEK|2|1']);
+        $this->assertSame(48, $data['votes']['dun|SEKOLAH KEBANGSAAN TENGKEK|1|1']);
+        $this->assertSame(102, $data['votes']['dun|SEKOLAH KEBANGSAAN TENGKEK|2|1']);
     }
 
     /** Tanpa scoresheet, anggaran DPT masih digunakan — ia lebih baik daripada tiada apa-apa. */

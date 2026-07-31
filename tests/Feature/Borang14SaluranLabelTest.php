@@ -85,7 +85,7 @@ class Borang14SaluranLabelTest extends TestCase
 
         // Votes are stored keyed on the exact saluran string (putVote() uses $row['saluran']).
         $votes = $res->json('votes');
-        $key = '|UNDI POS (B)|1';
+        $key = 'dun||UNDI POS (B)|1';
         $this->assertArrayHasKey($key, $votes,
             'Votes must be retrievable under the REAL saluran string used at write time.');
         $this->assertSame(98, $votes[$key]);
