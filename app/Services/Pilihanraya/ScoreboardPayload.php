@@ -42,7 +42,7 @@ class ScoreboardPayload
         $board = Scoreboard::where('kawasan_type', $type)->where('kawasan_id', $id)->first();
 
         if (! $reference) {
-            return ['hasData' => false, 'ready' => false, 'sumber' => null];
+            return ['hasData' => false, 'ready' => false, 'sumber' => null, 'liputan' => null];
         }
 
         $form = $board?->borang14_form_id
@@ -58,29 +58,60 @@ class ScoreboardPayload
                 'title' => $board?->title ?? 'SCOREBOARD',
                 'status' => $board?->status ?? Scoreboard::STATUS_DRAF,
                 'kod' => $board?->kod,
+                'liputan' => null,
             ];
         }
 
-        $penjuru = (int) $form->penjuru;
-        $parties = $form->parties ?? [];
         $candidates = collect($board?->candidates ?? [])->keyBy('slot');
         $kami = array_map('intval', $board?->pihak_kami ?? []);
 
-        $tally = array_fill(1, $penjuru, 0);
+        // Kerusi Parlimen pada pilihanraya serentak TIDAK menyimpan undi pada
+        // borangnya sendiri — borang itu hanyalah TAKRIFAN calon (parties +
+        // penjuru dikongsi), dan undi sebenar berada pada borang DUN yang
+        // memautinya. Borang14RollUp mengumpul undi tersebut dan membawa
+        // liputan (bilangan DUN yang sudah melapor) supaya kiraan SEPARA pada
+        // malam keputusan tidak kelihatan seperti keputusan muktamad.
+        if ($type === SeatScope::PARLIMEN) {
+            $rollUp = Borang14RollUp::forParlimen($id, $form->tahun);
 
-        // Papan markah kerusi ini mengira PERTANDINGAN KERUSI ITU SAHAJA.
-        // Pada borang serentak (satu saluran, dua pertandingan) votes() tanpa
-        // penapis menjumlahkan undi PRU DAN PRN bersama, lalu menyiarkan angka
-        // kira-kira dua kali ganda pada malam keputusan.
-        $kontes = $type === SeatScope::PARLIMEN
-            ? Borang14Vote::CONTEST_PARLIMEN
-            : Borang14Vote::CONTEST_DUN;
+            // Tiada borang Parlimen langsung — TIDAK DIKETAHUI, bukan kiraan
+            // sifar. Papar sebagai belum sedia, tanpa kunci undi.
+            if (! $rollUp) {
+                return [
+                    'hasData' => true,
+                    'ready' => false,
+                    'needsBorang14' => true,
+                    'sumber' => null,
+                    'title' => $board?->title ?? 'SCOREBOARD',
+                    'status' => $board?->status ?? Scoreboard::STATUS_DRAF,
+                    'kod' => $board?->kod,
+                    'liputan' => null,
+                ];
+            }
 
-        $sums = $form->votesFor($kontes)->where('slot', '>=', 1)
-            ->selectRaw('slot, SUM(undi) as total')->groupBy('slot')->pluck('total', 'slot');
-        foreach ($sums as $slot => $total) {
-            if ($slot >= 1 && $slot <= $penjuru) {
-                $tally[$slot] = (int) $total;
+            $penjuru = (int) $rollUp['penjuru'];
+            $parties = $rollUp['parties'];
+            $liputan = $rollUp['liputan'];
+
+            $tally = array_fill(1, $penjuru, 0);
+            foreach ($rollUp['undi'] as $slot => $total) {
+                if ($slot >= 1 && $slot <= $penjuru) {
+                    $tally[$slot] = (int) $total;
+                }
+            }
+        } else {
+            $penjuru = (int) $form->penjuru;
+            $parties = $form->parties ?? [];
+            $liputan = null;
+
+            $tally = array_fill(1, $penjuru, 0);
+
+            $sums = $form->votesFor(Borang14Vote::CONTEST_DUN)->where('slot', '>=', 1)
+                ->selectRaw('slot, SUM(undi) as total')->groupBy('slot')->pluck('total', 'slot');
+            foreach ($sums as $slot => $total) {
+                if ($slot >= 1 && $slot <= $penjuru) {
+                    $tally[$slot] = (int) $total;
+                }
             }
         }
 
@@ -125,6 +156,7 @@ class ScoreboardPayload
             'leader_slot' => $totalKeluar > 0 ? collect($rows)->sortByDesc('undi')->first()['slot'] : null,
             'sumber' => ['id' => $form->id, 'label' => self::labelSumber($form)],
             'dikemaskini' => self::dikemaskini($board),
+            'liputan' => $liputan,
         ];
     }
 
