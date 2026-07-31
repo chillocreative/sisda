@@ -8,7 +8,10 @@ import {
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PilihanrayaShell, { usePilihanrayaTheme } from './components/PilihanrayaShell';
 
-const fmt = (n) => (n == null || Number.isNaN(n) ? '0' : Number(n).toLocaleString('en-MY'));
+// null/undefined bermaksud TIDAK DIKETAHUI, bukan sifar. Memaparkan '0'
+// untuk nilai yang tiada menerbitkan angka direka (cth. jumlah pengundi
+// berdaftar bagi kerusi tanpa fail rujukan terkurasi).
+const fmt = (n) => (n == null || Number.isNaN(n) ? '\u2014' : Number(n).toLocaleString('en-MY'));
 const POLL_MS = 4000;
 
 const PARTY_COLOR = {
@@ -128,7 +131,12 @@ function Board({ data }) {
     const { t } = usePilihanrayaTheme();
     const { rows, total_keluar: totalKeluar, total_berdaftar: totalBerdaftar, leader_slot: leaderSlot } = data;
 
-    const turnout = totalBerdaftar > 0 ? (totalKeluar / totalBerdaftar) * 100 : 0;
+// Peratus keluar mengundi hanya bermakna apabila jumlah berdaftar diketahui.
+// Nota: `null > 0` ialah false dalam JS, tetapi null juga dilayan sebagai 0
+// oleh pembahagian — jadi semak null secara eksplisit dan pulangkan null.
+    const turnout = (totalBerdaftar == null || totalBerdaftar <= 0)
+        ? null
+        : (totalKeluar / totalBerdaftar) * 100;
 
     return (
         <>
@@ -181,7 +189,7 @@ function Board({ data }) {
                 {[
                     ['Jumlah Undi Keluar', fmt(totalKeluar)],
                     ['Pengundi Berdaftar', fmt(totalBerdaftar)],
-                    ['% Keluar Mengundi', `${turnout.toFixed(1)}%`],
+                    ['% Keluar Mengundi', turnout == null ? '\u2014' : `${turnout.toFixed(1)}%`],
                 ].map(([label, value]) => (
                     <div key={label} className={`${t.card} text-center`}>
                         <div className={`text-xs uppercase tracking-wider ${t.subtext}`}>{label}</div>

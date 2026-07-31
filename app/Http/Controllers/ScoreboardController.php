@@ -107,13 +107,13 @@ class ScoreboardController extends Controller
             }
         }
 
-        // Registered total = every saluran + early/postal.
-        $berdaftar = 0;
-        foreach ($reference['daerah_mengundi'] as $dm) {
-            $berdaftar += (int) ($dm['jumlah_berdaftar'] ?? 0);
-        }
-        $berdaftar += (int) ($reference['undi_awal']['berdaftar'] ?? 0);
-        $berdaftar += (int) ($reference['undi_pos']['berdaftar'] ?? 0);
+        // Registered total = every saluran + early/postal. Borang14Reference
+        // knows its own two shapes and returns null when the roll carries no
+        // figures at all — null is "tidak diketahui", NOT zero, and the board
+        // renders it as "—". Never coerce it with ?? 0: doing so published a
+        // fabricated "0.0% keluar mengundi" on every seat without a curated
+        // reference file.
+        $berdaftar = Borang14Reference::jumlahBerdaftar($reference);
 
         $rows = [];
         $phVotes = 0;

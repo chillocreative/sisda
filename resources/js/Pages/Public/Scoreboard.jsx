@@ -6,7 +6,10 @@ import { Crown, MapPin, Landmark, Vote, Loader2, Radio } from 'lucide-react';
 /* ------------------------------- helpers ------------------------------- */
 
 const POLL_MS = 4000;
-const fmt = (n) => (n == null || Number.isNaN(n) ? '0' : Number(n).toLocaleString('en-MY'));
+// null/undefined bermaksud TIDAK DIKETAHUI, bukan sifar. Memaparkan '0'
+// untuk nilai yang tiada menerbitkan angka direka (cth. jumlah pengundi
+// berdaftar bagi kerusi tanpa fail rujukan terkurasi).
+const fmt = (n) => (n == null || Number.isNaN(n) ? '\u2014' : Number(n).toLocaleString('en-MY'));
 
 // Coalition / party colours. Names carry the coalition (e.g. "PAKATAN HARAPAN")
 // so match on the leading word; PH stays red, BN blue.
@@ -49,7 +52,12 @@ function ShareBar({ rows, totalKeluar }) {
 
 function Board({ data }) {
     const { rows, total_keluar: totalKeluar, total_berdaftar: totalBerdaftar, leader_slot: leaderSlot } = data;
-    const turnout = totalBerdaftar > 0 ? (totalKeluar / totalBerdaftar) * 100 : 0;
+// Peratus keluar mengundi hanya bermakna apabila jumlah berdaftar diketahui.
+// Nota: `null > 0` ialah false dalam JS, tetapi null juga dilayan sebagai 0
+// oleh pembahagian — jadi semak null secara eksplisit dan pulangkan null.
+    const turnout = (totalBerdaftar == null || totalBerdaftar <= 0)
+        ? null
+        : (totalKeluar / totalBerdaftar) * 100;
 
     return (
         <div className="space-y-6">
@@ -107,7 +115,7 @@ function Board({ data }) {
                 {[
                     ['Jumlah Undi Keluar', fmt(totalKeluar)],
                     ['Pengundi Berdaftar', fmt(totalBerdaftar)],
-                    ['% Keluar Mengundi', `${turnout.toFixed(1)}%`],
+                    ['% Keluar Mengundi', turnout == null ? '\u2014' : `${turnout.toFixed(1)}%`],
                 ].map(([label, value]) => (
                     <div key={label} className="rounded-2xl bg-white border border-slate-200 p-5 text-center">
                         <div className="text-xs uppercase tracking-wider text-slate-500">{label}</div>
