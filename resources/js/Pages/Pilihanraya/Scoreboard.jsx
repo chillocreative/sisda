@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Head } from '@inertiajs/react';
 import axios from 'axios';
 import {
-    Trophy, Crown, Settings, X, Upload, Info, Vote, Loader2, Radio, Maximize2, Minimize2,
+    Trophy, Crown, Settings, X, Upload, Info, Loader2, Radio, Maximize2, Minimize2,
 } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PilihanrayaShell, { usePilihanrayaTheme } from './components/PilihanrayaShell';
@@ -249,10 +249,7 @@ function Board({ data }) {
                                     <Crown className="h-3.5 w-3.5" /> MENDAHULUI
                                 </div>
                             )}
-                            <div className="p-5 flex items-center gap-4">
-                                <div className="h-20 w-20 shrink-0 rounded-full bg-slate-100 border-2 flex items-center justify-center" style={{ borderColor: color }}>
-                                    <Vote className="h-8 w-8 text-slate-300" />
-                                </div>
+                            <div className="p-5">
                                 <div className="min-w-0 flex-1">
                                     <div className="text-xs font-bold uppercase tracking-wide" style={{ color }}>{r.parti}{r.is_kami ? ' · KAMI' : ''}</div>
                                     <div className="text-lg font-bold text-slate-900 truncate">{r.calon || '—'}</div>
