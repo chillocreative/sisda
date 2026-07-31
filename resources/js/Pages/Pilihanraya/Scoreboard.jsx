@@ -216,14 +216,20 @@ function PenyiaranCard({ seat, board, onChanged }) {
 // and this is the only line telling the operator whether that sum is complete.
 // `jumlah === 0` (no DUN form linked yet) is a real state too, but "0 daripada
 // 0 DUN melapor" reads as a typo — worded separately instead.
+//
+// Sized to compete with the numbers below it, not caption them. This is the
+// OWNER board — an operator already knows the count is in progress, so this
+// copy is weighted a step lighter than the public board's (text-lg vs
+// text-xl+, font-extrabold vs font-black) while still standing well clear of
+// a caption: registerable even by someone who can't read the words.
 function LiputanBadge({ liputan }) {
     if (liputan == null) return null;
     const { melapor, jumlah } = liputan;
 
     if (jumlah === 0) {
         return (
-            <div className="rounded-xl bg-amber-50 border border-amber-300 text-amber-800 px-4 py-3 text-sm font-bold flex items-center justify-center gap-2 mb-5">
-                <AlertTriangle className="h-4 w-4 shrink-0" />
+            <div className="rounded-2xl bg-amber-100 border-2 border-amber-400 text-amber-900 px-5 py-3.5 sm:py-4 text-lg sm:text-xl font-extrabold uppercase tracking-wide flex items-center justify-center gap-3 mb-5 text-center">
+                <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 shrink-0" />
                 <span>SEMENTARA · Belum ada borang DUN dipautkan lagi</span>
             </div>
         );
@@ -231,16 +237,16 @@ function LiputanBadge({ liputan }) {
 
     if (melapor < jumlah) {
         return (
-            <div className="rounded-xl bg-amber-50 border border-amber-300 text-amber-800 px-4 py-3 text-sm font-bold flex items-center justify-center gap-2 mb-5">
-                <AlertTriangle className="h-4 w-4 shrink-0" />
+            <div className="rounded-2xl bg-amber-100 border-2 border-amber-400 text-amber-900 px-5 py-3.5 sm:py-4 text-lg sm:text-xl font-extrabold uppercase tracking-wide flex items-center justify-center gap-3 mb-5 text-center">
+                <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 shrink-0" />
                 <span>SEMENTARA · {melapor} daripada {jumlah} DUN melapor</span>
             </div>
         );
     }
 
     return (
-        <div className="rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 px-4 py-3 text-sm font-bold flex items-center justify-center gap-2 mb-5">
-            <CheckCircle2 className="h-4 w-4 shrink-0" />
+        <div className="rounded-2xl bg-emerald-100 border-2 border-emerald-400 text-emerald-900 px-5 py-3.5 sm:py-4 text-lg sm:text-xl font-extrabold uppercase tracking-wide flex items-center justify-center gap-3 mb-5 text-center">
+            <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6 shrink-0" />
             <span>LENGKAP · Semua {jumlah} DUN telah melapor</span>
         </div>
     );

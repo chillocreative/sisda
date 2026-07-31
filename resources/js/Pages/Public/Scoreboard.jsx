@@ -69,14 +69,21 @@ function ShareBar({ rows, totalKeluar }) {
 // and this is the only line telling a voter whether that sum is complete.
 // `jumlah === 0` (no DUN form linked yet) is a real state too, but "0 daripada
 // 0 DUN melapor" reads as a typo to a voter — worded separately instead.
+//
+// Sized to compete with the numbers below it, not caption them: this is the
+// PUBLIC board, read by a voter with zero other context, possibly projected
+// on a wall on results night. A small line under a giant vote count reads as
+// final regardless of colour — so weight goes up to the seat-title register
+// (text-xl+/font-black/border-2), heavier than the owner board's copy of
+// this same component, deliberately.
 function LiputanBadge({ liputan }) {
     if (liputan == null) return null;
     const { melapor, jumlah } = liputan;
 
     if (jumlah === 0) {
         return (
-            <div className="rounded-xl bg-amber-50 border border-amber-300 text-amber-800 px-4 py-3 text-sm font-bold flex items-center justify-center gap-2">
-                <AlertTriangle className="h-4 w-4 shrink-0" />
+            <div className="rounded-2xl bg-amber-100 border-2 border-amber-400 text-amber-900 px-5 py-4 sm:py-5 text-xl sm:text-2xl font-black uppercase tracking-wide flex items-center justify-center gap-3 text-center">
+                <AlertTriangle className="h-6 w-6 sm:h-7 sm:w-7 shrink-0" />
                 <span>SEMENTARA · Belum ada borang DUN dipautkan lagi</span>
             </div>
         );
@@ -84,16 +91,16 @@ function LiputanBadge({ liputan }) {
 
     if (melapor < jumlah) {
         return (
-            <div className="rounded-xl bg-amber-50 border border-amber-300 text-amber-800 px-4 py-3 text-sm font-bold flex items-center justify-center gap-2">
-                <AlertTriangle className="h-4 w-4 shrink-0" />
+            <div className="rounded-2xl bg-amber-100 border-2 border-amber-400 text-amber-900 px-5 py-4 sm:py-5 text-xl sm:text-2xl font-black uppercase tracking-wide flex items-center justify-center gap-3 text-center">
+                <AlertTriangle className="h-6 w-6 sm:h-7 sm:w-7 shrink-0" />
                 <span>SEMENTARA · {melapor} daripada {jumlah} DUN melapor</span>
             </div>
         );
     }
 
     return (
-        <div className="rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 px-4 py-3 text-sm font-bold flex items-center justify-center gap-2">
-            <CheckCircle2 className="h-4 w-4 shrink-0" />
+        <div className="rounded-2xl bg-emerald-100 border-2 border-emerald-400 text-emerald-900 px-5 py-4 sm:py-5 text-xl sm:text-2xl font-black uppercase tracking-wide flex items-center justify-center gap-3 text-center">
+            <CheckCircle2 className="h-6 w-6 sm:h-7 sm:w-7 shrink-0" />
             <span>LENGKAP · Semua {jumlah} DUN telah melapor</span>
         </div>
     );
