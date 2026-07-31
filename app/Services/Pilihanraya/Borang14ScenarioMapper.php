@@ -19,16 +19,25 @@ class Borang14ScenarioMapper
     private const SLOT_DITOLAK = 90;
     private const SLOT_TIDAK_DIMASUKKAN = 91;
 
-    /** @return array{rows: array<int, array>, totals: array} */
-    public function map(Borang14Form $form): array
+    /**
+     * $kontes melalaikan kepada pertandingan borang itu sendiri — satu senario
+     * Analisa ialah keputusan SATU kerusi, jadi ia tidak boleh mencampurkan
+     * dua pertandingan. Pada borang serentak, membaca $form->votes tanpa
+     * penapis akan menjumlahkan undi PRU dan PRN ke dalam senario yang sama.
+     *
+     * @return array{rows: array<int, array>, totals: array}
+     */
+    public function map(Borang14Form $form, ?string $kontes = null): array
     {
+        $kontes ??= $form->contestSendiri();
+
         $parties = $this->partyNames($form);
         $pusatToDm = $this->pusatToDm($form);
         $berdaftar = $this->berdaftarPerDm($form);
 
         // Kumpul: DM => ['undi' => [nama => n], 'ditolak' => n]
         $groups = [];
-        foreach ($form->votes as $v) {
+        foreach ($form->votesFor($kontes)->get() as $v) {
             $dm = $v->pusat === ''
                 ? trim((string) $v->saluran)          // baris peringkat DUN: UNDI POS / UNDI AWAL
                 : ($pusatToDm[$v->pusat] ?? null);

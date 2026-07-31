@@ -3,6 +3,7 @@
 namespace App\Services\Pilihanraya;
 
 use App\Models\Borang14Form;
+use App\Models\Borang14Vote;
 use App\Models\Scoreboard;
 use App\Support\Borang14Reference;
 use App\Support\SeatScope;
@@ -66,7 +67,16 @@ class ScoreboardPayload
         $kami = array_map('intval', $board?->pihak_kami ?? []);
 
         $tally = array_fill(1, $penjuru, 0);
-        $sums = $form->votes()->where('slot', '>=', 1)
+
+        // Papan markah kerusi ini mengira PERTANDINGAN KERUSI ITU SAHAJA.
+        // Pada borang serentak (satu saluran, dua pertandingan) votes() tanpa
+        // penapis menjumlahkan undi PRU DAN PRN bersama, lalu menyiarkan angka
+        // kira-kira dua kali ganda pada malam keputusan.
+        $kontes = $type === SeatScope::PARLIMEN
+            ? Borang14Vote::CONTEST_PARLIMEN
+            : Borang14Vote::CONTEST_DUN;
+
+        $sums = $form->votesFor($kontes)->where('slot', '>=', 1)
             ->selectRaw('slot, SUM(undi) as total')->groupBy('slot')->pluck('total', 'slot');
         foreach ($sums as $slot => $total) {
             if ($slot >= 1 && $slot <= $penjuru) {

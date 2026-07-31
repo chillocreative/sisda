@@ -97,8 +97,13 @@ class Borang14Controller extends Controller
 
         ['reference' => $reference, 'inherited_from' => $inheritedFrom, 'asal' => $asal] = $this->resolveReference($kawasanType, $kawasanId, $form);
 
+        // SATU pertandingan sahaja. Kunci sel grid ini ialah (pusat|saluran|slot)
+        // TANPA contest, jadi pada borang serentak votes() tanpa penapis akan
+        // membuat undi PRU menulis ganti undi PRN pada sel yang sama — grid
+        // memapar angka pertandingan yang salah. Skrin dua jalur (Tugasan 6)
+        // memanggil dengan contest yang eksplisit.
         $votes = $form
-            ? $form->votes()->get(['pusat', 'saluran', 'slot', 'undi'])
+            ? $form->votesFor($form->contestSendiri())->get(['pusat', 'saluran', 'slot', 'undi'])
                 ->mapWithKeys(fn ($v) => [$this->cellKey($v->pusat, $v->saluran, $v->slot) => $v->undi])
             : collect();
 
@@ -400,6 +405,13 @@ class Borang14Controller extends Controller
                 $form->votes()->where('pusat', $lama)->update(['pusat' => $kini]);
             }
 
+            // SENGAJA merentas kedua-dua pertandingan (di sini dan pada
+            // renameMap() di atas): struktur ialah pokok Pusat Mengundi/saluran
+            // FIZIKAL, dan satu saluran menghasilkan undi PRU DAN PRN. Membuang
+            // satu saluran mesti membuang undi kedua-dua pertandingan padanya —
+            // jika tidak, baris PRU yatim kekal di bawah kunci sel yang tiada
+            // siapa lagi membaca, dan menamakan semula pusat akan memisahkan
+            // dua pertandingan yang datang dari saluran yang SAMA.
             $kekal = $svc->survivingKeys($baharu);
             foreach ($form->votes()->get(['id', 'pusat', 'saluran']) as $v) {
                 if (! isset($kekal[$v->pusat.'|'.$v->saluran])) {
@@ -496,6 +508,9 @@ class Borang14Controller extends Controller
         }
 
         $namaLama = collect($lama)->pluck('pusat');
+        // SENGAJA merentas kedua-dua pertandingan: ini bukan kiraan undi, ia
+        // set nama yang MENDUDUKI indeks unik borang14_votes. Satu baris PRU
+        // dengan nama pusat itu berlanggar sama kuatnya dengan baris PRN.
         $namaUndi = $form->votes()->distinct()->pluck('pusat');
         $digunakan = $namaLama->merge($namaUndi)->filter(fn ($n) => $n !== '');
 
@@ -598,6 +613,11 @@ class Borang14Controller extends Controller
             $validated['lain_lain'] ?? [],
         ));
 
+        // SENGAJA merentas kedua-dua pertandingan, kerana ia mesti memadankan
+        // padaman yang dipratontonnya (simpanStruktur(), yang juga merentas
+        // kedua-duanya). Ini amaran KEHILANGAN DATA, bukan angka pilihan raya:
+        // menapisnya kepada satu pertandingan akan melaporkan kehilangan yang
+        // LEBIH KECIL daripada yang sebenarnya berlaku.
         $hilang = $form->votes()->get(['pusat', 'saluran', 'undi'])
             ->filter(fn ($v) => ! isset($kekal[($rename[$v->pusat] ?? $v->pusat).'|'.$v->saluran]));
 
@@ -972,7 +992,11 @@ class Borang14Controller extends Controller
         }
 
         $nCalon = max(1, (int) $form->penjuru);
-        $votesByCell = $form->votes()->get(['pusat', 'saluran', 'slot', 'undi'])
+        // Baris bercetak dalam `structure` datang daripada SATU scoresheet,
+        // iaitu satu pertandingan. Membandingkannya dengan undi kedua-dua
+        // pertandingan sekali gus akan menuduh setiap borang serentak yang
+        // diisi dengan BETUL sebagai tidak seimbang.
+        $votesByCell = $form->votesFor($form->contestSendiri())->get(['pusat', 'saluran', 'slot', 'undi'])
             ->groupBy(fn ($v) => $v->pusat.'|'.$v->saluran);
 
         // Feed validateBalance() the REAL frozen values from the sheet's own
@@ -1078,8 +1102,11 @@ class Borang14Controller extends Controller
                 $parties[] = ['slot' => $i + 1, 'nama' => $nama];
             }
         }
+        // Sama seperti data(): borang PDF ini ialah rekod SATU pertandingan,
+        // dan kunci selnya tidak membawa contest — undi pertandingan lain akan
+        // menulis ganti sel yang sama dan mencetak angka yang salah.
         $votes = $form
-            ? $form->votes()->get()->mapWithKeys(fn ($v) => [
+            ? $form->votesFor($form->contestSendiri())->get()->mapWithKeys(fn ($v) => [
                 $this->cellKey($v->pusat, $v->saluran, $v->slot) => $v->undi,
             ])->all()
             : [];
