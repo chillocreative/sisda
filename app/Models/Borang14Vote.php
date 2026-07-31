@@ -11,6 +11,16 @@ class Borang14Vote extends Model
 
     public const CONTEST_PARLIMEN = 'parlimen';
 
+    /**
+     * Julat slot CALON. Di luar julat ini hanya ada slot khas 90 (undi ditolak)
+     * dan 91 (undi tidak dimasukkan) — bukan undi mana-mana calon, jadi apa-apa
+     * yang mengira "adakah kerusi ini sudah melapor keputusan calon?" mesti
+     * mengabaikannya. Lihat Borang14RollUp::jumlahSlot().
+     */
+    public const SLOT_CALON_MIN = 1;
+
+    public const SLOT_CALON_MAX = 6;
+
     protected $fillable = ['borang14_form_id', 'contest', 'pusat', 'saluran', 'slot', 'undi'];
 
     protected $casts = [

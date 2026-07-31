@@ -82,26 +82,93 @@ return new class extends Migration
         });
 
         // Langkah TERAKHIR ini menambah lajur+FK BAHARU pada borang14_forms
-        // (ibu bagi borang14_votes). Pada SQLite, ->constrained() di sini
+        // (ibu kepada BEBERAPA jadual). Pada SQLite, ->constrained() di sini
         // dilaksanakan dengan MEMBINA SEMULA seluruh jadual borang14_forms
         // (salin -> DROP jadual asal -> namakan semula) — perangkap yang SAMA
         // seperti didokumenkan dalam 2026_07_16_100001 untuk kadun_id. Semasa
-        // DROP jadual borang14_forms yang asal itu, jika FK borang14_votes ->
-        // borang14_forms masih aktif, SQLite akan CASCADE DELETE setiap baris
-        // borang14_votes yang merujuknya — walaupun id yang sama muncul semula
-        // sesaat kemudian selepas jadual dinamakan semula. PRAGMA
-        // foreign_keys=OFF tidak membantu (ia no-op di dalam transaksi, dan
-        // baik `artisan migrate` mahupun RefreshDatabase ujian berjalan di
-        // dalam satu transaksi). Gugurkan FK borang14_votes -> borang14_forms
-        // buat sementara SEBELUM langkah ini pada sqlite sahaja, dan pasang
-        // semula selepasnya — MySQL tidak pernah melalui laluan rebuild ini
+        // DROP jadual borang14_forms yang asal itu, SETIAP tindakan ON DELETE
+        // anak yang masih merujuknya akan menyala — walaupun id yang sama
+        // muncul semula sesaat kemudian selepas jadual dinamakan semula.
+        // PRAGMA foreign_keys=OFF tidak membantu (ia no-op di dalam transaksi,
+        // dan baik `artisan migrate` mahupun RefreshDatabase ujian berjalan di
+        // dalam satu transaksi). MySQL tidak pernah melalui laluan rebuild ini
         // (ADD COLUMN + ADD CONSTRAINT adalah operasi in-place sebenar di
-        // sana), jadi cawangan ini sqlite sahaja.
+        // sana), jadi seluruh pengawal ini sqlite sahaja dan jujukan statement
+        // MySQL kekal tidak berubah.
+        //
+        // Draf awal cawangan ini hanya melindungi borang14_votes. Semakan akhir
+        // membuktikan (dengan menjalankan up() pada pangkalan data SQLite yang
+        // berisi) bahawa borang14_snapshots turut lenyap 1 -> 0 dan
+        // scoreboards.borang14_form_id turut menjadi NULL. Anak ditemui secara
+        // DINAMIK di bawah — bukan disenaraikan dengan tangan — supaya jadual
+        // anak yang ditambah kemudian tidak boleh terlepas secara senyap.
+        //
+        // DUA rawatan, dan perbezaannya BUKAN gaya:
+        //
+        //  * cascade (baris DIPADAM) -> gugurkan FK sementara, pasang semula.
+        //    dropForeign() pada SQLite juga membina semula jadual ANAK itu,
+        //    jadi ia hanya selamat untuk jadual DAUN. Disahkan pada masa
+        //    larian; jika bukan daun, migrasi ini BERHENTI dan bukan meneka.
+        //
+        //  * set null (pautan HILANG) -> JANGAN sentuh FK-nya. Menggugurkan FK
+        //    pada paca_forms membina semula paca_forms, dan DROP itu
+        //    cascade-memadam SELURUH roster PACA di bawahnya (paca_pusat ->
+        //    paca_saluran -> paca_slot, paca_snapshots) — kerosakan yang jauh
+        //    LEBIH TERUK daripada yang cuba dielakkan. Sebaliknya kita rakam
+        //    peta id -> borang id, biarkan ia dinullkan, dan tulis semula.
         $sqlite = DB::connection()->getDriverName() === 'sqlite';
+        $fkDigugur = [];
+        $pautanDisimpan = [];
+
         if ($sqlite) {
-            Schema::table('borang14_votes', function (Blueprint $table) {
-                $table->dropForeign(['borang14_form_id']);
-            });
+            $semuaFk = $this->semuaFk();
+
+            foreach ($semuaFk as $fk) {
+                if ($fk['foreign_table'] !== 'borang14_forms' || $fk['table'] === 'borang14_forms') {
+                    continue;
+                }
+
+                $tindakan = strtolower((string) ($fk['on_delete'] ?? ''));
+
+                if ($tindakan === 'cascade') {
+                    $adaAnak = collect($semuaFk)->contains(fn ($lain) => $lain['foreign_table'] === $fk['table']);
+                    if ($adaAnak) {
+                        throw new \RuntimeException(
+                            "Jadual '{$fk['table']}' merujuk borang14_forms dengan ON DELETE CASCADE, tetapi ia ".
+                            'BUKAN jadual daun — jadual lain merujuknya. Menggugurkan FK-nya pada SQLite akan '.
+                            'membina semula jadual itu dan cascade-memadam anaknya sendiri. Tangani kes ini '.
+                            'secara eksplisit sebelum menjalankan migrasi ini pada SQLite.'
+                        );
+                    }
+                    $fkDigugur[] = $fk;
+                } elseif ($tindakan === 'set null') {
+                    $lajur = $fk['columns'][0];
+                    if (! Schema::hasColumn($fk['table'], 'id')) {
+                        throw new \RuntimeException(
+                            "Jadual '{$fk['table']}' merujuk borang14_forms dengan ON DELETE SET NULL tetapi tiada ".
+                            'kunci utama `id`, jadi pautannya tidak boleh dirakam dan ditulis semula selepas '.
+                            'pembinaan semula SQLite. Tangani kes ini secara eksplisit.'
+                        );
+                    }
+                    $pautanDisimpan[] = [
+                        'table' => $fk['table'],
+                        'column' => $lajur,
+                        'nilai' => DB::table($fk['table'])->whereNotNull($lajur)->pluck($lajur, 'id')->all(),
+                    ];
+                } else {
+                    throw new \RuntimeException(
+                        "Jadual '{$fk['table']}' merujuk borang14_forms dengan ON DELETE '{$tindakan}' yang tidak ".
+                        'dikendalikan oleh pengawal SQLite migrasi ini. Tambah pengendalian untuknya — JANGAN '.
+                        'jalankan migrasi ini pada SQLite berisi data sehingga itu.'
+                    );
+                }
+            }
+
+            foreach ($fkDigugur as $fk) {
+                Schema::table($fk['table'], function (Blueprint $table) use ($fk) {
+                    $table->dropForeign($fk['columns']);
+                });
+            }
         }
 
         // Dicipta TERAKHIR — ia ialah pengawal larian-ulang di atas.
@@ -110,11 +177,50 @@ return new class extends Migration
                 ->constrained('borang14_forms')->nullOnDelete();
         });
 
-        if ($sqlite) {
-            Schema::table('borang14_votes', function (Blueprint $table) {
-                $table->foreign('borang14_form_id')->references('id')->on('borang14_forms')->cascadeOnDelete();
+        foreach ($fkDigugur as $fk) {
+            Schema::table($fk['table'], function (Blueprint $table) use ($fk) {
+                $table->foreign($fk['columns'])->references($fk['foreign_columns'])
+                    ->on('borang14_forms')->cascadeOnDelete();
             });
         }
+
+        // Tulis semula pautan yang dinullkan oleh rebuild. Dikumpul mengikut
+        // nilai supaya satu UPDATE menampung banyak baris.
+        foreach ($pautanDisimpan as $p) {
+            // preserveKeys = true WAJIB: tanpanya groupBy() mengindeks semula
+            // dan keys() akan memulangkan 0,1,2... bukan id baris sebenar.
+            foreach (collect($p['nilai'])->groupBy(fn ($v) => (int) $v, true) as $borangId => $baris) {
+                DB::table($p['table'])->whereIn('id', $baris->keys()->all())
+                    ->update([$p['column'] => (int) $borangId]);
+            }
+        }
+    }
+
+    /**
+     * Setiap FK dalam pangkalan data, dilekatkan dengan jadual pemiliknya.
+     *
+     * @return array<int,array{table:string,columns:array,foreign_table:string,foreign_columns:array,on_delete:?string}>
+     */
+    private function semuaFk(): array
+    {
+        $senarai = [];
+
+        foreach (Schema::getTableListing() as $jadual) {
+            // SQLite memulangkan nama berkelayakan skema ('main.users').
+            $jadual = str_contains($jadual, '.') ? substr($jadual, strrpos($jadual, '.') + 1) : $jadual;
+
+            foreach (Schema::getForeignKeys($jadual) as $fk) {
+                $senarai[] = [
+                    'table' => $jadual,
+                    'columns' => $fk['columns'],
+                    'foreign_table' => $fk['foreign_table'],
+                    'foreign_columns' => $fk['foreign_columns'],
+                    'on_delete' => $fk['on_delete'] ?? null,
+                ];
+            }
+        }
+
+        return $senarai;
     }
 
     private function uniqueWujud(string $nama): bool

@@ -7,8 +7,11 @@ use App\Models\Borang14Form;
 use App\Models\Borang14Vote;
 use App\Models\Kadun;
 use App\Models\Negeri;
+use App\Models\Scoreboard;
 use App\Services\Pilihanraya\Borang14RollUp;
+use App\Services\Pilihanraya\ScoreboardPayload;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class Borang14RollUpTest extends TestCase
@@ -106,6 +109,82 @@ class Borang14RollUpTest extends TestCase
         $hasil = Borang14RollUp::forParlimen($this->parlimen->id, 2027);
 
         $this->assertSame(['melapor' => 1, 'jumlah' => 2], $hasil['liputan']);
+    }
+
+    /**
+     * Slot 90 (undi ditolak) dan 91 (undi tidak dimasukkan) BUKAN undi calon.
+     * Satu DUN yang baru mengunci angka undi ditolak belum melaporkan apa-apa
+     * keputusan — mengiranya sebagai "melapor" membolehkan melapor === jumlah
+     * pada kiraan yang masih kehilangan seluruh undi calon DUN itu, lalu papan
+     * awam memapar banner HIJAU "LENGKAP" di atas kiraan separa.
+     */
+    public function test_a_dun_with_only_rejected_ballots_keyed_has_not_reported(): void
+    {
+        $definisi = $this->definisiParlimen(structure: null);
+        $this->borangDun($this->dunA, $definisi, [1 => 2282, 2 => 1195, 3 => 412]);
+
+        $dunBelumLapor = Borang14Form::create([
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->dunB->id,
+            'jenis_pr' => 'prn', 'tahun' => 2027, 'penjuru' => 2, 'parties' => [],
+            'borang14_form_parlimen_id' => $definisi->id,
+        ]);
+        // HANYA undi ditolak (90) + tidak dimasukkan (91) — tiada satu pun
+        // angka calon.
+        foreach ([90 => 17, 91 => 4] as $slot => $undi) {
+            Borang14Vote::create([
+                'borang14_form_id' => $dunBelumLapor->id, 'contest' => Borang14Vote::CONTEST_PARLIMEN,
+                'pusat' => 'PM', 'saluran' => '1', 'slot' => $slot, 'undi' => $undi,
+            ]);
+        }
+
+        $hasil = Borang14RollUp::forParlimen($this->parlimen->id, 2027);
+
+        $this->assertSame(['melapor' => 1, 'jumlah' => 2], $hasil['liputan'],
+            'Undi ditolak sahaja bukan laporan keputusan — liputan mesti kekal separa (amber).');
+
+        // Angka 90/91 juga tidak boleh menyelinap masuk sebagai "slot" undi.
+        $this->assertArrayNotHasKey(90, $hasil['undi']);
+        $this->assertArrayNotHasKey(91, $hasil['undi']);
+        $this->assertSame([1 => 2282, 2 => 1195, 3 => 412], $hasil['undi']);
+    }
+
+    /**
+     * Kes yang sama, tetapi sampai ke muatan papan markah awam: badge mesti
+     * kekal SEMENTARA (separa), bukan LENGKAP.
+     */
+    public function test_the_public_board_badge_stays_partial_when_a_dun_only_keyed_rejected_ballots(): void
+    {
+        $definisi = $this->definisiParlimen(structure: null);
+        $this->borangDun($this->dunA, $definisi, [1 => 2282, 2 => 1195, 3 => 412]);
+
+        $dunBelumLapor = Borang14Form::create([
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->dunB->id,
+            'jenis_pr' => 'prn', 'tahun' => 2027, 'penjuru' => 2, 'parties' => [],
+            'borang14_form_parlimen_id' => $definisi->id,
+        ]);
+        Borang14Vote::create([
+            'borang14_form_id' => $dunBelumLapor->id, 'contest' => Borang14Vote::CONTEST_PARLIMEN,
+            'pusat' => 'PM', 'saluran' => '1', 'slot' => 90, 'undi' => 17,
+        ]);
+
+        // Rujukan DPT — tanpanya muatan pulang "belum sedia" dan ujian ini
+        // akan lulus atas sebab yang salah.
+        DB::table('pangkalan_data_pengundi')->insert([
+            'no_ic' => '990101010101', 'nama' => 'PENGUNDI', 'kadun' => 'GEMAS',
+            'parlimen' => 'JEMPOL', 'daerah_mengundi' => 'PEKAN GEMAS', 'lokaliti' => 'SK GEMAS',
+            'is_deceased' => false, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        Scoreboard::create([
+            'kawasan_type' => 'parlimen', 'kawasan_id' => $this->parlimen->id,
+            'borang14_form_id' => $definisi->id, 'title' => 'JEMPOL', 'status' => Scoreboard::STATUS_DRAF,
+        ]);
+
+        $muatan = ScoreboardPayload::forPublicSeat('parlimen', $this->parlimen->id);
+
+        $this->assertSame(['melapor' => 1, 'jumlah' => 2], $muatan['liputan']);
+        $this->assertNotSame($muatan['liputan']['melapor'], $muatan['liputan']['jumlah'],
+            'Papan awam tidak boleh memapar LENGKAP sedangkan satu DUN belum melaporkan undi calon.');
     }
 
     public function test_no_parlimen_form_at_all_returns_null_not_zero(): void

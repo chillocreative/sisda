@@ -122,25 +122,7 @@ class Borang14SerentakMigrationTest extends TestCase
         // Gugurkan pengawal larian-ulang migrasi ini (lihat docblock up()), dan
         // bina semula borang14_votes dalam bentuk SEBELUM migrasi ini wujud —
         // barulah up() sebenarnya menjalankan backfill, bukan pulang awal.
-        Schema::table('borang14_forms', function (Blueprint $table) {
-            $table->dropForeign(['borang14_form_parlimen_id']);
-        });
-        Schema::table('borang14_forms', function (Blueprint $table) {
-            $table->dropColumn('borang14_form_parlimen_id');
-        });
-
-        Schema::dropIfExists('borang14_votes');
-        Schema::create('borang14_votes', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('borang14_form_id')->constrained('borang14_forms')->cascadeOnDelete();
-            $table->string('pusat')->default('');
-            $table->string('saluran');
-            $table->unsignedTinyInteger('slot');
-            $table->unsignedInteger('undi')->default(0);
-            $table->timestamps();
-
-            $table->unique(['borang14_form_id', 'pusat', 'saluran', 'slot'], 'borang14_votes_cell_unique');
-        });
+        $this->resetKepadaSkemaLama();
 
         DB::table('borang14_votes')->insert([
             ['borang14_form_id' => $dunForm, 'pusat' => 'SK GEMAS', 'saluran' => '1', 'slot' => 1, 'undi' => 111, 'created_at' => now(), 'updated_at' => now()],
@@ -162,6 +144,125 @@ class Borang14SerentakMigrationTest extends TestCase
             DB::table('borang14_votes')->whereNotNull('contest')->count(),
             'Tiada baris sepatutnya hilang — backfill mesti berjaya bagi kedua-dua jenis borang.'
         );
+    }
+
+    /**
+     * Bawa borang14_forms + borang14_votes kembali ke bentuk PRA-migrasi supaya
+     * up() benar-benar berjalan (bukan pulang awal pada pengawal larian-ulang).
+     *
+     * Dipanggil SEBELUM mana-mana jadual anak disemai: menggugurkan lajur
+     * borang14_form_parlimen_id sendiri membina semula borang14_forms, jadi
+     * apa-apa yang disemai lebih awal akan dimusnahkan oleh PERSEDIAAN ujian
+     * dan bukan oleh perkara yang diuji.
+     */
+    private function resetKepadaSkemaLama(): void
+    {
+        Schema::table('borang14_forms', function (Blueprint $table) {
+            $table->dropForeign(['borang14_form_parlimen_id']);
+        });
+        Schema::table('borang14_forms', function (Blueprint $table) {
+            $table->dropColumn('borang14_form_parlimen_id');
+        });
+
+        Schema::dropIfExists('borang14_votes');
+        Schema::create('borang14_votes', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('borang14_form_id')->constrained('borang14_forms')->cascadeOnDelete();
+            $table->string('pusat')->default('');
+            $table->string('saluran');
+            $table->unsignedTinyInteger('slot');
+            $table->unsignedInteger('undi')->default(0);
+            $table->timestamps();
+
+            $table->unique(['borang14_form_id', 'pusat', 'saluran', 'slot'], 'borang14_votes_cell_unique');
+        });
+    }
+
+    /**
+     * Semakan akhir cawangan ini MEMBUKTIKAN, dengan menjalankan up() pada
+     * pangkalan data SQLite yang berisi, bahawa pengawal asal (yang hanya
+     * melindungi borang14_votes) tidak mencukupi:
+     *   - borang14_snapshots 1 -> 0 (cascadeOnDelete: setiap titik pemulihan)
+     *   - scoreboards.borang14_form_id -> NULL (nullOnDelete: setiap papan)
+     *   - borang14_uploads + paca_forms membawa risiko nullOnDelete yang sama
+     *
+     * Ujian backfill sedia ada terlepas semuanya kerana ia hanya mengira undi.
+     * Ujian ini menyemai SETIAP jadual anak (dan cucu PACA di bawah paca_forms,
+     * yang akan lenyap sekiranya pengawal menggugurkan FK paca_forms) dan
+     * menuntut semuanya SELAMAT.
+     */
+    public function test_the_sqlite_rebuild_does_not_destroy_any_child_table(): void
+    {
+        $dunForm = $this->form('dun', 34, 'prn');
+
+        $this->resetKepadaSkemaLama();
+
+        // --- anak: cascadeOnDelete ---
+        DB::table('borang14_votes')->insert([
+            ['borang14_form_id' => $dunForm, 'pusat' => 'SK GEMAS', 'saluran' => '1', 'slot' => 1, 'undi' => 111, 'created_at' => now(), 'updated_at' => now()],
+            ['borang14_form_id' => $dunForm, 'pusat' => 'SK GEMAS', 'saluran' => '1', 'slot' => 90, 'undi' => 7, 'created_at' => now(), 'updated_at' => now()],
+        ]);
+        DB::table('borang14_snapshots')->insert([
+            'borang14_form_id' => $dunForm, 'structure' => json_encode(['rows' => []]),
+            'votes' => json_encode([['pusat' => 'SK GEMAS', 'saluran' => '1', 'slot' => 1, 'undi' => 111]]),
+            'parties' => json_encode([]), 'reason' => 'before_structure_edit', 'created_at' => now(),
+        ]);
+
+        // --- anak: nullOnDelete ---
+        DB::table('borang14_uploads')->insert([
+            'borang14_form_id' => $dunForm, 'nama_fail' => 'scoresheet.pdf',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $negeri = DB::table('negeri')->insertGetId(['nama' => 'NEGERI SEMBILAN', 'created_at' => now(), 'updated_at' => now()]);
+        $bandar = DB::table('bandar')->insertGetId(['nama' => 'JEMPOL', 'kod_parlimen' => 'P133', 'negeri_id' => $negeri, 'created_at' => now(), 'updated_at' => now()]);
+        $kadun = DB::table('kadun')->insertGetId(['nama' => 'GEMAS', 'kod_dun' => 'N34', 'bandar_id' => $bandar, 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('scoreboards')->insert([
+            'kawasan_type' => 'dun', 'kawasan_id' => $kadun,
+            'borang14_form_id' => $dunForm, 'title' => 'SCOREBOARD',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $pacaForm = DB::table('paca_forms')->insertGetId([
+            'kawasan_type' => 'dun', 'kawasan_id' => $kadun, 'jenis_pr' => 'prn', 'tahun' => 2027,
+            'borang14_form_id' => $dunForm, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        // Cucu PACA: inilah yang akan MUSNAH sekiranya pengawal memilih jalan
+        // mudah dan menggugurkan FK paca_forms (dropForeign membina semula
+        // paca_forms, dan DROP itu cascade ke bawah).
+        $pacaPusat = DB::table('paca_pusat')->insertGetId([
+            'paca_form_id' => $pacaForm, 'pusat' => 'SK GEMAS', 'public_token' => 'tok-uji-1',
+            'urutan' => 1, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $pacaSaluran = DB::table('paca_saluran')->insertGetId([
+            'paca_pusat_id' => $pacaPusat, 'label' => '1', 'urutan' => 1,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('paca_slot')->insert([
+            'paca_saluran_id' => $pacaSaluran, 'jawatan' => 'PA1', 'urutan' => 1,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        (require database_path('migrations/2026_08_01_100001_add_contest_to_borang14_votes.php'))->up();
+
+        // cascadeOnDelete — baris mesti masih ada.
+        $this->assertSame(2, DB::table('borang14_votes')->where('borang14_form_id', $dunForm)->count(),
+            'Undi mesti selamat merentas pembinaan semula borang14_forms.');
+        $this->assertSame(1, DB::table('borang14_snapshots')->where('borang14_form_id', $dunForm)->count(),
+            'Setiap titik pemulihan akan hilang tanpa pengawal — inilah kes yang dibuktikan penyemak.');
+
+        // nullOnDelete — pautan mesti kekal, bukan sekadar barisnya.
+        $this->assertSame($dunForm, (int) DB::table('borang14_uploads')->value('borang14_form_id'));
+        $this->assertSame($dunForm, (int) DB::table('scoreboards')->value('borang14_form_id'),
+            'Papan markah kehilangan borangnya tanpa pengawal.');
+        $this->assertSame($dunForm, (int) DB::table('paca_forms')->value('borang14_form_id'));
+
+        // Cucu PACA — dimusnahkan oleh pengawal "gugurkan setiap FK" yang naif.
+        $this->assertSame(1, DB::table('paca_pusat')->count(), 'Roster PACA tidak boleh disentuh langsung.');
+        $this->assertSame(1, DB::table('paca_saluran')->count());
+        $this->assertSame(1, DB::table('paca_slot')->count());
+
+        // Dan skema akhir mesti tetap lengkap.
+        $this->assertTrue(Schema::hasColumn('borang14_forms', 'borang14_form_parlimen_id'));
+        $this->assertTrue(Schema::hasColumn('borang14_votes', 'contest'));
     }
 
     /**

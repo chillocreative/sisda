@@ -264,6 +264,20 @@ class Borang14Controller extends Controller
             ['penjuru' => $validated['penjuru'], 'parties' => []],
         );
 
+        // Undi TIDAK boleh dikunci pada borang TAKRIFAN Parlimen: undi PRU
+        // hidup pada borang DUN, dan roll-up mengumpulnya dari sana. Apa yang
+        // ditaip di sini akan disimpan (hijau, kelihatan berjaya) tetapi TIDAK
+        // dikira oleh sesiapa — angka hantu pada malam mengira undi. Lihat
+        // assertBukanTakrifanParlimen() untuk lubang yang sama pada struktur.
+        $bilanganDun = $form->borangDun()->count();
+        if ($bilanganDun > 0) {
+            return response()->json([
+                'message' => "Borang ini ialah TAKRIFAN calon PRU yang dikongsi oleh {$bilanganDun} borang DUN. ".
+                    'Undi PRU dikunci pada borang DUN masing-masing (jalur PRU pada skrin DUN), bukan di '.
+                    'sini — angka yang ditaip pada borang takrifan tidak akan dikira dalam keputusan Parlimen.',
+            ], 422);
+        }
+
         Borang14Vote::updateOrCreate(
             [
                 'borang14_form_id' => $form->id,
@@ -441,6 +455,8 @@ class Borang14Controller extends Controller
         // firstOrCreate — kerusi kurasi/DPT/warisan tidak boleh disunting
         // langsung, dan tiada borang patut tercipta akibat cubaan itu.
         $this->assertStrukturBolehDisunting($validated, $form);
+        $this->assertBukanTakrifanParlimen($form);
+        $this->assertTakrifanParlimenMasihKosong($validated);
 
         $asas = $this->strukturAsas($svc, $form, $validated);
 
@@ -859,6 +875,76 @@ class Borang14Controller extends Controller
 
         throw ValidationException::withMessages([
             'pusat' => 'Struktur kerusi ini datang daripada fail rujukan rasmi SPR yang sentiasa mengatasi struktur borang. Apa yang ditaip di sini tidak akan dipaparkan, tetapi undi sedia ada akan dipadam.',
+        ]);
+    }
+
+    /**
+     * Borang TAKRIFAN Parlimen tidak boleh diberi struktur — 422, bukan 403
+     * (ini bukan hal kebenaran; pengguna memang berhak menyunting kerusi ini).
+     *
+     * `structure` yang KOSONG pada borang Parlimen ialah SATU-SATUNYA isyarat
+     * yang memberitahu Borang14RollUp::forParlimen() supaya MENGUMPUL borang
+     * DUN yang memautinya. Sebaik sahaja borang itu ada struktur sendiri,
+     * roll-up bertukar kepada bacaan TERUS daripada borang takrifan — yang
+     * tiada satu undi pun padanya — lalu papan Parlimen awam menerbitkan
+     * 0-0-0, DAN dengan `liputan = null` (bacaan terus tiada konsep liputan
+     * separa) jadi tiada pun badge SEMENTARA yang memberi amaran. Undi PRU
+     * sebenar sementara itu duduk elok pada borang DUN, tidak dibaca sesiapa.
+     *
+     * Alur kerja MEMAKSA pengendali membuka skrin ini (di situlah nama calon
+     * PRU dinamakan), jadi butang "Sunting Struktur" hanya sejauh satu klik
+     * daripada memusnahkan keputusan Parlimen pada malam mengira undi.
+     */
+    private function assertBukanTakrifanParlimen(?Borang14Form $form): void
+    {
+        if (! $form) {
+            return;
+        }
+
+        $bilangan = $form->borangDun()->count();
+        if ($bilangan === 0) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'pusat' => "Borang ini ialah TAKRIFAN calon PRU yang dikongsi oleh {$bilangan} borang DUN ".
+                'dalam Parlimen ini. Undi PRU direkod pada borang DUN tersebut, bukan di sini, dan '.
+                'keputusan Parlimen dikumpulkan daripadanya. Memberi borang ini struktur sendiri akan '.
+                'menghentikan pengumpulan itu dan papan Parlimen akan memapar 0 undi. Namakan calon PRU '.
+                'sahaja di sini; sunting struktur pada borang DUN masing-masing.',
+        ]);
+    }
+
+    /**
+     * Lubang yang SAMA daripada arah bertentangan: memaut borang DUN kepada
+     * satu borang Parlimen yang SUDAH mempunyai struktur sendiri.
+     *
+     * firstOrCreate() di bawah akan memulangkan borang PRU sedia ada bagi
+     * (Parlimen, tahun) itu. Jika borang itu sudah mempunyai struktur (kes
+     * PRU-sahaja yang sah), pautan baharu ini menjadikannya takrifan DAN
+     * borang berstruktur serentak — dan roll-up akan membaca TERUS daripada
+     * struktur itu, mengabaikan setiap undi PRU pada borang DUN. Tolak, dan
+     * beritahu apa yang perlu diselesaikan dahulu.
+     */
+    private function assertTakrifanParlimenMasihKosong(array $validated): void
+    {
+        if (empty($validated['parlimen_id'])) {
+            return;
+        }
+
+        $takrifan = Borang14Form::forKawasan(Borang14Form::KAWASAN_PARLIMEN, (int) $validated['parlimen_id'])
+            ->where('jenis_pr', 'pru')->where('tahun', $validated['tahun'])->first();
+
+        if (! $takrifan || empty($takrifan->structure)) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'parlimen_id' => 'Borang Parlimen bagi tahun ini sudah mempunyai struktur (Pusat Mengundi) '.
+                'sendiri, jadi keputusan Parlimen dibaca terus daripadanya dan bukan dikumpulkan '.
+                'daripada borang DUN. Kosongkan struktur borang Parlimen itu (atau padamkannya) '.
+                'sebelum menghidupkan mod pilihanraya serentak, jika tidak undi PRU yang dikunci pada '.
+                'borang DUN ini tidak akan dikira langsung.',
         ]);
     }
 
@@ -1566,6 +1652,22 @@ class Borang14Controller extends Controller
             'jenis_pr' => $cached['jenis_pr'],
             'tahun' => $cached['tahun'],
         ]);
+
+        // Pintu KETIGA kepada lubang yang sama: writeForm() menulis
+        // 'structure' => $extractedData, jadi memuat naik scoresheet ke atas
+        // borang TAKRIFAN Parlimen memberinya struktur dan menukar roll-up
+        // kepada bacaan terus — sama seperti Sunting Struktur. Disekat di sini
+        // sebelum apa-apa ditulis. (Lihat assertBukanTakrifanParlimen().)
+        if ($form->exists && ($bilanganDun = $form->borangDun()->count()) > 0) {
+            Cache::forget($cacheKey);
+
+            return response()->json([
+                'message' => "Borang Parlimen ini ialah TAKRIFAN calon PRU bagi {$bilanganDun} borang DUN. ".
+                    'Scoresheet PRU dimuat naik ke borang DUN masing-masing, bukan ke sini — memuat naik '.
+                    'ke borang takrifan akan memberinya struktur sendiri dan keputusan Parlimen akan '.
+                    'berhenti dikumpulkan daripada borang DUN.',
+            ], 422);
+        }
 
         $review = $this->computeNeedsReview($extractedData);
 

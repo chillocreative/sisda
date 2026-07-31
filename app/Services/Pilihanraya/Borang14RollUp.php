@@ -72,10 +72,30 @@ class Borang14RollUp
         ];
     }
 
-    /** @return array<int,int> */
+    /**
+     * Jumlah undi mengikut slot CALON SAHAJA (1..6).
+     *
+     * Slot 90 (undi ditolak) dan 91 (undi tidak dimasukkan) SENGAJA dikecualikan,
+     * dan bukan sekadar untuk kebersihan jumlah:
+     *
+     *  1. Jumlah — 90/91 bukan undi mana-mana calon. Ia tidak pernah masuk ke
+     *     dalam tally (ScoreboardPayload menapis $slot <= $penjuru), jadi
+     *     mengecualikannya di sini tidak mengubah satu angka pun yang dipapar.
+     *
+     *  2. LIPUTAN — inilah sebab sebenar. forParlimen() mengira satu DUN sebagai
+     *     "melapor" apabila jumlah slotnya TIDAK KOSONG. Dengan `slot >= 1`,
+     *     satu DUN yang baru mengunci angka undi DITOLAK sahaja (slot 90) sudah
+     *     dikira melapor — dan jika ia DUN terakhir, melapor === jumlah lalu
+     *     papan awam memapar banner HIJAU "LENGKAP · Semua N DUN telah melapor"
+     *     di atas jumlah yang KEHILANGAN seluruh undi calon DUN itu. Kiraan
+     *     separa yang menyamar sebagai muktamad ialah TEPAT perkara yang
+     *     `liputan` wujud untuk menghalang.
+     *
+     * @return array<int,int>
+     */
     private static function jumlahSlot($query): array
     {
-        return $query->where('slot', '>=', 1)
+        return $query->whereBetween('slot', [Borang14Vote::SLOT_CALON_MIN, Borang14Vote::SLOT_CALON_MAX])
             ->selectRaw('slot, SUM(undi) as total')->groupBy('slot')
             ->pluck('total', 'slot')
             ->map(fn ($v) => (int) $v)->all();
