@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Borang14Vote;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -96,5 +97,55 @@ class Borang14SerentakMigrationTest extends TestCase
 
         $this->expectException(\RuntimeException::class);
         $migration->down();
+    }
+
+    /**
+     * Model::booted() jaring lalai `contest` untuk penulis lama yang belum
+     * dikemas kini (lihat docblock Borang14Vote::booted()). Lalai itu
+     * mesti DITERBITKAN daripada kawasan_type borang, bukan dikodkan keras.
+     */
+    public function test_creating_a_vote_on_a_dun_form_without_contest_defaults_to_dun(): void
+    {
+        $form = $this->form('dun', 34, 'prn');
+
+        $vote = Borang14Vote::create([
+            'borang14_form_id' => $form,
+            'pusat' => 'SK GEMAS', 'saluran' => '3', 'slot' => 1, 'undi' => 224,
+        ]);
+
+        $this->assertSame(Borang14Vote::CONTEST_DUN, $vote->contest);
+        $this->assertSame('dun', DB::table('borang14_votes')->where('id', $vote->id)->value('contest'));
+    }
+
+    public function test_creating_a_vote_on_a_parlimen_form_without_contest_defaults_to_parlimen(): void
+    {
+        $form = $this->form('parlimen', 12, 'pru');
+
+        $vote = Borang14Vote::create([
+            'borang14_form_id' => $form,
+            'pusat' => 'SK GEMAS', 'saluran' => '3', 'slot' => 1, 'undi' => 93,
+        ]);
+
+        $this->assertSame(Borang14Vote::CONTEST_PARLIMEN, $vote->contest);
+        $this->assertSame('parlimen', DB::table('borang14_votes')->where('id', $vote->id)->value('contest'));
+    }
+
+    /**
+     * Kes serentak: borang DUN yang turut merekod undi Parlimen. `contest`
+     * yang dihantar secara eksplisit mesti MENANG berbanding lalai borang
+     * itu sendiri — inilah sebab jaring keselamatan itu tidak boleh
+     * digunakan oleh penulis serentak (lihat docblock model).
+     */
+    public function test_explicit_contest_always_wins_over_the_form_default(): void
+    {
+        $form = $this->form('dun', 34, 'prn');
+
+        $vote = Borang14Vote::create([
+            'borang14_form_id' => $form, 'contest' => Borang14Vote::CONTEST_PARLIMEN,
+            'pusat' => 'SK GEMAS', 'saluran' => '3', 'slot' => 1, 'undi' => 93,
+        ]);
+
+        $this->assertSame(Borang14Vote::CONTEST_PARLIMEN, $vote->contest);
+        $this->assertSame('parlimen', DB::table('borang14_votes')->where('id', $vote->id)->value('contest'));
     }
 }
