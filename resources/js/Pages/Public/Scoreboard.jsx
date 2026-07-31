@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Head, router } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import axios from 'axios';
-import { Crown, MapPin, Landmark, Vote, Loader2, Radio } from 'lucide-react';
+import { Crown, Vote, Radio } from 'lucide-react';
 
 /* ------------------------------- helpers ------------------------------- */
 
 const POLL_MS = 4000;
-const fmt = (n) => (n == null || Number.isNaN(n) ? '0' : Number(n).toLocaleString('en-MY'));
+// Nilai null/NaN bermakna TIDAK DIKETAHUI, bukan sifar — papar "—" supaya
+// papan markah tidak mendakwa "0" bagi angka yang sebenarnya belum ada.
+const fmt = (n) => (n == null || Number.isNaN(n) ? '—' : Number(n).toLocaleString('en-MY'));
 
 // Coalition / party colours. Names carry the coalition (e.g. "PAKATAN HARAPAN")
 // so match on the leading word; PH stays red, BN blue.
@@ -49,7 +51,10 @@ function ShareBar({ rows, totalKeluar }) {
 
 function Board({ data }) {
     const { rows, total_keluar: totalKeluar, total_berdaftar: totalBerdaftar, leader_slot: leaderSlot } = data;
-    const turnout = totalBerdaftar > 0 ? (totalKeluar / totalBerdaftar) * 100 : 0;
+    // total_berdaftar boleh jadi null secara SAH (roll kerusi tidak diketahui).
+    const turnout = totalBerdaftar != null && totalBerdaftar > 0
+        ? (totalKeluar / totalBerdaftar) * 100
+        : null;
 
     return (
         <div className="space-y-6">
@@ -92,7 +97,7 @@ function Board({ data }) {
                                         : <Vote className="h-8 w-8 text-slate-300" />}
                                 </div>
                                 <div className="min-w-0 flex-1">
-                                    <div className="text-xs font-bold uppercase tracking-wide" style={{ color }}>{r.parti}{r.is_ph ? ' · PH' : ''}</div>
+                                    <div className="text-xs font-bold uppercase tracking-wide" style={{ color }}>{r.parti}{r.is_kami ? ' · KAMI' : ''}</div>
                                     <div className="text-lg font-bold text-slate-900 truncate">{r.calon || '—'}</div>
                                     <div className="mt-1 text-3xl font-black text-slate-900 tabular-nums">{fmt(r.undi)}</div>
                                 </div>
@@ -107,7 +112,7 @@ function Board({ data }) {
                 {[
                     ['Jumlah Undi Keluar', fmt(totalKeluar)],
                     ['Pengundi Berdaftar', fmt(totalBerdaftar)],
-                    ['% Keluar Mengundi', `${turnout.toFixed(1)}%`],
+                    ['% Keluar Mengundi', turnout == null ? '—' : `${turnout.toFixed(1)}%`],
                 ].map(([label, value]) => (
                     <div key={label} className="rounded-2xl bg-white border border-slate-200 p-5 text-center">
                         <div className="text-xs uppercase tracking-wider text-slate-500">{label}</div>
@@ -119,70 +124,26 @@ function Board({ data }) {
     );
 }
 
-/* ------------------------------- picker -------------------------------- */
-
-// Shown at /scoreboard with no DUN chosen — pick one to open its board.
-function Picker({ negeriList, parlimenList, kadunList }) {
-    const [negeriId, setNegeriId] = useState('');
-    const [parlimenId, setParlimenId] = useState('');
-
-    const parlimenOptions = negeriId ? parlimenList.filter((p) => String(p.negeri_id) === String(negeriId)) : [];
-    const kadunOptions = parlimenId ? kadunList.filter((k) => String(k.bandar_id) === String(parlimenId)) : [];
-
-    const select = 'w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-slate-400 focus:outline-none disabled:bg-slate-100 disabled:text-slate-400';
-
-    return (
-        <div className="max-w-md mx-auto rounded-2xl bg-white border border-slate-200 shadow-sm p-6 sm:p-8">
-            <h2 className="text-lg font-bold text-slate-900 text-center">Pilih Papan Markah</h2>
-            <p className="text-sm text-slate-500 text-center mt-1 mb-6">Pilih DUN untuk memaparkan keputusan secara langsung.</p>
-            <div className="space-y-3">
-                <label className="block">
-                    <span className="text-xs font-medium text-slate-600 inline-flex items-center gap-1 mb-1"><MapPin className="h-3.5 w-3.5" /> Negeri</span>
-                    <select value={negeriId} onChange={(e) => { setNegeriId(e.target.value); setParlimenId(''); }} className={select}>
-                        <option value="">Pilih Negeri</option>
-                        {negeriList.map((n) => <option key={n.id} value={n.id}>{n.nama}</option>)}
-                    </select>
-                </label>
-                <label className="block">
-                    <span className="text-xs font-medium text-slate-600 inline-flex items-center gap-1 mb-1"><Landmark className="h-3.5 w-3.5" /> Parlimen</span>
-                    <select value={parlimenId} onChange={(e) => setParlimenId(e.target.value)} disabled={!negeriId} className={select}>
-                        <option value="">Pilih Parlimen</option>
-                        {parlimenOptions.map((p) => <option key={p.id} value={p.id}>{p.nama}</option>)}
-                    </select>
-                </label>
-                <label className="block">
-                    <span className="text-xs font-medium text-slate-600 inline-flex items-center gap-1 mb-1"><Vote className="h-3.5 w-3.5" /> DUN</span>
-                    <select value="" onChange={(e) => e.target.value && router.get(`/scoreboard/${e.target.value}`)} disabled={!parlimenId} className={select}>
-                        <option value="">Pilih DUN</option>
-                        {kadunOptions.map((k) => <option key={k.id} value={k.id}>{k.nama}</option>)}
-                    </select>
-                </label>
-            </div>
-        </div>
-    );
-}
-
 /* -------------------------------- page --------------------------------- */
 
-export default function PublicScoreboard({ kadunId, initialBoard, negeriList = [], parlimenList = [], kadunList = [] }) {
-    const [data, setData] = useState(initialBoard);
-    const [updatedAt, setUpdatedAt] = useState(initialBoard ? new Date() : null);
+export default function PublicScoreboard({ kod, board }) {
+    const [data, setData] = useState(board);
+    const [updatedAt, setUpdatedAt] = useState(board ? new Date() : null);
 
     const fetchData = useCallback(() => {
-        if (!kadunId) return;
         // Cache-buster so no browser/CDN layer serves a stale poll response —
         // the board must reflect Borang 14 key-ins within one poll.
-        axios.get(`/scoreboard/${kadunId}/data`, { params: { _t: Date.now() } })
+        axios.get(`/scoreboard/${kod}/data`, { params: { _t: Date.now() } })
             .then(({ data: d }) => { setData(d); setUpdatedAt(new Date()); })
+            // Rangkaian tersekat sementara: biarkan paparan terakhir kekal,
+            // jangan kosongkan atau papar sifar pada malam keputusan.
             .catch(() => {});
-    }, [kadunId]);
+    }, [kod]);
 
     useEffect(() => {
-        if (!kadunId) return undefined;
-        fetchData();
         const id = setInterval(fetchData, POLL_MS);
         return () => clearInterval(id);
-    }, [fetchData, kadunId]);
+    }, [fetchData]);
 
     const ready = data?.ready;
     const pageTitle = ready ? `${data.title} — DUN ${data.dun}` : 'Live Scoreboard';
@@ -195,29 +156,21 @@ export default function PublicScoreboard({ kadunId, initialBoard, negeriList = [
                 <header className="border-b border-slate-200 bg-white/80 backdrop-blur sticky top-0 z-10">
                     <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
                         <span className="text-sm font-bold tracking-wide text-slate-900">Sistem Data Pengundi</span>
-                        {kadunId && (
-                            <span className="inline-flex items-center gap-2 text-xs text-slate-500">
-                                <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-600">
-                                    <Radio className="h-3.5 w-3.5 animate-pulse" /> Live
-                                </span>
-                                {updatedAt && <span className="tabular-nums">· {updatedAt.toLocaleTimeString('ms-MY')}</span>}
+                        <span className="inline-flex items-center gap-2 text-xs text-slate-500">
+                            <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-600">
+                                <Radio className="h-3.5 w-3.5 animate-pulse" /> Live
                             </span>
-                        )}
+                            {updatedAt && <span className="tabular-nums">· {updatedAt.toLocaleTimeString('ms-MY')}</span>}
+                        </span>
                     </div>
                 </header>
 
                 <main className="max-w-5xl mx-auto px-4 py-8 sm:py-12">
-                    {!kadunId ? (
-                        <Picker negeriList={negeriList} parlimenList={parlimenList} kadunList={kadunList} />
-                    ) : !data ? (
-                        <div className="flex items-center justify-center gap-2 text-slate-500 py-24">
-                            <Loader2 className="h-5 w-5 animate-spin" /> Memuatkan…
-                        </div>
-                    ) : ready ? (
+                    {ready ? (
                         <Board data={data} />
                     ) : (
                         <div className="max-w-md mx-auto rounded-2xl bg-white border border-slate-200 p-8 text-center text-slate-500">
-                            Papan markah belum tersedia untuk DUN ini.
+                            Papan markah belum bersedia. Sila cuba sebentar lagi.
                         </div>
                     )}
                 </main>
