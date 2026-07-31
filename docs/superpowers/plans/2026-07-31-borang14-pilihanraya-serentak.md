@@ -1083,6 +1083,7 @@ git commit -m "Scoreboard: papan Parlimen guna kumpulan borang DUN"
 
 **Files:**
 - Modify: `resources/js/Pages/Pilihanraya/borang14/KeyinTab.jsx`
+- Modify: `resources/js/Pages/Pilihanraya/components/Borang14Form.jsx` (the row renderers and `cellKey` live here)
 - Modify: `resources/js/Pages/Pilihanraya/Borang14.jsx` (pass the linked Parlimen contest down)
 
 **Interfaces:**
@@ -1091,7 +1092,7 @@ git commit -m "Scoreboard: papan Parlimen guna kumpulan borang DUN"
 
 - [ ] **Step 1: Read the current form component in full**
 
-Read `resources/js/Pages/Pilihanraya/borang14/KeyinTab.jsx` end to end before editing. NOTE: `components/Borang14Form.jsx` is DEAD CODE — nothing imports it. The live autosave POST is at `KeyinTab.jsx:274`. Identify the saluran row renderer and the autosave call.
+Read BOTH `resources/js/Pages/Pilihanraya/borang14/KeyinTab.jsx` and `resources/js/Pages/Pilihanraya/components/Borang14Form.jsx` end to end before editing. They are a pair: KeyinTab owns the autosave POST (`:274`) and imports the row renderers (`VoteTable`, `UndiAwalPosTable`, `cellKey`) from Borang14Form via a MULTI-LINE import at `KeyinTab.jsx:8-11`. Both files are live and both must be edited. Identify the saluran row renderer and the autosave call.
 
 - [ ] **Step 2: Add `contest` to every autosave call**
 
