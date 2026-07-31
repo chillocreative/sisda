@@ -167,4 +167,34 @@ class ScoreboardAccessTest extends TestCase
             'kod' => 'N27',
         ]);
     }
+
+    /**
+     * Pautan yang dipulangkan selepas menyiarkan MESTI membuka papan itu.
+     *
+     * Sebelum laluan awam dikunci semula pada kod kerusi, route() memulangkan
+     * /scoreboard?kod=n27 — rentetan pertanyaan yang tidak membuka apa-apa.
+     * Pemilik menyalin pautan ini untuk dikongsi, jadi ia diuji secara khusus
+     * dan bukan diandaikan betul.
+     */
+    public function test_publishing_returns_a_link_that_actually_opens_the_board(): void
+    {
+        $u = $this->user('user', kadunId: $this->dunSendiri->id);
+
+        Scoreboard::create([
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->dunSendiri->id,
+            'title' => 'X', 'status' => Scoreboard::STATUS_DRAF,
+        ]);
+
+        $url = $this->actingAs($u)->postJson(route('pilihanraya.scoreboard.publish'), [
+            'kawasan_type' => 'dun',
+            'kawasan_id' => $this->dunSendiri->id,
+            'status' => Scoreboard::STATUS_TERSIAR,
+        ])->assertOk()->json('url');
+
+        $this->assertSame('/scoreboard/n27', parse_url($url, PHP_URL_PATH));
+        $this->assertNull(parse_url($url, PHP_URL_QUERY), 'Kod mesti berada dalam laluan, bukan rentetan pertanyaan.');
+
+        // Dan pautan itu benar-benar membuka papan.
+        $this->get($url)->assertOk();
+    }
 }

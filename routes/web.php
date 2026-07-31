@@ -11,12 +11,22 @@ Route::get('/', function () {
     ]);
 });
 
-// Public live scoreboard — no login required. {kadun} shows that DUN's board;
-// no id shows a picker. The /data endpoint is polled by the page.
-Route::get('/scoreboard/{kadun}/data', [\App\Http\Controllers\ScoreboardController::class, 'publicData'])
-    ->whereNumber('kadun')->name('scoreboard.public.data');
-Route::get('/scoreboard/{kadun?}', [\App\Http\Controllers\ScoreboardController::class, 'publicShow'])
-    ->whereNumber('kadun')->name('scoreboard.public');
+/*
+ * Papan markah awam — tiada log masuk. Hanya papan 'tersiar' diselesaikan.
+ *
+ * TURUTAN PENDAFTARAN PENTING: laluan angka (URL lama) mesti didaftarkan
+ * SEBELUM laluan kod, kerana kedua-duanya berkongsi satu segmen. Kod kerusi
+ * sentiasa bermula dengan huruf (N27, P129) manakala id lama sentiasa angka
+ * penuh, jadi kekangan di bawah tidak boleh bertindih.
+ */
+Route::get('/scoreboard', [\App\Http\Controllers\PublicScoreboardController::class, 'index'])
+    ->name('scoreboard.public.index');
+Route::get('/scoreboard/{kadun}', [\App\Http\Controllers\PublicScoreboardController::class, 'legacy'])
+    ->whereNumber('kadun')->name('scoreboard.public.legacy');
+Route::get('/scoreboard/{kod}/data', [\App\Http\Controllers\PublicScoreboardController::class, 'data'])
+    ->where('kod', '[A-Za-z]\d+')->name('scoreboard.public.data');
+Route::get('/scoreboard/{kod}', [\App\Http\Controllers\PublicScoreboardController::class, 'show'])
+    ->where('kod', '[A-Za-z]\d+')->name('scoreboard.public');
 
 // Public per-Pusat PACA link — no login required. A coordinator shares this
 // token URL with a petugas, who self-registers into an empty slot. See

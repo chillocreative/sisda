@@ -5,30 +5,22 @@ namespace App\Http\Controllers;
 use App\Models\Bandar;
 use App\Models\Borang14Form;
 use App\Models\Kadun;
-use App\Models\Negeri;
 use App\Models\Scoreboard;
 use App\Services\Pilihanraya\ScoreboardPayload;
-use App\Support\Borang14Reference;
 use App\Support\SeatScope;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Inertia\Inertia;
 
 /**
- * Papan markah bagi PEMILIK kerusi. Laluan awam berada di sini buat
- * sementara waktu (publicShow/publicData/boardPayload) — Tugasan 5
- * memindahkannya ke PublicScoreboardController yang berasingan.
+ * Papan markah bagi PEMILIK kerusi. Laluan awam berada dalam
+ * PublicScoreboardController yang berasingan — tiada auth, tiada tulis.
  *
  * Laluan pemilik digelang oleh 'auth' sahaja; setiap kaedah memanggil
  * SeatScope::assert() sendiri, mengikut konvensyen projek.
  */
 class ScoreboardController extends Controller
 {
-    private const PENJURU = [2 => '1 vs 1', 3 => '3 Penjuru', 4 => '4 Penjuru', 5 => '5 Penjuru', 6 => '6 Penjuru'];
-
-    /** Parties that make up Pakatan Harapan — used to tally the "PH" figure. */
-    private const PH_PARTIES = ['KEADILAN', 'PKR', 'DAP', 'AMANAH', 'MUDA'];
-
     public function index(Request $request)
     {
         $seats = SeatScope::seats($request->user());
@@ -161,28 +153,6 @@ class ScoreboardController extends Controller
         ]);
     }
 
-    /** Public, no-login results page at /scoreboard/{kadun?}. */
-    public function publicShow(Request $request, ?int $kadun = null)
-    {
-        $board = ($kadun && Kadun::whereKey($kadun)->exists()) ? $this->boardPayload($kadun) : null;
-
-        return Inertia::render('Public/Scoreboard', [
-            'kadunId'      => $board ? $kadun : null,
-            'initialBoard' => $board,
-            'negeriList'   => Negeri::orderBy('nama')->get(['id', 'nama']),
-            'parlimenList' => Bandar::orderBy('nama')->get(['id', 'nama', 'negeri_id']),
-            'kadunList'    => Kadun::orderBy('nama')->get(['id', 'nama', 'bandar_id']),
-        ]);
-    }
-
-    /** Public JSON polled by the public results page. */
-    public function publicData(int $kadun)
-    {
-        abort_unless(Kadun::whereKey($kadun)->exists(), 404);
-
-        return $this->liveJson($this->boardPayload($kadun));
-    }
-
     /**
      * Baca kerusi daripada permintaan dan sahkan kebenaran SEBELUM apa-apa
      * kerja lain. Setiap kaedah awam bermula di sini.
@@ -230,99 +200,6 @@ class ScoreboardController extends Controller
         return response()->json($payload)
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
             ->header('Pragma', 'no-cache');
-    }
-
-    /**
-     * Build the live scoreboard payload for a DUN (shared by the legacy
-     * public methods above). Warisan Tugasan <4 — Tugasan 5 menggantikan
-     * laluan awam dengan PublicScoreboardController + ScoreboardPayload.
-     */
-    private function boardPayload(int $kadunId): array
-    {
-        $reference = Borang14Reference::forKadun($kadunId);
-
-        if (! $reference) {
-            return ['hasData' => false, 'ready' => false];
-        }
-
-        // The penjuru is taken from whatever Borang 14 scenario exists for this
-        // DUN (most recently worked on) — no manual selection on the scoreboard.
-        $form = Borang14Form::where('kawasan_type', 'dun')
-            ->where('kawasan_id', $kadunId)
-            ->latest('updated_at')
-            ->first();
-
-        if (! $form) {
-            return ['hasData' => true, 'ready' => false, 'needsBorang14' => true];
-        }
-
-        $penjuru = (int) $form->penjuru;
-        $board = Scoreboard::where('borang14_form_id', $form->id)->first();
-
-        $parties = $form?->parties ?? [];
-        $candidates = collect($board?->candidates ?? [])->keyBy('slot');
-
-        // Live tally: sum of votes per party slot across every pusat/saluran
-        // (including Undi Awal/Pos rows).
-        $tally = array_fill(1, $penjuru, 0);
-        if ($form) {
-            $sums = $form->votes()->where('slot', '>=', 1)
-                ->selectRaw('slot, SUM(undi) as total')->groupBy('slot')->pluck('total', 'slot');
-            foreach ($sums as $slot => $total) {
-                if ($slot >= 1 && $slot <= $penjuru) {
-                    $tally[$slot] = (int) $total;
-                }
-            }
-        }
-
-        // Registered total = every saluran + early/postal.
-        $berdaftar = 0;
-        foreach ($reference['daerah_mengundi'] as $dm) {
-            $berdaftar += (int) ($dm['jumlah_berdaftar'] ?? 0);
-        }
-        $berdaftar += (int) ($reference['undi_awal']['berdaftar'] ?? 0);
-        $berdaftar += (int) ($reference['undi_pos']['berdaftar'] ?? 0);
-
-        $rows = [];
-        $phVotes = 0;
-        foreach (range(1, $penjuru) as $slot) {
-            // The party name always follows the Borang 14 party dropdown.
-            $nama = $parties[$slot - 1]['nama'] ?? "Parti {$slot}";
-            $isPh = in_array(strtoupper((string) $nama), self::PH_PARTIES, true);
-            $undi = $tally[$slot] ?? 0;
-            if ($isPh) {
-                $phVotes += $undi;
-            }
-            $rows[] = [
-                'slot'   => $slot,
-                'parti'  => $nama,
-                'is_ph'  => $isPh,
-                'calon'  => $candidates[$slot]['nama'] ?? null,
-                'gambar' => ! empty($candidates[$slot]['gambar']) ? asset($candidates[$slot]['gambar']) : null,
-                'undi'   => $undi,
-            ];
-        }
-
-        $totalKeluar = array_sum($tally);
-        $leaderSlot = $totalKeluar > 0 ? collect($rows)->sortByDesc('undi')->first()['slot'] : null;
-
-        return [
-            'hasData'   => true,
-            'ready'     => true,
-            'penjuru'   => $penjuru,
-            'title'     => $board?->title ?? 'SCOREBOARD',
-            'logo_url'  => $board?->logo_path ? asset($board->logo_path) : asset('images/logo.png'),
-            'minima'    => $board?->minima,
-            'dun'       => $reference['dun'] ?? null,
-            'parlimen'  => $reference['parlimen'] ?? null,
-            'negeri'    => $reference['negeri'] ?? null,
-            'penjuru_label' => self::PENJURU[$penjuru] ?? '',
-            'rows'      => $rows,
-            'ph_votes'  => $phVotes,
-            'total_keluar'    => $totalKeluar,
-            'total_berdaftar' => $berdaftar,
-            'leader_slot'     => $leaderSlot,
-        ];
     }
 
     /**
