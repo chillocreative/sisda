@@ -82,10 +82,47 @@ class ScoreboardPublicTest extends TestCase
     {
         $this->board(Scoreboard::STATUS_TERSIAR);
 
+        // Kes draf tanpa kod — tidak boleh keluar dalam senarai.
         $lain = Kadun::create(['nama' => 'JOHOL', 'kod_dun' => 'N26', 'bandar_id' => $this->dun->bandar_id]);
         Scoreboard::create([
             'kawasan_type' => 'dun', 'kawasan_id' => $lain->id,
             'title' => 'JOHOL', 'status' => Scoreboard::STATUS_DRAF, 'kod' => null,
+        ]);
+
+        // Kes yang menanggung beban ujian ini: papan yang PERNAH disiarkan lalu
+        // dinyahsiar mengekalkan kod yang telah dicap (lihat
+        // ScoreboardController::publish()). Jika penapis status() pada suatu
+        // hari regresi, whereNotNull('kod') sahaja TIDAK akan menangkapnya —
+        // kod bukan null di sini. Bina fixture ini melalui endpoint publish()
+        // sebenar supaya ia mencerminkan cara keadaan ini timbul di produksi.
+        $pernahTersiar = Kadun::create(['nama' => 'BAHAU', 'kod_dun' => 'N31', 'bandar_id' => $this->dun->bandar_id]);
+        $pemilik = \App\Models\User::create([
+            'name' => 'Pemilik Bahau',
+            'email' => 'pemilik-bahau@example.test',
+            'telephone' => '0140000999',
+            'password' => bcrypt('rahsia'),
+            'role' => 'user',
+            'status' => 'approved',
+            'kadun_id' => $pernahTersiar->id,
+        ]);
+        Scoreboard::create([
+            'kawasan_type' => 'dun', 'kawasan_id' => $pernahTersiar->id,
+            'title' => 'BAHAU', 'status' => Scoreboard::STATUS_DRAF,
+        ]);
+        $this->actingAs($pemilik)->postJson(route('pilihanraya.scoreboard.publish'), [
+            'kawasan_type' => 'dun',
+            'kawasan_id' => $pernahTersiar->id,
+            'status' => Scoreboard::STATUS_TERSIAR,
+        ])->assertOk();
+        $this->actingAs($pemilik)->postJson(route('pilihanraya.scoreboard.publish'), [
+            'kawasan_type' => 'dun',
+            'kawasan_id' => $pernahTersiar->id,
+            'status' => Scoreboard::STATUS_DRAF,
+        ])->assertOk();
+        $this->assertDatabaseHas('scoreboards', [
+            'kawasan_id' => $pernahTersiar->id,
+            'status' => Scoreboard::STATUS_DRAF,
+            'kod' => 'N31',
         ]);
 
         $response = $this->get('/scoreboard')->assertOk();
@@ -93,5 +130,8 @@ class ScoreboardPublicTest extends TestCase
 
         $this->assertCount(1, $boards);
         $this->assertSame('N27', $boards[0]['kod']);
+
+        // Dan papan yang dinyahsiar itu sendiri mesti 404 di laluan awam.
+        $this->get('/scoreboard/n31')->assertNotFound();
     }
 }

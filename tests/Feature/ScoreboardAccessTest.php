@@ -8,6 +8,7 @@ use App\Models\Negeri;
 use App\Models\Scoreboard;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
@@ -144,6 +145,44 @@ class ScoreboardAccessTest extends TestCase
             'kawasan_id' => $tanpaKod->id,
             'status' => Scoreboard::STATUS_TERSIAR,
         ])->assertStatus(422);
+    }
+
+    /**
+     * Laluan awam dikunci pada '[A-Za-z]\d+' (routes/web.php). Jika medan Kod
+     * DUN dalam Data Induk mengandungi apa-apa bentuk lain — huruf berganda,
+     * tanda baca, ruang — publish() mesti menolaknya SEBELUM mencap kod itu.
+     * Sebaliknya papan menjadi tersiar dengan pautan awam yang 404 senyap.
+     */
+    #[DataProvider('kodTidakSahProvider')]
+    public function test_publishing_refuses_a_malformed_seat_code(string $kodTidakSah): void
+    {
+        $dun = Kadun::create(['nama' => 'KOD RUSAK', 'kod_dun' => $kodTidakSah, 'bandar_id' => $this->parlimenSendiri->id]);
+        $u = $this->user('admin', bandarId: $this->parlimenSendiri->id);
+
+        Scoreboard::create([
+            'kawasan_type' => 'dun', 'kawasan_id' => $dun->id,
+            'title' => 'X', 'status' => Scoreboard::STATUS_DRAF,
+        ]);
+
+        $this->actingAs($u)->postJson(route('pilihanraya.scoreboard.publish'), [
+            'kawasan_type' => 'dun',
+            'kawasan_id' => $dun->id,
+            'status' => Scoreboard::STATUS_TERSIAR,
+        ])->assertStatus(422);
+
+        $this->assertDatabaseHas('scoreboards', [
+            'kawasan_id' => $dun->id,
+            'status' => Scoreboard::STATUS_DRAF,
+            'kod' => null,
+        ]);
+    }
+
+    public static function kodTidakSahProvider(): array
+    {
+        return [
+            'huruf berganda tanpa nombor sah' => ['N27A'],
+            'tanda noktah' => ['N.27'],
+        ];
     }
 
     public function test_publishing_stamps_the_uppercase_seat_code(): void

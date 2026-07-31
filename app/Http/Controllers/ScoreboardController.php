@@ -21,6 +21,14 @@ use Inertia\Inertia;
  */
 class ScoreboardController extends Controller
 {
+    /**
+     * Bentuk kod kerusi yang laluan awam (routes/web.php) benarkan: satu huruf
+     * diikuti nombor, cth. N27 atau P129. Ditakrifkan SEKALI di sini dan
+     * disemak dalam publish() SEBELUM kod dicap, supaya kod yang dicap pada
+     * papan sentiasa sepadan dengan kekangan laluan — tiada pautan mati.
+     */
+    private const POLA_KOD = '/^[A-Za-z]\d+$/';
+
     public function index(Request $request)
     {
         $seats = SeatScope::seats($request->user());
@@ -129,6 +137,16 @@ class ScoreboardController extends Controller
                 'message' => $type === SeatScope::PARLIMEN
                     ? 'Kerusi ini tiada Kod Parlimen. Isi medan itu dalam Data Induk > Parlimen sebelum menyiarkan.'
                     : 'Kerusi ini tiada Kod DUN. Isi medan itu dalam Data Induk > DUN sebelum menyiarkan.',
+            ], 422);
+        }
+
+        // Kod mesti sepadan dengan kekangan laluan awam (routes/web.php) SEBELUM
+        // dicap — jika tidak, publish() berjaya tetapi pautan awam 404 senyap.
+        if (! preg_match(self::POLA_KOD, $kod)) {
+            return response()->json([
+                'message' => $type === SeatScope::PARLIMEN
+                    ? "Kod Parlimen \"{$kod}\" tidak sah. Betulkan medan Kod Parlimen dalam Data Induk > Parlimen — bentuk yang diperlukan ialah satu huruf diikuti nombor, cth. P129."
+                    : "Kod DUN \"{$kod}\" tidak sah. Betulkan medan Kod DUN dalam Data Induk > DUN — bentuk yang diperlukan ialah satu huruf diikuti nombor, cth. N27.",
             ], 422);
         }
 
