@@ -109,6 +109,26 @@ class ScoreboardAccessTest extends TestCase
         ]);
     }
 
+    public function test_saving_settings_with_only_the_seat_keys_defaults_the_title(): void
+    {
+        // Simpanan separa yang sah — cth. muat naik logo sahaja, atau hanya
+        // menetapkan pihak_kami — tidak menghantar 'title' langsung. 'title'
+        // ialah 'nullable', jadi validated() tidak akan mempunyai kunci itu;
+        // akses tanpa null-safe (?:) akan menyebabkan ralat 500.
+        $u = $this->user('user', kadunId: $this->dunSendiri->id);
+
+        $this->actingAs($u)->postJson(route('pilihanraya.scoreboard.settings'), [
+            'kawasan_type' => 'dun',
+            'kawasan_id' => $this->dunSendiri->id,
+        ])->assertOk();
+
+        $this->assertDatabaseHas('scoreboards', [
+            'kawasan_type' => 'dun',
+            'kawasan_id' => $this->dunSendiri->id,
+            'title' => 'SCOREBOARD',
+        ]);
+    }
+
     public function test_publishing_requires_a_seat_code(): void
     {
         $tanpaKod = Kadun::create(['nama' => 'TIADA KOD', 'kod_dun' => null, 'bandar_id' => $this->parlimenSendiri->id]);

@@ -78,7 +78,7 @@ class ScoreboardController extends Controller
         }
 
         $board = Scoreboard::firstOrNew(['kawasan_type' => $type, 'kawasan_id' => $id]);
-        $board->title = $validated['title'] ?: 'SCOREBOARD';
+        $board->title = ($validated['title'] ?? null) ?: 'SCOREBOARD';
         $board->minima = $validated['minima'] ?? null;
         $board->borang14_form_id = $validated['borang14_form_id'] ?? null;
         $board->pihak_kami = array_values(array_unique(array_map('intval', $validated['pihak_kami'] ?? [])));
