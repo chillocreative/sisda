@@ -32,6 +32,41 @@ class Borang14MigrationGuardTest extends TestCase
         return require database_path('migrations/2026_07_16_100001_reshape_borang14_forms.php');
     }
 
+    /**
+     * Migrasi 2026_07_31 (Task 2: Scoreboard per kerusi) turut mengubah
+     * scoreboards dan berjalan SELEPAS migrasi ini semasa RefreshDatabase.
+     * down()-nya sengaja enggan (tidak boleh diterbalikkan) walaupun kosong,
+     * jadi gugurkan tambahannya secara manual di sini — bukan melalui
+     * down()-nya sendiri — supaya scoreboards kembali ke bentuk tepat
+     * selepas migrasi 2026_07_16 sahaja, membolehkan down() migrasi itu
+     * diuji secara berasingan.
+     */
+    private function undoNewerScoreboardsMigration(): void
+    {
+        Schema::table('scoreboards', function (Blueprint $table) {
+            $table->dropForeign(['borang14_form_id']);
+            $table->dropForeign(['updated_by']);
+        });
+
+        Schema::table('scoreboards', function (Blueprint $table) {
+            $table->dropUnique('scoreboards_kerusi_unique');
+            $table->dropUnique('scoreboards_kod_unique');
+        });
+
+        Schema::table('scoreboards', function (Blueprint $table) {
+            $table->unsignedBigInteger('borang14_form_id')->nullable(false)->change();
+        });
+
+        Schema::table('scoreboards', function (Blueprint $table) {
+            $table->dropColumn(['kawasan_type', 'kawasan_id', 'status', 'kod', 'pihak_kami', 'updated_by']);
+        });
+
+        Schema::table('scoreboards', function (Blueprint $table) {
+            $table->foreign('borang14_form_id')->references('id')->on('borang14_forms')->cascadeOnDelete();
+            $table->unique('borang14_form_id');
+        });
+    }
+
     /** Seed negeri->bandar->kadun(id=41) so the OLD schema's kadun_id FK inserts succeed. */
     private function seedKadun41(): void
     {
@@ -172,6 +207,10 @@ class Borang14MigrationGuardTest extends TestCase
 
     public function test_down_restores_prior_schema_when_tables_are_empty(): void
     {
+        // Strip the newer (2026_07_31) migration's additions first — see
+        // undoNewerScoreboardsMigration() docblock.
+        $this->undoNewerScoreboardsMigration();
+
         // Fresh migrated state (via RefreshDatabase) has zero rows — safe to roll back.
         $this->migration()->down();
 
@@ -183,6 +222,11 @@ class Borang14MigrationGuardTest extends TestCase
         // Restore the new schema again so nothing else in the suite is affected.
         $this->migration()->up();
         $this->assertTrue(Schema::hasColumn('borang14_forms', 'kawasan_type'));
+
+        // ...and reapply the newer migration on top, matching the state
+        // RefreshDatabase originally produced before this test tore it down.
+        (require database_path('migrations/2026_07_31_100001_reshape_scoreboards_per_kerusi.php'))->up();
+        $this->assertTrue(Schema::hasColumn('scoreboards', 'kawasan_type'));
     }
 
     public function test_down_round_trips_real_backfilled_data(): void
