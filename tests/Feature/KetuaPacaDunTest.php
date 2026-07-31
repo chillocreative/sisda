@@ -303,10 +303,17 @@ class KetuaPacaDunTest extends TestCase
     {
         $ketua = $this->ketua();
 
-        foreach (['pilihanraya.war-room', 'pilihanraya.borang-14', 'pilihanraya.scoreboard', 'pilihanraya.analisa'] as $nama) {
+        foreach (['pilihanraya.war-room', 'pilihanraya.borang-14', 'pilihanraya.analisa'] as $nama) {
             $this->actingAs($ketua)->get(route($nama))
                 ->assertRedirect(route('dashboard'));
         }
+
+        // Scoreboard kini di luar kumpulan 'admin' (Tugasan 4 — setiap pemilik
+        // kerusi menguruskan papan sendiri melalui SeatScope), jadi ia disekat
+        // oleh pengawal (403), bukan oleh middleware EnsureAdmin (redirect).
+        // Lihat ScoreboardAccessTest::test_ketua_paca_dun_is_refused.
+        $this->actingAs($ketua)->get(route('pilihanraya.scoreboard'))
+            ->assertForbidden();
     }
 
     public function test_plain_user_is_still_blocked_from_paca(): void

@@ -456,11 +456,6 @@ Route::middleware(['auth', 'admin'])->prefix('pilihanraya')->name('pilihanraya.'
     Route::get('/analisa/seat-baseline', [\App\Http\Controllers\PilihanrayaAnalisaController::class, 'seatBaseline'])->name('analisa.seat-baseline');
     Route::get('/analisa/keanggotaan-card', [\App\Http\Controllers\PilihanrayaAnalisaController::class, 'keanggotaanCard'])->name('analisa.keanggotaan-card');
 
-    // Scoreboard — live election night board driven by Borang 14 figures
-    Route::get('/scoreboard', [\App\Http\Controllers\ScoreboardController::class, 'index'])->name('scoreboard');
-    Route::get('/scoreboard/data', [\App\Http\Controllers\ScoreboardController::class, 'data'])->name('scoreboard.data');
-    Route::post('/scoreboard/settings', [\App\Http\Controllers\ScoreboardController::class, 'saveSettings'])->name('scoreboard.settings');
-
     // Borang 14 — polling-stream vote tally per DUN (editable, auto-saved)
     Route::get('/borang-14', [\App\Http\Controllers\Borang14Controller::class, 'index'])->name('borang-14');
     Route::get('/borang-14/data', [\App\Http\Controllers\Borang14Controller::class, 'data'])->name('borang-14.data');
@@ -524,6 +519,19 @@ Route::middleware(['auth', 'admin'])->prefix('pilihanraya')->name('pilihanraya.'
     Route::post('/jawatankuasa/upload/commit', [\App\Http\Controllers\KeanggotaanJawatankuasaController::class, 'commit'])->name('jawatankuasa.upload.commit');
     Route::post('/jawatankuasa/bulk-delete', [\App\Http\Controllers\KeanggotaanJawatankuasaController::class, 'bulkDestroy'])->name('jawatankuasa.bulk-destroy');
     Route::post('/jawatankuasa/resync', [\App\Http\Controllers\KeanggotaanJawatankuasaController::class, 'resync'])->name('jawatankuasa.resync');
+});
+
+/*
+ * Scoreboard — setiap pemilik kerusi (Parlimen/DUN) menguruskan papannya
+ * sendiri, jadi ia TIDAK boleh berada dalam kumpulan 'admin': EnsureAdmin
+ * akan menyekat peranan user/super_user yang justeru hendak dibenarkan.
+ * Kebenaran per-kerusi dibuat dalam pengawal melalui SeatScope.
+ */
+Route::middleware(['auth'])->prefix('pilihanraya')->name('pilihanraya.')->group(function () {
+    Route::get('/scoreboard', [\App\Http\Controllers\ScoreboardController::class, 'index'])->name('scoreboard');
+    Route::get('/scoreboard/data', [\App\Http\Controllers\ScoreboardController::class, 'data'])->name('scoreboard.data');
+    Route::post('/scoreboard/settings', [\App\Http\Controllers\ScoreboardController::class, 'saveSettings'])->name('scoreboard.settings');
+    Route::post('/scoreboard/publish', [\App\Http\Controllers\ScoreboardController::class, 'publish'])->name('scoreboard.publish');
 });
 
 // PACA — roster petugas PACA (Pusat->Saluran->slot), disemai daripada struktur
