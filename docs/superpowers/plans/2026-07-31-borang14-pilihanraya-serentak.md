@@ -1082,7 +1082,7 @@ git commit -m "Scoreboard: papan Parlimen guna kumpulan borang DUN"
 ### Task 6: Concurrent entry screen
 
 **Files:**
-- Modify: `resources/js/Pages/Pilihanraya/components/Borang14Form.jsx`
+- Modify: `resources/js/Pages/Pilihanraya/borang14/KeyinTab.jsx`
 - Modify: `resources/js/Pages/Pilihanraya/Borang14.jsx` (pass the linked Parlimen contest down)
 
 **Interfaces:**
@@ -1091,7 +1091,7 @@ git commit -m "Scoreboard: papan Parlimen guna kumpulan borang DUN"
 
 - [ ] **Step 1: Read the current form component in full**
 
-Read `resources/js/Pages/Pilihanraya/components/Borang14Form.jsx` (353 lines) end to end before editing. Identify the saluran row renderer and the autosave call.
+Read `resources/js/Pages/Pilihanraya/borang14/KeyinTab.jsx` end to end before editing. NOTE: `components/Borang14Form.jsx` is DEAD CODE — nothing imports it. The live autosave POST is at `KeyinTab.jsx:274`. Identify the saluran row renderer and the autosave call.
 
 - [ ] **Step 2: Add `contest` to every autosave call**
 
@@ -1128,7 +1128,7 @@ Expected: no errors.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add resources/js/Pages/Pilihanraya/components/Borang14Form.jsx resources/js/Pages/Pilihanraya/Borang14.jsx public/build
+git add resources/js/Pages/Pilihanraya/borang14/KeyinTab.jsx resources/js/Pages/Pilihanraya/Borang14.jsx public/build
 git commit -m "Borang 14: skrin kemasukan dua pertandingan"
 ```
 
