@@ -107,27 +107,51 @@ class SeatScope
         return [];
     }
 
-    /** @return array<int, array{type: string, id: int, nama: string, kod: ?string}> */
+    /**
+     * Setiap kerusi membawa konteks geografinya sendiri (negeri_id/negeri,
+     * bandar_id/parlimen) supaya pemilih antara muka boleh melata
+     * Negeri > Parlimen > DUN TANPA menyoal jadual induk secara berasingan.
+     *
+     * Itu bukan sekadar kemudahan: senarai lata MESTI dibina daripada kerusi
+     * yang DIBENARKAN sahaja. Membinanya daripada data induk penuh akan
+     * menyenaraikan kerusi yang pengguna tidak berhak sentuh.
+     *
+     * @return array<int, array{type: string, id: int, nama: string, kod: ?string, negeri_id: ?int, negeri: ?string, bandar_id: ?int, parlimen: ?string}>
+     */
     private static function duns(Builder $q): array
     {
-        return $q->orderBy('nama')->get(['id', 'nama', 'kod_dun'])
+        return $q->with('bandar.negeri')->orderBy('nama')->get(['id', 'nama', 'kod_dun', 'bandar_id'])
             ->map(fn ($k) => [
                 'type' => self::DUN,
                 'id' => (int) $k->id,
                 'nama' => (string) $k->nama,
                 'kod' => $k->kod_dun ? strtoupper($k->kod_dun) : null,
+                'negeri_id' => $k->bandar?->negeri_id !== null ? (int) $k->bandar->negeri_id : null,
+                'negeri' => $k->bandar?->negeri?->nama,
+                'bandar_id' => $k->bandar_id !== null ? (int) $k->bandar_id : null,
+                'parlimen' => $k->bandar?->nama,
             ])->all();
     }
 
-    /** @return array<int, array{type: string, id: int, nama: string, kod: ?string}> */
+    /**
+     * Kerusi Parlimen ialah induknya sendiri — bandar_id/parlimen menunjuk
+     * kepada dirinya, supaya bentuknya seragam dengan kerusi DUN dan pemilih
+     * lata boleh melayan kedua-duanya dengan kod yang sama.
+     *
+     * @return array<int, array{type: string, id: int, nama: string, kod: ?string, negeri_id: ?int, negeri: ?string, bandar_id: ?int, parlimen: ?string}>
+     */
     private static function parlimens(Builder $q): array
     {
-        return $q->orderBy('nama')->get(['id', 'nama', 'kod_parlimen'])
+        return $q->with('negeri')->orderBy('nama')->get(['id', 'nama', 'kod_parlimen', 'negeri_id'])
             ->map(fn ($b) => [
                 'type' => self::PARLIMEN,
                 'id' => (int) $b->id,
                 'nama' => (string) $b->nama,
                 'kod' => $b->kod_parlimen ? strtoupper($b->kod_parlimen) : null,
+                'negeri_id' => $b->negeri_id !== null ? (int) $b->negeri_id : null,
+                'negeri' => $b->negeri?->nama,
+                'bandar_id' => (int) $b->id,
+                'parlimen' => (string) $b->nama,
             ])->all();
     }
 }

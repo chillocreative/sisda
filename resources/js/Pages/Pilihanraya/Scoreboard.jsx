@@ -303,6 +303,117 @@ function Board({ data }) {
     );
 }
 
+/* ----------------------------- seat picker ----------------------------- */
+
+/**
+ * Pemilih kerusi melata: Negeri > Parlimen > DUN.
+ *
+ * Dua cara memilih, sengaja:
+ *  - Berhenti pada Parlimen  -> papan markah PARLIMEN kerusi itu.
+ *  - Teruskan pilih DUN      -> papan markah DUN tersebut.
+ * Dropdown DUN membawa pilihan "(Papan Parlimen)" supaya beralih antara
+ * kedua-duanya tidak memerlukan pengguna mengosongkan pilihan.
+ *
+ * Senarai dibina SEMATA-MATA daripada `seats` yang dihantar pelayan, iaitu
+ * kerusi yang SeatScope benarkan. Jangan sekali-kali bina daripada data induk
+ * penuh — itu akan menyenaraikan kerusi yang pengguna tidak berhak sentuh.
+ */
+function PemilihKerusi({ seats, seat, onPilih, updatedAt }) {
+    const kerusiParlimen = seats.filter((s) => s.type === 'parlimen');
+    const kerusiDun = seats.filter((s) => s.type === 'dun');
+
+    const [negeriId, setNegeriId] = useState(seat?.negeri_id ?? '');
+    const [bandarId, setBandarId] = useState(seat?.bandar_id ?? '');
+
+    const sama = (a, b) => String(a ?? '') === String(b ?? '');
+
+    // Negeri yang benar-benar mempunyai kerusi milik pengguna ini.
+    const senaraiNegeri = [];
+    seats.forEach((s) => {
+        if (s.negeri_id != null && !senaraiNegeri.some((n) => sama(n.id, s.negeri_id))) {
+            senaraiNegeri.push({ id: s.negeri_id, nama: s.negeri });
+        }
+    });
+    senaraiNegeri.sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
+
+    const senaraiParlimen = [];
+    seats.forEach((s) => {
+        if (!sama(s.negeri_id, negeriId) || s.bandar_id == null) return;
+        if (!senaraiParlimen.some((p) => sama(p.id, s.bandar_id))) {
+            senaraiParlimen.push({ id: s.bandar_id, nama: s.parlimen });
+        }
+    });
+    senaraiParlimen.sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
+
+    const senaraiDun = kerusiDun.filter((s) => sama(s.bandar_id, bandarId));
+    // Papan Parlimen hanya ditawarkan jika pengguna benar-benar memiliki kerusi itu.
+    const parlimenDipilih = kerusiParlimen.find((s) => sama(s.id, bandarId)) || null;
+
+    const pilihNegeri = (v) => { setNegeriId(v); setBandarId(''); onPilih(null); };
+    const pilihParlimen = (v) => {
+        setBandarId(v);
+        // Berhenti di sini = papan Parlimen, jika pengguna memilikinya.
+        onPilih(kerusiParlimen.find((s) => sama(s.id, v)) || null);
+    };
+    const pilihDun = (v) => {
+        if (v === '') { onPilih(parlimenDipilih); return; }
+        onPilih(kerusiDun.find((s) => sama(s.id, v)) || null);
+    };
+
+    const medan = 'w-full px-3 py-2 border border-slate-300 rounded-lg text-sm';
+
+    return (
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm mb-5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Negeri</label>
+                    <select value={negeriId} onChange={(e) => pilihNegeri(e.target.value)} className={medan}>
+                        <option value="">Pilih Negeri</option>
+                        {senaraiNegeri.map((n) => <option key={n.id} value={n.id}>{n.nama}</option>)}
+                    </select>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Parlimen</label>
+                    <select value={bandarId} onChange={(e) => pilihParlimen(e.target.value)} className={medan} disabled={!negeriId}>
+                        <option value="">{negeriId ? 'Pilih Parlimen' : 'Pilih Negeri dahulu'}</option>
+                        {senaraiParlimen.map((p) => <option key={p.id} value={p.id}>{p.nama}</option>)}
+                    </select>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">DUN</label>
+                    <select
+                        value={seat?.type === 'dun' ? seat.id : ''}
+                        onChange={(e) => pilihDun(e.target.value)}
+                        className={medan}
+                        disabled={!bandarId || senaraiDun.length === 0}
+                    >
+                        <option value="">
+                            {!bandarId
+                                ? 'Pilih Parlimen dahulu'
+                                : (parlimenDipilih ? '(Papan Parlimen)' : 'Pilih DUN')}
+                        </option>
+                        {senaraiDun.map((d) => (
+                            <option key={d.id} value={d.id}>{d.nama}{d.kod ? ` (${d.kod})` : ''}</option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+
+            {seat && (
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                    <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold">
+                        <Radio className="h-3.5 w-3.5 animate-pulse" /> LANGSUNG
+                    </span>
+                    <span className="font-semibold text-slate-700">
+                        · {seat.type === 'parlimen' ? 'Parlimen' : 'DUN'} {seat.nama}{seat.kod ? ` (${seat.kod})` : ''}
+                    </span>
+                    {updatedAt && <span>· Dikemaskini {updatedAt.toLocaleTimeString('ms-MY')}</span>}
+                </div>
+            )}
+        </div>
+    );
+}
+
 /* --------------------------------- page -------------------------------- */
 
 export default function Scoreboard(props) {
@@ -380,29 +491,7 @@ function ScoreboardBody({ seats }) {
         >
             {/* Seat picker — only rendered when the user holds more than one seat. */}
             {seats.length > 1 && (
-                <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm mb-5">
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Kerusi</label>
-                    <select
-                        value={seat ? `${seat.type}:${seat.id}` : ''}
-                        onChange={(e) => setSeat(seats.find((s) => `${s.type}:${s.id}` === e.target.value) || null)}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
-                    >
-                        <option value="">Pilih Kerusi</option>
-                        {seats.map((s) => (
-                            <option key={`${s.type}:${s.id}`} value={`${s.type}:${s.id}`}>
-                                {s.type === 'parlimen' ? 'Parlimen' : 'DUN'} {s.nama}{s.kod ? ` (${s.kod})` : ''}
-                            </option>
-                        ))}
-                    </select>
-                    {seat && (
-                        <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
-                            <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold">
-                                <Radio className="h-3.5 w-3.5 animate-pulse" /> LANGSUNG
-                            </span>
-                            {updatedAt && <span>· Dikemaskini {updatedAt.toLocaleTimeString('ms-MY')}</span>}
-                        </div>
-                    )}
-                </div>
+                <PemilihKerusi seats={seats} seat={seat} onPilih={setSeat} updatedAt={updatedAt} />
             )}
 
             {/* States */}

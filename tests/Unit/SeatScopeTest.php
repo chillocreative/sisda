@@ -22,6 +22,7 @@ class SeatScopeTest extends TestCase
 {
     use RefreshDatabase;
 
+    private Negeri $negeri;
     private Bandar $bandarA;
     private Bandar $bandarB;
     private Kadun $dunA1;
@@ -32,7 +33,8 @@ class SeatScopeTest extends TestCase
     {
         parent::setUp();
 
-        $negeri = Negeri::create(['nama' => 'NEGERI SEMBILAN']);
+        $this->negeri = Negeri::create(['nama' => 'NEGERI SEMBILAN']);
+        $negeri = $this->negeri;
         $this->bandarA = Bandar::create(['nama' => 'KUALA PILAH', 'kod_parlimen' => 'P129', 'negeri_id' => $negeri->id]);
         $this->bandarB = Bandar::create(['nama' => 'JEMPOL', 'kod_parlimen' => 'P130', 'negeri_id' => $negeri->id]);
         $this->dunA1 = Kadun::create(['nama' => 'PILAH', 'kod_dun' => 'N27', 'bandar_id' => $this->bandarA->id]);
@@ -165,13 +167,43 @@ class SeatScopeTest extends TestCase
         SeatScope::assert($u, SeatScope::DUN, $this->dunB1->id);
     }
 
-    public function test_seats_carries_the_display_name_and_code(): void
+    /**
+     * Setiap kerusi membawa konteks geografinya sendiri (Negeri > Parlimen)
+     * supaya pemilih antara muka boleh melata TANPA menyoal data induk secara
+     * berasingan. Ini penting: senarai lata MESTI dibina daripada kerusi yang
+     * DIBENARKAN sahaja. Membinanya daripada jadual induk akan memaparkan
+     * kerusi yang pengguna tidak boleh sentuh.
+     */
+    public function test_seats_carries_the_display_name_code_and_geography(): void
     {
         $u = $this->user('user', kadunId: $this->dunA1->id);
 
         $this->assertSame(
-            [['type' => 'dun', 'id' => $this->dunA1->id, 'nama' => 'PILAH', 'kod' => 'N27']],
+            [[
+                'type' => 'dun',
+                'id' => $this->dunA1->id,
+                'nama' => 'PILAH',
+                'kod' => 'N27',
+                'negeri_id' => $this->negeri->id,
+                'negeri' => 'NEGERI SEMBILAN',
+                'bandar_id' => $this->bandarA->id,
+                'parlimen' => 'KUALA PILAH',
+            ]],
             SeatScope::seats($u),
         );
+    }
+
+    /** Kerusi Parlimen ialah induknya sendiri — bandar_id/parlimen menunjuk kepada dirinya. */
+    public function test_a_parlimen_seat_reports_itself_as_its_own_parlimen(): void
+    {
+        $u = $this->user('admin', bandarId: $this->bandarA->id);
+
+        $parlimen = collect(SeatScope::seats($u))->firstWhere('type', 'parlimen');
+
+        $this->assertSame($this->bandarA->id, $parlimen['id']);
+        $this->assertSame($this->bandarA->id, $parlimen['bandar_id']);
+        $this->assertSame('KUALA PILAH', $parlimen['parlimen']);
+        $this->assertSame($this->negeri->id, $parlimen['negeri_id']);
+        $this->assertSame('NEGERI SEMBILAN', $parlimen['negeri']);
     }
 }
