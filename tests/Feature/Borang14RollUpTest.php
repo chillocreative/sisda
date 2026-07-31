@@ -142,10 +142,14 @@ class Borang14RollUpTest extends TestCase
         $this->assertSame(['melapor' => 1, 'jumlah' => 2], $hasil['liputan'],
             'Undi ditolak sahaja bukan laporan keputusan — liputan mesti kekal separa (amber).');
 
-        // Angka 90/91 juga tidak boleh menyelinap masuk sebagai "slot" undi.
-        $this->assertArrayNotHasKey(90, $hasil['undi']);
-        $this->assertArrayNotHasKey(91, $hasil['undi']);
-        $this->assertSame([1 => 2282, 2 => 1195, 3 => 412], $hasil['undi']);
+        // Undi calon dijumlahkan seperti biasa. `undi` MEMANG membawa kunci
+        // 90/91 (jumlahSlot tidak berhak menapis hujung atas — lihat docblocknya:
+        // menapis akan menggugurkan calon slot 7+ yang sah). Ia dikepit oleh
+        // ScoreboardPayload (`$slot <= $penjuru`), dan ujian di bawah memaku
+        // kepitan itu pada angka yang benar-benar dipapar.
+        $this->assertSame(2282, $hasil['undi'][1]);
+        $this->assertSame(1195, $hasil['undi'][2]);
+        $this->assertSame(412, $hasil['undi'][3]);
     }
 
     /**
@@ -185,6 +189,85 @@ class Borang14RollUpTest extends TestCase
         $this->assertSame(['melapor' => 1, 'jumlah' => 2], $muatan['liputan']);
         $this->assertNotSame($muatan['liputan']['melapor'], $muatan['liputan']['jumlah'],
             'Papan awam tidak boleh memapar LENGKAP sedangkan satu DUN belum melaporkan undi calon.');
+
+        // Kepitan `$slot <= $penjuru` ScoreboardPayload ialah SATU-SATUNYA
+        // perkara yang menjauhkan undi ditolak (slot 90) daripada angka yang
+        // dipapar, sekarang setelah jumlahSlot() tidak lagi menapisnya.
+        // Dipaku di sini supaya ia tidak boleh hilang tanpa disedari.
+        $this->assertSame([2282, 1195, 412], array_column($muatan['rows'], 'undi'));
+        $this->assertSame(3889, $muatan['total_keluar'],
+            'Undi ditolak (17) tidak boleh masuk ke dalam jumlah keluar.');
+    }
+
+    /**
+     * REGRESI (ditemui pada semakan semula pembetulan liputan): `penjuru` tidak
+     * dikepit di mana-mana pada laluan muat naik — writeForm() menetapkan
+     * `penjuru = max(2, count($calon))` dan putVote() menulis slot `$i + 1`
+     * tanpa had — jadi scoresheet Parlimen dengan 7 calon menghasilkan undi
+     * SEBENAR pada slot 7. Menapis 1..6 dalam jumlahSlot() memaparkan undi
+     * calon ke-7 sebagai 0 pada papan awam: sifar rekaan bagi undi sebenar.
+     */
+    public function test_a_seven_candidate_parlimen_contest_reports_slot_seven(): void
+    {
+        $definisi = Borang14Form::create([
+            'kawasan_type' => 'parlimen', 'kawasan_id' => $this->parlimen->id,
+            'jenis_pr' => 'pru', 'tahun' => 2027, 'penjuru' => 7,
+            // Struktur sendiri = bacaan TERUS; inilah bentuk yang dihasilkan
+            // oleh muat naik scoresheet, satu-satunya laluan yang boleh
+            // menghasilkan penjuru 7.
+            'structure' => ['rows' => [['dm' => 'PEKAN GEMAS', 'pusat' => 'PM', 'saluran' => '1']]],
+            'parties' => collect(range(1, 7))->map(fn ($i) => ['slot' => $i, 'nama' => "PARTI {$i}"])->all(),
+        ]);
+
+        foreach ([1 => 500, 2 => 400, 3 => 300, 4 => 200, 5 => 100, 6 => 50, 7 => 77] as $slot => $undi) {
+            Borang14Vote::create([
+                'borang14_form_id' => $definisi->id, 'contest' => Borang14Vote::CONTEST_PARLIMEN,
+                'pusat' => 'PM', 'saluran' => '1', 'slot' => $slot, 'undi' => $undi,
+            ]);
+        }
+        // Undi ditolak pada borang yang sama — mesti tetap di luar jumlah.
+        Borang14Vote::create([
+            'borang14_form_id' => $definisi->id, 'contest' => Borang14Vote::CONTEST_PARLIMEN,
+            'pusat' => 'PM', 'saluran' => '1', 'slot' => 90, 'undi' => 19,
+        ]);
+
+        $hasil = Borang14RollUp::forParlimen($this->parlimen->id, 2027);
+
+        $this->assertSame(77, $hasil['undi'][7] ?? null,
+            'Undi calon ke-7 adalah SEBENAR — memaparkannya sebagai 0 ialah sifar rekaan.');
+
+        DB::table('pangkalan_data_pengundi')->insert([
+            'no_ic' => '990101010101', 'nama' => 'PENGUNDI', 'kadun' => 'GEMAS',
+            'parlimen' => 'JEMPOL', 'daerah_mengundi' => 'PEKAN GEMAS', 'lokaliti' => 'SK GEMAS',
+            'is_deceased' => false, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        Scoreboard::create([
+            'kawasan_type' => 'parlimen', 'kawasan_id' => $this->parlimen->id,
+            'borang14_form_id' => $definisi->id, 'title' => 'JEMPOL', 'status' => Scoreboard::STATUS_DRAF,
+        ]);
+
+        $muatan = ScoreboardPayload::forPublicSeat('parlimen', $this->parlimen->id);
+
+        $this->assertSame([500, 400, 300, 200, 100, 50, 77], array_column($muatan['rows'], 'undi'),
+            'Papan awam mesti memapar ketujuh-tujuh calon dengan undi sebenarnya.');
+        $this->assertSame(1627, $muatan['total_keluar'],
+            'Undi ditolak (19) kekal di luar jumlah walaupun penjuru 7.');
+    }
+
+    /**
+     * Kes yang sama pada cabang KUMPULAN: undi slot 7 pada borang DUN mesti
+     * dijumlahkan, bukan digugurkan.
+     */
+    public function test_slot_seven_votes_on_a_dun_form_are_aggregated_too(): void
+    {
+        $definisi = $this->definisiParlimen(structure: null);
+        $this->borangDun($this->dunA, $definisi, [1 => 100, 7 => 77]);
+
+        $hasil = Borang14RollUp::forParlimen($this->parlimen->id, 2027);
+
+        $this->assertSame(100, $hasil['undi'][1]);
+        $this->assertSame(77, $hasil['undi'][7] ?? null);
+        $this->assertSame(['melapor' => 1, 'jumlah' => 1], $hasil['liputan']);
     }
 
     public function test_no_parlimen_form_at_all_returns_null_not_zero(): void
