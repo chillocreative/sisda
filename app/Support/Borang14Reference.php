@@ -110,6 +110,59 @@ class Borang14Reference
         return 'borang14ref:v1:'.$suffix;
     }
 
+    /**
+     * Jumlah pengundi berdaftar bagi sesuatu rujukan.
+     *
+     * Kelas ini memulangkan DUA bentuk berbeza, dan pemanggil tidak sepatutnya
+     * perlu tahu yang mana satu:
+     *   - Fail JSON terkurasi : daerah_mengundi[].jumlah_berdaftar WUJUD
+     *   - Terbitan DPT        : TIADA jumlah_berdaftar; kiraan berada pada
+     *                           daerah_mengundi[].pusat_mengundi[].saluran[].berdaftar
+     *
+     * Hanya satu DUN mempunyai fail terkurasi, jadi hampir setiap kerusi
+     * menggunakan bentuk kedua. Kod lama menjumlahkan bentuk pertama sahaja
+     * dengan `?? 0`, lalu memaparkan "% Keluar Mengundi: 0.0%" — angka direka.
+     *
+     * Memulangkan null apabila rujukan langsung TIDAK membawa sebarang angka
+     * berdaftar. null bermaksud "tidak diketahui" dan mesti dipaparkan sebagai
+     * "—". Sifar yang dilaporkan secara jujur oleh rujukan kekal sebagai 0.
+     *
+     * @param  array<string,mixed>  $reference
+     */
+    public static function jumlahBerdaftar(array $reference): ?int
+    {
+        $jumlah = 0;
+        $adaAngka = false;
+
+        foreach ($reference['daerah_mengundi'] ?? [] as $dm) {
+            if (array_key_exists('jumlah_berdaftar', $dm) && $dm['jumlah_berdaftar'] !== null) {
+                $jumlah += (int) $dm['jumlah_berdaftar'];
+                $adaAngka = true;
+
+                continue;
+            }
+
+            foreach ($dm['pusat_mengundi'] ?? [] as $pusat) {
+                foreach ($pusat['saluran'] ?? [] as $saluran) {
+                    if (array_key_exists('berdaftar', $saluran) && $saluran['berdaftar'] !== null) {
+                        $jumlah += (int) $saluran['berdaftar'];
+                        $adaAngka = true;
+                    }
+                }
+            }
+        }
+
+        foreach (['undi_awal', 'undi_pos'] as $kunci) {
+            $bahagian = $reference[$kunci] ?? [];
+            if (array_key_exists('berdaftar', $bahagian) && $bahagian['berdaftar'] !== null) {
+                $jumlah += (int) $bahagian['berdaftar'];
+                $adaAngka = true;
+            }
+        }
+
+        return $adaAngka ? $jumlah : null;
+    }
+
     /** @return array<string,mixed>|null */
     private static function deriveFromDpt(int $kadunId): ?array
     {

@@ -74,7 +74,7 @@ class ScoreboardPayload
             }
         }
 
-        $berdaftar = self::totalBerdaftar($reference);
+        $berdaftar = Borang14Reference::jumlahBerdaftar($reference);
 
         $rows = [];
         $undiKami = 0;
@@ -126,58 +126,6 @@ class ScoreboardPayload
     public static function forPublicSeat(string $type, int $id): array
     {
         return Arr::except(self::forSeat($type, $id), self::KUNCI_PEMILIK);
-    }
-
-    /**
-     * Jumlah pengundi berdaftar bagi kerusi. Rujukan Borang14Reference wujud
-     * dalam DUA bentuk berbeza:
-     *  - JSON terkurasi (jarang, cth. kadun-41.json): setiap daerah_mengundi
-     *    sudah ada 'jumlah_berdaftar' terus.
-     *  - Anggaran DPT (lazim — deriveFromDpt/deriveFromDptForBandar): TIADA
-     *    'jumlah_berdaftar' pada peringkat daerah_mengundi; angka hanya wujud
-     *    lebih dalam, pada daerah_mengundi[].pusat_mengundi[].saluran[].berdaftar.
-     *
-     * Mengabaikan bentuk kedua (seperti kod asal pengawal yang disalin ke
-     * dalam brief ini) menjadikan total_berdaftar sifar secara senyap bagi
-     * SETIAP kerusi tanpa JSON terkurasi — angka reka yang UI pernah paparkan
-     * sebagai kadar keluar mengundi "0.0%". Tiada rujukan bukan bermakna
-     * sifar: jika KEDUA-DUA bentuk gagal memberi sebarang angka langsung,
-     * pulangkan null supaya antara muka memapar "—".
-     */
-    private static function totalBerdaftar(array $reference): ?int
-    {
-        $jumlah = 0;
-        $ada = false;
-
-        foreach ($reference['daerah_mengundi'] ?? [] as $dm) {
-            if (isset($dm['jumlah_berdaftar'])) {
-                $jumlah += (int) $dm['jumlah_berdaftar'];
-                $ada = true;
-
-                continue;
-            }
-
-            foreach ($dm['pusat_mengundi'] ?? [] as $pm) {
-                foreach ($pm['saluran'] ?? [] as $saluran) {
-                    if (isset($saluran['berdaftar'])) {
-                        $jumlah += (int) $saluran['berdaftar'];
-                        $ada = true;
-                    }
-                }
-            }
-        }
-
-        if (isset($reference['undi_awal']['berdaftar'])) {
-            $jumlah += (int) $reference['undi_awal']['berdaftar'];
-            $ada = true;
-        }
-
-        if (isset($reference['undi_pos']['berdaftar'])) {
-            $jumlah += (int) $reference['undi_pos']['berdaftar'];
-            $ada = true;
-        }
-
-        return $ada ? $jumlah : null;
     }
 
     /**
