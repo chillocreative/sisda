@@ -19,24 +19,39 @@ Route::get('/', function () {
  * sentiasa bermula dengan huruf (N27, P129) manakala id lama sentiasa angka
  * penuh, jadi kekangan di bawah tidak boleh bertindih.
  *
- * THROTTLE (mengikut konvensyen paca.public di bawah — had per-IP seminit):
- *  - halaman/senarai: 60,1 sama seperti paca.public. Seorang penonton memuat
- *    halaman sekali; 60 muat naik seminit sudah jauh melebihi guna biasa.
- *  - /data: 240,1. Halaman meninjau setiap 4 saat = 15 permintaan seminit bagi
- *    SATU penonton, jadi 240 memberi ruang ~16 penonton di belakang SATU IP
- *    (NAT pejabat / gateway telco) tanpa tersekat, sambil menghentikan klien
- *    tunggal yang membedil ribuan permintaan seminit.
+ * THROTTLE (had per-IP seminit). Sengaja LEBIH LONGGAR daripada konvensyen
+ * paca.public 60,1 di bawah, kerana corak trafik kedua-duanya berbeza sama
+ * sekali: pautan PACA dikongsi kepada segelintir petugas, manakala papan markah
+ * dikongsi ke WhatsApp/Facebook pada malam keputusan dan boleh menarik ribuan
+ * penonton serentak — majoriti mereka di belakang BEBERAPA IP egress CGNAT
+ * telco sahaja. Had per-IP yang ketat menghukum penonton sah, bukan penyerang.
+ *
+ *  - halaman/senarai: 600,1. Setiap penonton memuat halaman SEKALI, jadi ini
+ *    ~600 penonton baharu seminit bagi satu IP telco. Pada 60,1 (had lama)
+ *    penonton ke-61 dalam seminit menerima halaman ralat 429 kosong TANPA papan
+ *    dan tanpa pengendalian lembut — kegagalan keras pada saat paling penting.
+ *  - /data: 1200,1. Halaman meninjau setiap 4 saat = 15 permintaan seminit bagi
+ *    SATU penonton, jadi 1200 memberi ruang ~80 penonton serentak di belakang
+ *    SATU IP. Laluan ini gagal dengan lembut (axios .catch mengekalkan paparan
+ *    terakhir), tetapi ia dinaikkan seiring supaya penonton yang berjaya membuka
+ *    halaman tidak terus tersekat pada tinjauan pertamanya.
+ *
  * Ini lapisan kedua sahaja — kos sebenar sudah dijinakkan oleh cache rujukan
- * dalam Borang14Reference (lihat CACHE_TTL di sana).
+ * dalam Borang14Reference (lihat CACHE_TTL di sana); yang tinggal bagi setiap
+ * tinjauan hanyalah satu SUM(undi) GROUP BY slot bagi satu borang.
+ *
+ * Jika trafik melebihi ini, JANGAN sekadar naikkan nombor: halaman /scoreboard
+ * dan /scoreboard/{kod} boleh dicache di tepi (CDN), tetapi /data TIDAK boleh
+ * (ia no-store dengan sengaja — undi mesti langsung).
  */
 Route::get('/scoreboard', [\App\Http\Controllers\PublicScoreboardController::class, 'index'])
-    ->name('scoreboard.public.index')->middleware('throttle:60,1');
+    ->name('scoreboard.public.index')->middleware('throttle:600,1');
 Route::get('/scoreboard/{kadun}', [\App\Http\Controllers\PublicScoreboardController::class, 'legacy'])
-    ->whereNumber('kadun')->name('scoreboard.public.legacy')->middleware('throttle:60,1');
+    ->whereNumber('kadun')->name('scoreboard.public.legacy')->middleware('throttle:600,1');
 Route::get('/scoreboard/{kod}/data', [\App\Http\Controllers\PublicScoreboardController::class, 'data'])
-    ->where('kod', '[A-Za-z]\d+')->name('scoreboard.public.data')->middleware('throttle:240,1');
+    ->where('kod', '[A-Za-z]\d+')->name('scoreboard.public.data')->middleware('throttle:1200,1');
 Route::get('/scoreboard/{kod}', [\App\Http\Controllers\PublicScoreboardController::class, 'show'])
-    ->where('kod', '[A-Za-z]\d+')->name('scoreboard.public')->middleware('throttle:60,1');
+    ->where('kod', '[A-Za-z]\d+')->name('scoreboard.public')->middleware('throttle:600,1');
 
 // Public per-Pusat PACA link — no login required. A coordinator shares this
 // token URL with a petugas, who self-registers into an empty slot. See
