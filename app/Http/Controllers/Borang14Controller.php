@@ -235,6 +235,10 @@ class Borang14Controller extends Controller
             'kawasan_id'   => ['required', 'integer', Rule::exists($existsTable, 'id')],
             'jenis_pr' => 'required|in:pru,prn,prk',
             'tahun'    => 'required|integer|between:1959,2100',
+            // WAJIB — bukan dilalaikan daripada kawasan_type. Pada borang serentak
+            // ini bertindak atas apa yang pengguna SEDANG sunting; pemanggil yang
+            // lupa mesti gagal (422), bukan senyap memadam pertandingan yang salah.
+            'contest'  => ['required', Rule::in([Borang14Vote::CONTEST_DUN, Borang14Vote::CONTEST_PARLIMEN])],
         ]);
 
         $form = Borang14Form::forKawasan($validated['kawasan_type'], $validated['kawasan_id'])
@@ -242,7 +246,7 @@ class Borang14Controller extends Controller
             ->where('tahun', $validated['tahun'])
             ->first();
 
-        $form?->votes()->delete();
+        $form?->votesFor($validated['contest'])->delete();
 
         return response()->json(['ok' => true]);
     }
@@ -1248,9 +1252,21 @@ class Borang14Controller extends Controller
         ]);
     }
 
-    /** Tulis borang, snapshot pemulihan, dan setiap sel undi. Mesti dalam transaksi. */
-    private function writeForm(Borang14Form $form, array $extractedData, array $review, array $cached, Request $request): void
+    /**
+     * Tulis borang, snapshot pemulihan, dan setiap sel undi. Mesti dalam transaksi.
+     *
+     * $contest melalaikan kepada pertandingan borang itu sendiri — muat naik
+     * scoresheet hari ini sentiasa satu pertandingan sahaja (satu borang = satu
+     * kawasan_type), jadi ini kekal SAMA seperti sebelum ini. Snapshot yang
+     * dirakam tetap merangkumi KEDUA-DUA pertandingan (untuk revert() penuh),
+     * tetapi PADAMAN sebelum menulis semula mesti terhad kepada pertandingan
+     * yang sedang ditulis — jika tidak, muat naik PRU memadam undi PRN yang
+     * sudah dikunci masuk oleh pasukan lain pada borang serentak yang sama.
+     */
+    private function writeForm(Borang14Form $form, array $extractedData, array $review, array $cached, Request $request, ?string $contest = null): void
     {
+        $contest ??= $form->contestSendiri();
+
         // Scoresheet menang — tetapi simpan keadaan lama dahulu supaya boleh revert.
         if ($form->exists) {
             Borang14Snapshot::create([
@@ -1261,7 +1277,7 @@ class Borang14Controller extends Controller
                 'reason' => 'before_scoresheet_overwrite',
                 'created_by' => $request->user()?->id,
             ]);
-            $form->votes()->delete();
+            $form->votesFor($contest)->delete();
         }
 
         $form->fill([
@@ -1284,10 +1300,10 @@ class Borang14Controller extends Controller
 
         foreach ($extractedData['rows'] as $r) {
             foreach (($r['undi'] ?? []) as $i => $undi) {
-                $this->putVote($form, $r, $i + 1, (int) $undi);
+                $this->putVote($form, $r, $i + 1, (int) $undi, $contest);
             }
-            $this->putVote($form, $r, 90, (int) ($r['ditolak'] ?? 0));
-            $this->putVote($form, $r, 91, (int) ($r['tidak_dimasukkan'] ?? 0));
+            $this->putVote($form, $r, 90, (int) ($r['ditolak'] ?? 0), $contest);
+            $this->putVote($form, $r, 91, (int) ($r['tidak_dimasukkan'] ?? 0), $contest);
         }
     }
 
@@ -1691,6 +1707,12 @@ class Borang14Controller extends Controller
                 'deleted_by' => $request->user()?->id,
             ]);
 
+            // Sengaja TIDAK terhad kepada satu contest — borang itu SENDIRI sedang
+            // dipadam (baris di bawah), jadi kedua-dua pertandingan pada borang
+            // serentak mesti turut lenyap bersama. Ini BUKAN lubang contest-blind
+            // yang sama seperti reset()/writeForm(): di situ borang KEKAL wujud
+            // selepas padaman, di sini ia tidak. Arkib di atas (yang MERANGKUMI
+            // kedua-dua contest) ialah satu-satunya cara memulihkannya.
             $form->votes()->delete();
             $form->delete();
         });

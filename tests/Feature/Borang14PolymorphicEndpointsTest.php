@@ -221,7 +221,7 @@ class Borang14PolymorphicEndpointsTest extends TestCase
         $this->assertSame(1, $form->votes()->count());
 
         $this->actingAs($this->user())->postJson(route('pilihanraya.borang-14.reset'), [
-            'kawasan_type' => 'dun', 'kawasan_id' => $kadun->id, 'jenis_pr' => 'prn', 'tahun' => 2023,
+            'kawasan_type' => 'dun', 'kawasan_id' => $kadun->id, 'jenis_pr' => 'prn', 'tahun' => 2023, 'contest' => 'dun',
         ])->assertOk()->assertJson(['ok' => true]);
 
         $this->assertSame(0, $form->votes()->count());
@@ -238,7 +238,7 @@ class Borang14PolymorphicEndpointsTest extends TestCase
         $form->votes()->create(['pusat' => '', 'saluran' => '1', 'slot' => 1, 'undi' => 5]);
 
         $this->actingAs($this->user())->postJson(route('pilihanraya.borang-14.reset'), [
-            'kawasan_type' => 'parlimen', 'kawasan_id' => $bandar->id, 'jenis_pr' => 'prn', 'tahun' => 2023,
+            'kawasan_type' => 'parlimen', 'kawasan_id' => $bandar->id, 'jenis_pr' => 'prn', 'tahun' => 2023, 'contest' => 'parlimen',
         ])->assertOk()->assertJson(['ok' => true]);
 
         $this->assertSame(0, $form->votes()->count());
@@ -250,7 +250,7 @@ class Borang14PolymorphicEndpointsTest extends TestCase
         $this->assertDatabaseMissing('kadun', ['id' => $bandar->id]);
 
         $this->actingAs($this->user())->postJson(route('pilihanraya.borang-14.reset'), [
-            'kawasan_type' => 'dun', 'kawasan_id' => $bandar->id, 'jenis_pr' => 'prn', 'tahun' => 2023,
+            'kawasan_type' => 'dun', 'kawasan_id' => $bandar->id, 'jenis_pr' => 'prn', 'tahun' => 2023, 'contest' => 'dun',
         ])->assertStatus(422);
     }
 }

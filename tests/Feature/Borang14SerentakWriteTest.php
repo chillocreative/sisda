@@ -9,6 +9,8 @@ use App\Models\Kadun;
 use App\Models\Negeri;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /**
@@ -122,5 +124,83 @@ class Borang14SerentakWriteTest extends TestCase
 
         $this->assertSame($parlimenForm->id, $dunForm->formParlimen->id);
         $this->assertCount(3, $dunForm->formParlimen->parties);
+    }
+
+    /**
+     * Butang "kosongkan" mesti berkunci pada pertandingan yang SEDANG disunting,
+     * bukan seluruh borang — jika tidak, mengosongkan skrin PRN pada borang
+     * serentak turut memadam undi PRU yang sudah dikunci masuk oleh pasukan lain.
+     */
+    public function test_clearing_one_contest_leaves_the_other_contests_rows_intact(): void
+    {
+        $form = Borang14Form::create([
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->dun->id,
+            'jenis_pr' => 'prn', 'tahun' => 2027, 'penjuru' => 2, 'parties' => [],
+        ]);
+        Borang14Vote::create(['borang14_form_id' => $form->id, 'contest' => 'dun', 'pusat' => 'SK GEMAS', 'saluran' => '1', 'slot' => 1, 'undi' => 50]);
+        Borang14Vote::create(['borang14_form_id' => $form->id, 'contest' => 'parlimen', 'pusat' => 'SK GEMAS', 'saluran' => '1', 'slot' => 1, 'undi' => 999]);
+
+        $this->actingAs($this->admin())->postJson(route('pilihanraya.borang-14.reset'), [
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->dun->id,
+            'jenis_pr' => 'prn', 'tahun' => 2027,
+            'contest' => 'dun',
+        ])->assertOk();
+
+        $this->assertSame(0, $form->votesFor(Borang14Vote::CONTEST_DUN)->count(), 'sel DUN mesti dikosongkan.');
+        $this->assertSame(999, (int) $form->votesFor(Borang14Vote::CONTEST_PARLIMEN)->where('slot', 1)->value('undi'), 'undi PRU pasukan lain tidak boleh terjejas oleh butang kosongkan PRN.');
+    }
+
+    public function test_reset_requires_contest(): void
+    {
+        Borang14Form::create([
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->dun->id,
+            'jenis_pr' => 'prn', 'tahun' => 2027, 'penjuru' => 2, 'parties' => [],
+        ]);
+
+        $this->actingAs($this->admin())->postJson(route('pilihanraya.borang-14.reset'), [
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->dun->id,
+            'jenis_pr' => 'prn', 'tahun' => 2027,
+        ])->assertStatus(422);
+    }
+
+    /**
+     * Laluan muat naik/commit scoresheet ialah laluan tulis juga. Muat naik
+     * scoresheet PRN (borang DUN) tidak boleh memadam undi PRU yang sudah
+     * dikunci masuk oleh pasukan lain pada borang serentak yang sama.
+     */
+    public function test_the_upload_commit_path_does_not_wipe_the_other_contest(): void
+    {
+        $form = Borang14Form::create([
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->dun->id,
+            'jenis_pr' => 'prn', 'tahun' => 2027, 'penjuru' => 2, 'parties' => [],
+        ]);
+        Borang14Vote::create(['borang14_form_id' => $form->id, 'contest' => 'dun', 'pusat' => 'SK GEMAS', 'saluran' => '1', 'slot' => 1, 'undi' => 50]);
+        Borang14Vote::create(['borang14_form_id' => $form->id, 'contest' => 'parlimen', 'pusat' => 'SK GEMAS', 'saluran' => '1', 'slot' => 1, 'undi' => 999]);
+
+        $user = $this->admin();
+        $token = Str::random(40);
+
+        Cache::put('borang14:upload-dry-run:'.$token, [
+            'user_id' => $user->id,
+            'extracted' => [
+                'negeri' => 'NEGERI SEMBILAN',
+                'kawasan_kod' => 'N.34',
+                'parlimen_kod' => '133',
+                'kawasan_nama' => 'GEMAS',
+                'rows' => [
+                    ['pusat' => 'SK GEMAS', 'saluran' => '1', 'undi' => [77], 'ditolak' => 0, 'tidak_dimasukkan' => 0],
+                ],
+                'calon' => [],
+            ],
+            'jenis_pr' => 'prn',
+            'tahun' => 2027,
+            'filename' => 'ujian.pdf',
+            'fail_path' => null,
+        ], now()->addMinutes(10));
+
+        $this->actingAs($user)->postJson(route('pilihanraya.borang-14.upload'), ['token' => $token])->assertOk();
+
+        $this->assertSame(999, (int) $form->votesFor(Borang14Vote::CONTEST_PARLIMEN)->where('slot', 1)->value('undi'), 'undi PRU pasukan lain tidak boleh dipadam oleh commit muat naik PRN.');
+        $this->assertSame(77, (int) $form->votesFor(Borang14Vote::CONTEST_DUN)->where('slot', 1)->value('undi'));
     }
 }
