@@ -46,7 +46,6 @@ function SettingsModal({ seat, board, onClose, onSaved }) {
     const [kami, setKami] = useState(() => rows.filter((r) => r.is_kami).map((r) => r.slot));
     const [names, setNames] = useState(() => rows.map((r) => r.calon || ''));
     const [logoFile, setLogoFile] = useState(null);
-    const [photoFiles, setPhotoFiles] = useState({}); // slot -> File
     const [saving, setSaving] = useState(false);
     const [ralat, setRalat] = useState(null);
 
@@ -67,7 +66,6 @@ function SettingsModal({ seat, board, onClose, onSaved }) {
         rows.forEach((r, i) => {
             fd.append(`candidates[${i}][slot]`, r.slot);
             fd.append(`candidates[${i}][nama]`, names[i] || '');
-            if (photoFiles[r.slot]) fd.append(`photos[${r.slot}]`, photoFiles[r.slot]);
         });
         if (logoFile) fd.append('logo', logoFile);
 
@@ -121,36 +119,18 @@ function SettingsModal({ seat, board, onClose, onSaved }) {
                     <p className="text-sm font-semibold text-slate-800 mb-3">Calon</p>
                     <div className="space-y-3">
                         {rows.map((r, i) => (
-                            <div key={r.slot} className="flex items-center gap-3 p-3 rounded-lg border border-slate-200">
-                                <img
-                                    src={photoFiles[r.slot] ? URL.createObjectURL(photoFiles[r.slot]) : (r.gambar || '')}
-                                    alt=""
-                                    className="h-14 w-14 object-cover rounded-full border-2 bg-slate-100"
-                                    style={{ borderColor: partyColor(r.parti) }}
-                                    onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }}
+                            <div key={r.slot} className="p-3 rounded-lg border border-slate-200">
+                                <span className="text-xs font-semibold" style={{ color: partyColor(r.parti) }}>{r.parti}</span>
+                                <input
+                                    value={names[i] || ''}
+                                    onChange={(e) => setNames((prev) => prev.map((v, idx) => (idx === i ? e.target.value : v)))}
+                                    className={field}
+                                    placeholder="Nama calon"
                                 />
-                                <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    <div>
-                                        <span className="text-xs font-semibold" style={{ color: partyColor(r.parti) }}>{r.parti}</span>
-                                        <input
-                                            value={names[i] || ''}
-                                            onChange={(e) => setNames((prev) => prev.map((v, idx) => (idx === i ? e.target.value : v)))}
-                                            className={field}
-                                            placeholder="Nama calon"
-                                        />
-                                        <label className="flex items-center gap-2 text-sm text-slate-700 mt-1">
-                                            <input type="checkbox" checked={kami.includes(r.slot)} onChange={() => toggleKami(r.slot)} className="rounded border-slate-300" />
-                                            Pihak kami
-                                        </label>
-                                    </div>
-                                    <label className="flex items-end">
-                                        <span className="inline-flex items-center gap-2 px-3 py-2 border border-slate-300 rounded-lg text-sm cursor-pointer hover:bg-slate-50 w-full justify-center">
-                                            <Upload className="h-4 w-4" /> {photoFiles[r.slot] ? 'Tukar Gambar' : 'Gambar Calon'}
-                                            <input type="file" accept="image/*" className="hidden"
-                                                onChange={(e) => setPhotoFiles((prev) => ({ ...prev, [r.slot]: e.target.files?.[0] || null }))} />
-                                        </span>
-                                    </label>
-                                </div>
+                                <label className="flex items-center gap-2 text-sm text-slate-700 mt-2">
+                                    <input type="checkbox" checked={kami.includes(r.slot)} onChange={() => toggleKami(r.slot)} className="rounded border-slate-300" />
+                                    Pihak kami
+                                </label>
                             </div>
                         ))}
                     </div>
@@ -270,10 +250,8 @@ function Board({ data }) {
                                 </div>
                             )}
                             <div className="p-5 flex items-center gap-4">
-                                <div className="h-20 w-20 shrink-0 rounded-full bg-slate-100 border-2 flex items-center justify-center overflow-hidden" style={{ borderColor: color }}>
-                                    {r.gambar
-                                        ? <img src={r.gambar} alt={r.calon || r.parti} className="h-full w-full object-cover" />
-                                        : <Vote className="h-8 w-8 text-slate-300" />}
+                                <div className="h-20 w-20 shrink-0 rounded-full bg-slate-100 border-2 flex items-center justify-center" style={{ borderColor: color }}>
+                                    <Vote className="h-8 w-8 text-slate-300" />
                                 </div>
                                 <div className="min-w-0 flex-1">
                                     <div className="text-xs font-bold uppercase tracking-wide" style={{ color }}>{r.parti}{r.is_kami ? ' · KAMI' : ''}</div>

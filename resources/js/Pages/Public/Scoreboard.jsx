@@ -106,10 +106,8 @@ function Board({ data }) {
                                 </div>
                             )}
                             <div className="p-5 flex items-center gap-4">
-                                <div className="h-20 w-20 shrink-0 rounded-full bg-slate-100 border-2 flex items-center justify-center overflow-hidden" style={{ borderColor: color }}>
-                                    {r.gambar
-                                        ? <img src={r.gambar} alt={r.calon || r.parti} className="h-full w-full object-cover" />
-                                        : <Vote className="h-8 w-8 text-slate-300" />}
+                                <div className="h-20 w-20 shrink-0 rounded-full bg-slate-100 border-2 flex items-center justify-center" style={{ borderColor: color }}>
+                                    <Vote className="h-8 w-8 text-slate-300" />
                                 </div>
                                 <div className="min-w-0 flex-1">
                                     <div className="text-xs font-bold uppercase tracking-wide" style={{ color }}>{r.parti}{r.is_kami ? ' · KAMI' : ''}</div>

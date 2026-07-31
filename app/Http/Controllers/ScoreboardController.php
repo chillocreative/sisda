@@ -65,8 +65,6 @@ class ScoreboardController extends Controller
             'candidates.*.slot' => 'required|integer|min:1|max:6',
             'candidates.*.nama' => 'nullable|string|max:120',
             'logo' => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:4096',
-            'photos' => 'array',
-            'photos.*' => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:4096',
         ]);
 
         // Sumber undi mesti milik kerusi ini — jika tidak, papan DUN Pilah
@@ -90,18 +88,16 @@ class ScoreboardController extends Controller
             $board->logo_path = $this->storePublic($request->file('logo'), 'scoreboard/logo');
         }
 
+        // Gambar calon telah dibuang daripada ciri ini — hanya nama disimpan.
+        // Sebarang gambar yang pernah dimuat naik dinyahpaut semasa simpanan
+        // berikutnya supaya fail lama tidak tertinggal dalam public/uploads.
         $existing = collect($board->candidates ?? [])->keyBy('slot');
         $candidates = [];
         foreach ($validated['candidates'] ?? [] as $c) {
             $slot = (int) $c['slot'];
-            $gambar = $existing[$slot]['gambar'] ?? null;
+            $this->deletePublic($existing[$slot]['gambar'] ?? null);
 
-            if ($request->hasFile("photos.{$slot}")) {
-                $this->deletePublic($gambar);
-                $gambar = $this->storePublic($request->file("photos.{$slot}"), 'scoreboard/calon');
-            }
-
-            $candidates[] = ['slot' => $slot, 'nama' => $c['nama'] ?? null, 'gambar' => $gambar];
+            $candidates[] = ['slot' => $slot, 'nama' => $c['nama'] ?? null];
         }
         $board->candidates = $candidates;
 

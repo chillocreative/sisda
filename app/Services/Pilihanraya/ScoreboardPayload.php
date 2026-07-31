@@ -89,7 +89,6 @@ class ScoreboardPayload
                 'parti' => $parties[$slot - 1]['nama'] ?? "Parti {$slot}",
                 'is_kami' => $isKami,
                 'calon' => $candidates[$slot]['nama'] ?? null,
-                'gambar' => ! empty($candidates[$slot]['gambar']) ? asset($candidates[$slot]['gambar']) : null,
                 'undi' => $undi,
             ];
         }
