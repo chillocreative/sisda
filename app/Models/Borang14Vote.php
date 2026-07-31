@@ -19,22 +19,40 @@ class Borang14Vote extends Model
     ];
 
     /**
-     * Jaring keselamatan, BUKAN kebenaran untuk penulis serentak.
+     * Jaring keselamatan pada CIPTAAN (INSERT) SAHAJA — BUKAN kebenaran untuk
+     * penulis serentak, dan BUKAN perlindungan pada KEMASKINI (UPDATE).
      *
-     * Migrasi 2026_08_01 menjadikan `contest` NOT NULL, tetapi penulis
-     * SEDIA ADA (Borang14Controller::saveVote/putVote/revert, seeder, dsb.)
-     * tidak pernah menghantar `contest` — mereka dibina sebelum lajur ini
-     * wujud. Untuk borang SATU pertandingan (kes biasa hari ini: DUN sahaja
-     * ATAU Parlimen sahaja), kawasan_type borang itu SENDIRI ialah satu-
-     * satunya jawapan yang mungkin betul, jadi ia selamat dijadikan lalai.
+     * Migrasi 2026_08_01 menjadikan `contest` NOT NULL, tetapi penulis SEDIA
+     * ADA (Borang14Controller::saveVote/putVote/revert, seeder, dsb.) tidak
+     * pernah menghantar `contest` — mereka dibina sebelum lajur ini wujud.
+     * Untuk borang SATU pertandingan (kes biasa hari ini: DUN sahaja ATAU
+     * Parlimen sahaja), kawasan_type borang itu SENDIRI ialah satu-satunya
+     * jawapan yang mungkin betul, jadi ia selamat dijadikan lalai — tetapi
+     * HANYA pada event `creating`, iaitu HANYA apabila baris itu baharu.
      *
-     * Ini TIDAK memberi kebenaran kepada penulis borang SERENTAK (satu
-     * borang merekod KEDUA-DUA PRU dan PRN) untuk mengabaikan `contest`.
-     * Pada borang sedemikian, kawasan_type borang itu hanya SATU daripada
-     * dua jawapan yang sah — mengabaikan `contest` di situ akan menulis
-     * secara senyap ke pertandingan yang SALAH. Sebab itu Task 2 menjadikan
-     * `contest` medan WAJIB pada sempadan HTTP: supaya pemanggil yang lupa
-     * menghantarnya gagal dengan jelas (422), bukan diberi lalai senyap.
+     * PENTING — ini TIDAK melindungi borang SERENTAK (satu borang merekod
+     * KEDUA-DUA PRU dan PRN) daripada DUA cara yang berbeza:
+     *
+     * 1. Pada INSERT: mengabaikan `contest` menulis secara senyap ke
+     *    kawasan_type borang itu, yang hanya SATU daripada dua jawapan sah.
+     *
+     * 2. Pada UPDATE melalui updateOrCreate() — dan inilah yang lebih
+     *    berbahaya: kunci padanan `saveVote`/`putVote` MASA INI
+     *    (Borang14Controller.php ~:212, ~:1408) TIDAK termasuk `contest`.
+     *    Pada borang serentak, kunci itu (form, pusat, saluran, slot) akan
+     *    memadankan MANA-MANA baris sedia ada bagi sel itu — pertandingan
+     *    yang mana pun ia — lalu mengambil laluan UPDATE terus. Hook
+     *    `creating` di bawah LANGSUNG TIDAK BERJALAN pada laluan itu, jadi
+     *    ia TIDAK melalaikan mahupun melindungi apa-apa; baris pertandingan
+     *    yang SALAH boleh ditimpa secara senyap.
+     *
+     * Pengesahan (validation) semata-mata pada sempadan HTTP (cth. menjadikan
+     * `contest` medan WAJIB pada permintaan) TIDAK MENCUKUPI untuk kes #2 —
+     * ia hanya menghalang permintaan tanpa `contest` daripada sampai ke sini
+     * langsung; ia tidak mengubah kunci padanan updateOrCreate() itu sendiri.
+     * Task 2 MESTI melebarkan kunci padanan `saveVote`/`putVote` untuk turut
+     * merangkumi `contest` sebelum borang serentak selamat ditulis/dikemas
+     * kini — validation sahaja tidak menutup lubang ini.
      */
     protected static function booted(): void
     {
