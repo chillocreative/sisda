@@ -7,10 +7,20 @@ import KawasanPicker from './KawasanPicker';
 import StrukturPanel from './StrukturPanel';
 import {
     VoteTable, UndiAwalPosTable, GrandSummary,
+    VoteTableSerentak, UndiAwalPosTableSerentak,
     toBlocks, cellKey, BULOH_KASAP_KADUN_ID,
 } from '../components/Borang14Form';
 
 const JENIS_LABEL = { pru: 'PRU', prn: 'PRN', prk: 'PRK' };
+
+// Satu peta undi bagi kedua-dua jalur. Kunci sel dinamakan ruang mengikut
+// contest ('dun|…' lawan 'parlimen|…'), jadi undi PRN dan PRU boleh duduk
+// dalam SATU objek tanpa satu menulis ganti satu lagi — itulah sebabnya
+// contest wajib menjadi komponen pertama cellKey().
+//
+// Kedua-dua peta bersiri sebagai [] (array), BUKAN {}, apabila kosong; sebaran
+// objek mengendalikan kedua-dua bentuk dengan betul kerana {...[]} === {}.
+const mergeVotes = (data) => ({ ...(data.votes || {}), ...(data.kontes_parlimen?.votes || {}) });
 
 export default function KeyinTab({ negeriList, parlimenList, kadunList, partiList, penjuruOptions, prefill = null }) {
     const { t } = usePilihanrayaTheme();
@@ -57,6 +67,12 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
     const [reloadNonce, setReloadNonce] = useState(0);
     const [votes, setVotes] = useState({});
     const [form, setForm] = useState(null); // { id, status, source, needs_review, crosscheck_issues, penjuru }
+    // Pertandingan Parlimen yang dipaut kepada borang DUN ini — { id, penjuru,
+    // parties, kawasan_nama, votes }. Server MENINGGALKAN kunci ini sepenuhnya
+    // apabila tiada pautan, jadi `null` di sini bermakna borang satu
+    // pertandingan: kes yang paling biasa, dan yang mesti kekal dipapar
+    // serupa-bit dengan hari ini.
+    const [kontesParlimen, setKontesParlimen] = useState(null);
     const [loading, setLoading] = useState(false);
     const [selectedPusat, setSelectedPusat] = useState('');
     const [cellStatus, setCellStatus] = useState({});
@@ -97,7 +113,8 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                     setStruktur(data.struktur || { pusat: [], undi_awal: false, undi_pos: false });
                     setBolehSuntingStruktur(Boolean(data.boleh_sunting_struktur));
                     setInheritedFrom(data.inherited_from || null);
-                    setVotes(data.votes || {});
+                    setVotes(mergeVotes(data));
+                    setKontesParlimen(data.kontes_parlimen || null);
                     setForm(data.form || null);
                     setPublishedOk(false);
                     if (data.parties?.length) {
@@ -125,6 +142,11 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
     useEffect(() => {
         if (!geographyComplete) {
             setReference(null); setHasData(true); setInheritedFrom(null); setVotes({}); setForm(null);
+            // Pautan kontes milik kerusi yang tadi dipilih — biarkan ia hidup
+            // dan skrin akan memapar jalur PRU kerusi LAMA di atas grid kerusi
+            // baharu, iaitu tepat salah tafsir yang jalur berwarna ini wujud
+            // untuk halang.
+            setKontesParlimen(null);
             // Struktur/bolehSuntingStruktur belong to whichever seat was
             // previously selected — never let them survive a picker change
             // (complete or not), or "Sunting Struktur" can open the panel
@@ -144,6 +166,10 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
         setPublishedOk(false);
         setStruktur({ pusat: [], undi_awal: false, undi_pos: false });
         setBolehSuntingStruktur(false);
+        // Atas sebab yang sama: kosongkan pautan kontes SEBELUM permintaan
+        // dihantar, supaya jalur PRU kerusi lama tidak kekal terpapar sepanjang
+        // muatan kerusi baharu.
+        setKontesParlimen(null);
         // Sama seperti di atas — pertukaran kerusi/pilihan raya menutup panel
         // sunting struktur supaya ia tidak menyimpan `struktur` kerusi lama
         // sambil membaca `picker` kerusi baharu semasa Simpan.
@@ -158,7 +184,8 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                 setStruktur(data.struktur || { pusat: [], undi_awal: false, undi_pos: false });
                 setBolehSuntingStruktur(Boolean(data.boleh_sunting_struktur));
                 setInheritedFrom(data.inherited_from || null);
-                setVotes(data.votes || {});
+                setVotes(mergeVotes(data));
+                setKontesParlimen(data.kontes_parlimen || null);
                 setForm(data.form || null);
                 if (data.parties?.length) {
                     setParties(data.parties);
@@ -182,6 +209,48 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
         () => parties.map((p, i) => (p?.nama ? p.nama : `Parti ${i + 1}`)),
         [parties],
     );
+
+    // Nama parti jalur PRU. Saiznya datang daripada `penjuru` borang PARLIMEN
+    // yang dipaut — BUKAN penjuru borang DUN. Pertandingan Parlimen mempunyai
+    // bilangan calonnya sendiri (cth. 3 penjuru di Parlimen berbanding 2 di
+    // DUN yang sama), jadi membaca penjuru yang salah akan menggugurkan sel
+    // calon secara senyap atau menghantar slot yang ditolak server.
+    //
+    // Panjang senarai ditentukan oleh `penjuru`, bukan oleh `parties.length`:
+    // parti yang belum dipetakan meninggalkan lubang dalam `parties`, dan
+    // memendekkan jalur mengikutnya akan menyembunyikan sel yang sah.
+    const partyNamesPru = useMemo(() => {
+        const n = kontesParlimen?.penjuru;
+        if (n == null) return [];
+        const senarai = kontesParlimen.parties || [];
+        return Array.from({ length: n }, (_, i) => senarai[i]?.nama || `Parti ${i + 1}`);
+    }, [kontesParlimen]);
+
+    // Dua jalur hanya apabila kontes Parlimen dipaut DAN penjurunya diketahui.
+    // `penjuru` null bermakna "belum ditetapkan", bukan sifar calon — dan
+    // Number(null) ialah 0, jadi tanpa semakan `!= null` yang eksplisit ini
+    // jalur PRU akan dipapar dengan SIFAR lajur calon dan kelihatan seperti
+    // pertandingan yang tiada calon. Bila ragu, kembali kepada satu jalur.
+    const serentak = kontesParlimen != null && kontesParlimen.penjuru != null && partyNamesPru.length > 0;
+
+    // Tajuk jalur menamakan pertandingan DAN kerusinya. Nama kerusi yang tiada
+    // dieja sebagai teks yang jelas, bukan '—': tajuk "PRU · Parlimen —" pada
+    // pukul 11 malam tidak memberitahu PACA kertas undi mana yang dipegangnya.
+    const namaParlimen = kontesParlimen?.kawasan_nama;
+    const bands = useMemo(() => (serentak ? [
+        {
+            contest: contestSendiri,
+            tajuk: `${JENIS_LABEL[jenisPr] ?? jenisPr} · ${reference?.dun ? `DUN ${reference.dun}` : 'DUN (nama kerusi tidak diketahui)'}`,
+            partyNames,
+        },
+        {
+            contest: 'parlimen',
+            tajuk: namaParlimen && namaParlimen !== '—'
+                ? `PRU · Parlimen ${namaParlimen}`
+                : 'PRU · Parlimen (nama kerusi tidak diketahui)',
+            partyNames: partyNamesPru,
+        },
+    ] : []), [serentak, contestSendiri, jenisPr, reference?.dun, namaParlimen, partyNames, partyNamesPru]);
 
     const blocks = useMemo(() => toBlocks(reference), [reference]);
 
@@ -223,8 +292,12 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
     }, [reference, isBulohKasap]);
 
     // Grand rollup across every saluran + undi awal & pos for the bottom summary.
-    const summary = useMemo(() => {
-        const nParties = partyNames.length;
+    //
+    // Diambil kira bagi SATU pertandingan pada satu masa supaya skrin dua jalur
+    // boleh memanggilnya sekali bagi setiap kertas undi. `berdaftar` sengaja
+    // sama pada kedua-dua panggilan — ia memang dikongsi oleh kedua-dua
+    // pertandingan, dan itu bukan pendua.
+    const buatSummary = useCallback((contest, nParties) => {
         const partyTotals = Array.from({ length: nParties }, () => 0);
         let berdaftar = 0;
         let berdaftarKnown = false;
@@ -234,10 +307,10 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
         const accumulate = (pusat, saluran, rowBerdaftar) => {
             if (rowBerdaftar != null) { berdaftarKnown = true; berdaftar += rowBerdaftar; }
             for (let i = 0; i < nParties; i++) {
-                partyTotals[i] += votes[cellKey(contestSendiri, pusat, saluran, i + 1)] ?? 0;
+                partyTotals[i] += votes[cellKey(contest, pusat, saluran, i + 1)] ?? 0;
             }
-            ditolak += votes[cellKey(contestSendiri, pusat, saluran, 90)] ?? 0;
-            tidakDimasukkan += votes[cellKey(contestSendiri, pusat, saluran, 91)] ?? 0;
+            ditolak += votes[cellKey(contest, pusat, saluran, 90)] ?? 0;
+            tidakDimasukkan += votes[cellKey(contest, pusat, saluran, 91)] ?? 0;
         };
 
         blocks.forEach((b) => {
@@ -247,7 +320,16 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
 
         const keluar = partyTotals.reduce((a, b) => a + b, 0) + ditolak + tidakDimasukkan;
         return { partyTotals, ditolak, tidakDimasukkan, keluar, berdaftar, berdaftarKnown };
-    }, [blocks, votes, partyNames, undiAwalPosRows, contestSendiri]);
+    }, [blocks, votes, undiAwalPosRows]);
+
+    const summary = useMemo(
+        () => buatSummary(contestSendiri, partyNames.length),
+        [buatSummary, contestSendiri, partyNames.length],
+    );
+    const summaryPru = useMemo(
+        () => (serentak ? buatSummary('parlimen', partyNamesPru.length) : null),
+        [buatSummary, serentak, partyNamesPru.length],
+    );
 
     const persistParties = useCallback((next) => {
         if (!kawasanType || !kawasanId || !jenisPr || !tahun || !penjuru) return;
@@ -513,7 +595,34 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                         </div>
                     )}
 
-                    <GrandSummary partyNames={partyNames} totals={summary} />
+                    {serentak && (
+                        <div className={`${t.banner} flex items-start gap-2 mb-4`}>
+                            <Info className="h-4 w-4 shrink-0 mt-0.5" />
+                            <span>
+                                Pilihan raya serentak — setiap saluran mempunyai DUA kertas undi.
+                                Jalur merah <strong>{bands[0].tajuk}</strong> dan jalur biru{' '}
+                                <strong>{bands[1].tajuk}</strong> disimpan berasingan; angka satu jalur
+                                tidak pernah menyentuh jalur yang satu lagi. Calon jalur PRU ditetapkan
+                                pada borang Parlimen yang dipaut, bukan di skrin ini.
+                            </span>
+                        </div>
+                    )}
+
+                    {/* Satu ringkasan bagi setiap kertas undi. Pada borang serentak
+                        setiap satu dinamakan — ringkasan tanpa nama di bawah grid
+                        dua jalur akan disangka meliputi kedua-dua pertandingan. */}
+                    <GrandSummary
+                        partyNames={partyNames}
+                        totals={summary}
+                        tajuk={serentak ? `Ringkasan ${bands[0].tajuk}` : undefined}
+                    />
+                    {serentak && (
+                        <GrandSummary
+                            partyNames={partyNamesPru}
+                            totals={summaryPru}
+                            tajuk={`Ringkasan ${bands[1].tajuk}`}
+                        />
+                    )}
 
                     {/* Jump-to-Pusat-Mengundi — scroll straight to the card the user wants to fill. */}
                     {pusatAnchors.length > 1 && (
@@ -545,7 +654,17 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                     )}
 
                     <div className="grid grid-cols-1 gap-4">
-                        {blocks.map((b, i) => (
+                        {blocks.map((b, i) => (serentak ? (
+                            <VoteTableSerentak
+                                key={`${b.dm}-${b.pusat}-${i}`}
+                                block={b}
+                                bands={bands}
+                                votes={votes}
+                                onSave={saveVote}
+                                anchorId={pusatAnchors[i]?.anchorId}
+                                cellStatus={cellStatus}
+                            />
+                        ) : (
                             <VoteTable
                                 key={`${b.dm}-${b.pusat}-${i}`}
                                 block={b}
@@ -556,19 +675,29 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                                 contest={contestSendiri}
                                 cellStatus={cellStatus}
                             />
-                        ))}
+                        )))}
                     </div>
 
                     {undiAwalPosRows.length > 0 && (
                         <div className="mt-4">
-                            <UndiAwalPosTable
-                                partyNames={partyNames}
-                                votes={votes}
-                                onSave={saveVote}
-                                rows={undiAwalPosRows}
-                                contest={contestSendiri}
-                                cellStatus={cellStatus}
-                            />
+                            {serentak ? (
+                                <UndiAwalPosTableSerentak
+                                    bands={bands}
+                                    votes={votes}
+                                    onSave={saveVote}
+                                    rows={undiAwalPosRows}
+                                    cellStatus={cellStatus}
+                                />
+                            ) : (
+                                <UndiAwalPosTable
+                                    partyNames={partyNames}
+                                    votes={votes}
+                                    onSave={saveVote}
+                                    rows={undiAwalPosRows}
+                                    contest={contestSendiri}
+                                    cellStatus={cellStatus}
+                                />
+                            )}
                         </div>
                     )}
                 </>

@@ -90,6 +90,68 @@ export function SaveStatusDot({ status }) {
     );
 }
 
+/* ------------------ jalur pertandingan (band) — dikongsi ---------------- */
+
+// Nilai terbitan SATU jalur pertandingan bagi SATU baris saluran.
+//
+// Setiap bacaan undi melalui cellKey(contest, …). Tiada satu pun kunci tanpa
+// contest terhasil di sini — pada borang serentak jalur PRU dan jalur PRN
+// berkongsi (pusat, saluran, slot) yang SAMA, jadi kunci tanpa contest akan
+// membuat satu jalur memapar angka jalur yang satu lagi.
+export function bandRowValues(votes, contest, pusat, saluran, nParties) {
+    const slots = Array.from({ length: nParties }, (_, i) =>
+        votes[cellKey(contest, pusat, saluran, i + 1)] ?? 0);
+    const ditolak = votes[cellKey(contest, pusat, saluran, 90)] ?? 0;
+    const tidakMasuk = votes[cellKey(contest, pusat, saluran, 91)] ?? 0;
+    const undian = slots.reduce((a, b) => a + b, 0);         // JUMLAH UNDIAN = Σ undi calon
+    return {
+        slots, ditolak, tidakMasuk, undian,
+        keluar: undian + ditolak + tidakMasuk,               // (A) = Σ undi + (C) + (D)
+        status: leadStatus(slots),
+    };
+}
+
+// Jumlah setiap lajur satu jalur merentas semua baris saluran.
+export function bandTotals(rows, nParties) {
+    return {
+        slots: Array.from({ length: nParties }, (_, i) => rows.reduce((a, r) => a + r.slots[i], 0)),
+        ditolak: rows.reduce((a, r) => a + r.ditolak, 0),
+        tidakMasuk: rows.reduce((a, r) => a + r.tidakMasuk, 0),
+        undian: rows.reduce((a, r) => a + r.undian, 0),
+        keluar: rows.reduce((a, r) => a + r.keluar, 0),
+    };
+}
+
+// Sel BOLEH SUNTING bagi satu jalur: slot parti 1..n, diikuti Tolak (90) dan
+// T.Msk (91). Dikongsi oleh jadual satu jalur DAN dua jalur supaya hanya ada
+// SATU tempat di seluruh skrin yang menentukan pertandingan mana yang ditulis
+// oleh sesuatu sel — `contest` yang sama menjadi kunci paparan dan muatan POST.
+function BandCells({ contest, pusat, saluran, row, cellStatus, onSave, maxFor, tint = '' }) {
+    const tdClass = tint ? `px-2 py-1 ${tint}` : 'px-2 py-1';
+
+    return [
+        ...row.slots.map((v, i) => ({ slot: i + 1, v, lead: row.status[i] })),
+        { slot: 90, v: row.ditolak, lead: null },
+        { slot: 91, v: row.tidakMasuk, lead: null },
+    ].map(({ slot, v, lead }) => {
+        const key = cellKey(contest, pusat, saluran, slot);
+        return (
+            <td key={slot} className={tdClass}>
+                <div className="flex items-center justify-end gap-1.5">
+                    {lead && <LeadSquare status={lead} />}
+                    <SaveStatusDot status={cellStatus[key]} />
+                    <EditableCell
+                        value={v}
+                        invalid={cellStatus[key] === 'error'}
+                        max={maxFor(v)}
+                        onCommit={(undi) => onSave(pusat, saluran, slot, undi, contest)}
+                    />
+                </div>
+            </td>
+        );
+    });
+}
+
 /* --------------------------- per-pusat table --------------------------- */
 
 // `contest` menentukan ruang nama kunci sel jadual ini DAN pertandingan yang
@@ -99,27 +161,14 @@ export function VoteTable({ block, partyNames, votes, onSave, anchorId, contest,
     const { t } = usePilihanrayaTheme();
     const nParties = partyNames.length;
 
-    const rows = block.saluran.map((s) => {
-        const slots = Array.from({ length: nParties }, (_, i) =>
-            votes[cellKey(contest, block.pusat, String(s.no), i + 1)] ?? 0);
-        const ditolak = votes[cellKey(contest, block.pusat, String(s.no), 90)] ?? 0;
-        const tidakMasuk = votes[cellKey(contest, block.pusat, String(s.no), 91)] ?? 0;
-        const undian = slots.reduce((a, b) => a + b, 0);         // JUMLAH UNDIAN = Σ undi calon
-        const keluar = undian + ditolak + tidakMasuk;            // (A) = Σ undi + (C) + (D)
-        return {
-            no: s.no,
-            berdaftar: s.berdaftar ?? null,                       // null → render '—', never 0
-            slots, ditolak, tidakMasuk, undian, keluar,
-            status: leadStatus(slots),
-        };
-    });
+    const rows = block.saluran.map((s) => ({
+        no: s.no,
+        berdaftar: s.berdaftar ?? null,                       // null → render '—', never 0
+        ...bandRowValues(votes, contest, block.pusat, String(s.no), nParties),
+    }));
 
     const totals = {
-        slots: Array.from({ length: nParties }, (_, i) => rows.reduce((a, r) => a + r.slots[i], 0)),
-        ditolak: rows.reduce((a, r) => a + r.ditolak, 0),
-        tidakMasuk: rows.reduce((a, r) => a + r.tidakMasuk, 0),
-        undian: rows.reduce((a, r) => a + r.undian, 0),
-        keluar: rows.reduce((a, r) => a + r.keluar, 0),
+        ...bandTotals(rows, nParties),
         berdaftarKnown: rows.some((r) => r.berdaftar != null),
         berdaftar: rows.reduce((a, r) => a + (r.berdaftar || 0), 0),
     };
@@ -153,39 +202,15 @@ export function VoteTable({ block, partyNames, votes, onSave, anchorId, contest,
                         {rows.map((r) => (
                             <tr key={r.no} className={t.tableRow}>
                                 <td className={`${t.tableCell} font-medium whitespace-nowrap`}>Saluran {r.no}</td>
-                                {r.slots.map((v, i) => {
-                                    const key = cellKey(contest, block.pusat, String(r.no), i + 1);
-                                    return (
-                                        <td key={i} className="px-2 py-1">
-                                            <div className="flex items-center justify-end gap-1.5">
-                                                <LeadSquare status={r.status[i]} />
-                                                <SaveStatusDot status={cellStatus[key]} />
-                                                <EditableCell
-                                                    value={v}
-                                                    invalid={cellStatus[key] === 'error'}
-                                                    max={r.berdaftar != null ? Math.max(0, r.berdaftar - (r.keluar - v)) : null}
-                                                    onCommit={(undi) => onSave(block.pusat, String(r.no), i + 1, undi, contest)}
-                                                />
-                                            </div>
-                                        </td>
-                                    );
-                                })}
-                                {[{ slot: 90, v: r.ditolak }, { slot: 91, v: r.tidakMasuk }].map(({ slot, v }) => {
-                                    const key = cellKey(contest, block.pusat, String(r.no), slot);
-                                    return (
-                                        <td key={slot} className="px-2 py-1">
-                                            <div className="flex items-center justify-end gap-1.5">
-                                                <SaveStatusDot status={cellStatus[key]} />
-                                                <EditableCell
-                                                    value={v}
-                                                    invalid={cellStatus[key] === 'error'}
-                                                    max={r.berdaftar != null ? Math.max(0, r.berdaftar - (r.keluar - v)) : null}
-                                                    onCommit={(undi) => onSave(block.pusat, String(r.no), slot, undi, contest)}
-                                                />
-                                            </div>
-                                        </td>
-                                    );
-                                })}
+                                <BandCells
+                                    contest={contest}
+                                    pusat={block.pusat}
+                                    saluran={String(r.no)}
+                                    row={r}
+                                    cellStatus={cellStatus}
+                                    onSave={onSave}
+                                    maxFor={(v) => (r.berdaftar != null ? Math.max(0, r.berdaftar - (r.keluar - v)) : null)}
+                                />
                                 <td className={`${t.tableCell} text-right`}>{fmt(r.undian)}</td>
                                 <td className={`${t.tableCell} text-right font-semibold`}>{fmt(r.keluar)}</td>
                                 <td className={`${t.tableCell} text-right`}>{fmtOrDash(r.berdaftar)}</td>
@@ -244,50 +269,21 @@ export function UndiAwalPosTable({ partyNames, votes, onSave, rows, contest, cel
                     </thead>
                     <tbody>
                         {rows.map(({ label, berdaftar }) => {
-                            const slots = Array.from({ length: nParties }, (_, i) =>
-                                votes[cellKey(contest, '', label, i + 1)] ?? 0);
-                            const ditolak = votes[cellKey(contest, '', label, 90)] ?? 0;
-                            const tidakMasuk = votes[cellKey(contest, '', label, 91)] ?? 0;
-                            const undian = slots.reduce((a, b) => a + b, 0);
-                            const keluar = undian + ditolak + tidakMasuk;
-                            const status = leadStatus(slots);
+                            const r = bandRowValues(votes, contest, '', label, nParties);
+                            const { undian, keluar } = r;
                             const berdaftarKnown = berdaftar != null;
                             return (
                                 <tr key={label} className={t.tableRow}>
                                     <td className={`${t.tableCell} font-medium whitespace-nowrap`}>{label}</td>
-                                    {slots.map((v, i) => {
-                                        const key = cellKey(contest, '', label, i + 1);
-                                        return (
-                                            <td key={i} className="px-2 py-1">
-                                                <div className="flex items-center justify-end gap-1.5">
-                                                    <LeadSquare status={status[i]} />
-                                                    <SaveStatusDot status={cellStatus[key]} />
-                                                    <EditableCell
-                                                        value={v}
-                                                        invalid={cellStatus[key] === 'error'}
-                                                        max={null}
-                                                        onCommit={(undi) => onSave('', label, i + 1, undi, contest)}
-                                                    />
-                                                </div>
-                                            </td>
-                                        );
-                                    })}
-                                    {[{ slot: 90, v: ditolak }, { slot: 91, v: tidakMasuk }].map(({ slot, v }) => {
-                                        const key = cellKey(contest, '', label, slot);
-                                        return (
-                                            <td key={slot} className="px-2 py-1">
-                                                <div className="flex items-center justify-end gap-1.5">
-                                                    <SaveStatusDot status={cellStatus[key]} />
-                                                    <EditableCell
-                                                        value={v}
-                                                        invalid={cellStatus[key] === 'error'}
-                                                        max={null}
-                                                        onCommit={(undi) => onSave('', label, slot, undi, contest)}
-                                                    />
-                                                </div>
-                                            </td>
-                                        );
-                                    })}
+                                    <BandCells
+                                        contest={contest}
+                                        pusat=""
+                                        saluran={label}
+                                        row={r}
+                                        cellStatus={cellStatus}
+                                        onSave={onSave}
+                                        maxFor={() => null}
+                                    />
                                     <td className={`${t.tableCell} text-right`}>{fmt(undian)}</td>
                                     <td className={`${t.tableCell} text-right font-semibold`}>{fmt(keluar)}</td>
                                     <td className={`${t.tableCell} text-right`}>{fmtOrDash(berdaftar)}</td>
@@ -304,12 +300,219 @@ export function UndiAwalPosTable({ partyNames, votes, onSave, rows, contest, cel
     );
 }
 
+/* ------------------------ jadual dua jalur (serentak) ------------------- */
+
+// Warna jalur: PRN merah, PRU biru. Warna yang SAMA diulang pada kepala, badan
+// dan baris jumlah supaya mata mengikut satu jalur lurus ke bawah tanpa tersasar
+// ke jalur sebelah — dua kertas undi yang bentuknya hampir serupa ialah punca
+// silap masuk pada pukul 11 malam.
+const BAND_STYLE = {
+    dun: { head: 'bg-rose-100 text-rose-900', cell: 'bg-rose-50' },
+    parlimen: { head: 'bg-sky-100 text-sky-900', cell: 'bg-sky-50' },
+};
+const bandStyle = (contest) => BAND_STYLE[contest] ?? BAND_STYLE.dun;
+
+// Lebar satu jalur: slot parti + Tolak + T.Msk + Jum. Undian + Jum. Keluar + % Keluar.
+const bandSpan = (band) => band.partyNames.length + 5;
+
+// Kepala dua baris: baris pertama menamakan pertandingan DAN kerusinya, baris
+// kedua lajur sebenar. `Saluran` dan `Berdaftar` merentang kedua-dua baris
+// kerana ia DI LUAR mana-mana jalur — Berdaftar dikongsi oleh kedua-dua
+// pertandingan, dan kedudukannya itulah yang membawa makna tersebut.
+function BandHead({ bands, t }) {
+    return (
+        <>
+            <tr>
+                <th rowSpan={2} className={`${t.tableHead} whitespace-nowrap align-bottom`}>Saluran</th>
+                {bands.map((band) => (
+                    <th
+                        key={band.contest}
+                        colSpan={bandSpan(band)}
+                        className={`px-3 py-2 text-center text-xs font-bold uppercase tracking-wider whitespace-nowrap border-x-2 border-white ${bandStyle(band.contest).head}`}
+                    >
+                        {band.tajuk}
+                    </th>
+                ))}
+                <th rowSpan={2} className={`${t.tableHead} whitespace-nowrap text-right align-bottom`}>Berdaftar</th>
+            </tr>
+            <tr>
+                {bands.flatMap((band) => {
+                    const { head } = bandStyle(band.contest);
+                    return [
+                        ...band.partyNames.map((p, i) => (
+                            <th key={`${band.contest}-p${i}`} className={`${t.tableHead} whitespace-nowrap text-right ${head}`}>{p}</th>
+                        )),
+                        <th key={`${band.contest}-90`} className={`${t.tableHead} whitespace-nowrap text-right ${head}`}>Tolak (C)</th>,
+                        <th key={`${band.contest}-91`} className={`${t.tableHead} whitespace-nowrap text-right ${head}`}>T.Msk (D)</th>,
+                        <th key={`${band.contest}-undian`} className={`${t.tableHead} whitespace-nowrap text-right ${head}`}>Jum. Undian</th>,
+                        <th key={`${band.contest}-keluar`} className={`${t.tableHead} whitespace-nowrap text-right ${head}`}>Jum. Keluar</th>,
+                        <th key={`${band.contest}-pct`} className={`${t.tableHead} whitespace-nowrap text-right ${head}`}>% Keluar</th>,
+                    ];
+                })}
+            </tr>
+        </>
+    );
+}
+
+// Satu baris saluran merentas semua jalur. `berdaftar` dihantar masuk kerana ia
+// dikongsi: ia mengehadkan sel kedua-dua jalur dan menjadi penyebut kedua-dua
+// peratusan, tetapi ia bukan milik mana-mana jalur.
+function BandRow({ bands, votes, pusat, saluran, berdaftar, cellStatus, onSave }) {
+    const { t } = usePilihanrayaTheme();
+
+    return (
+        <>
+            {bands.flatMap((band) => {
+                const r = bandRowValues(votes, band.contest, pusat, saluran, band.partyNames.length);
+                const { cell } = bandStyle(band.contest);
+                return [
+                    <BandCells
+                        key={`${band.contest}-sel`}
+                        contest={band.contest}
+                        pusat={pusat}
+                        saluran={saluran}
+                        row={r}
+                        cellStatus={cellStatus}
+                        onSave={onSave}
+                        tint={cell}
+                        maxFor={(v) => (berdaftar != null ? Math.max(0, berdaftar - (r.keluar - v)) : null)}
+                    />,
+                    <td key={`${band.contest}-undian`} className={`${t.tableCell} text-right ${cell}`}>{fmt(r.undian)}</td>,
+                    <td key={`${band.contest}-keluar`} className={`${t.tableCell} text-right font-semibold ${cell}`}>{fmt(r.keluar)}</td>,
+                    // Penyebut dikongsi, jadi '—' apabila Berdaftar tidak diketahui —
+                    // JANGAN sekali-kali papar 0% daripada berdaftar yang tiada.
+                    <td key={`${band.contest}-pct`} className={`${t.tableCell} text-right ${cell}`}>
+                        {berdaftar == null ? '—' : pct(r.keluar, berdaftar)}
+                    </td>,
+                ];
+            })}
+        </>
+    );
+}
+
+// Baris jumlah bagi semua jalur.
+function BandTotalRow({ bands, rows, votes, t }) {
+    const berdaftarKnown = rows.some((r) => r.berdaftar != null);
+    const berdaftar = rows.reduce((a, r) => a + (r.berdaftar || 0), 0);
+
+    return (
+        <tr className={`border-t-2 ${t.border} font-bold`}>
+            <td className={`${t.tableCell} font-bold whitespace-nowrap`}>Jumlah Undi</td>
+            {bands.flatMap((band) => {
+                const n = band.partyNames.length;
+                const perRow = rows.map((r) => bandRowValues(votes, band.contest, r.pusat, r.saluran, n));
+                const totals = bandTotals(perRow, n);
+                const status = leadStatus(totals.slots);
+                const { cell } = bandStyle(band.contest);
+                return [
+                    ...totals.slots.map((v, i) => (
+                        <td key={`${band.contest}-p${i}`} className={`px-3 py-2 text-sm text-right font-bold ${totalBgClass(status[i], t)}`}>{fmt(v)}</td>
+                    )),
+                    <td key={`${band.contest}-90`} className={`${t.tableCell} text-right font-bold ${cell}`}>{fmt(totals.ditolak)}</td>,
+                    <td key={`${band.contest}-91`} className={`${t.tableCell} text-right font-bold ${cell}`}>{fmt(totals.tidakMasuk)}</td>,
+                    <td key={`${band.contest}-undian`} className={`${t.tableCell} text-right font-bold ${cell}`}>{fmt(totals.undian)}</td>,
+                    <td key={`${band.contest}-keluar`} className={`${t.tableCell} text-right font-bold ${cell}`}>{fmt(totals.keluar)}</td>,
+                    <td key={`${band.contest}-pct`} className={`${t.tableCell} text-right font-bold ${cell}`}>
+                        {berdaftarKnown ? pct(totals.keluar, berdaftar) : '—'}
+                    </td>,
+                ];
+            })}
+            <td className={`${t.tableCell} text-right font-bold`}>{berdaftarKnown ? fmt(berdaftar) : '—'}</td>
+        </tr>
+    );
+}
+
+// Jadual satu Pusat Mengundi untuk pilihan raya SERENTAK: satu jalur berjalur
+// warna bagi setiap pertandingan, Berdaftar dikongsi di luar kedua-duanya.
+//
+// Bilangan sel parti setiap jalur datang daripada `band.partyNames`, yang
+// dibina oleh pemanggil daripada `penjuru` PERTANDINGAN ITU SENDIRI — penjuru
+// borang DUN bagi jalur PRN, penjuru borang Parlimen yang dipaut bagi jalur PRU.
+export function VoteTableSerentak({ block, bands, votes, onSave, anchorId, cellStatus = {} }) {
+    const { t } = usePilihanrayaTheme();
+    const rows = block.saluran.map((s) => ({
+        pusat: block.pusat,
+        saluran: String(s.no),
+        berdaftar: s.berdaftar ?? null,                       // null → '—', bukan 0
+    }));
+
+    return (
+        <div id={anchorId} className={`${t.card} p-4 scroll-mt-24`}>
+            <div className="mb-3">
+                <div className={`text-xs font-semibold uppercase tracking-wider ${t.subtext}`}>DM: {block.dm}</div>
+                <div className={`text-sm font-bold ${t.text}`}>Pusat Mengundi: {block.pusat}</div>
+            </div>
+            <DragScroll>
+                <table className="min-w-full border-collapse">
+                    <thead><BandHead bands={bands} t={t} /></thead>
+                    <tbody>
+                        {rows.map((r) => (
+                            <tr key={r.saluran} className={t.tableRow}>
+                                <td className={`${t.tableCell} font-medium whitespace-nowrap`}>Saluran {r.saluran}</td>
+                                <BandRow
+                                    bands={bands}
+                                    votes={votes}
+                                    pusat={r.pusat}
+                                    saluran={r.saluran}
+                                    berdaftar={r.berdaftar}
+                                    cellStatus={cellStatus}
+                                    onSave={onSave}
+                                />
+                                <td className={`${t.tableCell} text-right`}>{fmtOrDash(r.berdaftar)}</td>
+                            </tr>
+                        ))}
+                        <BandTotalRow bands={bands} rows={rows} votes={votes} t={t} />
+                    </tbody>
+                </table>
+            </DragScroll>
+        </div>
+    );
+}
+
+// Undi Awal & Undi Pos versi dua jalur — struktur sama, cuma barisnya berlabel
+// dan tiada had `max` kerana baris ini tiada Berdaftar sendiri.
+export function UndiAwalPosTableSerentak({ bands, votes, onSave, rows, cellStatus = {} }) {
+    const { t } = usePilihanrayaTheme();
+    const baris = rows.map(({ label, berdaftar }) => ({ pusat: '', saluran: label, berdaftar: berdaftar ?? null }));
+
+    return (
+        <div className={`${t.card} p-4`}>
+            <div className={`text-sm font-bold ${t.text} mb-3`}>Undi Awal &amp; Undi Pos</div>
+            <DragScroll>
+                <table className="min-w-full border-collapse">
+                    <thead><BandHead bands={bands} t={t} /></thead>
+                    <tbody>
+                        {baris.map((r) => (
+                            <tr key={r.saluran} className={t.tableRow}>
+                                <td className={`${t.tableCell} font-medium whitespace-nowrap`}>{r.saluran}</td>
+                                <BandRow
+                                    bands={bands}
+                                    votes={votes}
+                                    pusat=""
+                                    saluran={r.saluran}
+                                    berdaftar={r.berdaftar}
+                                    cellStatus={cellStatus}
+                                    onSave={onSave}
+                                />
+                                <td className={`${t.tableCell} text-right`}>{fmtOrDash(r.berdaftar)}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </DragScroll>
+        </div>
+    );
+}
+
 /* --------------------------- grand summary ----------------------------- */
 
 // Bottom-of-page rollup across every pusat mengundi + undi awal & pos:
 // per-party grand totals, Ditolak/Tak Dimasukkan, total turnout (sum of
 // parties + C + D), and overall % — honest '—' when berdaftar is unknown.
-export function GrandSummary({ partyNames, totals }) {
+// `tajuk` melalaikan kepada teks satu pertandingan yang sedia ada — skrin dua
+// jalur menghantarnya secara eksplisit ("Ringkasan PRN · DUN GEMAS") supaya
+// tiada ringkasan tanpa nama yang boleh disangka meliputi kedua-dua kertas undi.
+export function GrandSummary({ partyNames, totals, tajuk = 'Ringkasan Keseluruhan' }) {
     const { t } = usePilihanrayaTheme();
     const status = leadStatus(totals.partyTotals);
 
@@ -327,7 +530,7 @@ export function GrandSummary({ partyNames, totals }) {
     return (
         <div className={`${t.card} mt-4 mb-4`}>
             <div className="mb-4">
-                <div className={`text-sm font-bold ${t.text}`}>Ringkasan Keseluruhan</div>
+                <div className={`text-sm font-bold ${t.text}`}>{tajuk}</div>
                 <div className={`text-xs ${t.subtext}`}>Semua pusat mengundi termasuk undi awal &amp; undi pos</div>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
