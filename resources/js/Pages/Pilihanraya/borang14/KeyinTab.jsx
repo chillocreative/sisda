@@ -262,7 +262,18 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
         persistParties(next);
     };
 
-    const saveVote = useCallback((pusat, saluran, slot, undi) => {
+    // Pertandingan borang ini SENDIRI — cerminan tepat `Borang14Form::contestSendiri()`
+    // di server: kawasan Parlimen merekod undi PRU, kawasan DUN merekod undi PRN.
+    // Nilai `Borang14Vote::CONTEST_*` memang sama dengan `kawasan_type`, jadi tiada
+    // pemetaan tambahan di sini — satu pemetaan lagi hanya akan hanyut.
+    const contestSendiri = kawasanType === 'parlimen' ? 'parlimen' : 'dun';
+
+    // `contest` WAJIB pada setiap POST undi (server 422 tanpanya) supaya undi
+    // tidak pernah senyap-senyap ditulis ke pertandingan yang salah pada borang
+    // serentak. Ia melalaikan kepada pertandingan borang ini sendiri — satu-satunya
+    // pertandingan yang boleh dipapar buat masa ini; pemanggil dua jalur kelak
+    // menghantarnya secara eksplisit.
+    const saveVote = useCallback((pusat, saluran, slot, undi, contest = contestSendiri) => {
         const key = cellKey(pusat, saluran, slot);
         // Claim this request as the latest for the cell *before* the await —
         // a later re-edit of the same cell will bump this again, and only
@@ -273,7 +284,7 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
         setCellStatus((prev) => ({ ...prev, [key]: 'saving' }));
         axios.post(route('pilihanraya.borang-14.vote'), {
             kawasan_type: kawasanType, kawasan_id: kawasanId, jenis_pr: jenisPr, tahun: Number(tahun),
-            penjuru: Number(penjuru), pusat, saluran, slot, undi,
+            penjuru: Number(penjuru), contest, pusat, saluran, slot, undi,
         })
             .then(() => {
                 if (requestSeq.current[key] !== mySeq) return; // superseded — a newer request owns this cell now
@@ -289,7 +300,7 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                 clearTimeout(statusTimers.current[key]);
                 setCellStatus((prev) => ({ ...prev, [key]: 'error' })); // visible & persistent — see Task 8 brief
             });
-    }, [kawasanType, kawasanId, jenisPr, tahun, penjuru]);
+    }, [kawasanType, kawasanId, jenisPr, tahun, penjuru, contestSendiri]);
 
     const downloadPdf = () => {
         const url = route('pilihanraya.borang-14.pdf', {
