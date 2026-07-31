@@ -178,9 +178,16 @@ class Borang14PolymorphicEndpointsTest extends TestCase
 
     public function test_save_parties_works_through_the_dun_polymorphic_key(): void
     {
-        [, , $kadun] = $this->seedGeography();
+        [, $bandar, $kadun] = $this->seedGeography();
 
-        $res = $this->actingAs($this->user())->postJson(route('pilihanraya.borang-14.parties'), [
+        // saveParties() kini menegaskan SeatScope: pengguna mesti DILULUSKAN
+        // dan memiliki kerusi itu. user() lalai (belum diluluskan, bandar_id
+        // null) sengaja tidak lagi mencukupi — lihat ujian kebenaran dalam
+        // Borang14SkopPertandinganTest.
+        $pemilik = $this->user();
+        $pemilik->forceFill(['status' => 'approved', 'bandar_id' => $bandar->id])->save();
+
+        $res = $this->actingAs($pemilik)->postJson(route('pilihanraya.borang-14.parties'), [
             'kawasan_type' => 'dun', 'kawasan_id' => $kadun->id, 'jenis_pr' => 'prn', 'tahun' => 2023,
             'penjuru' => 2,
             'parties' => [

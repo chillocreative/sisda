@@ -16,6 +16,7 @@ use App\Services\Borang14StrukturService;
 use App\Services\Pilihanraya\KawasanResolver;
 use App\Services\Pilihanraya\ScoresheetExtractor;
 use App\Support\Borang14Reference;
+use App\Support\SeatScope;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -249,6 +250,16 @@ class Borang14Controller extends Controller
             'parties.*.kontes' => ['nullable', Rule::in([Borang14Vote::CONTEST_PARLIMEN, Borang14Vote::CONTEST_DUN])],
         ]);
 
+        // Kebenaran KERUSI — sebelum sebarang bacaan atau tulisan. Gate laluan
+        // ['auth','admin'] hanya menyemak PERANAN, jadi tanpa ini setiap admin
+        // boleh menulis kerusi sesiapa; dan pada skop serentak sasarannya ialah
+        // borang TAKRIFAN Parlimen yang DIKONGSI setiap DUN di bawahnya, lalu
+        // Borang14RollUp menerbitkan undi DUN lain di bawah nama yang ditulis
+        // di sini. Menegaskan pada DUN sudah memadai: pemilik DUN memiliki
+        // Parlimen induknya menurut binaan, dan $indukId diterbitkan di server
+        // daripada kadun.bandar_id, bukan daripada input.
+        SeatScope::assert($request->user(), $validated['kawasan_type'], (int) $validated['kawasan_id']);
+
         // Pertandingan borang ini SENDIRI — sama dengan kawasannya, dan skop
         // lalai apabila pemanggil tidak menyatakan apa-apa.
         $sendiri = $validated['kawasan_type'] === Borang14Form::KAWASAN_PARLIMEN
@@ -261,6 +272,13 @@ class Borang14Controller extends Controller
             ->where('jenis_pr', $validated['jenis_pr'])
             ->where('tahun', $validated['tahun'])
             ->first();
+
+        // Sekatan yang SAMA seperti panel Sunting Struktur — diguna semula dan
+        // bukan ditulis kali kedua supaya kedua-dua laluan tulis tidak boleh
+        // menyimpang. Ia menambah sekatan borang DITERBITKAN di atas semakan
+        // kerusi di atas: nama calon pada borang yang sudah diterbitkan
+        // menukar makna keputusan yang sudah dilihat orang ramai.
+        abort_unless($this->bolehSuntingStruktur($request->user(), $form, $validated), 403, 'Unauthorized action.');
 
         $skopSemasa = $this->skopSemasa($form, $sendiri);
 
@@ -328,6 +346,20 @@ class Borang14Controller extends Controller
         } else {
             // Skop "Parlimen sahaja" pada borang DUN: pasukan ini melaporkan
             // bahagian PRU sahaja. Borang DUN kekal tanpa calonnya sendiri.
+            //
+            // Baris bertanda 'dun' DITOLAK dan bukan diserap: menyerapnya akan
+            // meletakkan calon DUN ke dalam takrifan Parlimen yang DIKONGSI
+            // setiap DUN di bawah Parlimen ini — salah tanda yang senyap pada
+            // objek yang paling luas kesannya dalam sistem ini.
+            foreach ($parties as $p) {
+                if (! empty($p['kontes']) && $p['kontes'] !== Borang14Vote::CONTEST_PARLIMEN) {
+                    throw ValidationException::withMessages([
+                        'parties' => 'Skop borang ialah Parlimen sahaja, tetapi ada calon yang ditanda '.
+                            'pertandingan DUN. Buang tanda itu, atau tukar skop kepada kedua-duanya (serentak).',
+                    ]);
+                }
+            }
+
             $calonParlimen = $this->nomborSemula($parties, null);
             $calonDun = [];
 
@@ -353,42 +385,63 @@ class Borang14Controller extends Controller
             $this->assertTiadaUndi($form);
         }
 
-        [$form, $definisi] = DB::transaction(function () use ($validated, $skop, $indukId, $calonParlimen, $calonDun) {
+        // Borang TAKRIFAN calon PRU DIKONGSI oleh setiap DUN dalam Parlimen ini,
+        // jadi undi yang menguncinya boleh berada pada kerusi LAIN sepenuhnya —
+        // assertTiadaUndi() di atas hanya melihat borang yang dihantar.
+        $takrifanSedia = Borang14Form::forKawasan(Borang14Form::KAWASAN_PARLIMEN, $indukId)
+            ->where('jenis_pr', 'pru')->where('tahun', $validated['tahun'])->first();
+
+        if ($takrifanSedia && $this->takrifanBerubah($takrifanSedia, $calonParlimen)) {
+            // Sekatan "diterbitkan" mesti mengikut borang yang DITULIS, bukan
+            // borang yang dihantar: borang DUN ini boleh draf sementara
+            // takrifan yang dikongsi itu sudah diterbitkan.
+            if ($takrifanSedia->status === 'published') {
+                throw ValidationException::withMessages([
+                    'skop' => 'Senarai calon PRU bagi Parlimen ini disimpan pada borang TAKRIFAN yang sudah '.
+                        'DITERBITKAN, jadi nama calonnya sudah dilihat orang ramai dan dikongsi setiap DUN di '.
+                        'bawah Parlimen ini. Tarik balik penerbitan borang Parlimen itu sebelum menukar '.
+                        'senarai calonnya.',
+                ]);
+            }
+
+            $this->assertTiadaUndiPruDikongsi($takrifanSedia);
+        }
+
+        [$form, $definisi] = DB::transaction(function () use ($validated, $skop, $indukId, $form, $calonParlimen, $calonDun) {
             // Borang TAKRIFAN calon PRU yang dikongsi semua DUN dalam Parlimen
             // ini, dikunci pada TAHUN borang DUN ini sendiri — pautan rentas
             // tahun akan menjumlahkan undi tahun lain ke dalam keputusan.
-            $definisi = Borang14Form::firstOrCreate(
+            //
+            // SENGAJA tanpa 'structure': kekosongan struktur pada borang
+            // takrifan ialah SATU-SATUNYA isyarat yang menyuruh Borang14RollUp
+            // mengumpul borang DUN dan bukan membaca terus dari sini.
+            $definisi = Borang14Form::updateOrCreate(
                 [
                     'kawasan_type' => Borang14Form::KAWASAN_PARLIMEN,
                     'kawasan_id'   => $indukId,
                     'jenis_pr'     => 'pru',
                     'tahun'        => $validated['tahun'],
                 ],
-                ['penjuru' => count($calonParlimen), 'parties' => []],
+                ['penjuru' => count($calonParlimen), 'parties' => $calonParlimen],
             );
 
-            // SENGAJA tanpa 'structure': kekosongan struktur pada borang
-            // takrifan ialah SATU-SATUNYA isyarat yang menyuruh Borang14RollUp
-            // mengumpul borang DUN dan bukan membaca terus dari sini.
-            $definisi->update(['penjuru' => count($calonParlimen), 'parties' => $calonParlimen]);
-
-            $form = Borang14Form::firstOrCreate(
+            $form = Borang14Form::updateOrCreate(
                 [
                     'kawasan_type' => $validated['kawasan_type'],
                     'kawasan_id'   => $validated['kawasan_id'],
                     'jenis_pr'     => $validated['jenis_pr'],
                     'tahun'        => $validated['tahun'],
                 ],
-                ['penjuru' => 2, 'parties' => []],
+                [
+                    'parties' => $calonDun,
+                    'borang14_form_parlimen_id' => $definisi->id,
+                    // penjuru borang DUN hanya bermakna apabila ia benar-benar
+                    // merekod pertandingan DUN; dalam skop Parlimen-sahaja ia
+                    // dikekalkan seperti sedia ada (2 pada borang baharu), bukan
+                    // dipaksa kepada 0 atau kepada kiraan calon PRU.
+                    'penjuru' => $skop === self::SKOP_KEDUA ? count($calonDun) : ($form?->penjuru ?? 2),
+                ],
             );
-
-            $form->update(array_merge(
-                ['parties' => $calonDun, 'borang14_form_parlimen_id' => $definisi->id],
-                // penjuru borang DUN hanya bermakna apabila ia benar-benar
-                // merekod pertandingan DUN; dalam skop Parlimen-sahaja ia
-                // dibiarkan seperti sedia ada, bukan dipaksa kepada 0/kiraan PRU.
-                $skop === self::SKOP_KEDUA ? ['penjuru' => count($calonDun)] : [],
-            ));
 
             return [$form, $definisi];
         });
@@ -493,6 +546,59 @@ class Borang14Controller extends Controller
                     'ialah 6 calon.',
             ]);
         }
+    }
+
+    /**
+     * Adakah tulisan ini benar-benar mengubah borang takrifan Parlimen?
+     * Menyimpan semula senarai yang SAMA tidak menomborkan semula apa-apa slot,
+     * jadi ia tidak boleh memindahkan undi sesiapa dan tidak perlu dihalang.
+     */
+    private function takrifanBerubah(Borang14Form $takrifan, array $calonParlimen): bool
+    {
+        return (int) $takrifan->penjuru !== count($calonParlimen)
+            || $this->sidikCalon($takrifan->parties ?? []) !== $this->sidikCalon($calonParlimen);
+    }
+
+    /**
+     * Undi PRU yang mengunci borang TAKRIFAN — di MANA-MANA kerusi.
+     *
+     * Takrifan Parlimen ialah objek yang DIKONGSI: Borang14RollUp membaca
+     * identiti calon daripadanya lalu menjumlahkan undi contest='parlimen'
+     * SETIAP borang DUN yang memautinya, mengikut nombor slot. Oleh itu
+     * menomborkan semula senarai calon di sini boleh menerbitkan undi DUN LAIN
+     * di bawah nama yang salah — walaupun borang yang sedang disunting itu
+     * sendiri kosong tanpa satu undi pun. Semak keluarga penuh, bukan satu
+     * borang, dan namakan kerusi yang sudah berundi supaya pengendali tahu ke
+     * mana hendak pergi.
+     */
+    private function assertTiadaUndiPruDikongsi(Borang14Form $takrifan): void
+    {
+        $namaKerusi = null;
+
+        if ($takrifan->votesFor(Borang14Vote::CONTEST_PARLIMEN)->exists()) {
+            $namaKerusi = $takrifan->kawasanNama();
+        } else {
+            $idDun = $takrifan->borangDun()->pluck('id');
+            $idBerundi = $idDun->isEmpty() ? null : Borang14Vote::query()
+                ->where('contest', Borang14Vote::CONTEST_PARLIMEN)
+                ->whereIn('borang14_form_id', $idDun)
+                ->value('borang14_form_id');
+
+            if ($idBerundi !== null) {
+                $namaKerusi = Borang14Form::find($idBerundi)?->kawasanNama() ?? '—';
+            }
+        }
+
+        if ($namaKerusi === null) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'skop' => "Pertandingan Parlimen ini sudah mempunyai undi yang dikunci masuk pada borang {$namaKerusi}. ".
+                'Senarai calon PRU disimpan pada satu borang TAKRIFAN yang dikongsi setiap DUN di bawah Parlimen '.
+                'ini, jadi menukarnya akan menomborkan semula slot yang undi tersebut sudah pun guna, dan undi itu '.
+                'akan terpakai pada calon yang salah. Kosongkan undi Parlimen pada borang berkenaan terlebih dahulu.',
+        ]);
     }
 
     /**
