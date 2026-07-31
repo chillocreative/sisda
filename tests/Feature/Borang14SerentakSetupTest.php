@@ -42,6 +42,7 @@ class Borang14SerentakSetupTest extends TestCase
             'jenis_pr' => 'prn',
             'tahun' => 2027,
             'penjuru' => 2,
+            'pusat' => [],
             'parlimen_id' => $this->parlimen->id,
         ])->assertSuccessful();
 
@@ -63,6 +64,7 @@ class Borang14SerentakSetupTest extends TestCase
             $this->actingAs($this->admin())->postJson(route('pilihanraya.borang-14.struktur'), [
                 'kawasan_type' => 'dun', 'kawasan_id' => $dun->id,
                 'jenis_pr' => 'prn', 'tahun' => 2027, 'penjuru' => 2,
+                'pusat' => [],
                 'parlimen_id' => $this->parlimen->id,
             ])->assertSuccessful();
         }
@@ -96,6 +98,7 @@ class Borang14SerentakSetupTest extends TestCase
         $this->actingAs($this->admin())->postJson(route('pilihanraya.borang-14.struktur'), [
             'kawasan_type' => 'dun', 'kawasan_id' => $this->dun->id,
             'jenis_pr' => 'prn', 'tahun' => 2027, 'penjuru' => 2,
+            'pusat' => [],
             'parlimen_id' => $this->parlimen->id,
         ])->assertSuccessful();
 
@@ -113,10 +116,21 @@ class Borang14SerentakSetupTest extends TestCase
 
     public function test_disabling_concurrent_mode_nulls_the_link_but_keeps_recorded_parlimen_votes(): void
     {
+        // Struktur SEBENAR (bukan []) dihantar konsisten pada ketiga-tiga
+        // panggilan di bawah — sama seperti panel Sunting Struktur sentiasa
+        // menghantar senarai Pusat Mengundi semasa, bukan struktur kosong.
+        // Ini juga mengelak jujukan padam-yatim struktur (survivingKeys())
+        // daripada memadam undi 'SK GEMAS|1' yang ditambah secara manual di
+        // bawah — kekal SAMA merentas panggilan bermakna tiada apa "yatim".
+        $pusat = [[
+            'row_id' => 'r1', 'dm' => 'DM1', 'pusat' => 'SK GEMAS', 'saluran_count' => 1,
+        ]];
+
         // Paut dahulu.
         $this->actingAs($this->admin())->postJson(route('pilihanraya.borang-14.struktur'), [
             'kawasan_type' => 'dun', 'kawasan_id' => $this->dun->id,
             'jenis_pr' => 'prn', 'tahun' => 2027, 'penjuru' => 2,
+            'pusat' => $pusat,
             'parlimen_id' => $this->parlimen->id,
         ])->assertSuccessful();
 
@@ -124,13 +138,15 @@ class Borang14SerentakSetupTest extends TestCase
         $this->assertNotNull($dunForm->borang14_form_parlimen_id);
 
         // Undi kontes 'parlimen' sudah dikunci masuk pada borang DUN ini
-        // (tersimpan pada baris DUN, bukan pada borang takrifan).
+        // (tersimpan pada baris DUN, bukan pada borang takrifan), pada
+        // kunci pusat|saluran yang struktur di atas mengekalkan.
         $dunForm->votes()->create(['contest' => 'parlimen', 'pusat' => 'SK GEMAS', 'saluran' => '1', 'slot' => 1, 'undi' => 123]);
 
         // Nyahtogol — parlimen_id dihantar secara EKSPLISIT sebagai null.
         $this->actingAs($this->admin())->postJson(route('pilihanraya.borang-14.struktur'), [
             'kawasan_type' => 'dun', 'kawasan_id' => $this->dun->id,
             'jenis_pr' => 'prn', 'tahun' => 2027, 'penjuru' => 2,
+            'pusat' => $pusat,
             'parlimen_id' => null,
         ])->assertSuccessful();
 
@@ -145,6 +161,7 @@ class Borang14SerentakSetupTest extends TestCase
         $this->actingAs($this->admin())->postJson(route('pilihanraya.borang-14.struktur'), [
             'kawasan_type' => 'dun', 'kawasan_id' => $this->dun->id,
             'jenis_pr' => 'prn', 'tahun' => 2027, 'penjuru' => 2,
+            'pusat' => $pusat,
             'parlimen_id' => $this->parlimen->id,
         ])->assertSuccessful();
 
@@ -153,16 +170,64 @@ class Borang14SerentakSetupTest extends TestCase
         $this->assertSame(123, (int) $dunForm->votesFor('parlimen')->where('pusat', 'SK GEMAS')->value('undi'));
     }
 
+    /**
+     * Regresi bagi pepijat yang ditangkap semasa semakan diri Task 7: draf
+     * pertama meninggalkan SATU baris `$form->update(['structure' =>
+     * $baharu])` tanpa syarat SELEPAS blok bersyarat yang sepatutnya
+     * menggantikannya — akibatnya panggilan togol-sahaja akan menulis ganti
+     * struktur sedia ada dengan struktur KOSONG. Ditangkap sebelum ujian
+     * dijalankan (bukan oleh ujian), jadi tiada apa memasangnya sehingga
+     * ini — pindaan struktur akan datang boleh membawanya balik secara
+     * senyap.
+     *
+     * Menghantar struktur SEBENAR (sama seperti panel sentiasa lakukan)
+     * dan menyemak ia kekal SAMA selepas togol dihidupkan.
+     */
+    public function test_toggling_the_link_does_not_wipe_an_existing_structure(): void
+    {
+        $pusat = [[
+            'row_id' => 'r1', 'dm' => 'DM1', 'pusat' => 'SK GEMAS', 'saluran_count' => 2,
+        ]];
+
+        // Cipta struktur dahulu, TANPA memaut.
+        $this->actingAs($this->admin())->postJson(route('pilihanraya.borang-14.struktur'), [
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->dun->id,
+            'jenis_pr' => 'prn', 'tahun' => 2027, 'penjuru' => 2,
+            'pusat' => $pusat,
+        ])->assertSuccessful();
+
+        $dunForm = Borang14Form::where('kawasan_type', 'dun')->where('kawasan_id', $this->dun->id)->firstOrFail();
+        $strukturSebelum = $dunForm->structure;
+        $this->assertNotEmpty($strukturSebelum['rows'] ?? []);
+
+        // Hidupkan togol, hantar SEMULA struktur yang sama persis.
+        $this->actingAs($this->admin())->postJson(route('pilihanraya.borang-14.struktur'), [
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->dun->id,
+            'jenis_pr' => 'prn', 'tahun' => 2027, 'penjuru' => 2,
+            'pusat' => $pusat,
+            'parlimen_id' => $this->parlimen->id,
+        ])->assertSuccessful();
+
+        $dunForm->refresh();
+        $this->assertNotNull($dunForm->borang14_form_parlimen_id);
+        $this->assertSame($strukturSebelum, $dunForm->structure, 'Struktur sedia ada tidak boleh ditulis ganti oleh togol pautan.');
+    }
+
     public function test_a_dun_cannot_be_linked_to_a_parlimen_that_is_not_its_own_parent(): void
     {
         $negeriLain = Negeri::create(['nama' => 'SELANGOR']);
         $parlimenLain = Bandar::create(['nama' => 'SHAH ALAM', 'kod_parlimen' => 'P999', 'negeri_id' => $negeriLain->id]);
 
+        // 'pusat' => [] mesti hadir — dengan itu digugurkan, ujian ini akan
+        // lulus atas sebab yang SALAH (422 daripada 'pusat' tiada, bukan
+        // daripada guard induk-Parlimen di bawah). assertJsonValidationErrors
+        // mengesahkan medan SPESIFIK yang ditolak, bukan sekadar status.
         $this->actingAs($this->admin())->postJson(route('pilihanraya.borang-14.struktur'), [
             'kawasan_type' => 'dun', 'kawasan_id' => $this->dun->id,
             'jenis_pr' => 'prn', 'tahun' => 2027, 'penjuru' => 2,
+            'pusat' => [],
             'parlimen_id' => $parlimenLain->id,
-        ])->assertStatus(422);
+        ])->assertStatus(422)->assertJsonValidationErrors('parlimen_id');
 
         $this->assertDatabaseMissing('borang14_forms', ['kawasan_type' => 'dun', 'kawasan_id' => $this->dun->id]);
     }

@@ -317,12 +317,7 @@ class Borang14Controller extends Controller
             'kawasan_id'   => ['required', 'integer', Rule::exists($existsTable, 'id')],
             'jenis_pr' => 'required|in:pru,prn,prk',
             'tahun'    => 'required|integer|between:1959,2100',
-            // 'sometimes' (bukan 'present') — togol mod serentak boleh
-            // dihantar SENDIRIAN (tanpa struktur) semata-mata untuk
-            // memaut/menyahpaut borang Parlimen; panel Sunting Struktur
-            // sedia ada sentiasa menghantar 'pusat' (walaupun []), jadi
-            // laluan itu tidak terjejas.
-            'pusat'    => 'sometimes|array|max:500',
+            'pusat'    => 'present|array|max:500',
             'pusat.*.row_id' => 'required|string|max:64',
             // WAJIB, bukan nullable. Borang14ScenarioMapper::map() MELANGKAU
             // setiap undi yang Pusatnya tiada Daerah Mengundi ("jangan reka
@@ -388,30 +383,20 @@ class Borang14Controller extends Controller
 
         $validated = $request->validate($this->strukturRules($existsTable), $this->strukturMessages());
 
-        // Struktur (Pusat Mengundi/saluran) hanya disunting apabila 'pusat'
-        // benar-benar dihantar. Panggilan togol-serentak-sahaja (tiada
-        // struktur, hanya parlimen_id) TIDAK BOLEH menjalankan laluan
-        // gantian struktur di bawah — itu akan menganggap "tiada Pusat
-        // Mengundi" bermakna KOSONGKAN struktur sedia ada dan padam semua
-        // undi yatim, sedangkan niat sebenar hanya memaut/menyahpaut.
-        $strukturDihantar = array_key_exists('pusat', $validated);
-
         // SATU tempat sahaja untuk memangkas nama Pusat/DM — nilai yang
         // dipangkas di sinilah yang disahkan, dibanding, dinamakan semula
         // DAN disimpan. Laluan tulis undi (normalizeSaluran()) memangkas
         // paksi Saluran; ini memangkas paksi Pusat supaya kedua-dua paksi
         // kunci sel diselaraskan — tanpa ini "SK TENGKEK " (ruang
         // berikutan) menjadi kunci yang berbeza daripada "SK TENGKEK".
-        if ($strukturDihantar) {
-            $validated['pusat'] = collect($validated['pusat'])->map(function ($p) {
-                $p['pusat'] = trim($p['pusat']);
-                if (array_key_exists('dm', $p) && $p['dm'] !== null) {
-                    $p['dm'] = trim($p['dm']);
-                }
+        $validated['pusat'] = collect($validated['pusat'])->map(function ($p) {
+            $p['pusat'] = trim($p['pusat']);
+            if (array_key_exists('dm', $p) && $p['dm'] !== null) {
+                $p['dm'] = trim($p['dm']);
+            }
 
-                return $p;
-            })->all();
-        }
+            return $p;
+        })->all();
 
         // Mod serentak hanya sah bagi borang DUN — Parlimen ITU SENDIRI
         // ialah takrifan, ia tidak boleh dipaut kepada dirinya sendiri.
@@ -451,30 +436,25 @@ class Borang14Controller extends Controller
             abort(403, 'Unauthorized action.');
         }
 
-        $asas = null;
-        $baharu = null;
+        // Selepas kebenaran (jangan bocorkan kewujudan borang), sebelum
+        // firstOrCreate — kerusi kurasi/DPT/warisan tidak boleh disunting
+        // langsung, dan tiada borang patut tercipta akibat cubaan itu.
+        $this->assertStrukturBolehDisunting($validated, $form);
 
-        if ($strukturDihantar) {
-            // Selepas kebenaran (jangan bocorkan kewujudan borang), sebelum
-            // firstOrCreate — kerusi kurasi/DPT/warisan tidak boleh disunting
-            // langsung, dan tiada borang patut tercipta akibat cubaan itu.
-            $this->assertStrukturBolehDisunting($validated, $form);
+        $asas = $this->strukturAsas($svc, $form, $validated);
 
-            $asas = $this->strukturAsas($svc, $form, $validated);
+        $this->assertPusatNamesUsable($svc, $form, $validated['pusat'], $asas);
 
-            $this->assertPusatNamesUsable($svc, $form, $validated['pusat'], $asas);
+        $baharu = $svc->expand(
+            $validated['pusat'],
+            (bool) ($validated['undi_awal'] ?? false),
+            (bool) ($validated['undi_pos'] ?? false),
+            $validated['undi_awal_label'] ?? null,
+            $validated['undi_pos_label'] ?? null,
+            $validated['lain_lain'] ?? [],
+        );
 
-            $baharu = $svc->expand(
-                $validated['pusat'],
-                (bool) ($validated['undi_awal'] ?? false),
-                (bool) ($validated['undi_pos'] ?? false),
-                $validated['undi_awal_label'] ?? null,
-                $validated['undi_pos_label'] ?? null,
-                $validated['lain_lain'] ?? [],
-            );
-        }
-
-        DB::transaction(function () use (&$form, $validated, $baharu, $asas, $svc, $request, $strukturDihantar) {
+        DB::transaction(function () use (&$form, $validated, $baharu, $asas, $svc, $request) {
             $form ??= Borang14Form::create([
                 'kawasan_type' => $validated['kawasan_type'],
                 'kawasan_id'   => $validated['kawasan_id'],
@@ -486,38 +466,36 @@ class Borang14Controller extends Controller
                 'source'       => 'manual',
             ]);
 
-            if ($strukturDihantar) {
-                if ($form->wasRecentlyCreated === false) {
-                    Borang14Snapshot::create([
-                        'borang14_form_id' => $form->id,
-                        'structure' => $form->structure,
-                        'votes' => $form->votes()->get(['contest', 'pusat', 'saluran', 'slot', 'undi'])->toArray(),
-                        'parties' => $form->parties,
-                        'reason' => 'before_structure_edit',
-                        'created_by' => $request->user()?->id,
-                    ]);
-                }
-
-                foreach ($svc->renameMap($asas, $validated['pusat']) as $lama => $kini) {
-                    $form->votes()->where('pusat', $lama)->update(['pusat' => $kini]);
-                }
-
-                // SENGAJA merentas kedua-dua pertandingan (di sini dan pada
-                // renameMap() di atas): struktur ialah pokok Pusat Mengundi/saluran
-                // FIZIKAL, dan satu saluran menghasilkan undi PRU DAN PRN. Membuang
-                // satu saluran mesti membuang undi kedua-dua pertandingan padanya —
-                // jika tidak, baris PRU yatim kekal di bawah kunci sel yang tiada
-                // siapa lagi membaca, dan menamakan semula pusat akan memisahkan
-                // dua pertandingan yang datang dari saluran yang SAMA.
-                $kekal = $svc->survivingKeys($baharu);
-                foreach ($form->votes()->get(['id', 'pusat', 'saluran']) as $v) {
-                    if (! isset($kekal[$v->pusat.'|'.$v->saluran])) {
-                        Borang14Vote::whereKey($v->id)->delete();
-                    }
-                }
-
-                $form->update(['structure' => $baharu]);
+            if ($form->wasRecentlyCreated === false) {
+                Borang14Snapshot::create([
+                    'borang14_form_id' => $form->id,
+                    'structure' => $form->structure,
+                    'votes' => $form->votes()->get(['contest', 'pusat', 'saluran', 'slot', 'undi'])->toArray(),
+                    'parties' => $form->parties,
+                    'reason' => 'before_structure_edit',
+                    'created_by' => $request->user()?->id,
+                ]);
             }
+
+            foreach ($svc->renameMap($asas, $validated['pusat']) as $lama => $kini) {
+                $form->votes()->where('pusat', $lama)->update(['pusat' => $kini]);
+            }
+
+            // SENGAJA merentas kedua-dua pertandingan (di sini dan pada
+            // renameMap() di atas): struktur ialah pokok Pusat Mengundi/saluran
+            // FIZIKAL, dan satu saluran menghasilkan undi PRU DAN PRN. Membuang
+            // satu saluran mesti membuang undi kedua-dua pertandingan padanya —
+            // jika tidak, baris PRU yatim kekal di bawah kunci sel yang tiada
+            // siapa lagi membaca, dan menamakan semula pusat akan memisahkan
+            // dua pertandingan yang datang dari saluran yang SAMA.
+            $kekal = $svc->survivingKeys($baharu);
+            foreach ($form->votes()->get(['id', 'pusat', 'saluran']) as $v) {
+                if (! isset($kekal[$v->pusat.'|'.$v->saluran])) {
+                    Borang14Vote::whereKey($v->id)->delete();
+                }
+            }
+
+            $form->update(['structure' => $baharu]);
 
             // Togol mod pilihanraya serentak. Kunci dikira SEMULA setiap
             // panggilan (bukan sekadar ditambah) supaya nyahtogol benar-benar
@@ -696,18 +674,6 @@ class Borang14Controller extends Controller
         $existsTable = $kawasanType === Borang14Form::KAWASAN_PARLIMEN ? 'bandar' : 'kadun';
 
         $validated = $request->validate($this->strukturRules($existsTable), $this->strukturMessages());
-
-        // 'pusat' kini 'sometimes' pada peraturan kongsi (bagi togol
-        // serentak-sahaja tanpa struktur pada simpanStruktur()) — tetapi
-        // endpoint PRATONTON ini semata-mata tentang kesan perubahan
-        // struktur, jadi ia sentiasa memerlukannya. Panel Sunting Struktur
-        // sedia ada sentiasa menghantarnya (walaupun []); laluan ini hanya
-        // menolak panggilan API terus yang menggugurkannya sepenuhnya.
-        if (! array_key_exists('pusat', $validated)) {
-            throw ValidationException::withMessages([
-                'pusat' => 'Medan pusat diperlukan untuk menyemak kesan perubahan struktur.',
-            ]);
-        }
 
         // Sama seperti simpanStruktur() — SATU tempat sahaja untuk memangkas
         // nama Pusat/DM, supaya nilai yang disahkan/dibanding/dinamakan
