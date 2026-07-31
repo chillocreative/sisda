@@ -24,11 +24,17 @@ const labelPusat = (nama) => (nama === '' ? 'Undi Awal / Undi Pos' : nama);
  * mengawal `boleh_sunting_struktur` — panel ini tidak melakukan sebarang
  * pengesahan peranan sendiri.
  */
-export default function StrukturPanel({ picker, struktur, onSaved, onCancel }) {
+export default function StrukturPanel({ picker, struktur, initialSerentak = false, parlimenNama, onSaved, onCancel }) {
     const { t } = usePilihanrayaTheme();
     const [pusat, setPusat] = useState(() => struktur?.pusat ?? []);
     const [undiAwal, setUndiAwal] = useState(Boolean(struktur?.undi_awal));
     const [undiPos, setUndiPos] = useState(Boolean(struktur?.undi_pos));
+    // Togol mod pilihanraya serentak (PRU + PRN). Lalai TERTUTUP bagi borang
+    // baharu — borang sedia ada yang SUDAH dipaut disemai TERBUKA daripada
+    // `initialSerentak` (dikira di KeyinTab daripada kontesParlimen), supaya
+    // membuka panel ini dan menekan Simpan tanpa menyentuh togol TIDAK
+    // menyahpaut pertandingan Parlimen yang sudah direkod secara senyap.
+    const [serentak, setSerentak] = useState(Boolean(initialSerentak));
     const [saving, setSaving] = useState(false);
     const [ralat, setRalat] = useState('');
     const [kesan, setKesan] = useState(null); // { baris, undi, pusat[] } daripada endpoint .kesan (dry run)
@@ -67,6 +73,11 @@ export default function StrukturPanel({ picker, struktur, onSaved, onCancel }) {
         // balik mentah — menggugurkannya memadam undi di bawahnya, dan
         // pengguna tiada cara menyelamatkannya kerana ia tidak muncul di UI.
         lain_lain: struktur?.lain_lain ?? [],
+        // Togol mod pilihanraya serentak — hanya sah bagi borang DUN.
+        // Integer = paut/kekalkan pautan; null (dihantar EKSPLISIT) =
+        // nyahpaut. Medan digugurkan sepenuhnya bagi borang Parlimen supaya
+        // ia tidak pernah cuba memaut dirinya sendiri.
+        ...(picker.kawasanType === 'dun' ? { parlimen_id: serentak ? Number(picker.parlimenId) : null } : {}),
     });
 
     // Laravel 422 membawa mesej generik ("The given data was invalid.") pada
@@ -236,6 +247,28 @@ export default function StrukturPanel({ picker, struktur, onSaved, onCancel }) {
                     UNDI POS
                 </label>
             </div>
+
+            {/* Mod serentak — hanya bagi borang DUN, dan hanya apabila DUN ini
+                sudah tahu Parlimen induknya. Tiada pilihan Parlimen lain
+                dipaparkan sengaja: satu DUN tidak boleh dipaut kepada
+                pertandingan Parlimen sesiapa selain induknya sendiri. */}
+            {picker.kawasanType === 'dun' && picker.parlimenId && (
+                <div className="mb-4 border border-dashed rounded-lg px-4 py-3">
+                    <label className="flex items-center gap-2 text-sm font-medium">
+                        <input
+                            type="checkbox"
+                            checked={serentak}
+                            disabled={saving}
+                            onChange={(e) => setSerentak(e.target.checked)}
+                        />
+                        Pilihanraya serentak (PRU + PRN)
+                    </label>
+                    <p className={`${t.subtext} text-xs mt-1`}>
+                        Satu saluran merekod dua kertas undi — PRN untuk DUN ini dan PRU untuk
+                        Parlimennya{parlimenNama ? ` (${parlimenNama})` : ''}.
+                    </p>
+                </div>
+            )}
 
             {ralat && (
                 <div className="flex items-center gap-1.5 text-sm bg-rose-50 border border-rose-300 text-rose-800 rounded-lg px-4 py-3 mb-4">

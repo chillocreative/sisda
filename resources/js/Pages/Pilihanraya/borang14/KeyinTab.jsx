@@ -474,6 +474,12 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                     key={`${kawasanType}-${kawasanId}-${jenisPr}-${tahun}`}
                     picker={picker}
                     struktur={struktur}
+                    // Kontes Parlimen sudah dimuat daripada data() — samakan
+                    // keadaan awal togol dengannya supaya membuka panel dan
+                    // menekan Simpan tanpa menyentuh togol TIDAK menyahpaut
+                    // pertandingan yang sudah dipaut secara senyap.
+                    initialSerentak={kontesParlimen != null}
+                    parlimenNama={parlimenList.find((p) => String(p.id) === String(parlimenId))?.nama}
                     onCancel={() => setSuntingStruktur(false)}
                     onSaved={() => { setSuntingStruktur(false); setReloadNonce((n) => n + 1); }}
                 />
