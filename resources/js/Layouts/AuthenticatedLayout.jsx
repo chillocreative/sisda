@@ -231,6 +231,21 @@ export default function AuthenticatedLayout({ children }) {
                 ]
             }
         ] : []),
+        // Pilihanraya untuk user/super_user — SATU submenu sahaja (Scoreboard).
+        // Disenaraikan secara eksplisit dengan sengaja: menambah item Pilihanraya
+        // baharu di blok admin di atas tidak boleh membocorkannya ke sini.
+        ...(user.role === 'user' || user.role === 'super_user' ? [
+            {
+                name: 'Pilihanraya',
+                href: route('pilihanraya.scoreboard'),
+                icon: Swords,
+                current: route().current('pilihanraya.scoreboard*'),
+                hasSubmenu: true,
+                submenu: [
+                    { name: 'Scoreboard', href: route('pilihanraya.scoreboard'), icon: Trophy },
+                ]
+            }
+        ] : []),
         // Call Center (Super Admin, Admin, and Super User — hidden from plain user)
         ...(user.role === 'super_admin' || user.role === 'admin' || user.role === 'super_user' ? [
             {
