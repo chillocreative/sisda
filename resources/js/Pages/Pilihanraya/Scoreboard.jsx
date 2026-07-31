@@ -4,6 +4,7 @@ import { Head } from '@inertiajs/react';
 import axios from 'axios';
 import {
     Trophy, Crown, Settings, X, Upload, Info, Loader2, Radio, Maximize2, Minimize2,
+    AlertTriangle, CheckCircle2,
 } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PilihanrayaShell, { usePilihanrayaTheme } from './components/PilihanrayaShell';
@@ -206,6 +207,45 @@ function PenyiaranCard({ seat, board, onChanged }) {
     );
 }
 
+/* ------------------------------- liputan -------------------------------- */
+
+// `liputan` is null for DUN boards and standalone-PRU Parlimen boards — those
+// read votes straight off their own form and have no partial-coverage concept,
+// so this renders nothing for them (unchanged from today). It is only present
+// on a Parlimen roll-up: the totals below are SUMMED across linked DUN forms,
+// and this is the only line telling the operator whether that sum is complete.
+// `jumlah === 0` (no DUN form linked yet) is a real state too, but "0 daripada
+// 0 DUN melapor" reads as a typo — worded separately instead.
+function LiputanBadge({ liputan }) {
+    if (liputan == null) return null;
+    const { melapor, jumlah } = liputan;
+
+    if (jumlah === 0) {
+        return (
+            <div className="rounded-xl bg-amber-50 border border-amber-300 text-amber-800 px-4 py-3 text-sm font-bold flex items-center justify-center gap-2 mb-5">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span>SEMENTARA · Belum ada borang DUN dipautkan lagi</span>
+            </div>
+        );
+    }
+
+    if (melapor < jumlah) {
+        return (
+            <div className="rounded-xl bg-amber-50 border border-amber-300 text-amber-800 px-4 py-3 text-sm font-bold flex items-center justify-center gap-2 mb-5">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span>SEMENTARA · {melapor} daripada {jumlah} DUN melapor</span>
+            </div>
+        );
+    }
+
+    return (
+        <div className="rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 px-4 py-3 text-sm font-bold flex items-center justify-center gap-2 mb-5">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            <span>LENGKAP · Semua {jumlah} DUN telah melapor</span>
+        </div>
+    );
+}
+
 /* -------------------------------- board -------------------------------- */
 
 function Board({ data }) {
@@ -232,6 +272,8 @@ function Board({ data }) {
                     </p>
                 </div>
             </div>
+
+            <LiputanBadge liputan={data.liputan} />
 
             {/* Candidate cards */}
             <div className="flex flex-wrap justify-center gap-4">
