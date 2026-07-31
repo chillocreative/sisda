@@ -18,15 +18,25 @@ Route::get('/', function () {
  * SEBELUM laluan kod, kerana kedua-duanya berkongsi satu segmen. Kod kerusi
  * sentiasa bermula dengan huruf (N27, P129) manakala id lama sentiasa angka
  * penuh, jadi kekangan di bawah tidak boleh bertindih.
+ *
+ * THROTTLE (mengikut konvensyen paca.public di bawah — had per-IP seminit):
+ *  - halaman/senarai: 60,1 sama seperti paca.public. Seorang penonton memuat
+ *    halaman sekali; 60 muat naik seminit sudah jauh melebihi guna biasa.
+ *  - /data: 240,1. Halaman meninjau setiap 4 saat = 15 permintaan seminit bagi
+ *    SATU penonton, jadi 240 memberi ruang ~16 penonton di belakang SATU IP
+ *    (NAT pejabat / gateway telco) tanpa tersekat, sambil menghentikan klien
+ *    tunggal yang membedil ribuan permintaan seminit.
+ * Ini lapisan kedua sahaja — kos sebenar sudah dijinakkan oleh cache rujukan
+ * dalam Borang14Reference (lihat CACHE_TTL di sana).
  */
 Route::get('/scoreboard', [\App\Http\Controllers\PublicScoreboardController::class, 'index'])
-    ->name('scoreboard.public.index');
+    ->name('scoreboard.public.index')->middleware('throttle:60,1');
 Route::get('/scoreboard/{kadun}', [\App\Http\Controllers\PublicScoreboardController::class, 'legacy'])
-    ->whereNumber('kadun')->name('scoreboard.public.legacy');
+    ->whereNumber('kadun')->name('scoreboard.public.legacy')->middleware('throttle:60,1');
 Route::get('/scoreboard/{kod}/data', [\App\Http\Controllers\PublicScoreboardController::class, 'data'])
-    ->where('kod', '[A-Za-z]\d+')->name('scoreboard.public.data');
+    ->where('kod', '[A-Za-z]\d+')->name('scoreboard.public.data')->middleware('throttle:240,1');
 Route::get('/scoreboard/{kod}', [\App\Http\Controllers\PublicScoreboardController::class, 'show'])
-    ->where('kod', '[A-Za-z]\d+')->name('scoreboard.public');
+    ->where('kod', '[A-Za-z]\d+')->name('scoreboard.public')->middleware('throttle:60,1');
 
 // Public per-Pusat PACA link — no login required. A coordinator shares this
 // token URL with a petugas, who self-registers into an empty slot. See

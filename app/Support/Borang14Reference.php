@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Bandar;
 use App\Models\Kadun;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -25,16 +26,34 @@ use Illuminate\Support\Facades\DB;
  */
 class Borang14Reference
 {
+    /**
+     * Tempoh cache rujukan, dalam SAAT.
+     *
+     * deriveFromDpt()/deriveFromDptForBandar() mengimbas SELURUH
+     * pangkalan_data_pengundi kebangsaan (UPPER(kadun)/UPPER(parlimen)
+     * mematikan index) dan memuatkan setiap baris pengundi kerusi itu ke dalam
+     * PHP. Papan markah AWAM meninjau setiap 4 saat, tanpa log masuk, dan
+     * setiap penonton meninjau sendiri — pada malam keputusan itu bermakna
+     * ribuan imbasan penuh seminit yang boleh menumbangkan kemasukan Borang 14.
+     *
+     * Yang dicache di sini ialah STRUKTUR rujukan sahaja (Daerah Mengundi →
+     * Pusat Mengundi → Saluran + bilangan berdaftar) — data yang berubah hanya
+     * apabila roll DPT dimuat naik semula atau fail JSON terkurasi ditukar,
+     * iaitu berbulan sekali. ANGKA UNDI LANGSUNG TIDAK dicache: ia dibaca
+     * terus daripada borang14_votes dalam ScoreboardPayload::forSeat(), jadi
+     * kemasukan undi tetap muncul dalam satu tinjauan.
+     *
+     * 45 saat dipilih: cukup panjang untuk meruntuhkan ~11 tinjauan setiap
+     * penonton kepada SATU pertanyaan, cukup pendek supaya muat naik roll DPT
+     * baharu kelihatan dalam masa kurang seminit tanpa perlu membatalkan cache
+     * secara eksplisit di setiap laluan muat naik.
+     */
+    private const CACHE_TTL = 45;
+
     /** @return array<string,mixed>|null */
     public static function forKadun(int $kadunId): ?array
     {
-        $path = resource_path("data/borang14/kadun-{$kadunId}.json");
-
-        if (is_file($path)) {
-            return json_decode(file_get_contents($path), true) ?: null;
-        }
-
-        return self::deriveFromDpt($kadunId);
+        return self::cached("dun:{$kadunId}", fn () => self::bacaKadun($kadunId));
     }
 
     /**
@@ -46,21 +65,49 @@ class Borang14Reference
      */
     public static function forBandar(int $bandarId): ?array
     {
-        $bandar = Bandar::with('negeri')->find($bandarId);
-        if (! $bandar) {
-            return null;
-        }
+        return self::cached("parlimen:{$bandarId}", function () use ($bandarId) {
+            $bandar = Bandar::with('negeri')->find($bandarId);
 
-        return self::deriveFromDptForBandar($bandar);
+            return $bandar ? self::deriveFromDptForBandar($bandar) : null;
+        });
     }
 
     public static function hasData(int $kadunId): bool
     {
-        if (is_file(resource_path("data/borang14/kadun-{$kadunId}.json"))) {
-            return true;
+        return self::forKadun($kadunId) !== null;
+    }
+
+    /** @return array<string,mixed>|null */
+    private static function bacaKadun(int $kadunId): ?array
+    {
+        $path = resource_path("data/borang14/kadun-{$kadunId}.json");
+
+        if (is_file($path)) {
+            return json_decode(file_get_contents($path), true) ?: null;
         }
 
-        return self::deriveFromDpt($kadunId) !== null;
+        return self::deriveFromDpt($kadunId);
+    }
+
+    /**
+     * Cache::remember() menganggap null sebagai "tiada dalam cache" dan akan
+     * membina semula setiap kali — tepat pada kes terburuk (kerusi tanpa roll
+     * masih mengimbas jadual penuh setiap tinjauan). Bungkus hasil dalam array
+     * supaya null pun tersimpan.
+     *
+     * @param  callable():(array<string,mixed>|null)  $bina
+     * @return array<string,mixed>|null
+     */
+    private static function cached(string $suffix, callable $bina): ?array
+    {
+        $bungkus = Cache::remember(self::kunci($suffix), self::CACHE_TTL, fn () => ['ref' => $bina()]);
+
+        return is_array($bungkus) ? ($bungkus['ref'] ?? null) : null;
+    }
+
+    private static function kunci(string $suffix): string
+    {
+        return 'borang14ref:v1:'.$suffix;
     }
 
     /** @return array<string,mixed>|null */

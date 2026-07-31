@@ -22,6 +22,19 @@ const PARTY_COLOR = {
 // "UMNO (BN)") still resolve to the party colour.
 const partyColor = (nama) => PARTY_COLOR[((nama || '').toUpperCase().match(/[A-Z]+/) || [''])[0]] || '#64748b';
 
+// Papan boleh milik DUN ATAU Parlimen. Bagi kerusi Parlimen, `dun` memang null
+// (Borang14Reference::deriveFromDptForBandar) — mengekod "DUN {dun}" secara
+// tetap akan mencetak teks "null". Label mesti mengikut jenis kerusi.
+const labelKerusi = (d) => {
+    if (d?.dun) return `DUN ${d.dun}`;
+    if (d?.parlimen) return `Parlimen ${d.parlimen}`;
+    return 'Kerusi';
+};
+
+// Rangkaian konteks sebelum label kerusi. Nama Parlimen digugurkan pada papan
+// Parlimen supaya ia tidak muncul dua kali.
+const konteksKerusi = (d) => [d?.negeri, d?.dun ? d?.parlimen : null].filter(Boolean);
+
 /* ------------------------------- settings ------------------------------ */
 
 function SettingsModal({ seat, board, onClose, onSaved }) {
@@ -233,7 +246,9 @@ function Board({ data }) {
                     {data.logo_url && <img src={data.logo_url} alt="logo" className="h-16 w-auto object-contain" />}
                     <h2 className="text-3xl sm:text-4xl font-black tracking-[0.2em]">{data.title || 'SCOREBOARD'}</h2>
                     <p className="text-slate-300 text-sm">
-                        {data.negeri} · {data.parlimen} · <span className="font-semibold text-white">DUN {data.dun}</span> · {data.penjuru_label}
+                        {konteksKerusi(data).map((teks) => <span key={teks}>{teks} · </span>)}
+                        <span className="font-semibold text-white">{labelKerusi(data)}</span>
+                        {data.penjuru_label ? ` · ${data.penjuru_label}` : ''}
                     </p>
                 </div>
             </div>

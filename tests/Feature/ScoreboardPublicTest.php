@@ -3,10 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\Bandar;
+use App\Models\Borang14Form;
 use App\Models\Kadun;
 use App\Models\Negeri;
 use App\Models\Scoreboard;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
@@ -133,5 +136,89 @@ class ScoreboardPublicTest extends TestCase
 
         // Dan papan yang dinyahsiar itu sendiri mesti 404 di laluan awam.
         $this->get('/scoreboard/n31')->assertNotFound();
+    }
+
+    /** Roll DPT minimum supaya Borang14Reference::forKadun() bukan null. */
+    private function seedDpt(): void
+    {
+        DB::table('pangkalan_data_pengundi')->insert([
+            'no_ic' => '800101015555',
+            'nama' => 'PENGUNDI PILAH',
+            'lokaliti' => 'KAMPUNG A',
+            'daerah_mengundi' => 'AWAT',
+            'kadun' => 'PILAH',
+            'parlimen' => 'KUALA PILAH',
+            'negeri' => 'NEGERI SEMBILAN',
+            'is_deceased' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    /**
+     * Kebocoran privasi: muatan papan membawa 'dikemaskini' (users.name
+     * pengendali SISDA yang menyimpan terakhir) dan 'sumber' (senario Borang 14
+     * dalaman). Skrin pemilik memerlukan kedua-duanya; URL awam tanpa log masuk
+     * tidak sepatutnya mendedahkan siapa menyunting papan itu.
+     *
+     * Ujian ini memandu KEDUA-DUA laluan pada papan yang SAMA supaya penapis
+     * terbukti sebelah sahaja — bukan sekadar dibuang di mana-mana.
+     */
+    public function test_public_payload_hides_the_editor_name_while_the_owner_payload_keeps_it(): void
+    {
+        $this->seedDpt();
+
+        $pemilik = User::create([
+            'name' => 'Ahmad Bin Penyunting',
+            'email' => 'penyunting@example.test',
+            'telephone' => '0140000123',
+            'password' => bcrypt('rahsia'),
+            'role' => 'user',
+            'status' => 'approved',
+            'kadun_id' => $this->dun->id,
+        ]);
+
+        $form = Borang14Form::create([
+            'kawasan_type' => 'dun',
+            'kawasan_id' => $this->dun->id,
+            'jenis_pr' => 'prn',
+            'tahun' => 2026,
+            'penjuru' => 2,
+            'status' => 'published',
+            'parties' => [['nama' => 'KEADILAN'], ['nama' => 'BERSATU']],
+        ]);
+
+        Scoreboard::create([
+            'kawasan_type' => 'dun',
+            'kawasan_id' => $this->dun->id,
+            'borang14_form_id' => $form->id,
+            'title' => 'PILAH 2026',
+            'status' => Scoreboard::STATUS_TERSIAR,
+            'kod' => 'N27',
+            'pihak_kami' => [1],
+            'updated_by' => $pemilik->id,
+        ]);
+
+        // --- Laluan AWAM: kedua-dua kunci mesti tiada sama sekali. ---
+        $awam = $this->getJson('/scoreboard/n27/data')->assertOk();
+        $data = $awam->json();
+
+        $this->assertTrue($data['ready'], 'Papan mesti sedia supaya ujian ini benar-benar menguji muatan penuh.');
+        $this->assertArrayNotHasKey('dikemaskini', $data);
+        $this->assertArrayNotHasKey('sumber', $data);
+        $this->assertStringNotContainsString('Ahmad Bin Penyunting', $awam->getContent());
+
+        // Halaman awam (Inertia) menyiarkan prop yang sama dalam HTML —
+        // periksa ia juga bersih, bukan hanya endpoint JSON.
+        $this->get('/scoreboard/n27')->assertOk()->assertDontSee('Ahmad Bin Penyunting');
+
+        // --- Laluan PEMILIK: kedua-dua kunci mesti KEKAL. ---
+        $milik = $this->actingAs($pemilik)->getJson(route('pilihanraya.scoreboard.data', [
+            'kawasan_type' => 'dun',
+            'kawasan_id' => $this->dun->id,
+        ]))->assertOk()->json();
+
+        $this->assertSame('Ahmad Bin Penyunting', $milik['dikemaskini']['nama']);
+        $this->assertSame($form->id, $milik['sumber']['id']);
     }
 }

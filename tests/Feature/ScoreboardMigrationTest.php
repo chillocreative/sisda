@@ -208,6 +208,95 @@ class ScoreboardMigrationTest extends TestCase
         $this->assertSame(7, (int) $board->kawasan_id, 'kawasan_id mesti diwarisi daripada borang14_forms.');
     }
 
+    /**
+     * up() mencipta scoreboards_kerusi_unique dan scoreboards_kod_unique dalam
+     * DUA ALTER berasingan. Jika sambungan putus di antaranya, skema kekal
+     * dengan kerusi_unique tetapi TANPA kod_unique — dan `migrate --force`
+     * deploy seterusnya akan merekod migrasi sebagai berjaya.
+     *
+     * Ujian ini mereka keadaan itu dengan tepat (gugurkan kod_unique sahaja,
+     * biarkan segalanya yang lain lengkap) lalu menjalankan up() sekali lagi:
+     * pengawal pulang-awal MESTI melihat kerja itu belum selesai dan
+     * menyambungnya. Dengan pengawal lama (hanya menyemak kerusi_unique) up()
+     * pulang serta-merta dan pengesahan di bawah gagal.
+     */
+    public function test_a_run_interrupted_before_the_kod_index_still_completes_on_rerun(): void
+    {
+        Schema::table('scoreboards', function (Blueprint $table) {
+            $table->dropUnique('scoreboards_kod_unique');
+        });
+
+        // Prasyarat: hanya kod_unique yang hilang; kerusi_unique masih ada.
+        $this->assertTrue(Schema::hasIndex('scoreboards', 'scoreboards_kerusi_unique', 'unique'));
+        $this->assertFalse(Schema::hasIndex('scoreboards', 'scoreboards_kod_unique', 'unique'));
+
+        // Tanpa index itu, dua kerusi boleh memegang kod awam yang sama —
+        // tepat kelemahan yang dilaporkan.
+        DB::table('scoreboards')->insert([
+            'kawasan_type' => 'dun', 'kawasan_id' => 8001, 'title' => 'A', 'kod' => 'N27',
+            'status' => 'tersiar', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('scoreboards')->insert([
+            'kawasan_type' => 'parlimen', 'kawasan_id' => 8002, 'title' => 'B', 'kod' => 'N27',
+            'status' => 'tersiar', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $this->assertSame(2, DB::table('scoreboards')->where('kod', 'N27')->count(),
+            'Tanpa scoreboards_kod_unique, dua kerusi boleh memegang kod awam yang sama.');
+
+        // Bersihkan pendua supaya index boleh dibina semula — kegagalan
+        // membina index atas data berpendua ialah masalah berasingan (dan
+        // memang WAJAR menggagalkan deploy dengan lantang).
+        DB::table('scoreboards')->where('kawasan_id', 8002)->delete();
+
+        $this->migrationInstance()->up();
+
+        $this->assertTrue(
+            Schema::hasIndex('scoreboards', 'scoreboards_kod_unique', 'unique'),
+            'Larian ulangan mesti MENYAMBUNG dan mencipta scoreboards_kod_unique, bukan melangkauinya.'
+        );
+
+        // Dan kekangan itu benar-benar berkuat kuasa selepas sambungan.
+        $this->expectException(\Illuminate\Database\QueryException::class);
+        DB::table('scoreboards')->insert([
+            'kawasan_type' => 'parlimen', 'kawasan_id' => 8003, 'title' => 'C', 'kod' => 'N27',
+            'status' => 'tersiar', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+    }
+
+    /**
+     * Larian sambungan tidak boleh memijak pilihan pemilik. backfillPihakKami()
+     * hanya mengisi baris yang pihak_kami-nya MASIH NULL — papan yang sudah
+     * disimpan pemilik (cth. hanya slot 2) mesti kekal seperti adanya walaupun
+     * up() berjalan semula.
+     */
+    public function test_a_rerun_does_not_overwrite_pihak_kami_already_chosen_by_the_owner(): void
+    {
+        $formId = $this->seedBorangForm([
+            'parties' => json_encode([['nama' => 'KEADILAN'], ['nama' => 'BERSATU']]),
+        ]);
+
+        $boardId = DB::table('scoreboards')->insertGetId([
+            'kawasan_type' => 'dun', 'kawasan_id' => 41,
+            'borang14_form_id' => $formId,
+            'title' => 'PAPAN PEMILIK',
+            'pihak_kami' => json_encode([2]), // pilihan pemilik — BUKAN tekaan PH
+            'status' => 'draf',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        Schema::table('scoreboards', function (Blueprint $table) {
+            $table->dropUnique('scoreboards_kod_unique');
+        });
+
+        $this->migrationInstance()->up();
+
+        $this->assertSame(
+            [2],
+            json_decode(DB::table('scoreboards')->find($boardId)->pihak_kami, true),
+            'Larian ulangan tidak boleh menulis semula pihak_kami yang sudah dipilih pemilik.'
+        );
+    }
+
     public function test_orphan_image_is_unlinked_but_image_shared_with_survivor_stays(): void
     {
         $this->resetScoreboardsToPreMigrationShape();

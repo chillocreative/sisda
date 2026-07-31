@@ -38,8 +38,18 @@ return new class extends Migration
      * meninggalkan data pilihan raya sebenar dalam keadaan separuh migrasi
      * secara senyap.
      *
-     * Sebaliknya semak ARTIFACT TERAKHIR yang up() cipta —
-     * index scoreboards_kerusi_unique — supaya:
+     * Sebaliknya semak KEDUA-DUA index unique yang up() cipta di hujung
+     * addNewBorangFormIdConstraintsIfMissing() — scoreboards_kerusi_unique
+     * DAN scoreboards_kod_unique. Menyemak scoreboards_kerusi_unique SAHAJA
+     * tidak memadai: ia BUKAN artifact terakhir, scoreboards_kod_unique dicipta
+     * SELEPASNYA dalam ALTER yang berasingan. Jika sambungan putus antara dua
+     * ALTER itu, kerusi_unique wujud tetapi kod_unique tidak — dan `migrate
+     * --force` deploy seterusnya akan pulang awal, merekod migrasi sebagai
+     * berjaya, meninggalkan kod awam TANPA kekangan unique. Dua kerusi boleh
+     * memegang kod yang sama dan semakan dalam ScoreboardController::publish()
+     * hanyalah TOCTOU.
+     *
+     * Dengan menuntut KEDUA-DUANYA:
      *   (a) larian kedua pada pangkalan data yang sudah lengkap terus tiada
      *       kesan (no-op), dan
      *   (b) larian selepas kegagalan separuh jalan MENYAMBUNG kerja yang
@@ -48,7 +58,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (Schema::hasIndex('scoreboards', 'scoreboards_kerusi_unique', 'unique')) {
+        if (Schema::hasIndex('scoreboards', 'scoreboards_kerusi_unique', 'unique')
+            && Schema::hasIndex('scoreboards', 'scoreboards_kod_unique', 'unique')) {
             return; // Sudah dibentuk semula sepenuhnya.
         }
 
@@ -59,10 +70,11 @@ return new class extends Migration
         // digulung semula, baris pangkalan data kembali tetapi fail imej sudah
         // hilang selama-lamanya. Kumpul dahulu, padam selepas komit.
         //
-        // Ketiga-tiga langkah ini selamat diulang: backfillSeats/backfillPihakKami
-        // hanya menulis semula nilai yang sama jika sudah betul, dan
-        // collapseDuplicateBoards tiada kesan apabila tiada lagi kerusi berpapan
-        // berganda (kes larian kedua/sambungan selepas kegagalan separuh jalan).
+        // Ketiga-tiga langkah ini selamat diulang: backfillSeats menulis semula
+        // nilai yang sama, backfillPihakKami hanya menyentuh baris yang
+        // pihak_kami-nya MASIH NULL (lihat kaedah itu — larian sambungan tidak
+        // boleh memijak pilihan pemilik), dan collapseDuplicateBoards tiada
+        // kesan apabila tiada lagi kerusi berpapan berganda.
         $yatim = [];
         DB::transaction(function () use (&$yatim) {
             $this->backfillSeats();
@@ -252,11 +264,17 @@ return new class extends Migration
      * Papan sedia ada diserlahkan mengikut PH_PARTIES yang dikekod tetap dalam
      * pengawal. Tanda slot yang sepadan supaya serlahan semasa kekal dan tidak
      * reset kepada kosong apabila kod itu dibuang.
+     *
+     * HANYA baris dengan pihak_kami MASIH NULL disentuh. Pada larian pertama
+     * itu bermakna semua baris (lajur baru sahaja dicipta). Pada larian
+     * SAMBUNGAN selepas kegagalan separuh jalan, ia menghalang pilihan yang
+     * sudah disimpan pemilik daripada dipijak semula kepada tekaan PH_PARTIES.
      */
     private function backfillPihakKami(): void
     {
         $rows = DB::table('scoreboards')
             ->join('borang14_forms', 'scoreboards.borang14_form_id', '=', 'borang14_forms.id')
+            ->whereNull('scoreboards.pihak_kami')
             ->select('scoreboards.id', 'borang14_forms.parties')
             ->get();
 

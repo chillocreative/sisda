@@ -10,6 +10,19 @@ const POLL_MS = 4000;
 // papan markah tidak mendakwa "0" bagi angka yang sebenarnya belum ada.
 const fmt = (n) => (n == null || Number.isNaN(n) ? '—' : Number(n).toLocaleString('en-MY'));
 
+// Papan boleh milik DUN ATAU Parlimen. Bagi kerusi Parlimen, `dun` memang null
+// (Borang14Reference::deriveFromDptForBandar) — mengekod "DUN {dun}" secara
+// tetap akan mencetak teks "null". Label mesti mengikut jenis kerusi.
+const labelKerusi = (d) => {
+    if (d?.dun) return `DUN ${d.dun}`;
+    if (d?.parlimen) return `Parlimen ${d.parlimen}`;
+    return 'Kerusi';
+};
+
+// Rangkaian konteks sebelum label kerusi. Nama Parlimen digugurkan pada papan
+// Parlimen supaya ia tidak muncul dua kali.
+const konteksKerusi = (d) => [d?.negeri, d?.dun ? d?.parlimen : null].filter(Boolean);
+
 // Coalition / party colours. Names carry the coalition (e.g. "PAKATAN HARAPAN")
 // so match on the leading word; PH stays red, BN blue.
 const PARTY_COLOR = {
@@ -66,7 +79,9 @@ function Board({ data }) {
                         {data.title || 'SCOREBOARD'}
                     </h1>
                     <p className="text-slate-300 text-xs sm:text-sm">
-                        {data.negeri} · {data.parlimen} · <span className="font-semibold text-white">DUN {data.dun}</span> · {data.penjuru_label}
+                        {konteksKerusi(data).map((teks) => <span key={teks}>{teks} · </span>)}
+                        <span className="font-semibold text-white">{labelKerusi(data)}</span>
+                        {data.penjuru_label ? ` · ${data.penjuru_label}` : ''}
                     </p>
                 </div>
             </div>
@@ -146,7 +161,7 @@ export default function PublicScoreboard({ kod, board }) {
     }, [fetchData]);
 
     const ready = data?.ready;
-    const pageTitle = ready ? `${data.title} — DUN ${data.dun}` : 'Live Scoreboard';
+    const pageTitle = ready ? `${data.title} — ${labelKerusi(data)}` : 'Live Scoreboard';
 
     return (
         <>

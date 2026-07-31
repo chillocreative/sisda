@@ -75,4 +75,65 @@ class Borang14ReferenceTest extends TestCase
         $this->assertSame('DM Ujian', $ref['daerah_mengundi'][0]['nama']);
         $this->assertSame('Kampung Ujian', $ref['daerah_mengundi'][0]['pusat_mengundi'][0]['nama']);
     }
+
+    /**
+     * Papan markah awam ditinjau setiap 4 saat oleh SETIAP penonton, dan setiap
+     * pembinaan rujukan mengimbas seluruh pangkalan_data_pengundi. Rujukan
+     * mesti dicache supaya tinjauan kedua tidak menyentuh pangkalan data
+     * langsung. (Angka undi TIDAK dicache — lihat ScoreboardPayload.)
+     */
+    public function test_reference_is_cached_so_a_second_lookup_does_not_hit_the_database(): void
+    {
+        $negeri = Negeri::create(['nama' => 'Negeri Cache']);
+        $bandar = Bandar::create(['nama' => 'Parlimen Cache', 'negeri_id' => $negeri->id]);
+        $kadun = \App\Models\Kadun::create(['nama' => 'DUN CACHE', 'bandar_id' => $bandar->id]);
+
+        \Illuminate\Support\Facades\DB::table('pangkalan_data_pengundi')->insert([
+            'no_ic' => '900101019999',
+            'nama' => 'Pengundi Cache',
+            'lokaliti' => 'Kampung Cache',
+            'daerah_mengundi' => 'DM Cache',
+            'kadun' => 'DUN CACHE',
+            'parlimen' => 'Parlimen Cache',
+            'negeri' => 'Negeri Cache',
+            'is_deceased' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $pertama = Borang14Reference::forKadun($kadun->id);
+        $this->assertNotNull($pertama);
+
+        // Kira pertanyaan yang laluan tinjauan KEDUA jalankan.
+        $pertanyaan = 0;
+        \Illuminate\Support\Facades\DB::listen(function () use (&$pertanyaan) {
+            $pertanyaan++;
+        });
+
+        $kedua = Borang14Reference::forKadun($kadun->id);
+
+        $this->assertSame($pertama, $kedua, 'Rujukan dicache mesti sama bentuknya.');
+        $this->assertSame(0, $pertanyaan, 'Tinjauan kedua mesti dilayan sepenuhnya daripada cache.');
+    }
+
+    /**
+     * Kes terburuk ialah kerusi TANPA roll: Cache::remember() menganggap null
+     * sebagai "tiada dalam cache" dan akan mengimbas jadual penuh setiap
+     * tinjauan. Null mesti ikut dicache.
+     */
+    public function test_a_seat_with_no_roll_caches_its_null_result_too(): void
+    {
+        $negeri = Negeri::create(['nama' => 'Negeri Kosong']);
+        $bandar = Bandar::create(['nama' => 'Parlimen Kosong', 'negeri_id' => $negeri->id]);
+
+        $this->assertNull(Borang14Reference::forBandar($bandar->id));
+
+        $pertanyaan = 0;
+        \Illuminate\Support\Facades\DB::listen(function () use (&$pertanyaan) {
+            $pertanyaan++;
+        });
+
+        $this->assertNull(Borang14Reference::forBandar($bandar->id));
+        $this->assertSame(0, $pertanyaan, 'Keputusan null mesti dicache — jika tidak, setiap tinjauan mengimbas jadual penuh.');
+    }
 }

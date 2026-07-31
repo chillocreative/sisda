@@ -15,6 +15,10 @@ use Inertia\Inertia;
  * SATU peraturan mengawal segalanya di sini: hanya papan berstatus 'tersiar'
  * boleh diselesaikan. Papan draf dan kod yang tidak wujud memulangkan 404 yang
  * SAMA, supaya tiada petunjuk kerusi mana yang wujud.
+ *
+ * Muatan diambil melalui ScoreboardPayload::forPublicSeat() — BUKAN forSeat()
+ * — supaya nama pengendali SISDA yang menyimpan terakhir ('dikemaskini') dan
+ * senario Borang 14 dalaman ('sumber') tidak terbit pada URL tanpa log masuk.
  */
 class PublicScoreboardController extends Controller
 {
@@ -39,7 +43,7 @@ class PublicScoreboardController extends Controller
 
         return Inertia::render('Public/Scoreboard', [
             'kod' => strtolower($board->kod),
-            'board' => ScoreboardPayload::forSeat($board->kawasan_type, (int) $board->kawasan_id),
+            'board' => ScoreboardPayload::forPublicSeat($board->kawasan_type, (int) $board->kawasan_id),
         ]);
     }
 
@@ -47,7 +51,7 @@ class PublicScoreboardController extends Controller
     {
         $board = $this->tersiar($kod);
 
-        return response()->json(ScoreboardPayload::forSeat($board->kawasan_type, (int) $board->kawasan_id))
+        return response()->json(ScoreboardPayload::forPublicSeat($board->kawasan_type, (int) $board->kawasan_id))
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
             ->header('Pragma', 'no-cache');
     }

@@ -6,6 +6,7 @@ use App\Models\Borang14Form;
 use App\Models\Scoreboard;
 use App\Support\Borang14Reference;
 use App\Support\SeatScope;
+use Illuminate\Support\Arr;
 
 /**
  * Membina muatan papan markah langsung bagi satu kerusi. Logik baca tulen —
@@ -18,6 +19,18 @@ use App\Support\SeatScope;
 class ScoreboardPayload
 {
     private const PENJURU = [2 => '1 vs 1', 3 => '3 Penjuru', 4 => '4 Penjuru', 5 => '5 Penjuru', 6 => '6 Penjuru'];
+
+    /**
+     * Kunci yang HANYA untuk skrin pemilik dan tidak boleh keluar pada laluan
+     * awam tanpa log masuk:
+     *  - 'dikemaskini' membawa users.name pengendali SISDA yang menyimpan
+     *    terakhir — nama sebenar seorang petugas.
+     *  - 'sumber' mendedahkan id + label senario Borang 14 dalaman.
+     * Halaman awam tidak memerlukan kedua-duanya (Pages/Public/Scoreboard.jsx
+     * tidak merujuknya langsung), jadi ia ditapis di SATU tempat sahaja —
+     * forPublicSeat() — supaya laluan pemilik terbukti tidak tersentuh.
+     */
+    private const KUNCI_PEMILIK = ['dikemaskini', 'sumber'];
 
     public static function forSeat(string $type, int $id): array
     {
@@ -104,6 +117,15 @@ class ScoreboardPayload
             'sumber' => ['id' => $form->id, 'label' => self::labelSumber($form)],
             'dikemaskini' => self::dikemaskini($board),
         ];
+    }
+
+    /**
+     * Unjuran AWAM: muatan yang sama, tolak kunci milik pemilik. Digunakan oleh
+     * PublicScoreboardController sahaja — lihat KUNCI_PEMILIK.
+     */
+    public static function forPublicSeat(string $type, int $id): array
+    {
+        return Arr::except(self::forSeat($type, $id), self::KUNCI_PEMILIK);
     }
 
     /**
