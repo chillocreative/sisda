@@ -534,11 +534,21 @@ return new class extends Migration
                 ->constrained('users')->nullOnDelete();
         });
 
-        DB::transaction(function () {
+        // Pemadaman fail TIDAK boleh berlaku di dalam transaksi: jika transaksi
+        // digulung semula, baris pangkalan data kembali tetapi fail imej sudah
+        // hilang selama-lamanya. Kumpul dahulu, padam selepas komit.
+        $yatim = [];
+        DB::transaction(function () use (&$yatim) {
             $this->backfillSeats();
             $this->backfillPihakKami();
-            $this->collapseDuplicateBoards();
+            $yatim = $this->collapseDuplicateBoards();
         });
+
+        foreach ($yatim as $path) {
+            if (str_starts_with($path, 'uploads/') && is_file(public_path($path))) {
+                @unlink(public_path($path));
+            }
+        }
 
         // FK dahulu, kemudian index unique (ralat 1553), kemudian lajur nullable.
         Schema::table('scoreboards', function (Blueprint $table) {
@@ -596,11 +606,16 @@ return new class extends Migration
     /**
      * Satu kerusi boleh memegang beberapa papan hari ini. Kekalkan yang
      * updated_at terkini — itulah yang sedang dipaparkan — dan padam yang lain.
-     * Fail imej papan yang kalah hanya dinyahpaut jika papan yang menang tidak
-     * merujuknya.
+     *
+     * Memulangkan senarai fail imej yatim (dirujuk HANYA oleh papan yang
+     * dipadam) untuk dinyahpaut oleh pemanggil SELEPAS transaksi komit.
+     *
+     * @return array<int, string>
      */
-    private function collapseDuplicateBoards(): void
+    private function collapseDuplicateBoards(): array
     {
+        $yatim = [];
+
         $groups = DB::table('scoreboards')
             ->whereNotNull('kawasan_type')
             ->select('kawasan_type', 'kawasan_id')
@@ -620,13 +635,13 @@ return new class extends Migration
 
             foreach ($boards as $loser) {
                 foreach (array_diff($this->imagePaths($loser), $keep) as $path) {
-                    if (str_starts_with($path, 'uploads/') && is_file(public_path($path))) {
-                        @unlink(public_path($path));
-                    }
+                    $yatim[] = $path;
                 }
                 DB::table('scoreboards')->where('id', $loser->id)->delete();
             }
         }
+
+        return array_values(array_unique($yatim));
     }
 
     /** @return array<int, string> */
@@ -1336,7 +1351,9 @@ class ScoreboardController extends Controller
         }
         $board->candidates = $candidates;
 
-        DB::transaction(fn () => $board->save());
+        // Satu baris sahaja ditulis — transaksi tidak diperlukan di sini.
+        // (Kekangan projek: balut tulisan BERBILANG baris, bukan tulisan tunggal.)
+        $board->save();
 
         return response()->json(['ok' => true]);
     }
