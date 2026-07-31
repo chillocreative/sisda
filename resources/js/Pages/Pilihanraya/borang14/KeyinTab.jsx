@@ -582,7 +582,11 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
 
                     {form?.crosscheck_issues?.length > 0 && (
                         <div className="bg-rose-50 border border-rose-300 text-rose-800 rounded-lg px-4 py-3 text-sm mb-4">
-                            <div className="font-semibold mb-1">Silang-semak tidak seimbang — (A) ≠ Σ undi + (C) + (D) pada baris berikut:</div>
+                            {/* Tajuk umum: pada borang serentak senarai ini turut
+                                membawa isu pariti antara jalur PRN dan PRU, bukan
+                                hanya baki (A) satu jalur. Setiap mesej mengeja
+                                sendiri jalur dan peraturan yang gagal. */}
+                            <div className="font-semibold mb-1">Silang-semak tidak seimbang pada baris berikut:</div>
                             <ul className="list-disc pl-5 space-y-0.5">
                                 {form.crosscheck_issues.map((msg, i) => <li key={i}>{msg}</li>)}
                             </ul>

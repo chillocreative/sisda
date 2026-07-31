@@ -18,6 +18,7 @@ use App\Services\Pilihanraya\ScoresheetExtractor;
 use App\Support\Borang14Reference;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -1087,13 +1088,34 @@ class Borang14Controller extends Controller
      * re-read from borang14_votes. Only meaningful for scoresheet-sourced forms —
      * manual entry has no independent (A) to check against.
      *
+     * PADA BORANG SERENTAK, SETIAP PERTANDINGAN DISEMAK, bukan hanya
+     * pertandingan borang itu sendiri. Sel PRU tinggal PADA borang DUN ini
+     * (borang Parlimen yang dipaut hanyalah takrifan calon dan langsung tiada
+     * undi), jadi sebelum ini tiada sesiapa pun menyemak baki jalur PRU: satu
+     * digit PRU yang tertukar diterbitkan bersih dan mengalir terus melalui
+     * Borang14RollUp ke papan Parlimen awam. Mesej dilabel mengikut jalur
+     * supaya operator tahu kertas undi MANA yang tidak seimbang.
+     *
      * @return string[]
      */
     private function crosscheckIssues(Borang14Form $form): array
     {
+        // Takrifan Parlimen yang dipaut; null bermakna borang satu
+        // pertandingan — kes yang paling biasa dan sudah di produksi.
+        $parlimen = $form->borang14_form_parlimen_id !== null ? $form->formParlimen : null;
+
+        // Pariti keluar didahulukan kerana ia TIDAK memerlukan sebarang angka
+        // bercetak: ia membandingkan dua jalur antara satu sama lain. Itu
+        // penting kerana borang serentak dicipta melalui panel Sunting
+        // Struktur, dan Borang14StrukturService::expand() sentiasa menanda
+        // struktur itu 'manual' — jadi semakan bercetak di bawah TIDAK akan
+        // berjalan pada borang serentak yang biasa. Tanpa pariti di sini,
+        // jalur PRU sekali lagi tidak disemak sesiapa.
+        $isu = $parlimen ? $this->semakParitiKeluar($form, $parlimen) : [];
+
         $structure = $form->structure;
         if (empty($structure['rows'])) {
-            return [];
+            return $isu;
         }
 
         // Struktur yang dibina dengan tangan tiada baris bercetak untuk
@@ -1102,34 +1124,98 @@ class Borang14Controller extends Controller
         // sifar yang tidak pernah dicetak sesiapa, lalu menuduh borang yang
         // diisi dengan BETUL sebagai tidak seimbang.
         if (($structure['origin'] ?? null) === 'manual') {
-            return [];
+            return $isu;
         }
 
-        $nCalon = max(1, (int) $form->penjuru);
+        // Jalur borang ini sendiri — kelakuan tidak berubah langsung, termasuk
+        // bentuk mesej apabila borang tidak dipaut (tiada label jalur).
+        $isu = array_merge($isu, $this->semakBakiBercetak(
+            form: $form,
+            contest: $form->contestSendiri(),
+            nCalon: max(1, (int) $form->penjuru),
+            structure: $structure,
+            calon: $structure['calon'] ?? null,
+            label: $parlimen ? $this->labelKontes($form) : null,
+        ));
+
+        if ($parlimen) {
+            $isu = array_merge($isu, $this->semakBakiBercetak(
+                form: $form,
+                contest: Borang14Vote::CONTEST_PARLIMEN,
+                // Bilangan calon jalur PRU milik borang PARLIMEN, bukan borang
+                // DUN — membaca penjuru DUN akan memotong lajur calon PRU dan
+                // "mengimbangkan" baris yang sebenarnya tidak seimbang.
+                nCalon: max(1, (int) $parlimen->penjuru),
+                structure: $structure,
+                // TIADA senarai calon PRU bercetak pada scoresheet DUN ini,
+                // jadi peraturan calon_count tiada rujukan bebas: null di sini
+                // menjadikannya mustahil menyala, bukan menyala secara palsu.
+                calon: null,
+                label: $this->labelKontes($parlimen),
+                // 'jumlah_undian' bercetak ialah jumlah kertas undi PRN pada
+                // sheet ini. Membandingkan hasil campur PRU dengannya akan
+                // menuduh setiap borang serentak yang BETUL — hanya baki (A)
+                // yang bermakna merentas kedua-dua kertas.
+                hanyaBaki: true,
+                // Baris yang jalur PRU-nya belum dikunci langsung ialah
+                // "belum diketahui", BUKAN sifar undi. Melaporkannya akan
+                // menyalakan setiap baris setiap borang pada saat mod serentak
+                // dihidupkan, dan spanduk yang sentiasa merah ialah spanduk
+                // yang tidak lagi dibaca sesiapa.
+                langkauBelumDikunci: true,
+            ));
+        }
+
+        return $isu;
+    }
+
+    /**
+     * Semakan satu jalur terhadap angka BERCETAK pada scoresheet.
+     *
+     * Feed validateBalance() the REAL frozen values from the sheet's own
+     * extraction — the printed 'jumlah_undian' total and the actual 'calon'
+     * list — NOT values re-derived from the live undi array itself. Rebuilding
+     * both from the same live array made 'jumlah_undian' and 'calon_count'
+     * compare a number against itself (mathematically unreachable); only
+     * 'balance' could ever fire. Now:
+     *   - jumlah_undian: live vote sum vs the sheet's own printed total —
+     *     fires when entered figures no longer add up to what was printed.
+     *   - calon_count: live candidate slot count (nCalon) vs the sheet's
+     *     own candidate list — fires if the extraction's column count
+     *     diverges from the currently configured penjuru.
+     *
+     * @param  array|null  $calon  senarai calon bercetak; null = tiada rujukan
+     *                             bebas, jadi calon_count dilumpuhkan
+     * @return string[]
+     */
+    private function semakBakiBercetak(
+        Borang14Form $form,
+        string $contest,
+        int $nCalon,
+        array $structure,
+        ?array $calon,
+        ?string $label,
+        bool $hanyaBaki = false,
+        bool $langkauBelumDikunci = false,
+    ): array {
         // Baris bercetak dalam `structure` datang daripada SATU scoresheet,
         // iaitu satu pertandingan. Membandingkannya dengan undi kedua-dua
         // pertandingan sekali gus akan menuduh setiap borang serentak yang
         // diisi dengan BETUL sebagai tidak seimbang.
-        $votesByCell = $form->votesFor($form->contestSendiri())->get(['pusat', 'saluran', 'slot', 'undi'])
+        $votesByCell = $form->votesFor($contest)->get(['pusat', 'saluran', 'slot', 'undi'])
             ->groupBy(fn ($v) => $v->pusat.'|'.$v->saluran);
 
-        // Feed validateBalance() the REAL frozen values from the sheet's own
-        // extraction — the printed 'jumlah_undian' total and the actual
-        // 'calon' list — NOT values re-derived from the live undi array
-        // itself. Rebuilding both from the same live array made
-        // 'jumlah_undian' and 'calon_count' compare a number against itself
-        // (mathematically unreachable); only 'balance' could ever fire. Now:
-        //   - jumlah_undian: live vote sum vs the sheet's own printed total —
-        //     fires when entered figures no longer add up to what was printed.
-        //   - calon_count: live candidate slot count (nCalon) vs the sheet's
-        //     own candidate list — fires if the extraction's column count
-        //     diverges from the currently configured penjuru.
-        $calon = $structure['calon'] ?? array_fill(0, $nCalon, '');
+        $calon ??= array_fill(0, $nCalon, '');
 
-        $liveRows = collect($structure['rows'])->map(function ($r) use ($votesByCell, $nCalon) {
+        $liveRows = collect($structure['rows'])->map(function ($r) use ($votesByCell, $nCalon, $langkauBelumDikunci) {
             $pusat = (string) ($r['pusat'] ?? '');
             $saluran = $this->normalizeSaluran($r['saluran'] ?? null);
             $cells = $votesByCell->get($pusat.'|'.$saluran, collect());
+
+            if ($langkauBelumDikunci && $cells->isEmpty()) {
+                return null;
+            }
+
             $slotVal = fn (int $n) => (int) ($cells->firstWhere('slot', $n)->undi ?? 0);
 
             $undi = [];
@@ -1146,19 +1232,128 @@ class Borang14Controller extends Controller
                 'ditolak' => $slotVal(90),
                 'tidak_dimasukkan' => $slotVal(91),
             ];
-        })->all();
+        })->filter()->values()->all();
 
         $findings = ScoresheetExtractor::validateBalance([
             'calon' => $calon,
             'rows' => $liveRows,
         ]);
 
-        return collect($findings)->map(fn ($f) => $this->formatCrosscheckMessage($f))->values()->all();
+        return collect($findings)
+            ->when($hanyaBaki, fn ($c) => $c->where('rule', 'balance'))
+            ->map(fn ($f) => $this->formatCrosscheckMessage($f, $label))
+            ->values()->all();
     }
 
-    private function formatCrosscheckMessage(array $f): string
+    /**
+     * Pariti keluar antara dua jalur borang serentak.
+     *
+     * Dalam pilihan raya serentak setiap pengundi yang keluar menerima KEDUA-DUA
+     * kertas undi, jadi (A) = Σ undi + (C) + (D) mesti SAMA pada jalur PRN dan
+     * jalur PRU bagi saluran yang sama. Ini rujukan silang yang percuma: ia
+     * tidak memerlukan sebarang angka bercetak, jadi ia berjalan walaupun pada
+     * struktur manual — mod yang hampir setiap borang serentak berada di
+     * dalamnya.
+     *
+     * Dikira daripada undi SENDIRI (bukan daripada `structure`) supaya borang
+     * yang tiada struktur sendiri pun tetap disemak.
+     *
+     * TIDAK DIKETAHUI BUKAN SIFAR: saluran yang salah satu jalurnya belum ada
+     * SATU pun undi calon dilangkau sepenuhnya. Jalur yang belum dikunci bukan
+     * jalur yang keluarnya sifar.
+     *
+     * @return string[]
+     */
+    private function semakParitiKeluar(Borang14Form $form, Borang14Form $parlimen): array
+    {
+        $sendiri = $form->contestSendiri();
+
+        // Borang Parlimen yang entah bagaimana terpaut (simpanStruktur()
+        // menolaknya, tetapi data lama boleh) tidak mempunyai dua jalur untuk
+        // dibandingkan — jangan bandingkan sesuatu dengan dirinya sendiri dan
+        // laporkan "seimbang" yang tidak bermakna.
+        if ($sendiri === Borang14Vote::CONTEST_PARLIMEN) {
+            return [];
+        }
+
+        // DUA bacaan votesFor() berasingan, bukan satu votes() merentas
+        // kedua-duanya: setiap jumlah di sini ialah kiraan undi, dan kiraan
+        // undi tidak sekali-kali dibaca melalui votes() dalam aplikasi ini.
+        $jalurPrn = $this->selMengikutSaluran($form, $sendiri);
+        $jalurPru = $this->selMengikutSaluran($form, Borang14Vote::CONTEST_PARLIMEN);
+
+        $isu = [];
+
+        foreach ($jalurPrn as $kunci => $prn) {
+            $pru = $jalurPru->get($kunci);
+
+            // Kedua-dua jalur mesti sudah dimulakan (sekurang-kurangnya satu
+            // slot CALON dikunci) sebelum ia layak dibandingkan.
+            if (! $this->jalurBermula($prn) || ! $this->jalurBermula($pru)) {
+                continue;
+            }
+
+            $keluarPrn = $this->jumlahKeluar($prn);
+            $keluarPru = $this->jumlahKeluar($pru);
+            if ($keluarPrn === $keluarPru) {
+                continue;
+            }
+
+            $first = $prn->first();
+            $loc = $first->pusat !== '' ? "{$first->pusat} — Saluran {$first->saluran}" : $first->saluran;
+            $isu[] = "{$loc}: Jum. Keluar tidak sama antara jalur — "
+                .$this->labelKontes($form).' '.number_format($keluarPrn)
+                .' berbanding '.$this->labelKontes($parlimen).' '.number_format($keluarPru)
+                .'. Setiap pengundi menerima kedua-dua kertas undi, jadi angka ini sepatutnya sama.';
+        }
+
+        return $isu;
+    }
+
+    /**
+     * Sel satu pertandingan, dikumpul mengikut "pusat|saluran".
+     *
+     * @return Collection<string, Collection>
+     */
+    private function selMengikutSaluran(Borang14Form $form, string $contest): Collection
+    {
+        return $form->votesFor($contest)
+            ->whereIn('slot', [1, 2, 3, 4, 5, 6, 90, 91])
+            ->get(['contest', 'pusat', 'saluran', 'slot', 'undi'])
+            ->groupBy(fn ($v) => $v->pusat.'|'.$v->saluran);
+    }
+
+    /** Adakah jalur ini sudah dikunci — sekurang-kurangnya satu slot calon (1..6)? */
+    private function jalurBermula(?Collection $sel): bool
+    {
+        return $sel !== null && $sel->contains(fn ($v) => $v->slot >= 1 && $v->slot <= 6);
+    }
+
+    /** (A) terbitan satu jalur: Σ undi calon + (C) ditolak + (D) tidak dimasukkan. */
+    private function jumlahKeluar(Collection $sel): int
+    {
+        return (int) $sel->sum(fn ($v) => (int) $v->undi);
+    }
+
+    /**
+     * Label jalur bagi mesej silang-semak — menamakan pertandingan DAN kerusinya,
+     * sama seperti tajuk jalur pada skrin dua jalur.
+     */
+    private function labelKontes(Borang14Form $form): string
+    {
+        return $form->kawasan_type === Borang14Form::KAWASAN_PARLIMEN
+            ? 'PRU · Parlimen '.$form->kawasanNama()
+            : mb_strtoupper((string) $form->jenis_pr).' · DUN '.$form->kawasanNama();
+    }
+
+    private function formatCrosscheckMessage(array $f, ?string $label = null): string
     {
         $loc = $f['pusat'] !== '' ? "{$f['pusat']} — Saluran {$f['saluran']}" : $f['saluran'];
+        // Label jalur hanya pada borang serentak: borang satu pertandingan
+        // mesti mengekalkan mesej yang SERUPA BIT dengan hari ini.
+        if ($label !== null) {
+            $loc = "[{$label}] {$loc}";
+        }
 
         return match ($f['rule']) {
             'balance' => "{$loc}: (A) dijangka {$f['jangka']}, dapat {$f['dapat']}",

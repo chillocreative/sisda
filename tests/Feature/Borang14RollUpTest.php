@@ -112,4 +112,40 @@ class Borang14RollUpTest extends TestCase
     {
         $this->assertNull(Borang14RollUp::forParlimen($this->parlimen->id, 2027));
     }
+
+    /**
+     * Ulasan Tugasan 4 (dipaku semula di Tugasan 8): Borang14Form::borangDun()
+     * memaut HANYA pada borang14_form_parlimen_id — TIADA silang-semak tahun.
+     * Jadi kumpulan ini akan menjumlahkan borang DUN tahun LAIN jika pautan
+     * rentas-tahun pernah wujud.
+     *
+     * Keadaan itu TIDAK BOLEH DICAPAI melalui UI: satu-satunya penulis lajur
+     * tersebut ialah Borang14Controller::simpanStruktur(), dan firstOrCreate()
+     * di sana dikunci pada tahun borang DUN itu sendiri (dibuktikan oleh
+     * Borang14SerentakSetupTest::test_definition_is_keyed_on_the_dun_forms_own_tahun…).
+     *
+     * Ujian ini memaku akibatnya secara terbuka supaya sesiapa yang menambah
+     * PENULIS KEDUA kepada lajur itu tahu bahawa kumpulan ini tidak akan
+     * melindunginya — jaminan itu hidup SEPENUHNYA pada laluan tulis.
+     */
+    public function test_the_roll_up_itself_does_not_re_check_tahun_the_write_path_owns_that(): void
+    {
+        $definisi = $this->definisiParlimen(structure: null);
+
+        // Keadaan yang mustahil melalui UI, dibina terus dalam pangkalan data.
+        $dunTahunLain = Borang14Form::create([
+            'kawasan_type' => 'dun', 'kawasan_id' => $this->dunA->id,
+            'jenis_pr' => 'prn', 'tahun' => 2099, 'penjuru' => 2, 'parties' => [],
+            'borang14_form_parlimen_id' => $definisi->id,
+        ]);
+        Borang14Vote::create([
+            'borang14_form_id' => $dunTahunLain->id, 'contest' => Borang14Vote::CONTEST_PARLIMEN,
+            'pusat' => 'PM', 'saluran' => '1', 'slot' => 1, 'undi' => 777,
+        ]);
+
+        $hasil = Borang14RollUp::forParlimen($this->parlimen->id, 2027);
+
+        $this->assertSame(777, $hasil['undi'][1],
+            'Kumpulan mengikut PAUTAN sahaja. Jika ujian ini berubah, laluan tulis mesti disemak semula.');
+    }
 }
