@@ -43,6 +43,14 @@ const LABEL_KONTES = { parlimen: 'Parlimen (PRU)', dun: 'DUN (PRN)' };
 // SEMUA mesej digabung, bukan yang pertama sahaja: `skop` dan `parties` boleh
 // gagal dalam permintaan yang sama.
 const ralatServer = (e, fallback) => {
+    // 403 datang daripada konvensyen kebenaran projek, yang mengabort dengan
+    // teks Inggeris tetap ('Unauthorized action.'). Teks itu dikongsi seluruh
+    // sistem dan tidak sepatutnya ditukar di sini — jadi ia digantikan pada
+    // paparan supaya pengendali tidak pernah melihat bahasa Inggeris.
+    if (e?.response?.status === 403) {
+        return 'Anda tiada kebenaran untuk kerusi ini. Hubungi Super Admin jika anda sepatutnya boleh menyuntingnya.';
+    }
+
     const data = e?.response?.data;
     if (!data) return fallback;
     const semua = Object.values(data.errors || {}).flat().filter(Boolean);
