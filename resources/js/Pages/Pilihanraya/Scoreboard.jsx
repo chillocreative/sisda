@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Head, usePage } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import axios from 'axios';
 import {
-    Trophy, Crown, Settings, X, Upload, Info, MapPin, Landmark, Vote, Loader2, Radio, Maximize2, Minimize2,
+    Trophy, Crown, Settings, X, Upload, Info, Vote, Loader2, Radio, Maximize2, Minimize2,
 } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PilihanrayaShell, { usePilihanrayaTheme } from './components/PilihanrayaShell';
 
-const fmt = (n) => (n == null || Number.isNaN(n) ? '0' : Number(n).toLocaleString('en-MY'));
+// Nilai null/NaN bermakna TIDAK DIKETAHUI, bukan sifar — papar "—" supaya
+// papan markah tidak mendakwa "0" bagi angka yang sebenarnya belum ada.
+const fmt = (n) => (n == null || Number.isNaN(n) ? '—' : Number(n).toLocaleString('en-MY'));
 const POLL_MS = 4000;
 
 const PARTY_COLOR = {
@@ -22,21 +24,33 @@ const partyColor = (nama) => PARTY_COLOR[((nama || '').toUpperCase().match(/[A-Z
 
 /* ------------------------------- settings ------------------------------ */
 
-function SettingsModal({ kadunId, penjuru, board, onClose, onSaved }) {
+function SettingsModal({ seat, board, onClose, onSaved }) {
     const { t } = usePilihanrayaTheme();
     const rows = board?.rows || [];
     const [title, setTitle] = useState(board?.title || 'SCOREBOARD');
+    const [minima, setMinima] = useState(board?.minima ?? '');
+    const [sumber, setSumber] = useState(board?.sumber?.id ?? '');
+    const [kami, setKami] = useState(() => rows.filter((r) => r.is_kami).map((r) => r.slot));
     const [names, setNames] = useState(() => rows.map((r) => r.calon || ''));
     const [logoFile, setLogoFile] = useState(null);
     const [photoFiles, setPhotoFiles] = useState({}); // slot -> File
     const [saving, setSaving] = useState(false);
+    const [ralat, setRalat] = useState(null);
+
+    const toggleKami = (slot) =>
+        setKami((prev) => (prev.includes(slot) ? prev.filter((s) => s !== slot) : [...prev, slot]));
 
     const submit = () => {
         setSaving(true);
+        setRalat(null);
         const fd = new FormData();
-        fd.append('kadun_id', kadunId);
-        fd.append('penjuru', penjuru);
+        fd.append('kawasan_type', seat.type);
+        fd.append('kawasan_id', seat.id);
         fd.append('title', title || 'SCOREBOARD');
+        // Minima kosong bermakna TIADA sasaran, bukan sifar.
+        if (minima !== '') fd.append('minima', minima);
+        if (sumber !== '') fd.append('borang14_form_id', sumber);
+        kami.forEach((slot, i) => fd.append(`pihak_kami[${i}]`, slot));
         rows.forEach((r, i) => {
             fd.append(`candidates[${i}][slot]`, r.slot);
             fd.append(`candidates[${i}][nama]`, names[i] || '');
@@ -46,7 +60,7 @@ function SettingsModal({ kadunId, penjuru, board, onClose, onSaved }) {
 
         axios.post(route('pilihanraya.scoreboard.settings'), fd, { headers: { 'Content-Type': 'multipart/form-data' } })
             .then(() => { onSaved(); onClose(); })
-            .catch(() => setSaving(false));
+            .catch((e) => { setRalat(e.response?.data?.message || 'Gagal menyimpan tetapan.'); setSaving(false); });
     };
 
     const field = 'w-full px-3 py-2 border border-slate-300 rounded-lg text-sm';
@@ -74,6 +88,20 @@ function SettingsModal({ kadunId, penjuru, board, onClose, onSaved }) {
                             </label>
                         </div>
                     </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Sumber Undi</label>
+                        <select value={sumber} onChange={(e) => setSumber(e.target.value)} className={field}>
+                            <option value="">Belum pilih sumber</option>
+                            {(board?.sumberList || []).map((s) => (
+                                <option key={s.id} value={s.id}>{s.label}</option>
+                            ))}
+                        </select>
+                        <p className="text-xs text-slate-500 mt-1">Papan membaca undi daripada Borang 14 yang dipilih di sini.</p>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Undi Minima (pilihan)</label>
+                        <input type="number" min="0" value={minima} onChange={(e) => setMinima(e.target.value)} className={field} placeholder="Kosongkan jika tiada sasaran" />
+                    </div>
                 </div>
 
                 <div className="border-t border-slate-200 pt-4">
@@ -97,6 +125,10 @@ function SettingsModal({ kadunId, penjuru, board, onClose, onSaved }) {
                                             className={field}
                                             placeholder="Nama calon"
                                         />
+                                        <label className="flex items-center gap-2 text-sm text-slate-700 mt-1">
+                                            <input type="checkbox" checked={kami.includes(r.slot)} onChange={() => toggleKami(r.slot)} className="rounded border-slate-300" />
+                                            Pihak kami
+                                        </label>
                                     </div>
                                     <label className="flex items-end">
                                         <span className="inline-flex items-center gap-2 px-3 py-2 border border-slate-300 rounded-lg text-sm cursor-pointer hover:bg-slate-50 w-full justify-center">
@@ -111,6 +143,14 @@ function SettingsModal({ kadunId, penjuru, board, onClose, onSaved }) {
                     </div>
                 </div>
 
+                {board?.dikemaskini?.nama && (
+                    <p className="text-xs text-slate-500 mt-3">
+                        Dikemaskini oleh {board.dikemaskini.nama}
+                        {board.dikemaskini.pada ? ` · ${new Date(board.dikemaskini.pada).toLocaleString('ms-MY')}` : ''}
+                    </p>
+                )}
+                {ralat && <p className="text-sm text-red-600 mt-3">{ralat}</p>}
+
                 <div className="flex justify-end gap-2 mt-5">
                     <button onClick={onClose} className={t.buttonSecondary}>Batal</button>
                     <button onClick={submit} disabled={saving} className={t.buttonPrimary}>
@@ -122,13 +162,68 @@ function SettingsModal({ kadunId, penjuru, board, onClose, onSaved }) {
     );
 }
 
+/* ------------------------------ penyiaran ------------------------------- */
+
+function PenyiaranCard({ seat, board, onChanged }) {
+    const { t } = usePilihanrayaTheme();
+    const [busy, setBusy] = useState(false);
+    const [ralat, setRalat] = useState(null);
+    const tersiar = board?.status === 'tersiar';
+    const url = board?.kod ? `${window.location.origin}/scoreboard/${board.kod.toLowerCase()}` : null;
+
+    const togol = () => {
+        setBusy(true);
+        setRalat(null);
+        axios.post(route('pilihanraya.scoreboard.publish'), {
+            kawasan_type: seat.type,
+            kawasan_id: seat.id,
+            status: tersiar ? 'draf' : 'tersiar',
+        })
+            .then(() => onChanged())
+            .catch((e) => setRalat(e.response?.data?.message || 'Gagal menukar status penyiaran.'))
+            .finally(() => setBusy(false));
+    };
+
+    return (
+        <div className={`${t.card} mb-5`}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <p className="text-sm font-semibold text-slate-800">
+                        Status: {tersiar ? 'Tersiar' : 'Draf'}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                        {tersiar ? 'Sesiapa yang ada pautan boleh melihat papan ini.' : 'Hanya anda nampak papan ini.'}
+                    </p>
+                </div>
+                <button onClick={togol} disabled={busy} className={tersiar ? t.buttonSecondary : t.buttonPrimary}>
+                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    {tersiar ? 'Tarik Balik Siaran' : 'Siarkan'}
+                </button>
+            </div>
+            {tersiar && url && (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <code className="text-xs bg-slate-100 px-2 py-1 rounded">{url}</code>
+                    <button onClick={() => navigator.clipboard.writeText(url)} className="text-xs text-blue-600 hover:underline">
+                        Salin Pautan
+                    </button>
+                </div>
+            )}
+            {ralat && <p className="text-sm text-red-600 mt-3">{ralat}</p>}
+        </div>
+    );
+}
+
 /* -------------------------------- board -------------------------------- */
 
 function Board({ data }) {
     const { t } = usePilihanrayaTheme();
     const { rows, total_keluar: totalKeluar, total_berdaftar: totalBerdaftar, leader_slot: leaderSlot } = data;
 
-    const turnout = totalBerdaftar > 0 ? (totalKeluar / totalBerdaftar) * 100 : 0;
+    // total_berdaftar boleh jadi null secara SAH (roll kerusi tidak diketahui).
+    // Jangan anggap itu sifar — paparkan "—" dan bukan "0.0%" reka-reka.
+    const turnout = totalBerdaftar != null && totalBerdaftar > 0
+        ? (totalKeluar / totalBerdaftar) * 100
+        : null;
 
     return (
         <>
@@ -166,7 +261,7 @@ function Board({ data }) {
                                         : <Vote className="h-8 w-8 text-slate-300" />}
                                 </div>
                                 <div className="min-w-0 flex-1">
-                                    <div className="text-xs font-bold uppercase tracking-wide" style={{ color }}>{r.parti}{r.is_ph ? ' · PH' : ''}</div>
+                                    <div className="text-xs font-bold uppercase tracking-wide" style={{ color }}>{r.parti}{r.is_kami ? ' · KAMI' : ''}</div>
                                     <div className="text-lg font-bold text-slate-900 truncate">{r.calon || '—'}</div>
                                     <div className="mt-1 text-3xl font-black text-slate-900">{fmt(r.undi)}</div>
                                 </div>
@@ -181,7 +276,7 @@ function Board({ data }) {
                 {[
                     ['Jumlah Undi Keluar', fmt(totalKeluar)],
                     ['Pengundi Berdaftar', fmt(totalBerdaftar)],
-                    ['% Keluar Mengundi', `${turnout.toFixed(1)}%`],
+                    ['% Keluar Mengundi', turnout == null ? '—' : `${turnout.toFixed(1)}%`],
                 ].map(([label, value]) => (
                     <div key={label} className={`${t.card} text-center`}>
                         <div className={`text-xs uppercase tracking-wider ${t.subtext}`}>{label}</div>
@@ -204,42 +299,39 @@ export default function Scoreboard(props) {
     );
 }
 
-function ScoreboardBody({ negeriList, parlimenList, kadunList }) {
-    const { rememberedFilters } = usePage().props;
+function ScoreboardBody({ seats }) {
     const [settingsOpen, setSettingsOpen] = useState(false);
-    const [negeriId, setNegeriId] = useState(rememberedFilters?.negeri_id ?? '');
-    const [parlimenId, setParlimenId] = useState(rememberedFilters?.parlimen_id ?? '');
-    const [kadunId, setKadunId] = useState(rememberedFilters?.kadun_id ?? '');
+    // Satu kerusi → terus dimuatkan, tiada pemilih. Inilah pembetulan skrin
+    // tiga dropdown kosong bagi pengguna yang memiliki satu kerusi sahaja.
+    const [seat, setSeat] = useState(seats.length === 1 ? seats[0] : null);
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [updatedAt, setUpdatedAt] = useState(null);
     const [fullscreen, setFullscreen] = useState(false);
 
-    const parlimenOptions = negeriId ? parlimenList.filter((p) => String(p.negeri_id) === String(negeriId)) : [];
-    const kadunOptions = parlimenId ? kadunList.filter((k) => String(k.bandar_id) === String(parlimenId)) : [];
     const ready = data?.ready;
+    // Tetapan mesti boleh dibuka SEBELUM papan "ready" — memilih Sumber Undi
+    // di situ ialah satu-satunya cara papan menjadi ready pada mulanya.
+    const bolehTetapan = !!(data && data.hasData);
 
-    // The penjuru is taken automatically from the Borang 14 data for the DUN.
     const fetchData = useCallback((showSpinner = false) => {
-        if (!kadunId) { setData(null); return; }
+        if (!seat) { setData(null); return; }
         if (showSpinner) setLoading(true);
-        // negeri_id/parlimen_id turut disertakan (walaupun tidak digunakan oleh
-        // pengawal) supaya middleware RememberFilters menyimpan ketiga-tiga
-        // kunci skop 'scoreboard' dengan lengkap — tanpa ini, tinjauan (poll)
-        // 4 saat ini akan menghapuskan negeri_id/parlimen_id secara senyap.
         // `_t` cache-buster keeps every poll fresh (no stale browser/CDN cache).
-        axios.get(route('pilihanraya.scoreboard.data'), { params: { negeri_id: negeriId, parlimen_id: parlimenId, kadun_id: kadunId, _t: Date.now() } })
+        axios.get(route('pilihanraya.scoreboard.data'), {
+            params: { kawasan_type: seat.type, kawasan_id: seat.id, _t: Date.now() },
+        })
             .then(({ data: d }) => { setData(d); setUpdatedAt(new Date()); })
             .finally(() => setLoading(false));
-    }, [negeriId, parlimenId, kadunId]);
+    }, [seat]);
 
     // Initial fetch + live polling.
     useEffect(() => {
         fetchData(true);
-        if (!kadunId) return undefined;
+        if (!seat) return undefined;
         const id = setInterval(() => fetchData(false), POLL_MS);
         return () => clearInterval(id);
-    }, [fetchData, kadunId]);
+    }, [fetchData, seat]);
 
     // Enter/exit skrin penuh via a full-viewport CSS overlay (portalled to
     // <body>). We deliberately avoid the native Fullscreen API — promoting a
@@ -265,52 +357,49 @@ function ScoreboardBody({ negeriList, parlimenList, kadunList }) {
         <PilihanrayaShell
             title="Scoreboard"
             subtitle="Papan markah pilihanraya secara langsung dari Borang 14"
-            actions={ready ? (
+            actions={bolehTetapan ? (
                 <button type="button" onClick={() => setSettingsOpen(true)} className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-lg text-sm font-medium">
                     <Settings className="h-4 w-4" /> Tetapan
                 </button>
             ) : null}
         >
-            {/* Filters */}
-            <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm mb-5">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1"><span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> Negeri</span></label>
-                        <select value={negeriId} onChange={(e) => { setNegeriId(e.target.value); setParlimenId(''); setKadunId(''); }} className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm">
-                            <option value="">Pilih Negeri</option>
-                            {negeriList.map((n) => <option key={n.id} value={n.id}>{n.nama}</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1"><span className="inline-flex items-center gap-1"><Landmark className="h-3.5 w-3.5" /> Parlimen</span></label>
-                        <select value={parlimenId} onChange={(e) => { setParlimenId(e.target.value); setKadunId(''); }} className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm" disabled={!negeriId}>
-                            <option value="">Pilih Parlimen</option>
-                            {parlimenOptions.map((p) => <option key={p.id} value={p.id}>{p.nama}</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1"><span className="inline-flex items-center gap-1"><Vote className="h-3.5 w-3.5" /> DUN</span></label>
-                        <select value={kadunId} onChange={(e) => setKadunId(e.target.value)} className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm" disabled={!parlimenId}>
-                            <option value="">Pilih DUN</option>
-                            {kadunOptions.map((k) => <option key={k.id} value={k.id}>{k.nama}</option>)}
-                        </select>
-                    </div>
+            {/* Seat picker — only rendered when the user holds more than one seat. */}
+            {seats.length > 1 && (
+                <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm mb-5">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Kerusi</label>
+                    <select
+                        value={seat ? `${seat.type}:${seat.id}` : ''}
+                        onChange={(e) => setSeat(seats.find((s) => `${s.type}:${s.id}` === e.target.value) || null)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                    >
+                        <option value="">Pilih Kerusi</option>
+                        {seats.map((s) => (
+                            <option key={`${s.type}:${s.id}`} value={`${s.type}:${s.id}`}>
+                                {s.type === 'parlimen' ? 'Parlimen' : 'DUN'} {s.nama}{s.kod ? ` (${s.kod})` : ''}
+                            </option>
+                        ))}
+                    </select>
+                    {seat && (
+                        <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
+                            <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold">
+                                <Radio className="h-3.5 w-3.5 animate-pulse" /> LANGSUNG
+                            </span>
+                            {updatedAt && <span>· Dikemaskini {updatedAt.toLocaleTimeString('ms-MY')}</span>}
+                        </div>
+                    )}
                 </div>
-                {ready && (
-                    <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
-                        <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold">
-                            <Radio className="h-3.5 w-3.5 animate-pulse" /> LANGSUNG
-                        </span>
-                        {updatedAt && <span>· Dikemaskini {updatedAt.toLocaleTimeString('ms-MY')}</span>}
-                    </div>
-                )}
-            </div>
+            )}
 
             {/* States */}
-            {!kadunId ? (
+            {seats.length === 0 ? (
                 <div className="bg-amber-50 border border-amber-300 text-amber-800 rounded-lg px-4 py-3 text-sm flex items-center gap-2">
                     <Info className="h-4 w-4 shrink-0" />
-                    <span>Pilih Negeri &gt; Parlimen &gt; DUN untuk memaparkan scoreboard.</span>
+                    <span>Anda tiada kerusi ditugaskan untuk diuruskan.</span>
+                </div>
+            ) : !seat ? (
+                <div className="bg-amber-50 border border-amber-300 text-amber-800 rounded-lg px-4 py-3 text-sm flex items-center gap-2">
+                    <Info className="h-4 w-4 shrink-0" />
+                    <span>Pilih kerusi untuk memaparkan scoreboard.</span>
                 </div>
             ) : loading && !data ? (
                 <div className="flex items-center gap-2 text-slate-500 py-10 justify-center">
@@ -319,41 +408,46 @@ function ScoreboardBody({ negeriList, parlimenList, kadunList }) {
             ) : data && !data.hasData ? (
                 <div className="bg-amber-50 border border-amber-300 text-amber-800 rounded-lg px-4 py-3 text-sm flex items-center gap-2">
                     <Info className="h-4 w-4 shrink-0" />
-                    <span>Data Borang 14 belum tersedia untuk DUN ini.</span>
+                    <span>Data Borang 14 belum tersedia untuk kerusi ini.</span>
                 </div>
             ) : data && data.needsBorang14 ? (
-                <div className="bg-amber-50 border border-amber-300 text-amber-800 rounded-lg px-4 py-3 text-sm flex items-center gap-2">
-                    <Info className="h-4 w-4 shrink-0" />
-                    <span>Sila isi Borang 14 dahulu untuk DUN ini — penjuru & parti diambil dari situ.</span>
-                </div>
+                <>
+                    <PenyiaranCard seat={seat} board={data} onChanged={() => fetchData(true)} />
+                    <div className="bg-amber-50 border border-amber-300 text-amber-800 rounded-lg px-4 py-3 text-sm flex items-center gap-2">
+                        <Info className="h-4 w-4 shrink-0" />
+                        <span>Sila pilih Sumber Undi dalam Tetapan untuk kerusi ini — penjuru & parti diambil dari situ.</span>
+                    </div>
+                </>
             ) : ready ? (
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200">
-                        <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-700">
-                            <Trophy className="h-4 w-4 text-slate-500" /> Papan Markah Langsung
-                        </span>
-                        <button
-                            type="button"
-                            onClick={enterFullscreen}
-                            title="Besarkan ke skrin penuh"
-                            className="inline-flex items-center gap-2 px-3 py-1.5 border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-lg text-sm font-medium"
-                        >
-                            <Maximize2 className="h-4 w-4" /> Besarkan
-                        </button>
+                <>
+                    <PenyiaranCard seat={seat} board={data} onChanged={() => fetchData(true)} />
+                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200">
+                            <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-700">
+                                <Trophy className="h-4 w-4 text-slate-500" /> Papan Markah Langsung
+                            </span>
+                            <button
+                                type="button"
+                                onClick={enterFullscreen}
+                                title="Besarkan ke skrin penuh"
+                                className="inline-flex items-center gap-2 px-3 py-1.5 border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-lg text-sm font-medium"
+                            >
+                                <Maximize2 className="h-4 w-4" /> Besarkan
+                            </button>
+                        </div>
+                        <div className="p-4 sm:p-5">
+                            <Board data={data} />
+                        </div>
                     </div>
-                    <div className="p-4 sm:p-5">
-                        <Board data={data} />
-                    </div>
-                </div>
+                </>
             ) : null}
 
-            {settingsOpen && ready && (
+            {settingsOpen && seat && data && data.hasData && (
                 <SettingsModal
-                    kadunId={kadunId}
-                    penjuru={data.penjuru}
+                    seat={seat}
                     board={data}
                     onClose={() => setSettingsOpen(false)}
-                    onSaved={() => fetchData(false)}
+                    onSaved={() => fetchData(true)}
                 />
             )}
 
