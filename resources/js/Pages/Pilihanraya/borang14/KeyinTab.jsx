@@ -13,6 +13,58 @@ import {
 
 const JENIS_LABEL = { pru: 'PRU', prn: 'PRN', prk: 'PRK' };
 
+// Skop pertandingan borang. Skop tunggal DINAMAKAN mengikut pertandingannya
+// sendiri ('parlimen' / 'dun'), jadi hanya nilai ketiga perlukan pemalar —
+// sama seperti Borang14Controller::SKOP_KEDUA di server.
+const SKOP_KEDUA = 'kedua';
+
+// Warna baris calon dalam mod serentak mengikut scoresheet asal: BIRU untuk
+// pertandingan Parlimen (PRU), MERAH untuk pertandingan DUN (PRN), supaya
+// pengendali yang memegang cetakan itu nampak pemetaannya serta-merta. Sama
+// dengan warna jalur pada jadual undi di bawah.
+//
+// Baris yang BELUM ditanda kekal kelabu bergaris putus. Belum ditanda bukan
+// bermakna "DUN secara lalai" — meneka di sini bermakna calon boleh berakhir
+// pada pertandingan yang salah, dan itu senyap sepenuhnya.
+const WARNA_KONTES = {
+    parlimen: 'border-sky-300 bg-sky-50',
+    dun: 'border-rose-300 bg-rose-50',
+};
+const warnaKontes = (kontes) => WARNA_KONTES[kontes] ?? 'border-slate-300 border-dashed bg-slate-50';
+
+const LABEL_KONTES = { parlimen: 'Parlimen (PRU)', dun: 'DUN (PRN)' };
+
+// Laravel 422 membawa mesej generik ("The given data was invalid.") pada
+// `message`, dengan sebab sebenar pada `errors.<medan>[]`. Mesej server bagi
+// skop pertandingan menamakan masalah SEBENAR (pertandingan tinggal satu
+// calon, undi sudah wujud jadi penetapan dikunci, skop kedua-dua pada borang
+// Parlimen) — menggantikannya dengan mesej generik membuang seluruh nilainya.
+//
+// SEMUA mesej digabung, bukan yang pertama sahaja: `skop` dan `parties` boleh
+// gagal dalam permintaan yang sama.
+const ralatServer = (e, fallback) => {
+    const data = e?.response?.data;
+    if (!data) return fallback;
+    const semua = Object.values(data.errors || {}).flat().filter(Boolean);
+    return semua.length > 0 ? semua.join(' ') : (data.message || fallback);
+};
+
+// Skop yang SEDANG tersimpan pada borang, dibaca semula daripada CARA senarai
+// calon dipisahkan antara borang DUN dan borang takrifan Parlimen — cerminan
+// tepat Borang14Controller::skopSemasa(). Tiada lajur "skop" wujud dalam
+// pangkalan data dan tiada medan baharu pada data(); pemisahan itu sendiri
+// ialah satu-satunya rekod, jadi ini satu-satunya cara yang betul.
+//
+// Pautan SEMATA-MATA (togol serentak pada panel Struktur, calon PRU belum
+// dinamakan) BUKAN skop dua pertandingan — takrifan yang masih kosong tidak
+// menetapkan sesiapa kepada mana-mana pertandingan.
+const kiraSkopSemasa = (data, sendiri) => {
+    const calonParlimen = data.kontes_parlimen?.parties;
+    if (!Array.isArray(calonParlimen) || calonParlimen.length === 0) return sendiri;
+
+    return data.parties?.length > 0 ? SKOP_KEDUA : 'parlimen';
+};
+
 // Satu peta undi bagi kedua-dua jalur. Kunci sel dinamakan ruang mengikut
 // contest ('dun|…' lawan 'parlimen|…'), jadi undi PRN dan PRU boleh duduk
 // dalam SATU objek tanpa satu menulis ganti satu lagi — itulah sebabnya
@@ -50,7 +102,19 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
     const contestSendiri = kawasanType === 'parlimen' ? 'parlimen' : 'dun';
 
     const [penjuru, setPenjuru] = useState('');
-    const [parties, setParties] = useState([]); // [{slot, keahlian_parti_id, nama, calon?}]
+    // Skop yang DIPILIH pengguna, dan skop yang benar-benar TERSIMPAN pada
+    // server. Kedua-duanya bermula pada skop tunggal borang ini sendiri —
+    // itulah tingkah laku hari ini, kes yang paling biasa, dan laluan yang
+    // sudah berada di produksi; ia mesti kekal serupa-bit.
+    const [skop, setSkop] = useState(contestSendiri);
+    const [skopSemasa, setSkopSemasa] = useState(contestSendiri);
+    const [ralatParti, setRalatParti] = useState('');
+    const [menyimpanSkop, setMenyimpanSkop] = useState(false);
+    // [{slot, keahlian_parti_id, nama, calon?, kontes?}] — `kontes` ialah
+    // keadaan UI SEMENTARA sahaja. Server membuangnya sebelum menyimpan dan
+    // tidak pernah memulangkannya, kerana selepas pemisahan borang mana calon
+    // itu duduk sudah menyatakan segalanya.
+    const [parties, setParties] = useState([]);
     const [reference, setReference] = useState(null);
     const [hasData, setHasData] = useState(true);
     // { tahun, jenis_pr } when the current structure was inherited from another
@@ -117,6 +181,14 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                     setKontesParlimen(data.kontes_parlimen || null);
                     setForm(data.form || null);
                     setPublishedOk(false);
+                    // Skop disemai daripada borang yang DIMUAT, bukan daripada
+                    // `contestSendiri` semasa: picker baru sahaja ditulis di
+                    // atas dan belum dirender, jadi kawasan_type yang betul
+                    // hanya wujud di sini, dalam `resolved`.
+                    const skopDimuat = kiraSkopSemasa(data, r.kawasan_type === 'parlimen' ? 'parlimen' : 'dun');
+                    setSkopSemasa(skopDimuat);
+                    setSkop(skopDimuat);
+                    setRalatParti('');
                     if (data.parties?.length) {
                         setParties(data.parties);
                         setPenjuru(String(data.form?.penjuru ?? data.parties.length));
@@ -158,12 +230,24 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
             // bagi kerusi lama dianggap dibatalkan, bukan disasarkan semula
             // secara senyap kepada kerusi/pilihan raya baharu.
             setSuntingStruktur(false);
+            // Skop milik kerusi yang tadi dipilih. Kembalikan kepada skop
+            // TUNGGAL borang semasa — membiarkan "kedua-duanya" hidup merentas
+            // pertukaran kerusi bermakna permintaan simpan seterusnya membawa
+            // skop kerusi lama.
+            setSkop(contestSendiri);
+            setSkopSemasa(contestSendiri);
+            setRalatParti('');
             return undefined;
         }
         let cancelled = false;
         setLoading(true);
         setSelectedPusat('');
         setPublishedOk(false);
+        // Atas sebab yang sama, dan SEBELUM permintaan dihantar: skop kembali
+        // kepada lalai tunggal sehingga server memberitahu sebaliknya.
+        setSkop(contestSendiri);
+        setSkopSemasa(contestSendiri);
+        setRalatParti('');
         setStruktur({ pusat: [], undi_awal: false, undi_pos: false });
         setBolehSuntingStruktur(false);
         // Atas sebab yang sama: kosongkan pautan kontes SEBELUM permintaan
@@ -187,6 +271,14 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                 setVotes(mergeVotes(data));
                 setKontesParlimen(data.kontes_parlimen || null);
                 setForm(data.form || null);
+                // Skop dibaca semula daripada server pada setiap muatan —
+                // termasuk muatan semula selepas satu pemisahan. `penjuru`
+                // kedua-dua borang ditulis semula oleh pemisahan itu (borang
+                // DUN mendapat kiraan DUN, borang takrifan mendapat kiraan
+                // Parlimen), jadi apa-apa yang dikira di client akan salah.
+                const skopDimuat = kiraSkopSemasa(data, contestSendiri);
+                setSkopSemasa(skopDimuat);
+                setSkop(skopDimuat);
                 if (data.parties?.length) {
                     setParties(data.parties);
                     setPenjuru(String(data.form?.penjuru ?? data.parties.length));
@@ -331,13 +423,48 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
         [buatSummary, serentak, partyNamesPru.length],
     );
 
-    const persistParties = useCallback((next) => {
-        if (!kawasanType || !kawasanId || !jenisPr || !tahun || !penjuru) return;
-        axios.post(route('pilihanraya.borang-14.parties'), {
+    // Slot dihantar RATA (1..n seperti diekstrak). Server yang menomborkan
+    // semula setiap pertandingan kepada 1..n semasa memisahkan senarai —
+    // menomborkan semula di sini bermakna dua pelaksanaan peraturan yang sama,
+    // dan hanyut di antaranya memindahkan undi kepada calon yang salah.
+    const persistParties = useCallback((next, skopHantar) => {
+        if (!kawasanType || !kawasanId || !jenisPr || !tahun || !penjuru) return Promise.resolve(null);
+        setRalatParti('');
+
+        return axios.post(route('pilihanraya.borang-14.parties'), {
             kawasan_type: kawasanType, kawasan_id: kawasanId, jenis_pr: jenisPr, tahun: Number(tahun),
-            penjuru: Number(penjuru), parties: next,
-        }).catch(() => {});
+            penjuru: Number(penjuru),
+            skop: skopHantar,
+            // `kontes` dihantar HANYA dalam skop kedua-duanya — di situ ia
+            // wajib pada setiap calon. Dalam skop tunggal server mengabaikannya
+            // sepenuhnya, jadi ia digugurkan supaya muatan kekal serupa-bit
+            // dengan sebelum ciri ini.
+            parties: next.map((p) => {
+                if (skopHantar === SKOP_KEDUA) return p;
+                const salinan = { ...p };
+                delete salinan.kontes;
+
+                return salinan;
+            }),
+        }).catch((e) => {
+            // Mesej server dipapar APA ADANYA — ia menamakan masalah sebenar.
+            setRalatParti(ralatServer(e, 'Gagal menyimpan pemetaan parti.'));
+            throw e;
+        });
     }, [kawasanType, kawasanId, jenisPr, tahun, penjuru]);
+
+    // Pengguna memilih skop yang BERBEZA daripada apa yang tersimpan → satu
+    // penstrukturan semula sedang menunggu. Ia tidak pernah disimpan secara
+    // automatik semasa menaip: pemisahan menomborkan semula slot calon dan
+    // mencipta borang takrifan Parlimen, jadi ia mesti satu tindakan yang
+    // disengajakan, bukan kesan sampingan memilih parti.
+    const menungguPemisahan = skop !== skopSemasa;
+
+    // Pemilih pertandingan hanya berguna semasa senarai RATA masih utuh.
+    // Sesudah dipisahkan, calon Parlimen tinggal pada borang takrifan dan
+    // baris di skrin ini ialah calon DUN semata-mata — menawarkan pemilih di
+    // situ hanya membawa pengguna ke jalan mati (0 calon Parlimen → 422).
+    const pilihKontes = skop === SKOP_KEDUA && menungguPemisahan;
 
     // Preserves extra fields (calon) so the scoresheet's candidate name keeps
     // showing under the dropdown after a party is picked.
@@ -347,7 +474,47 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
             ? { ...p, slot: i + 1, keahlian_parti_id: parti ? parti.id : '', nama: parti ? parti.nama : (p.calon ?? '') }
             : p));
         setParties(next);
-        persistParties(next);
+        // Autosimpan sentiasa menghantar skop TUNGGAL borang ini sendiri —
+        // muatan yang serupa-bit dengan klien sebelum ciri ini (yang tidak
+        // menghantar `skop` langsung, lalu server melalaikannya kepada nilai
+        // yang sama). Menghantar `skop` pilihan pengguna di sini akan menukar
+        // pemetaan parti biasa menjadi penstrukturan semula.
+        if (!menungguPemisahan) persistParties(next, contestSendiri).catch(() => {}); // ralat sudah dipapar
+    };
+
+    // Tanda pertandingan bagi satu calon. Semata-mata keadaan tempatan —
+    // tiada apa dihantar sehingga pengguna menekan Simpan Skop.
+    const onPickKontes = (index, kontes) => {
+        setParties((prev) => prev.map((p, i) => (i === index ? { ...p, slot: i + 1, kontes: kontes || undefined } : p)));
+    };
+
+    // Kiraan calon setiap pertandingan mengikut tanda pengguna SENDIRI —
+    // bukan tekaan, dan bukan angka yang datang dari mana-mana model.
+    const kiraKontes = useMemo(() => ({
+        parlimen: parties.filter((p) => p.kontes === 'parlimen').length,
+        dun: parties.filter((p) => p.kontes === 'dun').length,
+        belum: parties.filter((p) => !p.kontes).length,
+    }), [parties]);
+
+    const simpanSkop = async () => {
+        setMenyimpanSkop(true);
+        try {
+            // null = permintaan langsung tidak dihantar kerana medan tidak
+            // lengkap. Jangan buang senarai calon pengguna dalam kes itu.
+            if (!await persistParties(parties, skop)) return;
+            // Pemisahan menulis semula `penjuru` KEDUA-DUA borang: borang DUN
+            // mendapat kiraan DUN, borang takrifan Parlimen mendapat kiraan
+            // Parlimen. Buang senarai rata tempatan DAHULU supaya muatan semula
+            // tidak boleh mengekalkan baris/penjuru lama, kemudian baca semula
+            // kedua-duanya terus daripada server.
+            setParties([]);
+            setPenjuru('');
+            setReloadNonce((n) => n + 1);
+        } catch {
+            // Mesej sebenar sudah dipapar oleh persistParties.
+        } finally {
+            setMenyimpanSkop(false);
+        }
     };
 
     // `contest` WAJIB pada setiap POST undi (server 422 tanpanya) supaya undi
@@ -430,15 +597,44 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                 {/* Row 2 — penjuru + party pickers (only once geography chosen & data exists) */}
                 {geographyComplete && hasData && (
                     <div className="mt-3 pt-3 border-t border-dashed grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        {/* Skop hanya boleh dipilih pada borang DUN: pautan
+                            wujud dari borang DUN ke borang Parlimen sahaja,
+                            tidak pernah sebaliknya, kerana borang Parlimen ITU
+                            SENDIRI ialah takrifan calon PRU. Pada borang
+                            Parlimen kawalan ini digugurkan sepenuhnya supaya
+                            skrin kekal sama seperti hari ini. */}
+                        {kawasanType === 'dun' && (
+                            <div>
+                                <label className={t.label}>Skop Borang 14</label>
+                                <select value={skop} onChange={(e) => setSkop(e.target.value)} className={t.input}>
+                                    <option value="dun">DUN sahaja (PRN)</option>
+                                    <option value="parlimen">Parlimen sahaja (PRU)</option>
+                                    <option value={SKOP_KEDUA}>Kedua-duanya (serentak)</option>
+                                </select>
+                                <div className={`text-xs ${t.subtext} mt-0.5`}>
+                                    {skopSemasa === SKOP_KEDUA
+                                        ? 'Borang ini sudah dipisahkan — senarai di bawah ialah calon DUN sahaja; calon PRU disimpan pada borang takrifan Parlimen yang dipaut.'
+                                        : 'Pilih “Kedua-duanya” jika scoresheet ini mengandungi DUA pertandingan bersebelahan (calon PRU dan calon PRN).'}
+                                </div>
+                            </div>
+                        )}
                         <div>
                             <label className={t.label}>Bilangan Penjuru</label>
                             <select value={penjuru} onChange={(e) => setPenjuru(e.target.value)} className={t.input}>
                                 <option value="">Pilih Penjuru</option>
                                 {penjuruOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                             </select>
+                            {pilihKontes && (
+                                <div className={`text-xs ${t.subtext} mt-0.5`}>
+                                    Jumlah calon KEDUA-DUA pertandingan seperti pada scoresheet.
+                                </div>
+                            )}
                         </div>
                         {parties.map((p, i) => (
-                            <div key={i}>
+                            <div
+                                key={i}
+                                className={pilihKontes ? `rounded-lg border px-2 py-2 ${warnaKontes(p.kontes)}` : undefined}
+                            >
                                 <label className={t.label}>Parti {i + 1}</label>
                                 <select
                                     value={p.keahlian_parti_id || ''}
@@ -448,11 +644,76 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                                     <option value="">Pilih Parti</option>
                                     {partiList.map((pt) => <option key={pt.id} value={pt.id}>{pt.nama}</option>)}
                                 </select>
+                                {pilihKontes && (
+                                    <select
+                                        value={p.kontes || ''}
+                                        onChange={(e) => onPickKontes(i, e.target.value)}
+                                        className={`${t.input} mt-1`}
+                                    >
+                                        <option value="">Pertandingan mana?</option>
+                                        <option value="parlimen">{LABEL_KONTES.parlimen}</option>
+                                        <option value="dun">{LABEL_KONTES.dun}</option>
+                                    </select>
+                                )}
                                 {p.calon && (
                                     <div className={`text-xs ${t.subtext} mt-0.5`}>Calon: {p.calon}{!p.keahlian_parti_id && ' — belum dipetakan'}</div>
                                 )}
                             </div>
                         ))}
+                    </div>
+                )}
+
+                {/* Pemisahan pertandingan — tindakan yang DISENGAJAKAN. Ia
+                    mencipta/mengemas kini borang takrifan Parlimen dan
+                    menomborkan semula slot calon, jadi ia tidak pernah berlaku
+                    sebagai kesan sampingan memilih parti seperti skop tunggal. */}
+                {geographyComplete && hasData && menungguPemisahan && (
+                    <div className="mt-3 pt-3 border-t border-dashed flex flex-wrap items-center justify-between gap-2">
+                        <div className={`text-sm ${t.subtext}`}>
+                            {pilihKontes && (
+                                <>
+                                    Tandakan setiap calon: <strong className="text-sky-700">{kiraKontes.parlimen}</strong> calon
+                                    Parlimen (biru) · <strong className="text-rose-700">{kiraKontes.dun}</strong> calon DUN (merah)
+                                    {kiraKontes.belum > 0 && <> · <strong>{kiraKontes.belum}</strong> belum ditanda</>}.
+                                </>
+                            )}
+                            {skop !== SKOP_KEDUA && (
+                                <>
+                                    Borang ini akan merekod pertandingan <strong>{LABEL_KONTES[skop]}</strong> sahaja
+                                    {' '}— {parties.length} calon.
+                                </>
+                            )}
+                        </div>
+                        <button
+                            type="button"
+                            onClick={simpanSkop}
+                            disabled={menyimpanSkop || parties.length === 0 || (pilihKontes && kiraKontes.belum > 0)}
+                            title={pilihKontes && kiraKontes.belum > 0 ? 'Tandakan pertandingan bagi setiap calon dahulu' : undefined}
+                            className={t.buttonPrimary}
+                        >
+                            {menyimpanSkop ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Simpan Skop &amp; Pertandingan
+                        </button>
+                    </div>
+                )}
+
+                {/* Borang DUN yang merekod pertandingan Parlimen SAHAJA: tiada
+                    calon DUN wujud, jadi jadual undi DUN memang tidak boleh
+                    dipaparkan. Dieja dengan jelas — skrin yang kosong tanpa
+                    sebab akan disangka data hilang. */}
+                {geographyComplete && hasData && skopSemasa === 'parlimen' && kawasanType === 'dun' && (
+                    <div className={`${t.banner} flex items-start gap-2 mt-3`}>
+                        <Info className="h-4 w-4 shrink-0 mt-0.5" />
+                        <span>
+                            Borang DUN ini merekod pertandingan <strong>Parlimen (PRU) sahaja</strong> — tiada calon
+                            DUN ditetapkan, jadi tiada jadual undi DUN untuk dipaparkan. Tukar Skop kepada
+                            &ldquo;Kedua-duanya&rdquo; dan tandakan calon DUN jika kerusi ini turut bertanding.
+                        </span>
+                    </div>
+                )}
+
+                {ralatParti && (
+                    <div className="bg-rose-50 border border-rose-300 text-rose-800 rounded-lg px-4 py-3 text-sm mt-3">
+                        {ralatParti}
                     </div>
                 )}
             </div>
