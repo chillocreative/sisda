@@ -118,7 +118,9 @@ class ScoreboardPayloadTest extends TestCase
         $this->assertSame('N27', $payload['kod']);
         $this->assertSame([true, false, true], array_column($payload['rows'], 'is_kami'));
         $this->assertSame($form->id, $payload['sumber']['id']);
-        $this->assertSame('PRN 2026 · 3 Penjuru', $payload['sumber']['label']);
+        // Label membawa KERUSI borang itu juga — "PRN 2026" sahaja boleh jadi
+        // milik mana-mana kerusi di negara ini.
+        $this->assertSame('DUN PILAH (N27) · PRN 2026 · 3 Penjuru', $payload['sumber']['label']);
     }
 
     public function test_undi_kami_sums_only_the_tagged_slots(): void

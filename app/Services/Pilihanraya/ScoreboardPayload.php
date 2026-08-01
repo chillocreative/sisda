@@ -338,9 +338,28 @@ class ScoreboardPayload
         ];
     }
 
-    /** "PRN 2026 · 3 Penjuru" */
+    /**
+     * "DUN GEMAS (N34) · PRN 2026 · 3 Penjuru"
+     *
+     * Kerusi diterbitkan daripada borang ITU SENDIRI (kawasan_type/kawasan_id
+     * padanya), bukan daripada papan yang memaparkannya. Itu disengajakan:
+     * saveSettings() menolak borang milik kerusi lain, tetapi baris lama boleh
+     * memaut borang asing dari zaman sebelum pengawal itu wujud. Dengan kerusi
+     * borang tertulis pada label, pautan silang begitu kelihatan pada dropdown
+     * dan bukan tersembunyi di belakang "PRN 2026" yang boleh jadi milik
+     * mana-mana kerusi.
+     */
     public static function labelSumber(Borang14Form $form): string
     {
-        return strtoupper((string) $form->jenis_pr).' '.$form->tahun.' · '.(self::PENJURU[(int) $form->penjuru] ?? $form->penjuru.' Penjuru');
+        $identiti = self::identitiKerusi((string) $form->kawasan_type, (int) $form->kawasan_id);
+
+        $kerusi = trim($identiti['jenis'].' '.($identiti['nama'] ?? ''));
+        if ($identiti['kod'] !== null) {
+            $kerusi .= ' ('.$identiti['kod'].')';
+        }
+
+        return $kerusi
+            .' · '.strtoupper((string) $form->jenis_pr).' '.$form->tahun
+            .' · '.(self::PENJURU[(int) $form->penjuru] ?? $form->penjuru.' Penjuru');
     }
 }

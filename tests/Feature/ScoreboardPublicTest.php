@@ -250,6 +250,42 @@ class ScoreboardPublicTest extends TestCase
         );
     }
 
+    /**
+     * Label "Sumber Undi" mesti menyebut KERUSI borang itu, jenis pilihanraya
+     * dan tahun. Tanpa kerusi, "PRN 2026" boleh jadi milik mana-mana kerusi di
+     * negara ini — dan pengendali tiada cara melihat borang mana yang dipaut.
+     */
+    public function test_the_vote_source_label_names_the_seat_election_type_and_year(): void
+    {
+        $this->seedDpt();
+        $form = $this->borang($this->dun);
+        $papan = $this->board(Scoreboard::STATUS_TERSIAR);
+        $papan->update(['borang14_form_id' => $form->id]);
+
+        $pemilik = User::create([
+            'name' => 'Pemilik Pilah',
+            'email' => 'pemilik-pilah@example.test',
+            'telephone' => '0140000777',
+            'password' => bcrypt('rahsia'),
+            'role' => 'user',
+            'status' => 'approved',
+            'kadun_id' => $this->dun->id,
+        ]);
+
+        $milik = $this->actingAs($pemilik)->getJson(route('pilihanraya.scoreboard.data', [
+            'kawasan_type' => 'dun',
+            'kawasan_id' => $this->dun->id,
+        ]))->assertOk()->json();
+
+        $this->assertSame('DUN PILAH (N27) · PRN 2026 · 1 vs 1', $milik['sumber']['label']);
+
+        // Dropdown Tetapan membaca label yang SAMA.
+        $this->assertSame(
+            [['id' => $form->id, 'label' => 'DUN PILAH (N27) · PRN 2026 · 1 vs 1']],
+            $milik['sumberList'],
+        );
+    }
+
     /** Tajuk tanpa sebarang kod kerusi tidak pernah disentuh. */
     public function test_a_title_without_any_seat_code_is_never_touched(): void
     {
