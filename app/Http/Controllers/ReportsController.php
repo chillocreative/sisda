@@ -55,6 +55,35 @@ class ReportsController extends Controller
     }
 
     /**
+     * Pastikan satu rekod berada dalam skop kerusi pemanggil.
+     *
+     * Peraturannya DITERBITKAN daripada VoterScopeService dan bukan ditulis
+     * kali kedua di sini — dua salinan peraturan yang sama akan menyimpang,
+     * dan salinan yang longgar itulah yang menjadi IDOR seterusnya.
+     *
+     * Kini `super_user` sahaja yang diikat (DUN sendiri + penyerahan
+     * sendiri). `admin` sengaja TIDAK diikat: hujung ini terbuka kepadanya
+     * hari ini dan mengetatkannya ialah keputusan produk yang berasingan.
+     * `user` sudah mempunyai semakan Parlimennya sendiri di setiap hujung,
+     * dan peranan yang tidak dikenali sudah ditolak oleh senarai-benar.
+     *
+     * @param  class-string<\Illuminate\Database\Eloquent\Model>  $model
+     */
+    private function pastikanRekodDalamSkop(string $model, int $id): void
+    {
+        $user = auth()->user();
+
+        if (! $user->isSuperUser()) {
+            return;
+        }
+
+        $skop = $model::whereKey($id);
+        VoterScopeService::apply($skop, $user);
+
+        abort_unless($skop->exists(), 403, 'Rekod ini berada di luar DUN anda.');
+    }
+
+    /**
      * Display the reports dashboard.
      */
     public function index()
@@ -236,6 +265,8 @@ class ReportsController extends Controller
      */
     public function hasilCulaanByIc(Request $request)
     {
+        $this->pastikanPerananLaporanDikenali();
+
         $request->validate([
             'ic' => 'nullable|string|digits:12',
             'source_id' => 'nullable|integer',
@@ -554,11 +585,15 @@ class ReportsController extends Controller
      */
     public function hasilCulaanEdit(HasilCulaan $hasilCulaan)
     {
+        $this->pastikanPerananLaporanDikenali();
+
         $user = auth()->user();
 
         if ($user->isUser() && $hasilCulaan->parlimen !== ($user->bandar->nama ?? null)) {
             abort(403, 'Anda hanya dibenarkan mengakses rekod dalam Parlimen anda.');
         }
+
+        $this->pastikanRekodDalamSkop(HasilCulaan::class, (int) $hasilCulaan->id);
 
         $bangsaList = \App\Models\Bangsa::all();
         $negeriList = \App\Models\Negeri::orderBy('nama')->get();
@@ -638,6 +673,8 @@ class ReportsController extends Controller
         if ($user->isUser() && $hasilCulaan->parlimen !== ($user->bandar->nama ?? null)) {
             abort(403, 'Anda hanya dibenarkan mengakses rekod dalam Parlimen anda.');
         }
+
+        $this->pastikanRekodDalamSkop(HasilCulaan::class, (int) $hasilCulaan->id);
 
         // When the record is locked and the viewer cannot edit sensitive
         // fields, replace any incoming masked values with the current DB
@@ -758,17 +795,10 @@ class ReportsController extends Controller
             abort(403, 'Pengguna tidak dibenarkan memadam rekod.');
         }
 
-        // super_user: DUN sendiri sahaja. Sebelum ini hujung ini hanya
-        // berpagar pada isUser(), jadi seorang super_user boleh memadam
-        // mana-mana rekod di seluruh negara melalui id yang ditaip.
-        //
-        // admin sengaja TIDAK diikat di sini: ia terbuka kepadanya hari ini
-        // dan mengetatkannya ialah keputusan produk yang berasingan.
-        if ($user->isSuperUser()) {
-            $skop = HasilCulaan::whereKey($hasilCulaan->id);
-            VoterScopeService::apply($skop, $user);
-            abort_unless($skop->exists(), 403, 'Rekod ini berada di luar DUN anda.');
-        }
+        // Sebelum ini hujung ini hanya berpagar pada isUser(), jadi seorang
+        // super_user boleh memadam mana-mana rekod di seluruh negara melalui
+        // id yang ditaip. Peraturan skop ada dalam pastikanRekodDalamSkop().
+        $this->pastikanRekodDalamSkop(HasilCulaan::class, (int) $hasilCulaan->id);
 
         $hasilCulaan->delete();
 
@@ -781,6 +811,7 @@ class ReportsController extends Controller
     public function hasilCulaanToggleDeceased(HasilCulaan $hasilCulaan)
     {
         $this->pastikanPerananLaporanDikenali();
+        $this->pastikanRekodDalamSkop(HasilCulaan::class, (int) $hasilCulaan->id);
 
         $hasilCulaan->update(['is_deceased' => !$hasilCulaan->is_deceased]);
         VoterSyncService::syncFromHasilCulaan($hasilCulaan->fresh());
@@ -1100,11 +1131,15 @@ class ReportsController extends Controller
      */
     public function dataPengundiEdit(Request $request, DataPengundi $dataPengundi)
     {
+        $this->pastikanPerananLaporanDikenali();
+
         $user = auth()->user();
 
         if ($user->isUser() && $dataPengundi->parlimen !== ($user->bandar->nama ?? null)) {
             abort(403, 'Anda hanya dibenarkan mengakses rekod dalam Parlimen anda.');
         }
+
+        $this->pastikanRekodDalamSkop(DataPengundi::class, (int) $dataPengundi->id);
 
         $sumbanganEnabled = $request->query('source') === 'dashboard';
 
@@ -1205,6 +1240,8 @@ class ReportsController extends Controller
         if ($user->isUser() && $dataPengundi->parlimen !== ($user->bandar->nama ?? null)) {
             abort(403, 'Anda hanya dibenarkan mengakses rekod dalam Parlimen anda.');
         }
+
+        $this->pastikanRekodDalamSkop(DataPengundi::class, (int) $dataPengundi->id);
 
         // When the record is locked and the viewer cannot edit sensitive
         // fields, replace any incoming masked values with the current DB
@@ -1309,17 +1346,10 @@ class ReportsController extends Controller
             abort(403, 'Pengguna tidak dibenarkan memadam rekod.');
         }
 
-        // super_user: DUN sendiri sahaja. Sebelum ini hujung ini hanya
-        // berpagar pada isUser(), jadi seorang super_user boleh memadam
-        // mana-mana rekod di seluruh negara melalui id yang ditaip.
-        //
-        // admin sengaja TIDAK diikat di sini: ia terbuka kepadanya hari ini
-        // dan mengetatkannya ialah keputusan produk yang berasingan.
-        if ($user->isSuperUser()) {
-            $skop = DataPengundi::whereKey($dataPengundi->id);
-            VoterScopeService::apply($skop, $user);
-            abort_unless($skop->exists(), 403, 'Rekod ini berada di luar DUN anda.');
-        }
+        // Sebelum ini hujung ini hanya berpagar pada isUser(), jadi seorang
+        // super_user boleh memadam mana-mana rekod di seluruh negara melalui
+        // id yang ditaip. Peraturan skop ada dalam pastikanRekodDalamSkop().
+        $this->pastikanRekodDalamSkop(DataPengundi::class, (int) $dataPengundi->id);
 
         $dataPengundi->delete();
 
@@ -1332,6 +1362,7 @@ class ReportsController extends Controller
     public function dataPengundiToggleDeceased(DataPengundi $dataPengundi)
     {
         $this->pastikanPerananLaporanDikenali();
+        $this->pastikanRekodDalamSkop(DataPengundi::class, (int) $dataPengundi->id);
 
         $dataPengundi->update(['is_deceased' => !$dataPengundi->is_deceased]);
         VoterSyncService::syncFromDataPengundi($dataPengundi->fresh());
@@ -1629,37 +1660,5 @@ class ReportsController extends Controller
         }
         $editHistory->delete();
         return back()->with('success', 'Sejarah berjaya dipadam.');
-    }
-
-    /**
-     * Check if user can modify Hasil Culaan record.
-     */
-    private function canModifyHasilCulaan($hasilCulaan, $user = null)
-    {
-        $user = $user ?? auth()->user();
-
-        if ($user->isSuperAdmin() || $user->isAdmin()) {
-            return true;
-        }
-
-        // User can edit if: same parlimen OR they submitted the record
-        return $hasilCulaan->bandar === ($user->bandar->nama ?? '')
-            || $hasilCulaan->submitted_by === $user->id;
-    }
-
-    /**
-     * Check if user can modify Data Pengundi record.
-     */
-    private function canModifyDataPengundi($dataPengundi, $user = null)
-    {
-        $user = $user ?? auth()->user();
-
-        if ($user->isSuperAdmin() || $user->isAdmin()) {
-            return true;
-        }
-
-        // User can edit if: same parlimen OR they submitted the record
-        return $dataPengundi->bandar === ($user->bandar->nama ?? '')
-            || $dataPengundi->submitted_by === $user->id;
     }
 }

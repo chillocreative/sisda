@@ -222,6 +222,108 @@ class LaporanSenaraiBenarTest extends TestCase
         $this->assertNotNull($baris['asing']->fresh(), 'Baris luar skop dipadam.');
     }
 
+    // ------------------------------------------------------ sunting (edit)
+
+    /** Muatan `update` yang lengkap, dibina daripada rekod itu sendiri. */
+    private function muatanKemasKini(HasilCulaan $r, array $ubah = []): array
+    {
+        return array_merge([
+            'nama' => $r->nama,
+            'no_ic' => $r->no_ic,
+            'umur' => $r->umur,
+            'no_tel' => $r->no_tel,
+            'bangsa' => $r->bangsa,
+            'alamat' => $r->alamat,
+            'poskod' => $r->poskod,
+            'negeri' => $r->negeri,
+            'bandar' => $r->bandar,
+            'parlimen' => $r->parlimen,
+            'kadun' => $r->kadun,
+            'bil_isi_rumah' => 3,
+            'pekerjaan' => 'Swasta',
+            'jenis_pekerjaan' => ['Pentadbiran'],
+            'pemilik_rumah' => 'Sendiri',
+            'jenis_sumbangan' => ['Tunai'],
+            'tujuan_sumbangan' => ['Kecemasan'],
+            'bantuan_lain' => ['Tiada'],
+            'keahlian_parti' => 'Tiada',
+            'kecenderungan_politik' => 'Putih',
+        ], $ubah);
+    }
+
+    /**
+     * Laluan sunting HIDUP ialah hasilCulaanUpdate()/dataPengundiUpdate(),
+     * yang menyemak `isUser()` SAHAJA. Pembantu canModify* dalam pengawal ini
+     * kelihatan seperti peraturan itu tetapi peribadi dan TIDAK PERNAH
+     * dipanggil — kod mati. Jadi sunting `super_user` adalah KEBANGSAAN.
+     */
+    public function test_super_user_can_no_longer_edit_outside_its_dun(): void
+    {
+        $baris = $this->benih();
+        $su = $this->superUser();
+
+        foreach (['jiran', 'asing'] as $label) {
+            $this->actingAs($su)
+                ->put(route('reports.hasil-culaan.update', $baris[$label]),
+                    $this->muatanKemasKini($baris[$label], ['nama' => 'DIUBAH']))
+                ->assertForbidden();
+
+            $this->assertNotSame('DIUBAH', $baris[$label]->fresh()->nama, "Rekod {$label} diubah.");
+        }
+    }
+
+    /** Halaman sunting itu sendiri mendedahkan PII penuh — ia mesti diskop juga. */
+    public function test_super_user_cannot_open_the_edit_page_of_a_foreign_record(): void
+    {
+        $baris = $this->benih();
+        $su = $this->superUser();
+
+        $this->actingAs($su)
+            ->get(route('reports.hasil-culaan.edit', $baris['asing']))->assertForbidden();
+        $this->actingAs($su)
+            ->get(route('reports.data-pengundi.edit', DataPengundi::factory()->create([
+                'negeri' => 'NEGERI SEMBILAN', 'bandar' => 'JEMPOL', 'kadun' => 'BAHAU',
+            ])))->assertForbidden();
+    }
+
+    public function test_super_user_can_still_edit_records_in_its_own_dun(): void
+    {
+        $baris = $this->benih();
+        $su = $this->superUser();
+
+        $this->actingAs($su)
+            ->get(route('reports.hasil-culaan.edit', $baris['sendiri']))->assertOk();
+
+        $this->actingAs($su)
+            ->put(route('reports.hasil-culaan.update', $baris['sendiri']),
+                $this->muatanKemasKini($baris['sendiri'], ['nama' => 'NAMA BAHARU']))
+            ->assertRedirect();
+
+        $this->assertSame('NAMA BAHARU', $baris['sendiri']->fresh()->nama,
+            'super_user tidak lagi boleh menyunting DUN sendiri.');
+    }
+
+    /**
+     * Toggle "kematian" ialah mutasi data pengundi dan langsung tiada semakan
+     * kerusi — ditemui semasa menyapu keseluruhan pengawal, bukan dilaporkan.
+     */
+    public function test_super_user_cannot_toggle_deceased_outside_its_dun(): void
+    {
+        $baris = $this->benih();
+        $su = $this->superUser();
+
+        $this->actingAs($su)
+            ->post(route('reports.hasil-culaan.toggle-deceased', $baris['asing']))
+            ->assertForbidden();
+
+        $this->assertFalse((bool) $baris['asing']->fresh()->is_deceased);
+
+        // Kerusi sendiri kekal berfungsi.
+        $this->actingAs($su)
+            ->post(route('reports.hasil-culaan.toggle-deceased', $baris['sendiri']))
+            ->assertOk();
+    }
+
     // ------------------------------------------------ lalai SENARAI-BENAR
 
     /**
@@ -264,6 +366,49 @@ class LaporanSenaraiBenarTest extends TestCase
         foreach ($baris as $rekod) {
             $this->assertNotNull($rekod->fresh());
         }
+    }
+
+    /**
+     * AKIBAT PALING TAJAM. Halaman sunting ialah laluan BACA yang memaparkan
+     * no_ic, no_tel dan alamat penuh. Ia bukan sebahagian daripada
+     * senarai-benar, jadi jaminan "yang tidak dikenali ditolak" adalah benar
+     * bagi 13 hujung tulis/eksport tetapi PALSU bagi Laporan seluruhnya.
+     */
+    public function test_an_unrecognised_role_cannot_read_a_record_edit_page(): void
+    {
+        $baris = $this->benih();
+        $dp = DataPengundi::factory()->create([
+            'negeri' => 'NEGERI SEMBILAN', 'bandar' => 'JEMPOL', 'kadun' => 'BAHAU',
+        ]);
+        $asing = $this->user('penyelaras_negeri');
+
+        $this->actingAs($asing)
+            ->get(route('reports.hasil-culaan.edit', $baris['asing']))->assertForbidden();
+        $this->actingAs($asing)
+            ->get(route('reports.data-pengundi.edit', $dp))->assertForbidden();
+
+        // Juga laluan baca berasaskan IC dan mutasi kematian.
+        $this->actingAs($asing)
+            ->getJson(route('api.hasil-culaan.by-ic', ['ic' => $baris['asing']->no_ic]))
+            ->assertForbidden();
+        $this->actingAs($asing)
+            ->post(route('reports.hasil-culaan.toggle-deceased', $baris['asing']))
+            ->assertForbidden();
+
+        $this->assertFalse((bool) $baris['asing']->fresh()->is_deceased);
+    }
+
+    /** Kemas kini juga mesti ditolak bagi peranan yang tidak dikenali. */
+    public function test_an_unrecognised_role_cannot_update_a_record(): void
+    {
+        $baris = $this->benih();
+
+        $this->actingAs($this->user('penyelaras_negeri'))
+            ->put(route('reports.hasil-culaan.update', $baris['sendiri']),
+                $this->muatanKemasKini($baris['sendiri'], ['nama' => 'DIUBAH']))
+            ->assertForbidden();
+
+        $this->assertNotSame('DIUBAH', $baris['sendiri']->fresh()->nama);
     }
 
     // ----------------------------------------- peranan lain tidak bergerak
@@ -324,13 +469,45 @@ class LaporanSenaraiBenarTest extends TestCase
         $this->assertNotNull($baris['sendiri']->fresh());
     }
 
+    /** Diperluas: eksport, padam tunggal, padam pukal, sunting DAN halaman sunting. */
     public function test_confined_roles_are_still_refused(): void
     {
         foreach (['pengarah_dun', 'ketua_paca_dun'] as $role) {
+            $baris = $this->benih();
+            $dp = DataPengundi::factory()->create([
+                'negeri' => 'NEGERI SEMBILAN', 'bandar' => 'KUALA PILAH', 'kadun' => 'PILAH',
+            ]);
             $u = $this->user($role);
 
             $this->actingAs($u)->get(route('reports.hasil-culaan.export'))->assertForbidden();
             $this->actingAs($u)->get(route('reports.data-pengundi.export'))->assertForbidden();
+
+            $this->actingAs($u)
+                ->delete(route('reports.hasil-culaan.destroy', $baris['sendiri']))->assertForbidden();
+            $this->actingAs($u)
+                ->delete(route('reports.data-pengundi.destroy', $dp))->assertForbidden();
+
+            $this->actingAs($u)->post(route('reports.hasil-culaan.bulk-delete'), [
+                'ids' => [$baris['sendiri']->id],
+            ])->assertForbidden();
+            $this->actingAs($u)->post(route('reports.data-pengundi.bulk-delete'), [
+                'ids' => [$dp->id],
+            ])->assertForbidden();
+
+            $this->actingAs($u)
+                ->get(route('reports.hasil-culaan.edit', $baris['sendiri']))->assertForbidden();
+            $this->actingAs($u)
+                ->get(route('reports.data-pengundi.edit', $dp))->assertForbidden();
+
+            $this->actingAs($u)
+                ->put(route('reports.hasil-culaan.update', $baris['sendiri']),
+                    $this->muatanKemasKini($baris['sendiri'], ['nama' => 'DIUBAH']))
+                ->assertForbidden();
+
+            // Tiada baris lenyap atau berubah.
+            $this->assertNotNull($baris['sendiri']->fresh(), $role);
+            $this->assertNotNull($dp->fresh(), $role);
+            $this->assertNotSame('DIUBAH', $baris['sendiri']->fresh()->nama, $role);
         }
     }
 }
