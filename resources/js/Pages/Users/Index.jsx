@@ -117,7 +117,10 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
             bandar_id: '',
             kadun_id: '',
         });
-        router.get(route('users.index'));
+        // reset_filters ialah isyarat JELAS kepada RememberFilters. Permintaan
+        // KOSONG tidak dapat dibezakan daripada navigasi biasa, jadi tanpa ini
+        // penapis yang baru sahaja dibuang akan dibangkitkan semula.
+        router.get(route('users.index'), { reset_filters: 1 });
     };
 
     // Selection Logic

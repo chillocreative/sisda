@@ -1,4 +1,5 @@
 <?php
+
 namespace Tests\Feature;
 
 use App\Models\User;
@@ -419,6 +420,99 @@ class StickyFiltersTest extends TestCase
         $res->assertInertia(fn ($page) => $page
             ->component('Dashboard/UserDashboard')
             ->missing('totalPengundi'));
+    }
+
+    /**
+     * REGRESI SEBENAR: skop 'scoreboard' membawa kunci negeri_id/parlimen_id/
+     * kadun_id lama sedangkan skrin itu telah ditulis semula untuk menghantar
+     * kawasan_type/kawasan_id. Tiada satu pun kunci itu pernah muncul dalam
+     * permintaan, jadi skop itu menyimpan dan memulihkan KEKOSONGAN — ciri
+     * "ingat" mati SENYAP, tiada ujian gagal.
+     *
+     * Ujian ini memandu aliran SEBENAR (XHR data -> lawat semula halaman)
+     * dan bukan mengesahkan konfigurasi terhadap dirinya sendiri, jadi
+     * ketidakpadanan kunci begitu tidak boleh berulang tanpa disedari.
+     */
+    public function test_the_scoreboard_remembers_the_last_seat_across_navigation(): void
+    {
+        $negeri = \App\Models\Negeri::create(['nama' => 'NEGERI SEMBILAN']);
+        $bandar = \App\Models\Bandar::create(['nama' => 'TAMPIN', 'kod_parlimen' => 'P132', 'negeri_id' => $negeri->id]);
+        $dun = \App\Models\Kadun::create(['nama' => 'GEMAS', 'kod_dun' => 'N34', 'bandar_id' => $bandar->id]);
+
+        // Pemilih kerusi Scoreboard hanya menawarkan kerusi yang berborang 14
+        // (ScoreboardController::index), jadi tanpa borang halaman itu 403.
+        \App\Models\Borang14Form::create([
+            'kawasan_type' => 'dun',
+            'kawasan_id' => $dun->id,
+            'jenis_pr' => 'prn',
+            'tahun' => 2026,
+            'penjuru' => 2,
+            'status' => 'draft',
+            'parties' => [['nama' => 'KEADILAN'], ['nama' => 'BERSATU']],
+        ]);
+
+        // SeatScope menolak akaun yang belum diluluskan — UserFactory tidak
+        // menetapkannya.
+        $u = $this->user();
+        $u->update(['status' => 'approved']);
+
+        // Tinjauan biasa halaman — inilah yang merangkap penyimpanan.
+        $this->actingAs($u)->getJson(route('pilihanraya.scoreboard.data', [
+            'kawasan_type' => 'dun',
+            'kawasan_id' => $dun->id,
+        ]))->assertOk();
+
+        // Pergi ke skrin lain, kemudian kembali: kerusi mesti masih di sana.
+        $this->actingAs($u)->get(route('dashboard'));
+
+        $this->actingAs($u)->get(route('pilihanraya.scoreboard'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('rememberedFilters.kawasan_type', 'dun')
+                ->where('rememberedFilters.kawasan_id', (string) $dun->id));
+    }
+
+    /**
+     * Empat skop yang baru diaktifkan. Yang penting bukan sekadar "diingat",
+     * tetapi Set Semula masih BERFUNGSI — itulah sebab keempat-empatnya
+     * pernah dimatikan.
+     *
+     * @param  array<string, string>  $tapis
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('skopBaharuProvider')]
+    public function test_newly_enabled_scopes_remember_then_forget_on_reset(
+        string $namaLaluan,
+        array $tapis,
+        string $kunciDiuji,
+    ): void {
+        $u = $this->user();
+        $sessionKey = \App\Support\FilterScopes::sessionKey(
+            \App\Support\FilterScopes::forRoute($namaLaluan)['scope'],
+        );
+
+        $this->actingAs($u)->get(route($namaLaluan, $tapis))->assertOk();
+        $this->assertSame($tapis[$kunciDiuji], session($sessionKey)[$kunciDiuji]);
+
+        // Navigasi kosong -> dipulihkan.
+        $this->actingAs($u)->get(route($namaLaluan))->assertOk();
+        $this->assertSame($tapis[$kunciDiuji], session($sessionKey)[$kunciDiuji]);
+
+        // Set Semula -> dilupakan, dan KEKAL dilupakan pada lawatan berikutnya.
+        $this->actingAs($u)->get(route($namaLaluan, ['reset_filters' => 1]))->assertOk();
+        $this->assertNull(session($sessionKey));
+
+        $this->actingAs($u)->get(route($namaLaluan))->assertOk();
+        $this->assertNull(session($sessionKey));
+    }
+
+    public static function skopBaharuProvider(): array
+    {
+        return [
+            'users' => ['users.index', ['role' => 'admin'], 'role'],
+            'data pengundi' => ['reports.data-pengundi.index', ['date_from' => '2026-01-01'], 'date_from'],
+            'master data bandar' => ['master-data.bandar.index', ['negeri_id' => '3'], 'negeri_id'],
+            'master data parlimen' => ['master-data.parlimen.index', ['negeri_id' => '3'], 'negeri_id'],
+        ];
     }
 
     public function test_every_configured_scope_resolves_and_has_keys(): void

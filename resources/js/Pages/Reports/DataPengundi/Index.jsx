@@ -88,7 +88,8 @@ export default function Index({ dataPengundi, filters, currentUserId }) {
         setSearch('');
         setDateFrom('');
         setDateTo('');
-        router.visit(route('reports.data-pengundi.index'));
+        // Isyarat JELAS kepada RememberFilters — lihat Users/Index.jsx.
+        router.visit(route('reports.data-pengundi.index', { reset_filters: 1 }));
     };
 
     const handleExport = () => {

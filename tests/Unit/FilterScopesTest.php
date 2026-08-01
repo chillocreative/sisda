@@ -1,4 +1,5 @@
 <?php
+
 namespace Tests\Unit;
 
 use App\Support\FilterScopes;
@@ -132,6 +133,12 @@ class FilterScopesTest extends TestCase
             'pilihanraya.war-room' => 'war_room',
             'reports.hasil-culaan.index' => 'hasil_culaan',
             'user-log.index' => 'user_log',
+            // Diaktifkan 1 Ogos 2026, selepas butang Set Semula masing-masing
+            // dikemas kini menghantar reset_filters=1.
+            'master-data.bandar.index' => 'masterdata_bandar',
+            'master-data.parlimen.index' => 'masterdata_parlimen',
+            'reports.data-pengundi.index' => 'data_pengundi',
+            'users.index' => 'users',
         ];
         ksort($dijangka);
 

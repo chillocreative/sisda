@@ -137,7 +137,10 @@ export default function Index({ bandar, negeriList, selectedNegeri, filters }) {
                                     onClick={() => {
                                         setSearch('');
                                         setNegeriFilter('');
-                                        router.get(route('master-data.bandar.index'));
+                                        // Isyarat JELAS kepada RememberFilters —
+                                        // permintaan kosong akan membangkitkan
+                                        // semula penapis yang baru dibuang.
+                                        router.get(route('master-data.bandar.index'), { reset_filters: 1 });
                                     }}
                                     className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
                                 >

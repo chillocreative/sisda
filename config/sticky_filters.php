@@ -143,35 +143,30 @@ return [
     ],
 
     // Scoreboard (INTERNAL sahaja — Public/Scoreboard.jsx tidak disentuh).
-    // fetchData() dibetulkan untuk turut menghantar negeri_id/parlimen_id
-    // (dahulu hanya kadun_id) supaya penapis tidak terhakis oleh tinjauan
-    // (poll) 4 saat sendiri — tanpa pembetulan ini, dropdown Negeri/Parlimen
-    // akan menjadi kosong/lumpuh pada lawatan seterusnya walaupun DUN masih
-    // betul, keadaan "kawalan tidak sepadan data" yang dilarang.
     //
-    // Wildcard 'pilihanraya.scoreboard.*' DISEMAK (bukan diandaikan selamat
-    // seperti kesilapan 'borang14' di atas): di bawah prefix
-    // pilihanraya/scoreboard hanya wujud DUA laluan GET — .data (fetch
-    // ditapis di atas) dan laluan asas itu sendiri; .settings ialah POST,
-    // jadi RememberFilters (GET sahaja) tidak pernah mencapainya walaupun
-    // namanya sepadan dengan corak. scoreboard.public / scoreboard.public.data
-    // (awam, tanpa log masuk) TIDAK sepadan — nama laluannya tidak bermula
-    // dengan 'pilihanraya.scoreboard.'. Semak semula senarai GET setiap kali
-    // laluan baharu ditambah di bawah prefix ini.
+    // Kunci di sini pernah negeri_id/parlimen_id/kadun_id. Skrin itu kemudian
+    // ditulis semula kepada papan-satu-kerusi (SeatScope) dan kini menghantar
+    // kawasan_type/kawasan_id sahaja — jadi TIADA satu pun kunci lama pernah
+    // muncul dalam permintaan, dan skop ini menyimpan serta memulihkan
+    // KEKOSONGAN sepanjang masa. Ciri "ingat" itu mati senyap sehingga
+    // 1 Ogos 2026. Pengajarannya: kunci di sini mesti disemak semula setiap
+    // kali skrin yang berkenaan menukar bentuk permintaannya.
     //
-    // KETERBATASAN JUJUR (bukan bahaya UI menipu, TIDAK dibetulkan di sini):
-    // fetchData() kembali awal (return) apabila kadunId kosong dan TIDAK
-    // PERNAH menghantar permintaan "dikosongkan". Skrin ini tidak dapat
-    // menyatakan "kosong" — sesi mengekalkan kadun_id/negeri_id/parlimen_id
-    // lama dan lawatan seterusnya memulihkannya; pengguna tidak dapat
-    // kembali ke "tiada DUN dipilih" tanpa log keluar. Ini SELAMAT (kawalan
-    // yang dipulihkan dan data yang dipulihkan sentiasa sepadan) tetapi
-    // BUKAN "boleh dikosongkan sepenuhnya". Ubatan yang ditetapkan: hantar
-    // {reset_filters:1} (lihat requestParams() di
-    // resources/js/Pages/Pilihanraya/filters.js) apabila kadunId dikosongkan.
+    // Bentuk kunci mengikut 'paca' — pemilih kerusi memaksa satu kerusi
+    // SEBENAR (Negeri->Parlimen->DUN, tiada pilihan "Semua"), jadi tiada
+    // konsep "kosongkan" yang boleh dipecahkan; memulihkan kerusi terakhir
+    // pada navigasi kosong ialah gelagat yang betul.
+    //
+    // Wildcard 'pilihanraya.scoreboard.*' DISEMAK semula: di bawah prefix
+    // pilihanraya/scoreboard hanya .data yang GET; .settings dan .publish
+    // ialah POST, jadi RememberFilters (GET sahaja) tidak pernah mencapainya
+    // walaupun namanya sepadan dengan corak. scoreboard.public /
+    // scoreboard.public.senarai (awam, tanpa log masuk) TIDAK sepadan — nama
+    // laluannya tidak bermula dengan 'pilihanraya.scoreboard.'. Semak semula
+    // senarai GET setiap kali laluan baharu ditambah di bawah prefix ini.
     'scoreboard' => [
         'routes' => ['pilihanraya.scoreboard', 'pilihanraya.scoreboard.*'],
-        'keys' => ['negeri_id', 'parlimen_id', 'kadun_id'],
+        'keys' => ['kawasan_type', 'kawasan_id'],
     ],
 
     // Borang 14 — tab Keyin dan Papar berkongsi satu skop dengan sengaja.
@@ -223,41 +218,39 @@ return [
         'keys' => ['negeri_id', 'parlimen_id', 'kadun_id', 'kawasan_type', 'jenis_pr', 'tahun'],
     ],
 
-    // SENGAJA KOSONG — laluan sebenar: users.index. Butang "Set Semula" di
-    // Users/Index.jsx (resetFilters(), ~baris 111-121) memanggil
-    // router.get(route('users.index')) TANPA sebarang parameter dan TANPA
-    // reset_filters — permintaan kosong ini tidak dapat dibezakan daripada
-    // navigasi biasa, jadi middleware akan membangkitkan semula penapis lama
-    // dan Set Semula tidak akan berfungsi. Aktifkan hanya selepas resetFilters()
-    // dikemas kini menghantar reset_filters (lihat filters.js requestParams()).
+    // Empat skop di bawah pernah SENGAJA KOSONG kerana butang Reset masing-
+    // masing menghantar permintaan KOSONG, yang tidak dapat dibezakan daripada
+    // navigasi biasa — mengaktifkannya ketika itu akan mematahkan Reset.
+    // Butang itu kini menghantar reset_filters=1 (Users/Index.jsx,
+    // Reports/DataPengundi/Index.jsx, MasterData/{Bandar,Parlimen}/Index.jsx),
+    // jadi syarat pengaktifan yang dicatat di sini sudah dipenuhi.
+    //
+    // Kesemuanya menyemai kawalan daripada prop `filters` pelayan, jadi
+    // dropdown yang dipulihkan dan data yang ditapis sentiasa datang daripada
+    // nilai yang SAMA — tiada UI menipu.
+    //
+    // `search` SENGAJA ditinggalkan pada keempat-empat: teks carian ialah
+    // tindakan sekali lalu, bukan penapis yang pengguna jangka masih terpasang
+    // apabila dia kembali. Kekal begitu bermakna kotak carian yang kosong
+    // sentiasa bermakna hasil yang tidak dicari — kawalan dan data kekal
+    // sepadan.
     'users' => [
-        'routes' => [],
+        'routes' => ['users.index'],
         'keys' => ['role', 'status', 'negeri_id', 'bandar_id', 'kadun_id'],
     ],
 
-    // SENGAJA KOSONG — laluan sebenar: reports.data-pengundi.index. handleReset()
-    // di Reports/DataPengundi/Index.jsx (~baris 86-92) memanggil
-    // router.visit(route('reports.data-pengundi.index')) TANPA parameter dan
-    // TANPA reset_filters — hazard sama seperti 'users' di atas.
     'data_pengundi' => [
-        'routes' => [],
+        'routes' => ['reports.data-pengundi.index'],
         'keys' => ['date_from', 'date_to'],
     ],
 
-    // SENGAJA KOSONG — laluan sebenar: master-data.bandar.index. Butang Reset
-    // di MasterData/Bandar/Index.jsx (~baris 134-146) memanggil
-    // router.get(route('master-data.bandar.index')) TANPA parameter dan TANPA
-    // reset_filters apabila search/negeri_id diisi — hazard sama seperti 'users'.
     'masterdata_bandar' => [
-        'routes' => [],
+        'routes' => ['master-data.bandar.index'],
         'keys' => ['negeri_id'],
     ],
 
-    // SENGAJA KOSONG — laluan sebenar: master-data.parlimen.index. Butang Reset
-    // di MasterData/Parlimen/Index.jsx (~baris 134-146) berkongsi kod dan hazard
-    // yang sama seperti 'masterdata_bandar' di atas.
     'masterdata_parlimen' => [
-        'routes' => [],
+        'routes' => ['master-data.parlimen.index'],
         'keys' => ['negeri_id'],
     ],
 ];

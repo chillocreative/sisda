@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import axios from 'axios';
 import {
     Trophy, Crown, Settings, X, Upload, Info, Loader2, Radio, Maximize2, Minimize2,
@@ -474,11 +474,36 @@ export default function Scoreboard(props) {
     );
 }
 
+/**
+ * Kerusi permulaan, mengikut keutamaan:
+ *  1. Satu kerusi sahaja  -> terus dimuatkan, tiada pemilih langsung.
+ *  2. Kerusi terakhir dipilih dalam sesi ini (rememberedFilters), JIKA ia
+ *     masih ada dalam senarai kerusi yang dibenarkan.
+ *  3. Tiada — pengguna memilih sendiri.
+ *
+ * Langkah 2 disemak terhadap `seats`, bukan dipercayai bulat-bulat: sesi
+ * boleh membawa kerusi daripada zaman sebelum peranan pengguna berubah, dan
+ * memuatkannya tanpa semakan bermakna pemilih memaparkan kerusi yang kini di
+ * luar kebenarannya. (Pelayan tetap menolaknya — SeatScope::assert() pada
+ * setiap panggilan data — jadi ini soal skrin yang jujur, bukan kebenaran.)
+ */
+function kerusiAwal(seats, remembered) {
+    if (seats.length === 1) return seats[0];
+
+    const jenis = remembered?.kawasan_type;
+    const id = remembered?.kawasan_id;
+    if (!jenis || id == null || id === '') return null;
+
+    return seats.find((s) => s.type === jenis && String(s.id) === String(id)) || null;
+}
+
 function ScoreboardBody({ seats }) {
+    const { rememberedFilters } = usePage().props;
     const [settingsOpen, setSettingsOpen] = useState(false);
     // Satu kerusi → terus dimuatkan, tiada pemilih. Inilah pembetulan skrin
     // tiga dropdown kosong bagi pengguna yang memiliki satu kerusi sahaja.
-    const [seat, setSeat] = useState(seats.length === 1 ? seats[0] : null);
+    // Selain itu: pulihkan kerusi terakhir dipilih dalam sesi log masuk ini.
+    const [seat, setSeat] = useState(() => kerusiAwal(seats, rememberedFilters));
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [updatedAt, setUpdatedAt] = useState(null);
