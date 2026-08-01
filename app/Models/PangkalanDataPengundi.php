@@ -16,6 +16,8 @@ class PangkalanDataPengundi extends Model
         'nama',
         'lokaliti',
         'kod_lokaliti',
+        'pusat_mengundi',
+        'saluran',
         'daerah_mengundi',
         'kadun',
         'parlimen',

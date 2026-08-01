@@ -1407,7 +1407,7 @@ class Borang14Controller extends Controller
             : Borang14Reference::forKadun($kawasanId);
 
         $asal = $reference
-            ? (($reference['source'] ?? null) === 'dpt_estimate' ? 'dpt' : 'kurasi')
+            ? (Borang14Reference::daripadaDpt($reference) ? 'dpt' : 'kurasi')
             : null;
 
         // Struktur scoresheet borang INI mengatasi anggaran DPT.
@@ -1425,8 +1425,13 @@ class Borang14Controller extends Controller
         // ada dalam pangkalan data.
         //
         // JSON kurasi (tiada kunci 'source') kekal keutamaan tertinggi.
-        $isDptEstimate = ($reference['source'] ?? null) === 'dpt_estimate';
-        if ((! $reference || $isDptEstimate) && ! empty($form?->structure['rows'])) {
+        //
+        // 'dpt_sebenar' (struktur daripada fail DPPR/DPI) dilayan SAMA seperti
+        // anggaran di sini: ia lebih tepat, tetapi undi yang SUDAH dimasukkan
+        // dikunci pada nama Pusat Mengundi scoresheet. Membiarkan terbitan DPT
+        // menang akan mengulangi kegagalan penyimpangan kunci di atas.
+        $isDptDerived = Borang14Reference::daripadaDpt($reference);
+        if ((! $reference || $isDptDerived) && ! empty($form?->structure['rows'])) {
             $dariStruktur = $this->referenceFromStructure($form->structure, $form->kawasan());
             if ($dariStruktur) {
                 $reference = $dariStruktur;

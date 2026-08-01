@@ -14,12 +14,15 @@ use Illuminate\Support\Facades\DB;
  * Two sources, in priority order:
  * 1. A curated JSON file under resources/data/borang14/kadun-{id}.json —
  *    the exact SPR-gazetted Pusat Mengundi/Saluran breakdown.
- * 2. A DPT-derived estimate, built by grouping uploaded voter-roll rows
- *    (pangkalan_data_pengundi) by Daerah Mengundi + Lokaliti and treating
- *    each Lokaliti as one Pusat Mengundi with a single Saluran. The DPT roll
- *    doesn't carry the official channel/Saluran split, so this is an
- *    approximation flagged via `source: 'dpt_estimate'` — callers should
- *    show a disclaimer wherever it's used.
+ * 2. Struktur SEBENAR daripada roll DPT — apabila fail DPPR/DPI yang dimuat
+ *    naik membawa lajur `Pusat Mengundi` dan `Saluran`, pokok itu diambil
+ *    terus daripadanya (`source: 'dpt_sebenar'`). Ini BUKAN anggaran:
+ *    bilangan saluran setiap Pusat Mengundi dan kiraan berdaftar setiap
+ *    saluran datang daripada fail SPR itu sendiri.
+ * 3. Anggaran terbitan DPT — fallback apabila roll tidak membawa
+ *    pusat/saluran. Baris dikumpul mengikut Daerah Mengundi + Lokaliti dan
+ *    setiap Lokaliti dilayan sebagai satu Pusat Mengundi dengan SATU Saluran.
+ *    Ditanda `source: 'dpt_estimate'` — pemanggil mesti memaparkan penafian.
  *
  * DUNs with neither source return null so the page can show a "data not yet
  * available" state.
@@ -171,67 +174,139 @@ class Borang14Reference
             return null;
         }
 
-        $rows = DB::table('pangkalan_data_pengundi')
-            ->whereRaw('UPPER(kadun) = ?', [strtoupper($kadun->nama)])
-            ->where(function ($q) {
-                $q->where('is_deceased', false)->orWhereNull('is_deceased');
-            })
-            ->select('daerah_mengundi', 'lokaliti')
-            ->get();
-
-        if ($rows->isEmpty()) {
+        $bina = self::binaDaripadaRoll('kadun', $kadun->nama);
+        if ($bina === null) {
             return null;
-        }
-
-        // Group by DM -> Lokaliti (treated as Pusat Mengundi); the row count
-        // per group becomes that Pusat Mengundi's Berdaftar.
-        $grouped = [];
-        foreach ($rows as $r) {
-            $dm = trim((string) $r->daerah_mengundi) ?: 'TIADA DAERAH MENGUNDI';
-            $lokaliti = trim((string) $r->lokaliti) ?: 'TIADA LOKALITI';
-            $grouped[$dm][$lokaliti] = ($grouped[$dm][$lokaliti] ?? 0) + 1;
-        }
-
-        $daerahMengundi = [];
-        foreach ($grouped as $dm => $lokalitiCounts) {
-            $pusatMengundi = [];
-            foreach ($lokalitiCounts as $lokaliti => $count) {
-                $pusatMengundi[] = [
-                    'nama' => $lokaliti,
-                    'saluran' => [['no' => 1, 'berdaftar' => $count]],
-                ];
-            }
-            $daerahMengundi[] = ['nama' => $dm, 'pusat_mengundi' => $pusatMengundi];
         }
 
         return [
             'negeri' => $kadun->bandar->negeri->nama ?? '',
             'parlimen' => $kadun->bandar->nama ?? '',
             'dun' => $kadun->nama,
-            'daerah_mengundi' => $daerahMengundi,
+            'daerah_mengundi' => $bina['daerah_mengundi'],
             'undi_awal' => ['berdaftar' => 0],
             'undi_pos' => ['berdaftar' => 0],
-            'source' => 'dpt_estimate',
+            'source' => $bina['source'],
         ];
     }
 
     /** @return array<string,mixed>|null */
     private static function deriveFromDptForBandar(Bandar $bandar): ?array
     {
+        $bina = self::binaDaripadaRoll('parlimen', $bandar->nama);
+        if ($bina === null) {
+            return null;
+        }
+
+        return [
+            'negeri' => $bandar->negeri->nama ?? '',
+            'parlimen' => $bandar->nama,
+            'dun' => null,
+            'daerah_mengundi' => $bina['daerah_mengundi'],
+            'undi_awal' => ['berdaftar' => 0],
+            'undi_pos' => ['berdaftar' => 0],
+            'source' => $bina['source'],
+        ];
+    }
+
+    /**
+     * Baca roll DPT bagi satu kerusi dan bina pokok Daerah Mengundi.
+     *
+     * $lajur ialah 'kadun' (DUN) atau 'parlimen'. Pengundi meninggal
+     * dikecualikan, sama seperti sebelum ini.
+     *
+     * @return array{daerah_mengundi: array<int,array<string,mixed>>, source: string}|null
+     */
+    private static function binaDaripadaRoll(string $lajur, string $nama): ?array
+    {
+        // $lajur masuk ke dalam SQL mentah — hadkan kepada dua nilai yang
+        // dibenarkan supaya ia tidak boleh menjadi laluan suntikan walaupun
+        // pemanggil masa depan tersilap.
+        if (! in_array($lajur, ['kadun', 'parlimen'], true)) {
+            return null;
+        }
+
         $rows = DB::table('pangkalan_data_pengundi')
-            ->whereRaw('UPPER(parlimen) = ?', [strtoupper($bandar->nama)])
+            ->whereRaw('UPPER('.$lajur.') = ?', [strtoupper($nama)])
             ->where(function ($q) {
                 $q->where('is_deceased', false)->orWhereNull('is_deceased');
             })
-            ->select('daerah_mengundi', 'lokaliti')
+            ->select('daerah_mengundi', 'lokaliti', 'pusat_mengundi', 'saluran')
             ->get();
 
         if ($rows->isEmpty()) {
             return null;
         }
 
-        // Group by DM -> Lokaliti (treated as Pusat Mengundi); the row count
-        // per group becomes that Pusat Mengundi's Berdaftar.
+        return self::strukturSebenar($rows) ?? self::strukturAnggaran($rows);
+    }
+
+    /**
+     * Struktur SEBENAR daripada muat naik DPPR/DPI: DM > Pusat Mengundi >
+     * Saluran, dengan `berdaftar` = kiraan pengundi hidup bagi setiap saluran.
+     *
+     * Memulangkan null (isyarat "guna anggaran") melainkan SETIAP baris kerusi
+     * ini membawa pusat_mengundi DAN saluran yang tidak kosong.
+     *
+     * KENAPA SEMUA-ATAU-TIADA, termasuk untuk data CAMPURAN: pusat/saluran
+     * NULL bermaksud "TIDAK DIKETAHUI", bukan "tiada saluran". Kalau kerusi
+     * dengan sebahagian baris sahaja berstruktur dibina sebagai struktur
+     * sebenar, pengundi selebihnya akan TERCICIR terus daripada pokok — jumlah
+     * berdaftar terkurang dan tiada apa-apa pada skrin memberitahu sebabnya.
+     * Mod anggaran pula mengumpul SEMUA baris mengikut Lokaliti, jadi tiada
+     * seorang pun pengundi hilang. Satu kerusi = SATU mod, tidak pernah
+     * bercampur, dan pilihannya deterministik.
+     *
+     * @param  \Illuminate\Support\Collection<int,object>  $rows
+     * @return array{daerah_mengundi: array<int,array<string,mixed>>, source: string}|null
+     */
+    private static function strukturSebenar($rows): ?array
+    {
+        $grouped = [];
+        foreach ($rows as $r) {
+            $pusat = trim((string) ($r->pusat_mengundi ?? ''));
+            $saluran = trim((string) ($r->saluran ?? ''));
+            if ($pusat === '' || $saluran === '') {
+                return null;
+            }
+            $dm = trim((string) $r->daerah_mengundi) ?: 'TIADA DAERAH MENGUNDI';
+            // '01' dan '1' ialah saluran yang SAMA — tanpa normalisasi ini
+            // Excel yang menulis satu daripadanya berlapik sifar menghasilkan
+            // dua saluran bernombor 1 dalam pusat yang sama.
+            $kunciSaluran = ctype_digit($saluran) ? (int) $saluran : $saluran;
+            $grouped[$dm][$pusat][$kunciSaluran] = ($grouped[$dm][$pusat][$kunciSaluran] ?? 0) + 1;
+        }
+
+        $daerahMengundi = [];
+        foreach ($grouped as $dm => $senaraiPusat) {
+            $pusatMengundi = [];
+            foreach ($senaraiPusat as $pusat => $kiraanSaluran) {
+                uksort($kiraanSaluran, [self::class, 'bandingSaluran']);
+                $saluran = [];
+                foreach ($kiraanSaluran as $no => $kiraan) {
+                    $saluran[] = [
+                        'no' => is_numeric($no) ? (int) $no : (string) $no,
+                        'berdaftar' => $kiraan,
+                    ];
+                }
+                $pusatMengundi[] = ['nama' => (string) $pusat, 'saluran' => $saluran];
+            }
+            $daerahMengundi[] = ['nama' => (string) $dm, 'pusat_mengundi' => $pusatMengundi];
+        }
+
+        return ['daerah_mengundi' => $daerahMengundi, 'source' => 'dpt_sebenar'];
+    }
+
+    /**
+     * Anggaran lama: kumpul mengikut DM -> Lokaliti (dilayan sebagai Pusat
+     * Mengundi), satu Saluran setiap Pusat Mengundi. Kiraan baris setiap
+     * kumpulan menjadi `berdaftar` Pusat Mengundi itu.
+     *
+     * @param  \Illuminate\Support\Collection<int,object>  $rows
+     * @return array{daerah_mengundi: array<int,array<string,mixed>>, source: string}
+     */
+    private static function strukturAnggaran($rows): array
+    {
         $grouped = [];
         foreach ($rows as $r) {
             $dm = trim((string) $r->daerah_mengundi) ?: 'TIADA DAERAH MENGUNDI';
@@ -244,21 +319,57 @@ class Borang14Reference
             $pusatMengundi = [];
             foreach ($lokalitiCounts as $lokaliti => $count) {
                 $pusatMengundi[] = [
-                    'nama' => $lokaliti,
+                    'nama' => (string) $lokaliti,
                     'saluran' => [['no' => 1, 'berdaftar' => $count]],
                 ];
             }
-            $daerahMengundi[] = ['nama' => $dm, 'pusat_mengundi' => $pusatMengundi];
+            $daerahMengundi[] = ['nama' => (string) $dm, 'pusat_mengundi' => $pusatMengundi];
         }
 
-        return [
-            'negeri' => $bandar->negeri->nama ?? '',
-            'parlimen' => $bandar->nama,
-            'dun' => null,
-            'daerah_mengundi' => $daerahMengundi,
-            'undi_awal' => ['berdaftar' => 0],
-            'undi_pos' => ['berdaftar' => 0],
-            'source' => 'dpt_estimate',
-        ];
+        return ['daerah_mengundi' => $daerahMengundi, 'source' => 'dpt_estimate'];
+    }
+
+    /**
+     * Susunan saluran mengikut NOMBOR, bukan rentetan.
+     *
+     * Isihan rentetan naif meletakkan '10' terus selepas '1' — pada kerusi
+     * bandar dengan 10+ saluran, grid kemasukan tersusun salah dan pengendali
+     * membaca baris yang salah. Saluran berangka didahulukan; label bukan
+     * angka (jarang) diisih secara abjad di belakangnya.
+     */
+    private static function bandingSaluran(int|string $a, int|string $b): int
+    {
+        $aAngka = is_numeric($a);
+        $bAngka = is_numeric($b);
+
+        if ($aAngka && $bAngka) {
+            return (float) $a <=> (float) $b;
+        }
+        if ($aAngka !== $bAngka) {
+            return $aAngka ? -1 : 1;
+        }
+
+        return strcmp((string) $a, (string) $b);
+    }
+
+    /**
+     * Adakah rujukan ini TERBITAN roll DPT — sama ada anggaran Lokaliti
+     * ('dpt_estimate') atau struktur sebenar daripada fail DPPR/DPI
+     * ('dpt_sebenar')?
+     *
+     * Pemanggil yang mengasingkan "rujukan terkurasi/gazet" daripada "apa yang
+     * kami terbitkan sendiri daripada roll" mesti guna ini, BUKAN
+     * perbandingan langsung dengan 'dpt_estimate'. Kod lama membandingkan
+     * dengan satu rentetan itu sahaja; membiarkannya bermakna 'dpt_sebenar'
+     * tersalah anggap sebagai JSON kurasi, lalu:
+     *   - struktur scoresheet borang sendiri berhenti mengatasi terbitan DPT
+     *     (kunci sel menyimpang -> setiap sel grid papar 0), dan
+     *   - panel penyuntingan struktur terkunci ($asal jadi 'kurasi').
+     *
+     * @param  array<string,mixed>|null  $reference
+     */
+    public static function daripadaDpt(?array $reference): bool
+    {
+        return in_array($reference['source'] ?? null, ['dpt_estimate', 'dpt_sebenar'], true);
     }
 }

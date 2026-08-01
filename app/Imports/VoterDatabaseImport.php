@@ -32,6 +32,9 @@ class VoterDatabaseImport implements ToCollection, WithChunkReading
         'dm' => ['namadm', 'daerahmengundi', 'dm', 'pollingdistrict'],
         'lokaliti' => ['namalokaliti', 'lokaliti', 'locality'],
         'kodlokaliti' => ['kodlokaliti', 'kodlok'],
+        // Struktur Borang 14 sebenar — fail DPPR/DPI membawa kedua-duanya.
+        'pusatmengundi' => ['namapusatmengundi', 'pusatmengundi', 'pusat', 'tempatmengundi', 'pollingcentre', 'pollingcenter'],
+        'saluran' => ['saluran', 'nosaluran', 'nombosaluran', 'channel'],
         'bangsa' => ['bangsaspr', 'bangsa', 'kaum', 'race'],
         'jantina' => ['kodjantina', 'jantina', 'gender', 'sex'],
         'tahunlahir' => ['tahunlahir', 'tahunkelahiran', 'birthyear', 'yob'],
@@ -152,12 +155,20 @@ class VoterDatabaseImport implements ToCollection, WithChunkReading
             $nama = $this->pickName($cells);
         }
 
+        // Sel Lokaliti DPI membawa kod DAN teks ("1333401001 FELDA JELAI 1").
+        // Pisahkan supaya pengumpulan berlaku pada nama, bukan nilai berawalan
+        // kod. Kod hanya mengisi kod_lokaliti apabila tiada lajur kod sendiri.
+        [$lokaliti, $kodDalamLokaliti] = self::pisahKodLokaliti($this->cell($cells, $this->map['lokaliti'] ?? null));
+        $kodLokaliti = $this->str($this->cell($cells, $this->map['kodlokaliti'] ?? null)) ?? $kodDalamLokaliti;
+
         return [
             'upload_batch_id' => $this->uploadBatchId,
             'no_ic' => $ic,
             'nama' => $nama,
-            'lokaliti' => $this->upper($this->cell($cells, $this->map['lokaliti'] ?? null)),
-            'kod_lokaliti' => $this->str($this->cell($cells, $this->map['kodlokaliti'] ?? null)),
+            'lokaliti' => $this->upper($lokaliti),
+            'kod_lokaliti' => $kodLokaliti,
+            'pusat_mengundi' => $this->upper($this->cell($cells, $this->map['pusatmengundi'] ?? null)),
+            'saluran' => $this->str($this->cell($cells, $this->map['saluran'] ?? null)),
             'daerah_mengundi' => $this->upper($this->cell($cells, $this->map['dm'] ?? null)),
             'kadun' => $this->upper($this->cell($cells, $this->map['kadun'] ?? null)),
             'parlimen' => $this->upper($this->cell($cells, $this->map['parlimen'] ?? null)),
@@ -171,6 +182,32 @@ class VoterDatabaseImport implements ToCollection, WithChunkReading
             'created_at' => now(),
             'updated_at' => now(),
         ];
+    }
+
+    /**
+     * Pisahkan sel Lokaliti kepada [nama, kod].
+     *
+     * Fail DPPR/DPI menulis "1333401001 FELDA JELAI 1" — kod lokaliti diikuti
+     * namanya dalam SATU sel. Menyimpan keseluruhan rentetan bermakna setiap
+     * pengumpulan (struktur Borang 14, laporan) berlaku pada nilai berawalan
+     * kod, jadi lokaliti yang sama dari dua fail berbeza tidak sepadan.
+     *
+     * Sekurang-kurangnya EMPAT digit dituntut supaya nama yang memang bermula
+     * dengan nombor kecil ("3 1/2 BATU", "1 RESIDENSI") tidak dipotong — kod
+     * lokaliti SPR sebenar ialah 9-10 digit.
+     *
+     * @return array{0:?string, 1:?string}
+     */
+    public static function pisahKodLokaliti(?string $nilai): array
+    {
+        if ($nilai === null) {
+            return [null, null];
+        }
+        if (preg_match('/^(\d{4,})\s+(\S.*)$/u', trim($nilai), $m) === 1) {
+            return [trim($m[2]), $m[1]];
+        }
+
+        return [$nilai, null];
     }
 
     private function cell(array $cells, ?int $idx): ?string

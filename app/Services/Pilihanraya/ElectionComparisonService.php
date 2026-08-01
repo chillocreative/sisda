@@ -488,7 +488,11 @@ class ElectionComparisonService
             if (! $ref) {
                 continue;
             }
-            if (($ref['source'] ?? '') === 'dpt_estimate') {
+            // Kedua-dua terbitan DPT (anggaran Lokaliti dan struktur sebenar
+            // DPPR/DPI) ditanda 'dpt_estimate' di sini: naratif perbandingan
+            // membezakan angka BERGAZET daripada apa-apa yang kami terbitkan
+            // sendiri daripada roll, dan struktur sebenar pun bukan gazet.
+            if (Borang14Reference::daripadaDpt($ref)) {
                 $estimate = true;
             }
             foreach ($ref['daerah_mengundi'] ?? [] as $dm) {

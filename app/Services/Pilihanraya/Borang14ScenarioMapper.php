@@ -186,12 +186,18 @@ class Borang14ScenarioMapper
      * ialah penghampiran (docblock Borang14Reference sendiri kata pemanggil
      * mesti disclaim ia), jadi mapper ini tidak menghantarnya kepada AI
      * sebagai fakta — ia jatuh balik kepada kepala scoresheet, atau null.
+     *
+     * Struktur `dpt_sebenar` juga dikecualikan buat masa ini: walaupun ia
+     * datang terus daripada fail DPPR/DPI, ia tetap SATU petikan roll pada
+     * tarikh muat naik, bukan angka DPT rasmi yang diwartakan bagi pilihan
+     * raya ini. Naratif AI menyebut angka pemilih sebagai fakta bergazet —
+     * kekalkan sekatan sehingga sumbernya disahkan.
      */
     private function factualReference(Borang14Form $form): ?array
     {
         $ref = $this->reference($form);
 
-        return ($ref && ($ref['source'] ?? null) !== 'dpt_estimate') ? $ref : null;
+        return ($ref && ! Borang14Reference::daripadaDpt($ref)) ? $ref : null;
     }
 
     /** @return array<string, int> nama DM => jumlah berdaftar (hanya bila diketahui, dan bukan anggaran DPT) */
