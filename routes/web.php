@@ -461,8 +461,14 @@ Route::middleware(['auth', 'super_admin'])->group(function () {
     Route::post('/settings/notifications/{template}/test-send', [\App\Http\Controllers\NotificationTemplateController::class, 'testSend'])->name('settings.notifications.test-send');
 });
 
-// Pilihanraya — Digital War Room & Election Intelligence Center (super_admin & admin)
-Route::middleware(['auth', 'admin'])->prefix('pilihanraya')->name('pilihanraya.')->group(function () {
+// Pilihanraya — Digital War Room & Election Intelligence Center
+// (super_admin, admin & pengarah_dun).
+//
+// Gerbangnya ialah `pilihanraya` (EnsurePilihanrayaAccess), BUKAN `admin`:
+// alias `admin` turut menjaga /upload-culaan dan /keanggotaan, jadi
+// melonggarkannya akan menyerahkan menu-menu itu kepada `pengarah_dun` juga.
+// Skop kerusi sebenar kekal dalam pengawal melalui SeatScope.
+Route::middleware(['auth', 'pilihanraya'])->prefix('pilihanraya')->name('pilihanraya.')->group(function () {
     // Pages
     Route::get('/war-room', [\App\Http\Controllers\PilihanrayaController::class, 'warRoom'])->name('war-room');
     Route::get('/simulasi', [\App\Http\Controllers\PilihanrayaController::class, 'simulasi'])->name('simulasi');

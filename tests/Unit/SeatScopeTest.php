@@ -80,6 +80,54 @@ class SeatScopeTest extends TestCase
         $this->assertFalse(SeatScope::allows($u, SeatScope::DUN, $this->dunB1->id));
     }
 
+    /**
+     * Pengarah DUN dilayan SERUPA admin: Parlimen sendiri + setiap DUN di
+     * bawahnya. Namanya menyebut "DUN" tetapi skopnya Parlimen — itulah yang
+     * diminta pemilik sistem.
+     */
+    public function test_pengarah_dun_is_confined_to_own_parlimen_and_its_duns(): void
+    {
+        $u = $this->user('pengarah_dun', bandarId: $this->bandarA->id);
+
+        $this->assertTrue(SeatScope::allows($u, SeatScope::PARLIMEN, $this->bandarA->id));
+        $this->assertTrue(SeatScope::allows($u, SeatScope::DUN, $this->dunA1->id));
+        $this->assertTrue(SeatScope::allows($u, SeatScope::DUN, $this->dunA2->id));
+
+        $this->assertFalse(SeatScope::allows($u, SeatScope::PARLIMEN, $this->bandarB->id));
+        $this->assertFalse(SeatScope::allows($u, SeatScope::DUN, $this->dunB1->id));
+    }
+
+    /**
+     * kadun_id TIDAK menyempitkan skop: seorang Pengarah DUN yang didaftarkan
+     * dengan satu DUN kekal melihat seluruh Parlimennya. Jika ini terbalik,
+     * separuh Parlimen hilang secara senyap.
+     */
+    public function test_pengarah_dun_is_not_narrowed_by_its_kadun_id(): void
+    {
+        $u = $this->user('pengarah_dun', bandarId: $this->bandarA->id, kadunId: $this->dunA1->id);
+
+        $this->assertTrue(SeatScope::allows($u, SeatScope::DUN, $this->dunA2->id));
+        $this->assertTrue(SeatScope::allows($u, SeatScope::PARLIMEN, $this->bandarA->id));
+    }
+
+    /** Pengajaran IDOR Julai 2026: lajur boleh-null mesti MENAFIKAN. */
+    public function test_pengarah_dun_without_bandar_id_is_denied(): void
+    {
+        $u = $this->user('pengarah_dun', bandarId: null, kadunId: $this->dunA1->id);
+
+        $this->assertFalse(SeatScope::allows($u, SeatScope::PARLIMEN, $this->bandarA->id));
+        $this->assertFalse(SeatScope::allows($u, SeatScope::DUN, $this->dunA1->id));
+        $this->assertSame([], SeatScope::seats($u));
+    }
+
+    public function test_unapproved_pengarah_dun_gets_nothing(): void
+    {
+        $u = $this->user('pengarah_dun', bandarId: $this->bandarA->id, status: 'pending');
+
+        $this->assertFalse(SeatScope::allows($u, SeatScope::PARLIMEN, $this->bandarA->id));
+        $this->assertSame([], SeatScope::seats($u));
+    }
+
     public function test_user_and_super_user_get_only_their_own_dun(): void
     {
         foreach (['user', 'super_user'] as $role) {
@@ -133,8 +181,11 @@ class SeatScopeTest extends TestCase
         $users = [
             $this->user('super_admin'),
             $this->user('admin', bandarId: $this->bandarA->id),
+            $this->user('pengarah_dun', bandarId: $this->bandarA->id, kadunId: $this->dunA1->id),
+            $this->user('pengarah_dun', bandarId: null, kadunId: $this->dunA1->id),
             $this->user('super_user', kadunId: $this->dunA1->id),
             $this->user('user', kadunId: $this->dunB1->id),
+            $this->user('ketua_paca_dun', bandarId: $this->bandarA->id, kadunId: $this->dunA1->id),
         ];
 
         $everySeat = [

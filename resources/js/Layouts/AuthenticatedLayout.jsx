@@ -109,8 +109,13 @@ export default function AuthenticatedLayout({ children }) {
     // (DashboardController). Jangan paparkan pautan yang hanya melantun.
     const isKetuaPacaDun = user.role === 'ketua_paca_dun';
 
+    // Pengarah DUN juga tiada papan pemuka — /dashboard mengalih ke
+    // Pilihanraya > Scoreboard (DashboardController), satu-satunya halaman
+    // Pilihanraya yang dibina daripada SeatScope.
+    const isPengarahDun = user.role === 'pengarah_dun';
+
     const navigation = [
-        ...(isKetuaPacaDun ? [] : [
+        ...(isKetuaPacaDun || isPengarahDun ? [] : [
             { name: 'Dashboard', href: route('dashboard'), icon: LayoutDashboard, current: route().current('dashboard') }
         ]),
         // User Approval (Super Admin and Admin only)
@@ -228,6 +233,33 @@ export default function AuthenticatedLayout({ children }) {
                 hasSubmenu: true,
                 submenu: [
                     { name: 'PACA', href: route('pilihanraya.paca'), icon: Users },
+                ]
+            }
+        ] : []),
+        // Pilihanraya untuk Pengarah DUN — menu Pilihanraya SAHAJA, diskop
+        // kepada Parlimen pada users.bandar_id (dikuatkuasakan oleh SeatScope
+        // dalam pengawal, bukan di sini).
+        //
+        // Itemnya disenaraikan secara EKSPLISIT dan sengaja TIDAK berkongsi
+        // tatasusunan submenu blok admin di atas: menambah item Pilihanraya
+        // baharu pada masa depan tidak boleh membocorkannya ke sini.
+        // PACA sengaja TIADA — kumpulan laluannya (middleware `paca`) kekal
+        // tertutup kepada peranan ini, jadi pautannya hanya akan melantun.
+        ...(isPengarahDun ? [
+            {
+                name: 'Pilihanraya',
+                href: route('pilihanraya.scoreboard'),
+                icon: Swords,
+                current: route().current('pilihanraya.*'),
+                hasSubmenu: true,
+                submenu: [
+                    { name: 'Scoreboard', href: route('pilihanraya.scoreboard'), icon: Trophy },
+                    { name: 'Borang 14', href: route('pilihanraya.borang-14'), icon: FileSpreadsheet },
+                    { name: 'War Room', href: route('pilihanraya.war-room'), icon: Radar },
+                    { name: 'Analisa Keputusan', href: route('pilihanraya.analisa'), icon: BarChart3 },
+                    { name: 'Kaum Mengikut DM', href: route('pilihanraya.kaum-dm'), icon: PieChart },
+                    { name: 'Simulasi Pilihanraya', href: route('pilihanraya.simulasi'), icon: Brain },
+                    { name: 'Jawatankuasa', href: route('pilihanraya.jawatankuasa.index'), icon: ClipboardList },
                 ]
             }
         ] : []),

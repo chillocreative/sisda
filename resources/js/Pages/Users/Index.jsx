@@ -182,6 +182,7 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
             case 'super_admin': return 'bg-rose-100 text-rose-800';
             case 'admin': return 'bg-sky-100 text-sky-800';
             case 'ketua_paca_dun': return 'bg-violet-100 text-violet-800';
+            case 'pengarah_dun': return 'bg-indigo-100 text-indigo-800';
             default: return 'bg-slate-100 text-slate-800';
         }
     };
@@ -200,6 +201,7 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
             case 'admin': return 'Admin';
             case 'super_user': return 'Super User';
             case 'ketua_paca_dun': return 'Ketua PACA DUN';
+            case 'pengarah_dun': return 'Pengarah DUN';
             default: return 'User';
         }
     };
@@ -328,6 +330,7 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
                                     <option value="admin">Admin</option>
                                     <option value="super_user">Super User</option>
                                     <option value="ketua_paca_dun">Ketua PACA DUN</option>
+                                    <option value="pengarah_dun">Pengarah DUN</option>
                                     <option value="user">User</option>
                                 </select>
                             </div>
@@ -528,6 +531,7 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
                                             <option value="user">User</option>
                                             <option value="super_user">Super User</option>
                                             <option value="ketua_paca_dun">Ketua PACA DUN</option>
+                                            <option value="pengarah_dun">Pengarah DUN</option>
                                             {currentUser.role === 'super_admin' && (
                                                 <>
                                                     <option value="admin">Admin</option>
@@ -538,6 +542,16 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
                                         {formData.role === 'ketua_paca_dun' && (
                                             <p className="mt-1.5 text-xs text-violet-700">
                                                 Hanya melihat Pilihanraya &gt; PACA bagi DUN yang dipilih di bawah.
+                                            </p>
+                                        )}
+                                        {/* Tanpa Parlimen, SeatScope menafikan segala-galanya — akaun
+                                            Pengarah DUN tanpa Parlimen ialah akaun rosak. Medan
+                                            Bandar / Parlimen di bawah memang wajib bagi semua peranan;
+                                            nota ini menjelaskan sebabnya bagi peranan ini. */}
+                                        {formData.role === 'pengarah_dun' && (
+                                            <p className="mt-1.5 text-xs text-indigo-700">
+                                                Hanya melihat &amp; menyunting menu Pilihanraya bagi Parlimen yang dipilih
+                                                di bawah dan setiap DUN di bawahnya. Medan Bandar / Parlimen WAJIB diisi.
                                             </p>
                                         )}
                                     </div>

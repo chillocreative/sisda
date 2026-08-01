@@ -211,6 +211,19 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user is Pengarah DUN.
+     *
+     * Walaupun namanya menyebut "DUN", skopnya ialah PARLIMEN pada
+     * $this->bandar_id dan setiap DUN di bawahnya — sama seperti `admin`.
+     * Menunya SATU sahaja: Pilihanraya. Lihat App\Support\SeatScope dan
+     * App\Http\Middleware\EnsurePilihanrayaAccess.
+     */
+    public function isPengarahDun()
+    {
+        return $this->role === 'pengarah_dun';
+    }
+
+    /**
      * Check if user is approved.
      */
     public function isApproved()

@@ -15,6 +15,9 @@ use Illuminate\Database\Eloquent\Builder;
  * The '__none__' sentinels are load-bearing: a user with no Kadun assigned
  * must match zero rows. Without them the where() collapses to `kadun = null`
  * and, combined with orWhere(submitted_by), quietly widens visibility.
+ *
+ * Peranan yang tidak dikenali GAGAL-TUTUP (sifar baris). Hanya super_admin
+ * yang tidak berhad.
  */
 class VoterScopeService
 {
@@ -34,7 +37,15 @@ class VoterScopeService
             });
         }
 
-        // super_admin: unrestricted.
-        return $query;
+        if ($user->isSuperAdmin()) {
+            return $query;
+        }
+
+        // Peranan lain (pengarah_dun, ketua_paca_dun, apa-apa peranan baharu)
+        // TIDAK mempunyai menu Laporan langsung, jadi mereka mesti melihat
+        // SIFAR baris. Sebelum ini blok ini jatuh melalui ke "tanpa had",
+        // yakni data pengundi seluruh negara — kelas pepijat yang sama
+        // seperti fall-through DashboardController.
+        return $query->whereRaw('1 = 0');
     }
 }

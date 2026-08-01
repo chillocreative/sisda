@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Builder;
  * Peranan → kerusi yang boleh disentuh:
  *   super_admin           semua Parlimen + semua DUN
  *   admin                 Parlimen sendiri + setiap DUN di bawahnya
+ *   pengarah_dun          sama seperti admin (Parlimen sendiri + DUN di bawahnya)
  *   super_user / user     DUN sendiri sahaja
  *   ketua_paca_dun        tiada (peranannya satu menu: PACA)
  *
@@ -45,9 +46,11 @@ class SeatScope
             return false;
         }
 
-        if ($user->isAdmin()) {
-            // Nullable lajur: seorang admin tanpa bandar_id mesti TIDAK padan
-            // dengan apa-apa, bukan padan-semua.
+        // Pengarah DUN dilayan SERUPA admin: Parlimen pada bandar_id, dan
+        // setiap DUN di bawahnya. kadun_id (jika ada) TIDAK menyempitkannya.
+        if ($user->isAdmin() || $user->isPengarahDun()) {
+            // Nullable lajur: seorang admin/pengarah tanpa bandar_id mesti
+            // TIDAK padan dengan apa-apa, bukan padan-semua.
             if (! $user->bandar_id) {
                 return false;
             }
@@ -85,7 +88,10 @@ class SeatScope
             );
         }
 
-        if ($user->isAdmin()) {
+        // Sengaja cabang yang SAMA seperti allows() di atas — jika keduanya
+        // bercanggah, kerusi yang tidak muncul dalam pemilih boleh ditulis
+        // dengan membina permintaan sendiri.
+        if ($user->isAdmin() || $user->isPengarahDun()) {
             if (! $user->bandar_id) {
                 return [];
             }

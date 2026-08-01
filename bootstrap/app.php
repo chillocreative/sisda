@@ -24,6 +24,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => \App\Http\Middleware\EnsureAdmin::class,
             // Admin + Ketua PACA DUN — laluan /pilihanraya/paca/* sahaja.
             'paca' => \App\Http\Middleware\EnsurePacaAccess::class,
+            // Admin + Pengarah DUN — kumpulan /pilihanraya utama sahaja.
+            // Sengaja BUKAN alias `admin`, kerana `admin` turut menjaga
+            // /upload-culaan dan /keanggotaan.
+            'pilihanraya' => \App\Http\Middleware\EnsurePilihanrayaAccess::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

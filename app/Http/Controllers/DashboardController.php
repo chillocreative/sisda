@@ -36,6 +36,21 @@ class DashboardController extends Controller
             return redirect()->route('pilihanraya.paca');
         }
 
+        // Pengarah DUN — satu menu sahaja (Pilihanraya), diskop kepada
+        // Parlimen pada users.bandar_id. Cabang ini WAJIB eksplisit: tanpanya
+        // peranan ini jatuh melalui ke Dashboard/Index di bawah, iaitu papan
+        // pemuka Super Admin bagi SELURUH Malaysia.
+        //
+        // Pendaratannya ialah Scoreboard kerana itulah satu-satunya halaman
+        // Pilihanraya yang dibina daripada SeatScope — senarai kerusinya
+        // mengandungi Parlimen sendiri + DUN di bawahnya sahaja, tidak
+        // pernah kerusi kebangsaan atau Parlimen orang lain. Tanpa bandar_id
+        // SeatScope memulangkan kosong dan ScoreboardController menolak 403
+        // (gagal-tutup) — akaun sedemikian memang rosak.
+        if ($user->isPengarahDun()) {
+            return redirect()->route('pilihanraya.scoreboard');
+        }
+
         // Show simplified dashboard for Admin, Super User and Regular users
         if ($user->isAdmin() || $user->isSuperUser() || $user->isUser()) {
             return Inertia::render('Dashboard/UserDashboard');

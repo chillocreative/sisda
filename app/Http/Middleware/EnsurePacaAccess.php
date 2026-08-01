@@ -9,9 +9,10 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Gerbang luar bagi laluan /pilihanraya/paca/* sahaja.
  *
- * Selebihnya kumpulan Pilihanraya kekal di belakang EnsureAdmin. Middleware
- * ini melebarkan capaian kepada `ketua_paca_dun` TANPA membuka War Room,
- * Borang 14, Analisa atau Scoreboard.
+ * Selebihnya kumpulan Pilihanraya berada di belakang EnsurePilihanrayaAccess.
+ * Middleware ini melebarkan capaian kepada `ketua_paca_dun` TANPA membuka War
+ * Room, Borang 14, Analisa atau Scoreboard — dan sebaliknya, `pengarah_dun`
+ * yang dibenarkan di sana TIDAK dibenarkan masuk ke sini.
  *
  * Ini lapisan luar sahaja — skop DUN sebenar dikuatkuasakan dalam
  * PacaController::assertPeranan()/assertBolehAkses(), mengikut konvensyen
