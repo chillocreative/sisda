@@ -33,9 +33,12 @@ class Borang14HapusTest extends TestCase
     private function user(string $role, array $over = []): User
     {
         // UserFactory tidak menetapkan lajur NOT NULL `telephone` (pepijat sedia ada).
+        // `status` DILULUSKAN kerana peraturan kerusi (SeatScope) menolak akaun
+        // yang masih menunggu kelulusan — lalai lajur itu ialah 'pending'.
         return User::factory()->create(array_merge([
             'role' => $role,
             'telephone' => '01277'.random_int(10000, 99999),
+            'status' => 'approved',
         ], $over));
     }
 

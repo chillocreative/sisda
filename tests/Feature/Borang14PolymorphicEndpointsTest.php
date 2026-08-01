@@ -44,12 +44,22 @@ class Borang14PolymorphicEndpointsTest extends TestCase
         return Bandar::create(['nama' => 'Parlimen Ujian', 'negeri_id' => $negeri->id]);
     }
 
-    private function user(string $phone = '0123450010'): User
+    /**
+     * Setiap laluan TULIS Borang 14 kini menegaskan SeatScope, jadi pengguna
+     * ujian mesti DILULUSKAN dan (bagi laluan yang benar-benar menulis)
+     * memiliki kerusi sasaran melalui bandar_id. Laluan yang hanya menguji
+     * penolakan pengesahan (422) tidak memerlukan kerusi — pengesahan berjalan
+     * SEBELUM penegasan kerusi.
+     */
+    private function user(string $phone = '0123450010', ?int $bandarId = null): User
     {
         // UserFactory has a pre-existing bug: it does not set the NOT NULL
         // `telephone` column. Work around it locally rather than fixing the
         // shared factory (per earlier tests in this suite).
-        return User::factory()->create(['role' => 'admin', 'telephone' => $phone]);
+        return User::factory()->create([
+            'role' => 'admin', 'telephone' => $phone,
+            'status' => 'approved', 'bandar_id' => $bandarId,
+        ]);
     }
 
     // ---- data() -----------------------------------------------------
@@ -123,8 +133,8 @@ class Borang14PolymorphicEndpointsTest extends TestCase
 
     public function test_save_vote_persists_slot_90_ditolak_and_slot_91_tidak_dimasukkan(): void
     {
-        [, , $kadun] = $this->seedGeography();
-        $user = $this->user();
+        [, $bandar, $kadun] = $this->seedGeography();
+        $user = $this->user(bandarId: $bandar->id);
 
         $this->actingAs($user)->postJson(route('pilihanraya.borang-14.vote'), [
             'kawasan_type' => 'dun', 'kawasan_id' => $kadun->id, 'jenis_pr' => 'prn', 'tahun' => 2023,
@@ -151,7 +161,7 @@ class Borang14PolymorphicEndpointsTest extends TestCase
     {
         [, $bandar] = $this->seedGeography();
 
-        $this->actingAs($this->user())->postJson(route('pilihanraya.borang-14.vote'), [
+        $this->actingAs($this->user(bandarId: $bandar->id))->postJson(route('pilihanraya.borang-14.vote'), [
             'kawasan_type' => 'parlimen', 'kawasan_id' => $bandar->id, 'jenis_pr' => 'prn', 'tahun' => 2023,
             'penjuru' => 2, 'contest' => 'parlimen', 'pusat' => 'PM Ujian', 'saluran' => '1', 'slot' => 1, 'undi' => 42,
         ])->assertOk()->assertJson(['ok' => true]);
@@ -180,12 +190,10 @@ class Borang14PolymorphicEndpointsTest extends TestCase
     {
         [, $bandar, $kadun] = $this->seedGeography();
 
-        // saveParties() kini menegaskan SeatScope: pengguna mesti DILULUSKAN
-        // dan memiliki kerusi itu. user() lalai (belum diluluskan, bandar_id
-        // null) sengaja tidak lagi mencukupi — lihat ujian kebenaran dalam
-        // Borang14SkopPertandinganTest.
-        $pemilik = $this->user();
-        $pemilik->forceFill(['status' => 'approved', 'bandar_id' => $bandar->id])->save();
+        // saveParties() menegaskan SeatScope: pengguna mesti DILULUSKAN dan
+        // memiliki kerusi itu — lihat ujian kebenaran dalam
+        // Borang14SkopPertandinganTest dan Borang14KerusiAuthzTest.
+        $pemilik = $this->user(bandarId: $bandar->id);
 
         $res = $this->actingAs($pemilik)->postJson(route('pilihanraya.borang-14.parties'), [
             'kawasan_type' => 'dun', 'kawasan_id' => $kadun->id, 'jenis_pr' => 'prn', 'tahun' => 2023,
@@ -227,7 +235,7 @@ class Borang14PolymorphicEndpointsTest extends TestCase
         $form->votes()->create(['pusat' => '', 'saluran' => '1', 'slot' => 1, 'undi' => 5]);
         $this->assertSame(1, $form->votes()->count());
 
-        $this->actingAs($this->user())->postJson(route('pilihanraya.borang-14.reset'), [
+        $this->actingAs($this->user(bandarId: $kadun->bandar_id))->postJson(route('pilihanraya.borang-14.reset'), [
             'kawasan_type' => 'dun', 'kawasan_id' => $kadun->id, 'jenis_pr' => 'prn', 'tahun' => 2023, 'contest' => 'dun',
         ])->assertOk()->assertJson(['ok' => true]);
 
@@ -244,7 +252,7 @@ class Borang14PolymorphicEndpointsTest extends TestCase
         ]);
         $form->votes()->create(['pusat' => '', 'saluran' => '1', 'slot' => 1, 'undi' => 5]);
 
-        $this->actingAs($this->user())->postJson(route('pilihanraya.borang-14.reset'), [
+        $this->actingAs($this->user(bandarId: $bandar->id))->postJson(route('pilihanraya.borang-14.reset'), [
             'kawasan_type' => 'parlimen', 'kawasan_id' => $bandar->id, 'jenis_pr' => 'prn', 'tahun' => 2023, 'contest' => 'parlimen',
         ])->assertOk()->assertJson(['ok' => true]);
 

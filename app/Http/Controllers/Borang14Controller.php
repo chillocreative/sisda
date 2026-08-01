@@ -647,6 +647,12 @@ class Borang14Controller extends Controller
             'undi'     => 'nullable|integer|min:0|max:1000000',
         ]);
 
+        // Kebenaran KERUSI — sebelum firstOrCreate() di bawah, yang MENCIPTA
+        // borang pada kerusi yang dinamakan input. Gate laluan ['auth','admin']
+        // menyemak PERANAN sahaja, jadi tanpa ini mana-mana admin boleh
+        // mengunci undi pada kerusi sesiapa di seluruh Malaysia.
+        SeatScope::assert($request->user(), $validated['kawasan_type'], (int) $validated['kawasan_id']);
+
         $form = Borang14Form::firstOrCreate(
             [
                 'kawasan_type' => $validated['kawasan_type'],
@@ -701,6 +707,11 @@ class Borang14Controller extends Controller
             // lupa mesti gagal (422), bukan senyap memadam pertandingan yang salah.
             'contest'  => ['required', Rule::in([Borang14Vote::CONTEST_DUN, Borang14Vote::CONTEST_PARLIMEN])],
         ]);
+
+        // Kebenaran KERUSI — sebelum borang dicari, apatah lagi undinya
+        // dipadam. Ini laluan MEMUSNAHKAN tanpa arkib: undi yang dipadam di
+        // sini tidak disnapshot di mana-mana.
+        SeatScope::assert($request->user(), $validated['kawasan_type'], (int) $validated['kawasan_id']);
 
         $form = Borang14Form::forKawasan($validated['kawasan_type'], $validated['kawasan_id'])
             ->where('jenis_pr', $validated['jenis_pr'])
@@ -2288,10 +2299,30 @@ class Borang14Controller extends Controller
         return mb_strtoupper(trim((string) $value));
     }
 
+    /**
+     * Kebenaran KERUSI bagi laluan yang dikunci pada `form_id` dan BUKAN pada
+     * (kawasan_type, kawasan_id) daripada input.
+     *
+     * Kerusi diterbitkan daripada BORANG itu sendiri, jadi pemanggil tidak
+     * boleh menamakan kerusi lain daripada yang benar-benar disentuh. Mesti
+     * dipanggil sebaik borang dimuatkan — sebelum apa-apa bacaan kandungannya
+     * (snapshot, undi, parti) dan sudah tentu sebelum sebarang tulisan atau
+     * padaman.
+     *
+     * kawasan_type yang tidak dikenali GAGAL-TUTUP: SeatScope hanya menerima
+     * 'parlimen'/'dun', apa-apa yang lain ditolak dan bukan dibenarkan.
+     */
+    private function assertKerusiBorang(?User $user, Borang14Form $form): void
+    {
+        SeatScope::assert($user, (string) $form->kawasan_type, (int) $form->kawasan_id);
+    }
+
     public function publish(Request $request)
     {
         $data = $request->validate(['form_id' => 'required|integer|exists:borang14_forms,id']);
         $form = Borang14Form::findOrFail($data['form_id']);
+        $this->assertKerusiBorang($request->user(), $form);
+
         $form->update(['status' => 'published', 'published_at' => now()]);
 
         return response()->json(['ok' => true, 'published_at' => $form->published_at]);
@@ -2301,6 +2332,11 @@ class Borang14Controller extends Controller
     {
         $data = $request->validate(['form_id' => 'required|integer|exists:borang14_forms,id']);
         $form = Borang14Form::findOrFail($data['form_id']);
+        // SEBELUM snapshot dibaca: revert() memadam setiap undi pada borang ini
+        // lalu menulis semula daripada snapshot, dan keadaan sebelum-revert itu
+        // TIDAK dirakam di mana-mana — sekali dijalankan pada kerusi orang lain,
+        // ia tidak boleh dibatalkan.
+        $this->assertKerusiBorang($request->user(), $form);
 
         $snap = $form->snapshots()->latest('created_at')->first();
         if (! $snap) {
@@ -2526,6 +2562,14 @@ class Borang14Controller extends Controller
             abort(403, 'Unauthorized action.');
         }
 
+        // Integriti, BUKAN kebenaran: seorang admin memiliki Parlimennya DAN
+        // setiap DUN di bawahnya, jadi padaman ini sah dari segi kerusi. Yang
+        // dihalang ialah kemusnahan senyap objek yang DIKONGSI — lihat
+        // sebabTakrifanTidakBolehDipadam().
+        if ($mesej = $this->sebabTakrifanTidakBolehDipadam($form)) {
+            return response()->json(['message' => $mesej], 422);
+        }
+
         $kawasan = $form->kawasan()?->nama ?? '—';
 
         DB::transaction(function () use ($form, $request, $kawasan) {
@@ -2560,24 +2604,72 @@ class Borang14Controller extends Controller
      * Parlimen mereka sendiri — rekod DITERBITKAN ialah keputusan rasmi yang
      * sudah disiarkan ke Scoreboard, jadi membuangnya ialah keputusan
      * super_admin.
+     *
+     * Peraturan KERUSI diterbitkan daripada SeatScope dan bukan ditulis kali
+     * kedua di sini: dua salinan peraturan yang sama akan menyimpang, dan
+     * salinan yang longgar itulah yang menjadi IDOR seterusnya. SeatScope juga
+     * menolak pengguna yang BELUM DILULUSKAN dan kawasan_type yang tidak
+     * dikenali — kedua-duanya terlepas daripada semakan bandar_id lama.
      */
     private function bolehPadamBorang(?User $user, Borang14Form $form): bool
     {
-        if (! $user) {
+        if (! $user || (! $user->isSuperAdmin() && ! $user->isAdmin())) {
             return false;
         }
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-        if (! $user->isAdmin() || $form->status === 'published') {
+        if (! SeatScope::allows($user, (string) $form->kawasan_type, (int) $form->kawasan_id)) {
             return false;
         }
 
-        $bandarId = $form->kawasan_type === Borang14Form::KAWASAN_PARLIMEN
-            ? $form->kawasan_id
-            : Kadun::whereKey($form->kawasan_id)->value('bandar_id');
+        return $user->isSuperAdmin() || $form->status !== 'published';
+    }
 
-        return $user->bandar_id !== null && (int) $user->bandar_id === (int) $bandarId;
+    /**
+     * Borang TAKRIFAN Parlimen ialah objek yang DIKONGSI: setiap borang DUN di
+     * bawahnya memautinya, dan Borang14RollUp membaca identiti calon PRU
+     * daripadanya lalu menjumlahkan undi contest='parlimen' setiap DUN mengikut
+     * slot. FK `borang14_form_parlimen_id` ialah nullOnDelete, jadi memadam
+     * takrifan TIDAK memadam borang DUN itu — ia hanya memutuskan pautannya.
+     *
+     * Akibatnya senyap dan tepat jenis kegagalan terburuk sistem ini: undi PRU
+     * pada setiap DUN kekal wujud dalam pangkalan data tetapi tiada lagi
+     * takrifan yang menamakan calonnya, roll-up berhenti mengumpulnya, dan
+     * keputusan Parlimen jatuh kepada "tiada data" tanpa satu pun ralat. Arkib
+     * Borang14DeletedForm merakam takrifan yang dipadam, BUKAN pautan DUN yang
+     * dinullkan, jadi ia juga tidak boleh dipulihkan sepenuhnya.
+     *
+     * Sekatan yang sama semangatnya dengan assertTiadaUndiPruDikongsi() pada
+     * saveParties(): jangan sentuh objek yang dikongsi selagi ada undi
+     * bergantung padanya. Namakan kerusi yang sudah berundi supaya pengendali
+     * tahu ke mana hendak pergi.
+     *
+     * @return string|null Mesej halangan, atau null apabila padaman selamat.
+     */
+    private function sebabTakrifanTidakBolehDipadam(Borang14Form $form): ?string
+    {
+        if ($form->kawasan_type !== Borang14Form::KAWASAN_PARLIMEN) {
+            return null;
+        }
+
+        $idDun = $form->borangDun()->pluck('id');
+        if ($idDun->isEmpty()) {
+            return null;
+        }
+
+        $idBerundi = Borang14Vote::query()
+            ->where('contest', Borang14Vote::CONTEST_PARLIMEN)
+            ->whereIn('borang14_form_id', $idDun)
+            ->value('borang14_form_id');
+
+        if ($idBerundi === null) {
+            return null;
+        }
+
+        $nama = Borang14Form::find($idBerundi)?->kawasanNama() ?? '—';
+
+        return "Borang ini ialah TAKRIFAN calon PRU bagi {$idDun->count()} borang DUN, dan borang {$nama} sudah ".
+            'mempunyai undi Parlimen yang dikunci padanya. Memadamnya akan memutuskan pautan setiap borang DUN '.
+            'itu, lalu undi PRU mereka tidak lagi dikira dalam keputusan Parlimen walaupun masih tersimpan. '.
+            'Kosongkan undi Parlimen pada borang DUN berkenaan, atau padamkan borang DUN itu dahulu.';
     }
 
     /**

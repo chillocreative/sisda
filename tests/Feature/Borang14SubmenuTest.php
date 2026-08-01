@@ -84,8 +84,13 @@ class Borang14SubmenuTest extends TestCase
 
     public function test_publish_moves_draft_into_senarai(): void
     {
-        $user = User::factory()->create(['role' => 'admin', 'telephone' => '0123456789']);
         $kadun = Kadun::first();
+        // publish() menegaskan SeatScope: admin mesti DILULUSKAN dan memiliki
+        // Parlimen kerusi itu. Lihat Borang14KerusiAuthzTest.
+        $user = User::factory()->create([
+            'role' => 'admin', 'telephone' => '0123456789',
+            'status' => 'approved', 'bandar_id' => $kadun->bandar_id,
+        ]);
         $form = Borang14Form::create([
             'kawasan_type' => 'dun', 'kawasan_id' => $kadun->id,
             'jenis_pr' => 'prn', 'tahun' => 2022, 'penjuru' => 2, 'status' => 'draft',
