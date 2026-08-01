@@ -274,6 +274,8 @@ class PilihanrayaController extends Controller
             }
         }
 
+        $this->kekangSkopTaklimat($validated['level'], $validated['scope_id'] ?? null);
+
         return response()->json($this->forecast->briefing(
             $validated['level'],
             $validated['scope_id'] ?? null,
@@ -311,6 +313,40 @@ class PilihanrayaController extends Controller
             'negeri_id', 'parlimen_id', 'kadun_id', 'tarikh_dari', 'tarikh_hingga',
             'umur_dari', 'umur_hingga', 'status_pengundi',
         ])));
+    }
+
+    /**
+     * Kurung skop taklimat bagi peranan yang berskop Parlimen.
+     *
+     * briefing() ialah SATU-SATUNYA hujung dalam pengawal ini yang TIDAK
+     * melalui f(): ia menerima `level` + `scope_id` terus daripada permintaan
+     * dan memanggil ElectionForecastService::briefing(), yang memanggil
+     * resolveFilters() sendiri. Jadi kekangKawasan() tidak pernah menyentuhnya
+     * dan `level=national` mencapai lapisan pertanyaan.
+     *
+     * `national` dan `negeri` ditolak terus bagi peranan yang dikurung: kedua-
+     * duanya LEBIH LUAS daripada satu Parlimen, jadi tiada kerusi yang boleh
+     * ditegaskan terhadapnya.
+     */
+    private function kekangSkopTaklimat(string $level, ?string $scopeId): void
+    {
+        $user = auth()->user();
+
+        if (! SeatScope::parlimenKurungan($user)) {
+            return; // Peranan lain: tiada perubahan langsung.
+        }
+
+        abort_if(
+            in_array($level, ['national', 'negeri'], true),
+            403,
+            'Taklimat hanya boleh dijana untuk Parlimen anda dan DUN di bawahnya.',
+        );
+
+        SeatScope::assert(
+            $user,
+            $level === 'parlimen' ? SeatScope::PARLIMEN : SeatScope::DUN,
+            (int) $scopeId,
+        );
     }
 
     /**

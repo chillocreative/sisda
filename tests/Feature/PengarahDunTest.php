@@ -456,6 +456,54 @@ class PengarahDunTest extends TestCase
     }
 
     /**
+     * briefing() ialah SATU-SATUNYA hujung dalam PilihanrayaController yang
+     * tidak melalui f()/kekangKawasan(): ia mengambil `level` + `scope_id`
+     * terus daripada permintaan dan memanggil resolveFilters() sendiri.
+     *
+     * Setiap penegasan menyemak 403 DENGAN TEPAT, bukan sekadar "bukan 200" —
+     * halaman agregat memulangkan 500 di bawah SQLite (SQL khusus MySQL),
+     * jadi "bukan 200" akan lulus secara kosong tanpa membuktikan apa-apa.
+     */
+    public function test_briefing_cannot_be_pointed_at_a_foreign_or_national_scope(): void
+    {
+        $pengarah = $this->pengarah();
+
+        $ditolak = [
+            'kebangsaan' => ['level' => 'national'],
+            'negeri penuh' => ['level' => 'negeri', 'scope_id' => $this->negeri->id],
+            'parlimen asing' => ['level' => 'parlimen', 'scope_id' => $this->parlimenAsing->id],
+            'dun asing' => ['level' => 'kadun', 'scope_id' => $this->dunAsing->id],
+        ];
+
+        foreach ($ditolak as $label => $muatan) {
+            $this->actingAs($pengarah)
+                ->postJson(route('pilihanraya.api.briefing'), $muatan)
+                ->assertStatus(403, "briefing: skop '{$label}' tidak ditolak.");
+        }
+    }
+
+    /**
+     * Kawalan positif: gerbang mesti MEMBENARKAN kerusi sendiri masuk.
+     * Tanpa ini, briefing yang menolak segala-galanya akan lulus ujian di
+     * atas. Muatan tidak boleh dirender di bawah SQLite, jadi yang disemak
+     * ialah ketiadaan 403.
+     */
+    public function test_briefing_still_admits_its_own_seats(): void
+    {
+        $pengarah = $this->pengarah();
+
+        foreach ([
+            ['level' => 'parlimen', 'scope_id' => $this->parlimenSendiri->id],
+            ['level' => 'kadun', 'scope_id' => $this->dunSendiri->id],
+        ] as $muatan) {
+            $status = $this->actingAs($pengarah)
+                ->postJson(route('pilihanraya.api.briefing'), $muatan)->getStatusCode();
+
+            $this->assertNotSame(403, $status, 'Gerbang menolak kerusi sendiri.');
+        }
+    }
+
+    /**
      * Perbandingan Analisa memegang tally undi sebenar bagi satu kerusi dan
      * diikat melalui laluan, jadi id yang ditaip membuka kerusi orang lain.
      */
@@ -716,6 +764,19 @@ class PengarahDunTest extends TestCase
         // --- ketua_paca_dun: masih tiada capaian Pilihanraya selain PACA
         $this->actingAs($this->user('ketua_paca_dun'))
             ->getJson(route('pilihanraya.api.seat-scores'))->assertForbidden();
+
+        // --- briefing: admin masih boleh menuding ke mana-mana skop,
+        // termasuk kebangsaan (sedia ada — bukan tugas ini untuk mengubah).
+        foreach ([
+            ['level' => 'national'],
+            ['level' => 'parlimen', 'scope_id' => $this->parlimenAsing->id],
+        ] as $muatan) {
+            $this->assertNotSame(
+                403,
+                $this->actingAs($admin)->postJson(route('pilihanraya.api.briefing'), $muatan)->getStatusCode(),
+                'Skop briefing admin berubah — di luar skop tugas ini.',
+            );
+        }
     }
 
     /**
