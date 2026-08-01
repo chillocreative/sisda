@@ -97,8 +97,28 @@
             @endif
         </div>
         <div class="sub">Penyata Undi Mengikut Saluran &mdash; {{ $penjuruLabel }}</div>
+        {{--
+            ASAL STRUKTUR mesti SENTIASA dinyatakan. PDF ialah artifak bercetak
+            yang hidup lebih lama daripada skrin, jadi baris ini lebih penting di
+            sini, bukan kurang: sesiapa yang memegang cetakan tidak boleh
+            bertanya kepada sistem dari mana strukturnya datang.
+
+            Maknanya terkandung sepenuhnya dalam PERKATAAN ("dianggarkan" lawan
+            "angka sebenar") dan diperkuat dengan tebal — bukan pada warna
+            sahaja, kerana cetakan hitam-putih dan fotokopi lazim di pusat
+            penjumlahan.
+
+            Ujian `source` di sini mesti SAMA PERSIS dengan
+            resources/js/Pages/Pilihanraya/borang14/KeyinTab.jsx (~baris 821),
+            yang memapar dua sepanduk yang sama pada skrin. Jika satu pihak
+            berubah tanpa satu lagi, skrin dan cetakan akan menceritakan asal
+            yang BERBEZA bagi borang yang sama.
+        --}}
         @if (($reference['source'] ?? null) === 'dpt_estimate')
             <div class="sub" style="color:#b45309;">Pusat Mengundi &amp; Berdaftar dianggarkan daripada data DPT (ikut Lokaliti) &mdash; bukan pecahan Saluran rasmi gazet SPR.</div>
+        @endif
+        @if (($reference['source'] ?? null) === 'dpt_sebenar')
+            <div class="sub" style="color:#065f46; font-weight:bold;">Struktur Daerah Mengundi, Pusat Mengundi &amp; Saluran diambil terus daripada fail DPPR/DPI yang dimuat naik &mdash; pecahan Saluran dan jumlah Berdaftar ialah angka sebenar, bukan anggaran.</div>
         @endif
         @if ($inheritedFrom ?? null)
             <div class="sub" style="color:#b45309;">Struktur saluran diwarisi daripada {{ strtoupper($inheritedFrom['jenis_pr']) }} {{ $inheritedFrom['tahun'] }} &mdash; bilangan pengundi berdaftar tidak diketahui untuk pilihan raya ini.</div>

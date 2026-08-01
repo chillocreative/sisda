@@ -818,10 +818,30 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                         </div>
                     </div>
 
+                    {/*
+                        ASAL STRUKTUR mesti SENTIASA dinyatakan. Rujukan terbitan
+                        DPT datang dalam DUA rasa dan pengendali perlu tahu yang
+                        mana satu sedang dipandang — struktur sebenar yang senyap
+                        lebih buruk daripada amaran yang sentiasa ada, kerana
+                        ketiadaan amaran jadi tidak bermakna.
+
+                        Ujian `source` di sini mesti SAMA PERSIS dengan
+                        resources/views/pdf/borang14.blade.php (~baris 100), yang
+                        mencetak dua baris yang sama pada PDF. Jika satu pihak
+                        berubah tanpa satu lagi, skrin dan cetakan akan
+                        menceritakan asal yang BERBEZA bagi borang yang sama.
+                    */}
                     {reference.source === 'dpt_estimate' && (
                         <div className={`${t.banner} flex items-center gap-2 mb-4`}>
                             <Info className="h-4 w-4 shrink-0" />
                             <span>Pusat Mengundi &amp; Berdaftar dianggarkan daripada data DPT yang dimuat naik (dikumpul ikut Lokaliti, satu Saluran setiap Pusat Mengundi) — bukan pecahan Saluran rasmi gazet SPR.</span>
+                        </div>
+                    )}
+
+                    {reference.source === 'dpt_sebenar' && (
+                        <div className={`${t.bannerOk} flex items-center gap-2 mb-4`}>
+                            <Info className="h-4 w-4 shrink-0" />
+                            <span>Struktur Daerah Mengundi, Pusat Mengundi &amp; Saluran diambil terus daripada fail DPPR/DPI yang dimuat naik — pecahan Saluran dan jumlah Berdaftar ini adalah angka sebenar, bukan anggaran.</span>
                         </div>
                     )}
 

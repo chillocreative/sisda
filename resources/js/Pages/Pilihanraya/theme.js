@@ -40,6 +40,11 @@ export function tokens() {
         tableRow: 'border-t border-slate-200 hover:bg-slate-50',
         badge: 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
         banner: 'bg-amber-50 border border-amber-300 text-amber-800 rounded-lg px-4 py-3 text-sm',
+        // Nada TENANG untuk mengesahkan sumber data — bukan amaran. `banner`
+        // kuning bermaksud "berhati-hati, ini anggaran"; `bannerOk` bermaksud
+        // "disahkan, ini angka sebenar". Kedua-duanya menduduki ruang yang
+        // sama supaya pengendali sentiasa nampak SATU daripadanya.
+        bannerOk: 'bg-emerald-50 border border-emerald-300 text-emerald-800 rounded-lg px-4 py-3 text-sm',
         chartGrid: '#e2e8f0',
         chartTick: '#64748b',
         tooltip: { backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', color: '#0f172a', fontSize: '12px' },
