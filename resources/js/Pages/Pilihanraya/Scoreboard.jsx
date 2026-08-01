@@ -89,6 +89,10 @@ function SettingsModal({ seat, board, onClose, onSaved }) {
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Tajuk</label>
                         <input value={title} onChange={(e) => setTitle(e.target.value)} className={field} placeholder="SCOREBOARD" />
+                        <p className="text-xs text-slate-500 mt-1">
+                            Sepanduk sahaja. Nama dan kod kerusi datang dari Data Induk dan dipapar
+                            secara automatik — jangan taip kod kerusi di sini.
+                        </p>
                     </div>
                     <div className="sm:col-span-2">
                         <label className="block text-sm font-medium text-slate-700 mb-1">Logo (pilihan)</label>
@@ -152,6 +156,25 @@ function SettingsModal({ seat, board, onClose, onSaved }) {
                     </button>
                 </div>
             </div>
+        </div>
+    );
+}
+
+/* ---------------------------- amaran tajuk ------------------------------ */
+
+/**
+ * Hanya pengendali melihat ini — muatan awam menapis 'tajuk_amaran'
+ * (ScoreboardPayload::KUNCI_PEMILIK). Papan itu sendiri sudah selamat: tajuk
+ * yang mendakwa kerusi lain TIDAK dipaparkan. Baris ini memberitahu pengendali
+ * mengapa sepanduk mereka hilang, dan apa yang perlu dibetulkan.
+ */
+function AmaranTajuk({ amaran }) {
+    if (!amaran) return null;
+
+    return (
+        <div className="bg-amber-50 border border-amber-300 text-amber-900 rounded-lg px-4 py-3 text-sm flex items-start gap-2 mb-5">
+            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+            <span>{amaran}</span>
         </div>
     );
 }
@@ -268,9 +291,12 @@ function Board({ data }) {
         <>
             {/* Header band */}
             <div className="rounded-2xl bg-slate-900 text-white px-6 py-6 mb-5 text-center relative overflow-hidden">
+                {/* Identiti kerusi (pelayan) ialah baris besar; sepanduk bebas
+                    duduk di atasnya. Lihat ScoreboardPayload::identitiKerusi. */}
                 <div className="flex flex-col items-center gap-2">
                     {data.logo_url && <img src={data.logo_url} alt="logo" className="h-16 w-auto object-contain" />}
-                    <h2 className="text-3xl sm:text-4xl font-black tracking-[0.2em]">{data.title || 'SCOREBOARD'}</h2>
+                    <p className="text-slate-400 text-xs font-semibold uppercase tracking-[0.3em]">{data.title || 'SCOREBOARD'}</p>
+                    <h2 className="text-3xl sm:text-4xl font-black tracking-[0.2em]">{data.identiti?.label || labelKerusi(data)}</h2>
                     <p className="text-slate-300 text-sm">
                         {konteksKerusi(data).map((teks) => <span key={teks}>{teks} · </span>)}
                         <span className="font-semibold text-white">{labelKerusi(data)}</span>
@@ -542,6 +568,7 @@ function ScoreboardBody({ seats }) {
                 </div>
             ) : data && data.needsBorang14 ? (
                 <>
+                    <AmaranTajuk amaran={data.tajuk_amaran} />
                     <PenyiaranCard seat={seat} board={data} onChanged={() => fetchData(true)} />
                     <div className="bg-amber-50 border border-amber-300 text-amber-800 rounded-lg px-4 py-3 text-sm flex items-center gap-2">
                         <Info className="h-4 w-4 shrink-0" />
@@ -550,6 +577,7 @@ function ScoreboardBody({ seats }) {
                 </>
             ) : ready ? (
                 <>
+                    <AmaranTajuk amaran={data.tajuk_amaran} />
                     <PenyiaranCard seat={seat} board={data} onChanged={() => fetchData(true)} />
                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                         <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200">

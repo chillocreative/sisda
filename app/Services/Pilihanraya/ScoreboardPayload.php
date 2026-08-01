@@ -2,8 +2,10 @@
 
 namespace App\Services\Pilihanraya;
 
+use App\Models\Bandar;
 use App\Models\Borang14Form;
 use App\Models\Borang14Vote;
+use App\Models\Kadun;
 use App\Models\Scoreboard;
 use App\Support\Borang14Reference;
 use App\Support\PartyLogo;
@@ -28,11 +30,22 @@ class ScoreboardPayload
      *  - 'dikemaskini' membawa users.name pengendali SISDA yang menyimpan
      *    terakhir — nama sebenar seorang petugas.
      *  - 'sumber' mendedahkan id + label senario Borang 14 dalaman.
-     * Halaman awam tidak memerlukan kedua-duanya (Pages/Public/Scoreboard.jsx
+     *  - 'tajuk_amaran' ialah arahan pembetulan untuk pengendali; penonton
+     *    awam tidak boleh berbuat apa-apa dengannya dan tidak perlu tahu
+     *    bahawa sepanduk papan ini pernah salah.
+     * Halaman awam tidak memerlukan ketiga-tiganya (Pages/Public/Scoreboard.jsx
      * tidak merujuknya langsung), jadi ia ditapis di SATU tempat sahaja —
      * forPublicSeat() — supaya laluan pemilik terbukti tidak tersentuh.
      */
-    private const KUNCI_PEMILIK = ['dikemaskini', 'sumber'];
+    private const KUNCI_PEMILIK = ['dikemaskini', 'sumber', 'tajuk_amaran'];
+
+    /**
+     * Kod kerusi di DALAM teks bebas: "N.15", "N15", "P 132". Sengaja longgar
+     * pada titik/ruang kerana pengendali menaipnya dengan pelbagai cara, tetapi
+     * ketat pada bentuk (satu huruf N/P + digit) supaya perkataan biasa tidak
+     * tersilap ditangkap.
+     */
+    private const POLA_KOD_DALAM_TEKS = '/\b([NP])[.\s]*(\d{1,3})\b/i';
 
     public static function forSeat(string $type, int $id): array
     {
@@ -41,6 +54,15 @@ class ScoreboardPayload
             : Borang14Reference::forKadun($id);
 
         $board = Scoreboard::where('kawasan_type', $type)->where('kawasan_id', $id)->first();
+
+        // Identiti papan diterbitkan daripada KERUSI, bukan daripada teks yang
+        // ditaip. `title` ialah sepanduk bebas, dan sepanduk yang ditiru
+        // daripada kerusi lain pernah menyebabkan papan DUN Gemas mengisytihar
+        // dirinya "N.15 JUASSEH" — tiada semakan kebenaran boleh menghalang
+        // itu, kerana kerusinya memang betul; yang menipu ialah teksnya.
+        $identiti = self::identitiKerusi($type, $id);
+        $amaranTajuk = self::amaranTajuk($board?->title, $identiti['kod']);
+        $tajuk = $amaranTajuk === null ? (($board?->title ?: null) ?? 'SCOREBOARD') : 'SCOREBOARD';
 
         if (! $reference) {
             return ['hasData' => false, 'ready' => false, 'sumber' => null, 'liputan' => null];
@@ -56,7 +78,9 @@ class ScoreboardPayload
                 'ready' => false,
                 'needsBorang14' => true,
                 'sumber' => null,
-                'title' => $board?->title ?? 'SCOREBOARD',
+                'title' => $tajuk,
+                'identiti' => $identiti,
+                'tajuk_amaran' => $amaranTajuk,
                 'status' => $board?->status ?? Scoreboard::STATUS_DRAF,
                 'kod' => $board?->kod,
                 'liputan' => null,
@@ -83,7 +107,9 @@ class ScoreboardPayload
                     'ready' => false,
                     'needsBorang14' => true,
                     'sumber' => null,
-                    'title' => $board?->title ?? 'SCOREBOARD',
+                    'title' => $tajuk,
+                    'identiti' => $identiti,
+                    'tajuk_amaran' => $amaranTajuk,
                     'status' => $board?->status ?? Scoreboard::STATUS_DRAF,
                     'kod' => $board?->kod,
                     'liputan' => null,
@@ -142,7 +168,9 @@ class ScoreboardPayload
             'ready' => true,
             'penjuru' => $penjuru,
             'penjuru_label' => self::PENJURU[$penjuru] ?? '',
-            'title' => $board?->title ?? 'SCOREBOARD',
+            'title' => $tajuk,
+            'identiti' => $identiti,
+            'tajuk_amaran' => $amaranTajuk,
             'logo_url' => $board?->logo_path ? asset($board->logo_path) : asset('images/logo.png'),
             'minima' => $board?->minima,
             'kod' => $board?->kod,
@@ -171,6 +199,84 @@ class ScoreboardPayload
     }
 
     /**
+     * Identiti kerusi daripada DATA INDUK — sumber tunggal bagi "papan ini
+     * kerusi mana". Tidak boleh disunting daripada skrin Scoreboard, jadi ia
+     * tidak boleh menyimpang daripada kerusi yang kebenaran pengguna berikan.
+     *
+     * @return array{kod: ?string, nama: ?string, jenis: string, label: string}
+     */
+    private static function identitiKerusi(string $type, int $id): array
+    {
+        $parlimen = $type === SeatScope::PARLIMEN;
+
+        $row = $parlimen
+            ? Bandar::whereKey($id)->first(['nama', 'kod_parlimen'])
+            : Kadun::whereKey($id)->first(['nama', 'kod_dun']);
+
+        $kod = strtoupper(trim((string) ($parlimen ? $row?->kod_parlimen : $row?->kod_dun)));
+        $nama = strtoupper(trim((string) $row?->nama));
+        $jenis = $parlimen ? 'PARLIMEN' : 'DUN';
+
+        // Kerusi tanpa kod masih mempunyai nama — label jatuh balik kepadanya
+        // dan bukan kepada rentetan kosong.
+        $label = trim(($kod !== '' ? $kod.' ' : '').($nama !== '' ? $nama : $jenis));
+
+        return [
+            'kod' => $kod !== '' ? $kod : null,
+            'nama' => $nama !== '' ? $nama : null,
+            'jenis' => $jenis,
+            'label' => $label,
+        ];
+    }
+
+    /**
+     * Amaran apabila sepanduk yang ditaip MENDAKWA kerusi lain.
+     *
+     * Pencetusnya deterministik, bukan tekaan: kami hanya melihat kod kerusi
+     * (N/P + digit) di dalam teks. Jika satu pun kod itu bukan kod papan ini,
+     * sepanduk itu menipu dan digugurkan daripada paparan.
+     *
+     * Gagal-tutup apabila papan ini sendiri TIADA kod: teks yang mendakwa
+     * "N.15" tidak dapat disahkan, jadi ia tetap digugurkan. Lebih baik
+     * memapar "SCOREBOARD" yang hambar daripada nama kerusi yang mungkin
+     * salah pada malam keputusan.
+     *
+     * Teks tanpa sebarang kod (cth. "PILIHAN RAYA NEGERI 2026") tidak pernah
+     * mencetuskan apa-apa — pengendali bebas menamakan papan mereka.
+     */
+    private static function amaranTajuk(?string $title, ?string $kodKerusi): ?string
+    {
+        $teks = trim((string) $title);
+        if ($teks === '' || ! preg_match_all(self::POLA_KOD_DALAM_TEKS, $teks, $padanan, PREG_SET_ORDER)) {
+            return null;
+        }
+
+        foreach ($padanan as $m) {
+            $kodDitaip = strtoupper($m[1]).ltrim($m[2], '0');
+
+            if ($kodKerusi !== null && self::normalKod($kodKerusi) === $kodDitaip) {
+                continue;
+            }
+
+            return $kodKerusi === null
+                ? "Tajuk papan menyebut kod kerusi \"{$m[0]}\" tetapi kerusi ini tiada Kod DUN/Parlimen dalam Data Induk, jadi ia tidak dapat disahkan. Tajuk itu tidak dipaparkan."
+                : "Tajuk papan menyebut kod kerusi \"{$m[0]}\", tetapi papan ini ialah {$kodKerusi}. Tajuk itu tidak dipaparkan — betulkan dalam Tetapan.";
+        }
+
+        return null;
+    }
+
+    /** "N.05" dan "N5" ialah kod yang SAMA — bandingkan dalam satu bentuk. */
+    private static function normalKod(string $kod): string
+    {
+        if (! preg_match(self::POLA_KOD_DALAM_TEKS, $kod, $m)) {
+            return strtoupper(trim($kod));
+        }
+
+        return strtoupper($m[1]).ltrim($m[2], '0');
+    }
+
+    /**
      * Kad ringkas bagi senarai awam /scoreboard — satu kerusi, satu kad.
      *
      * Memulangkan null apabila papan itu belum sedia (tiada rujukan DPT, atau
@@ -193,7 +299,10 @@ class ScoreboardPayload
         return [
             'kod' => $p['kod'],
             'jenis' => $type,
-            'nama' => $type === SeatScope::PARLIMEN ? ($p['parlimen'] ?? null) : ($p['dun'] ?? null),
+            // Nama daripada DATA INDUK (identiti), bukan daripada rujukan DPT
+            // yang dipadan-rentetan — kad senarai awam mesti menamakan kerusi
+            // yang sama seperti papan yang dibukanya.
+            'nama' => $p['identiti']['nama'] ?? ($type === SeatScope::PARLIMEN ? ($p['parlimen'] ?? null) : ($p['dun'] ?? null)),
             'negeri' => $p['negeri'] ?? null,
             'parlimen' => $p['parlimen'] ?? null,
             'title' => $p['title'] ?? null,

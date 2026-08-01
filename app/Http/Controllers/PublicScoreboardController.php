@@ -74,7 +74,6 @@ class PublicScoreboardController extends Controller
                 // kosong; nama jadual induk ialah sandaran yang pasti ada.
                 $kad['kod'] = $b->kod;
                 $kad['nama'] = $kad['nama'] ?: $this->namaKerusi($b->kawasan_type, (int) $b->kawasan_id);
-                $kad['title'] = $b->title;
                 $kad['url'] = route('scoreboard.public', ['kod' => strtolower($b->kod)]);
 
                 return $kad;

@@ -119,10 +119,17 @@ function Board({ data }) {
         <div className="space-y-6">
             {/* Hero band */}
             <div className="rounded-3xl bg-slate-900 text-white px-6 py-8 sm:py-10 text-center">
+                {/* Baris besar ialah IDENTITI KERUSI daripada pelayan, bukan
+                    teks yang ditaip. Sepanduk bebas (`title`) duduk di atasnya
+                    dengan berat yang jauh lebih ringan, supaya papan tidak
+                    boleh mengisytiharkan dirinya kerusi lain. */}
                 <div className="flex flex-col items-center gap-3">
                     {data.logo_url && <img src={data.logo_url} alt="" className="h-14 sm:h-16 w-auto object-contain" />}
-                    <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black uppercase tracking-[0.14em] leading-tight">
+                    <p className="text-slate-400 text-xs sm:text-sm font-semibold uppercase tracking-[0.3em]">
                         {data.title || 'SCOREBOARD'}
+                    </p>
+                    <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black uppercase tracking-[0.14em] leading-tight">
+                        {data.identiti?.label || labelKerusi(data)}
                     </h1>
                     <p className="text-slate-300 text-xs sm:text-sm">
                         {konteksKerusi(data).map((teks) => <span key={teks}>{teks} · </span>)}
@@ -204,7 +211,9 @@ export default function PublicScoreboard({ kod, board }) {
     }, [fetchData]);
 
     const ready = data?.ready;
-    const pageTitle = ready ? `${data.title} — ${labelKerusi(data)}` : 'Live Scoreboard';
+    // Tajuk tab pelayar mengikut KERUSI juga — pautan yang dikongsi mesti
+    // membawa nama kerusi yang betul walaupun sepanduk papan diubah.
+    const pageTitle = ready ? `${data.identiti?.label || labelKerusi(data)} — Papan Markah` : 'Live Scoreboard';
 
     return (
         <>

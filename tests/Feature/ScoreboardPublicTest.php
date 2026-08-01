@@ -200,6 +200,72 @@ class ScoreboardPublicTest extends TestCase
         $this->assertSame(0, $kad['total_keluar']);
     }
 
+    /**
+     * REGRESI SEBENAR (1 Ogos 2026): papan DUN GEMAS memapar tajuk
+     * "SCOREBOARD - N.15 JUASSEH" kerana pengendali meniru tetapan papan lain.
+     * Kerusinya betul, kebenarannya betul — teks bebas itu yang menipu, dan
+     * ia elemen TERBESAR pada skrin.
+     *
+     * Identiti kini diterbitkan daripada Data Induk, dan tajuk yang mendakwa
+     * kod kerusi lain digugurkan sepenuhnya.
+     */
+    public function test_a_title_claiming_another_seat_is_dropped_and_identity_comes_from_master_data(): void
+    {
+        $this->seedDpt();
+        $papan = $this->board(Scoreboard::STATUS_TERSIAR);
+        $papan->update([
+            'borang14_form_id' => $this->borang($this->dun)->id,
+            'title' => 'SCOREBOARD - N.15 JUASSEH',
+        ]);
+
+        $data = $this->getJson('/scoreboard/n27/data')->assertOk()->json();
+
+        // Tajuk penipu tidak dipaparkan...
+        $this->assertSame('SCOREBOARD', $data['title']);
+        // ...dan identiti datang daripada kerusi, bukan daripada teks.
+        $this->assertSame('N27', $data['identiti']['kod']);
+        $this->assertSame('PILAH', $data['identiti']['nama']);
+        $this->assertSame('N27 PILAH', $data['identiti']['label']);
+
+        // Halaman awam tidak boleh menyebut kerusi asing itu langsung.
+        $this->get('/scoreboard/n27')->assertOk()->assertDontSee('JUASSEH');
+
+        // Amaran pembetulan ialah maklumat PENGENDALI — bukan untuk penonton.
+        $this->assertArrayNotHasKey('tajuk_amaran', $data);
+    }
+
+    /** Tajuk yang menyebut kod kerusi SENDIRI adalah sah — "N.27" = "N27". */
+    public function test_a_title_naming_its_own_seat_is_kept(): void
+    {
+        $this->seedDpt();
+        $papan = $this->board(Scoreboard::STATUS_TERSIAR);
+        $papan->update([
+            'borang14_form_id' => $this->borang($this->dun)->id,
+            'title' => 'SCOREBOARD N.27 PILAH',
+        ]);
+
+        $this->assertSame(
+            'SCOREBOARD N.27 PILAH',
+            $this->getJson('/scoreboard/n27/data')->assertOk()->json('title'),
+        );
+    }
+
+    /** Tajuk tanpa sebarang kod kerusi tidak pernah disentuh. */
+    public function test_a_title_without_any_seat_code_is_never_touched(): void
+    {
+        $this->seedDpt();
+        $papan = $this->board(Scoreboard::STATUS_TERSIAR);
+        $papan->update([
+            'borang14_form_id' => $this->borang($this->dun)->id,
+            'title' => 'PILIHAN RAYA NEGERI 2026',
+        ]);
+
+        $this->assertSame(
+            'PILIHAN RAYA NEGERI 2026',
+            $this->getJson('/scoreboard/n27/data')->assertOk()->json('title'),
+        );
+    }
+
     /** Roll DPT minimum supaya Borang14Reference::forKadun() bukan null. */
     private function seedDpt(string $kadun = 'PILAH', string $ic = '800101015555'): void
     {
