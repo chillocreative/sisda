@@ -1,4 +1,5 @@
 <?php
+
 // tests/Feature/PengarahDunTest.php
 //
 // Peranan `pengarah_dun` — Pengarah DUN. Walaupun namanya "DUN", skopnya
@@ -15,6 +16,7 @@
 //      dan Tetapan ditolak.
 //   3. Kerusi — Parlimen sendiri + DUN di bawahnya sahaja; kerusi asing 403.
 //   4. Peranan lain tidak berubah langsung.
+
 namespace Tests\Feature;
 
 use App\Models\Bandar;
@@ -99,6 +101,29 @@ class PengarahDunTest extends TestCase
     /** Pendaratan itu sendiri mesti membawa kerusi Parlimen sendiri SAHAJA. */
     public function test_landing_page_carries_only_its_own_parlimen_and_its_duns(): void
     {
+        // Pemilih kerusi Scoreboard menapis kepada kerusi yang BERBORANG 14.
+        // Setiap kerusi dalam ujian ini diberi borang — TERMASUK yang asing —
+        // supaya kerusi asing tercicir kerana SKOP, bukan kerana kebetulan
+        // tiada borang. Tanpa borang asing itu, ujian ini akan lulus walaupun
+        // pengurungan skop runtuh sepenuhnya.
+        foreach ([
+            ['dun', $this->dunSendiri->id],
+            ['dun', $this->dunSendiriKedua->id],
+            ['dun', $this->dunAsing->id],
+            ['parlimen', $this->parlimenSendiri->id],
+            ['parlimen', $this->parlimenAsing->id],
+        ] as [$jenis, $id]) {
+            Borang14Form::create([
+                'kawasan_type' => $jenis,
+                'kawasan_id' => $id,
+                'jenis_pr' => 'prn',
+                'tahun' => 2026,
+                'penjuru' => 2,
+                'status' => 'draft',
+                'parties' => [['nama' => 'KEADILAN'], ['nama' => 'BERSATU']],
+            ]);
+        }
+
         $response = $this->actingAs($this->pengarah())
             ->get(route('dashboard'))
             ->assertRedirect(route('pilihanraya.scoreboard'));

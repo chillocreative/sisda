@@ -518,10 +518,13 @@ function ScoreboardBody({ seats }) {
             )}
 
             {/* States */}
+            {/* Senarai kerusi ditapis pelayan kepada yang ada Borang 14 sahaja
+                (ScoreboardController::index). Kosong di sini bermakna kerusi
+                pengguna ADA, tetapi belum satu pun berborang. */}
             {seats.length === 0 ? (
                 <div className="bg-amber-50 border border-amber-300 text-amber-800 rounded-lg px-4 py-3 text-sm flex items-center gap-2">
                     <Info className="h-4 w-4 shrink-0" />
-                    <span>Anda tiada kerusi ditugaskan untuk diuruskan.</span>
+                    <span>Tiada kerusi anda yang mempunyai Borang 14. Bina Borang 14 untuk kerusi berkenaan dahulu — penjuru, parti dan undi semuanya diambil dari situ.</span>
                 </div>
             ) : !seat ? (
                 <div className="bg-amber-50 border border-amber-300 text-amber-800 rounded-lg px-4 py-3 text-sm flex items-center gap-2">

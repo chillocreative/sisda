@@ -6,6 +6,7 @@ use App\Models\Borang14Form;
 use App\Models\Borang14Vote;
 use App\Models\Scoreboard;
 use App\Support\Borang14Reference;
+use App\Support\PartyLogo;
 use App\Support\SeatScope;
 use Illuminate\Support\Arr;
 
@@ -167,6 +168,46 @@ class ScoreboardPayload
     public static function forPublicSeat(string $type, int $id): array
     {
         return Arr::except(self::forSeat($type, $id), self::KUNCI_PEMILIK);
+    }
+
+    /**
+     * Kad ringkas bagi senarai awam /scoreboard — satu kerusi, satu kad.
+     *
+     * Memulangkan null apabila papan itu belum sedia (tiada rujukan DPT, atau
+     * pemilik belum memilih Borang 14). Itulah penapis "hanya yang ada Borang
+     * 14": pemanggil membuang null, jadi kad yang terpapar SENTIASA membawa
+     * angka yang benar-benar dikira daripada satu borang.
+     *
+     * Kerana kad hanya wujud bagi papan yang sedia, `undi` di sini ialah hasil
+     * SUM(undi) sebenar — 0 bermakna "belum ada undi dimasukkan", bukan
+     * "tidak diketahui". Nilai tidak diketahui tidak pernah sampai ke sini.
+     */
+    public static function kadAwam(string $type, int $id): ?array
+    {
+        $p = self::forPublicSeat($type, $id);
+
+        if (empty($p['ready'])) {
+            return null;
+        }
+
+        return [
+            'kod' => $p['kod'],
+            'jenis' => $type,
+            'nama' => $type === SeatScope::PARLIMEN ? ($p['parlimen'] ?? null) : ($p['dun'] ?? null),
+            'negeri' => $p['negeri'] ?? null,
+            'parlimen' => $p['parlimen'] ?? null,
+            'title' => $p['title'] ?? null,
+            'leader_slot' => $p['leader_slot'],
+            'total_keluar' => $p['total_keluar'],
+            'liputan' => $p['liputan'],
+            'calon' => array_map(fn ($r) => [
+                'slot' => $r['slot'],
+                'parti' => $r['parti'],
+                'logo' => PartyLogo::url($r['parti']),
+                'calon' => $r['calon'],
+                'undi' => $r['undi'],
+            ], $p['rows']),
+        ];
     }
 
     /**

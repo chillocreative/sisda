@@ -83,7 +83,12 @@ class ScoreboardPublicTest extends TestCase
 
     public function test_bare_index_lists_only_published_boards(): void
     {
-        $this->board(Scoreboard::STATUS_TERSIAR);
+        // Setiap kerusi dalam ujian ini SENGAJA diberi Borang 14 yang sedia,
+        // supaya satu-satunya sebab kad tercicir ialah penapis STATUS — bukan
+        // penapis "ada Borang 14" yang diuji berasingan di bawah.
+        $this->seedDpt();
+        $papan = $this->board(Scoreboard::STATUS_TERSIAR);
+        $papan->update(['borang14_form_id' => $this->borang($this->dun)->id]);
 
         // Kes draf tanpa kod — tidak boleh keluar dalam senarai.
         $lain = Kadun::create(['nama' => 'JOHOL', 'kod_dun' => 'N26', 'bandar_id' => $this->dun->bandar_id]);
@@ -108,9 +113,11 @@ class ScoreboardPublicTest extends TestCase
             'status' => 'approved',
             'kadun_id' => $pernahTersiar->id,
         ]);
+        $this->seedDpt('BAHAU', '800101015556');
         Scoreboard::create([
             'kawasan_type' => 'dun', 'kawasan_id' => $pernahTersiar->id,
             'title' => 'BAHAU', 'status' => Scoreboard::STATUS_DRAF,
+            'borang14_form_id' => $this->borang($pernahTersiar)->id,
         ]);
         $this->actingAs($pemilik)->postJson(route('pilihanraya.scoreboard.publish'), [
             'kawasan_type' => 'dun',
@@ -138,20 +145,89 @@ class ScoreboardPublicTest extends TestCase
         $this->get('/scoreboard/n31')->assertNotFound();
     }
 
+    /**
+     * Papan yang disiarkan TETAPI belum memaut Borang 14 tiada penjuru, tiada
+     * parti dan tiada undi — kadnya akan kosong sepenuhnya. Ia digugurkan,
+     * bukan dipapar dengan tempat kosong.
+     */
+    public function test_published_board_without_a_borang14_is_not_listed(): void
+    {
+        $this->seedDpt();
+        $this->board(Scoreboard::STATUS_TERSIAR); // tiada borang14_form_id
+
+        $boards = $this->get('/scoreboard')->assertOk()->viewData('page')['props']['boards'];
+
+        $this->assertSame([], $boards);
+
+        // Laluan tinjauan langsung mesti menapis dengan cara yang SAMA —
+        // jika tidak, kad yang digugurkan pada muatan awal muncul semula
+        // empat saat kemudian.
+        $this->getJson('/scoreboard/senarai')->assertOk()->assertExactJson(['boards' => []]);
+    }
+
+    /**
+     * Bentuk kad: nama kerusi, dan bagi setiap calon — parti, logo, nama dan
+     * angka undi langsung. Sifar di sini ialah sifar SEBENAR (borang wujud,
+     * belum ada undi dimasukkan), bukan null yang dipaksa jadi sifar.
+     */
+    public function test_card_carries_candidates_with_party_logo_and_live_votes(): void
+    {
+        $this->seedDpt();
+        $form = $this->borang($this->dun);
+        $papan = $this->board(Scoreboard::STATUS_TERSIAR);
+        $papan->update([
+            'borang14_form_id' => $form->id,
+            'candidates' => [
+                ['slot' => 1, 'nama' => 'AHMAD BIN ALI'],
+                ['slot' => 2, 'nama' => 'SITI BINTI ABU'],
+            ],
+        ]);
+
+        $boards = $this->getJson('/scoreboard/senarai')->assertOk()->json('boards');
+
+        $this->assertCount(1, $boards);
+        $kad = $boards[0];
+
+        $this->assertSame('N27', $kad['kod']);
+        $this->assertSame('dun', $kad['jenis']);
+        $this->assertSame('PILAH', $kad['nama']);
+        $this->assertCount(2, $kad['calon']);
+
+        $this->assertSame('KEADILAN', $kad['calon'][0]['parti']);
+        $this->assertSame('AHMAD BIN ALI', $kad['calon'][0]['calon']);
+        $this->assertStringContainsString('images/parti/keadilan.png', $kad['calon'][0]['logo']);
+        $this->assertSame(0, $kad['calon'][0]['undi']);
+        $this->assertSame(0, $kad['total_keluar']);
+    }
+
     /** Roll DPT minimum supaya Borang14Reference::forKadun() bukan null. */
-    private function seedDpt(): void
+    private function seedDpt(string $kadun = 'PILAH', string $ic = '800101015555'): void
     {
         DB::table('pangkalan_data_pengundi')->insert([
-            'no_ic' => '800101015555',
-            'nama' => 'PENGUNDI PILAH',
+            'no_ic' => $ic,
+            'nama' => 'PENGUNDI '.$kadun,
             'lokaliti' => 'KAMPUNG A',
             'daerah_mengundi' => 'AWAT',
-            'kadun' => 'PILAH',
+            'kadun' => $kadun,
             'parlimen' => 'KUALA PILAH',
             'negeri' => 'NEGERI SEMBILAN',
             'is_deceased' => false,
             'created_at' => now(),
             'updated_at' => now(),
+        ]);
+    }
+
+    /** Borang 14 minimum bagi satu DUN — inilah yang menjadikan papan "sedia". */
+    private function borang(Kadun $kadun): Borang14Form
+    {
+        return Borang14Form::create([
+            'kawasan_type' => 'dun',
+            'kawasan_id' => $kadun->id,
+            'jenis_pr' => 'prn',
+            'tahun' => 2026,
+            'penjuru' => 2,
+            'status' => 'published',
+            'parties' => [['nama' => 'KEADILAN'], ['nama' => 'BERSATU']],
         ]);
     }
 

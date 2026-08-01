@@ -21,7 +21,9 @@ class ScoreboardAccessTest extends TestCase
     use RefreshDatabase;
 
     private Kadun $dunSendiri;
+
     private Kadun $dunAsing;
+
     private Bandar $parlimenSendiri;
 
     protected function setUp(): void
@@ -57,6 +59,42 @@ class ScoreboardAccessTest extends TestCase
         $u = $this->user('user', kadunId: $this->dunSendiri->id);
 
         $this->actingAs($u)->get(route('pilihanraya.scoreboard'))->assertOk();
+    }
+
+    /**
+     * Pemilih kerusi hanya menawarkan kerusi yang BERBORANG 14. Kerusi tanpa
+     * borang tiada penjuru, parti mahupun undi — memilihnya hanya membawa
+     * pengguna ke skrin kosong.
+     *
+     * Halaman itu sendiri mesti KEKAL 200: "tiada kerusi berborang" bukan
+     * penolakan kebenaran, dan menukarnya menjadi 403 akan mengelirukan dua
+     * keadaan yang berlainan sama sekali.
+     */
+    public function test_seat_picker_lists_only_seats_that_have_a_borang14(): void
+    {
+        $admin = $this->user('admin', bandarId: $this->parlimenSendiri->id);
+
+        $kosong = $this->actingAs($admin)->get(route('pilihanraya.scoreboard'))->assertOk();
+        $this->assertSame([], $kosong->viewData('page')['props']['seats']);
+
+        \App\Models\Borang14Form::create([
+            'kawasan_type' => 'dun',
+            'kawasan_id' => $this->dunSendiri->id,
+            'jenis_pr' => 'prn',
+            'tahun' => 2026,
+            'penjuru' => 2,
+            'status' => 'draft',
+            'parties' => [['nama' => 'KEADILAN'], ['nama' => 'BERSATU']],
+        ]);
+
+        $seats = $this->actingAs($admin)->get(route('pilihanraya.scoreboard'))
+            ->assertOk()->viewData('page')['props']['seats'];
+
+        // DUN yang berborang sahaja — Parlimen induk pengguna ini masih tiada
+        // borangnya sendiri, jadi ia tidak ditawarkan.
+        $this->assertCount(1, $seats);
+        $this->assertSame('dun', $seats[0]['type']);
+        $this->assertSame($this->dunSendiri->id, $seats[0]['id']);
     }
 
     public function test_ketua_paca_dun_is_refused(): void

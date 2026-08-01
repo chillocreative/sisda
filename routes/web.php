@@ -46,6 +46,9 @@ Route::get('/', function () {
  */
 Route::get('/scoreboard', [\App\Http\Controllers\PublicScoreboardController::class, 'index'])
     ->name('scoreboard.public.index')->middleware('throttle:600,1');
+// Tinjauan langsung bagi senarai kad. DI ATAS /scoreboard/{kod} dengan sengaja.
+Route::get('/scoreboard/senarai', [\App\Http\Controllers\PublicScoreboardController::class, 'senarai'])
+    ->name('scoreboard.public.senarai')->middleware('throttle:1200,1');
 Route::get('/scoreboard/{kadun}', [\App\Http\Controllers\PublicScoreboardController::class, 'legacy'])
     ->whereNumber('kadun')->name('scoreboard.public.legacy')->middleware('throttle:600,1');
 Route::get('/scoreboard/{kod}/data', [\App\Http\Controllers\PublicScoreboardController::class, 'data'])

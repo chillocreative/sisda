@@ -22,19 +22,64 @@ use Inertia\Inertia;
  */
 class PublicScoreboardController extends Controller
 {
-    /** Senarai ringkas papan tersiar — hanya apa yang pemilik pilih untuk siarkan. */
+    /**
+     * Senarai kad papan tersiar — hanya apa yang pemilik pilih untuk siarkan,
+     * DAN hanya kerusi yang Borang 14-nya benar-benar hidup (lihat kadAwam()).
+     */
     public function index()
     {
-        $boards = Scoreboard::where('status', Scoreboard::STATUS_TERSIAR)
-            ->whereNotNull('kod')->orderBy('kod')->get(['kawasan_type', 'kawasan_id', 'kod', 'title'])
-            ->map(fn ($b) => [
-                'kod' => $b->kod,
-                'title' => $b->title,
-                'nama' => $this->namaKerusi($b->kawasan_type, (int) $b->kawasan_id),
-                'url' => route('scoreboard.public', ['kod' => strtolower($b->kod)]),
-            ])->values()->all();
+        return Inertia::render('Public/ScoreboardIndex', ['boards' => $this->kadTersiar()]);
+    }
 
-        return Inertia::render('Public/ScoreboardIndex', ['boards' => $boards]);
+    /**
+     * Muatan langsung bagi senarai kad — ditinjau oleh halaman index supaya
+     * angka pada setiap kad bergerak tanpa memuat semula halaman.
+     *
+     * Laluan ini MESTI kekal di atas /scoreboard/{kod} dalam routes/web.php;
+     * kekangan {kod} ([A-Za-z]\d+) tidak sepadan dengan "senarai", jadi tiada
+     * kod kerusi sebenar boleh dirampas oleh laluan ini.
+     */
+    public function senarai()
+    {
+        return response()->json(['boards' => $this->kadTersiar()])
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache');
+    }
+
+    /**
+     * Papan tersiar yang sudah sedia, sebagai kad.
+     *
+     * kadAwam() memulangkan null bagi papan yang belum memaut Borang 14 —
+     * papan begitu digugurkan sepenuhnya dan bukan dipapar dengan tempat
+     * kosong. Kad yang tinggal membawa angka yang dikira pelayan sahaja.
+     *
+     * KOS: satu SUM(undi) GROUP BY slot bagi SETIAP papan tersiar, setiap
+     * tinjauan (rujukan DPT sendiri sudah dicache — lihat Borang14Reference).
+     * Itu masih kecil pada bilangan kerusi yang disiarkan hari ini, tetapi ia
+     * membesar dengan bilangan papan dan BUKAN dengan bilangan penonton. Jika
+     * senarai ini suatu hari merangkumi ratusan kerusi, agregatkan dalam SATU
+     * pertanyaan merentas borang sebelum menaikkan had throttle.
+     */
+    private function kadTersiar(): array
+    {
+        return Scoreboard::where('status', Scoreboard::STATUS_TERSIAR)
+            ->whereNotNull('kod')->orderBy('kod')->get(['kawasan_type', 'kawasan_id', 'kod', 'title'])
+            ->map(function ($b) {
+                $kad = ScoreboardPayload::kadAwam($b->kawasan_type, (int) $b->kawasan_id);
+                if ($kad === null) {
+                    return null;
+                }
+
+                // kadAwam() mengambil nama daripada rujukan DPT, yang boleh
+                // kosong; nama jadual induk ialah sandaran yang pasti ada.
+                $kad['kod'] = $b->kod;
+                $kad['nama'] = $kad['nama'] ?: $this->namaKerusi($b->kawasan_type, (int) $b->kawasan_id);
+                $kad['title'] = $b->title;
+                $kad['url'] = route('scoreboard.public', ['kod' => strtolower($b->kod)]);
+
+                return $kad;
+            })
+            ->filter()->values()->all();
     }
 
     public function show(string $kod)

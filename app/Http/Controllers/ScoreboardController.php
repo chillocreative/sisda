@@ -32,11 +32,38 @@ class ScoreboardController extends Controller
     public function index(Request $request)
     {
         $seats = SeatScope::seats($request->user());
+
+        // Kebenaran disemak pada senarai PENUH — menapis dahulu akan menukar
+        // "tiada Borang 14 lagi" menjadi 403 "tiada kerusi", dua keadaan yang
+        // berlainan sama sekali.
         abort_if($seats === [], 403, 'Anda tiada kerusi untuk diuruskan.');
 
+        $berborang = $this->kerusiBerborang14();
+
         return Inertia::render('Pilihanraya/Scoreboard', [
-            'seats' => $seats,
+            // Kerusi tanpa Borang 14 tiada apa-apa untuk dipapar: penjuru,
+            // parti dan undi SEMUANYA datang dari borang. Menyenaraikannya
+            // hanya membawa pengguna ke skrin kosong, jadi ia digugurkan.
+            'seats' => array_values(array_filter(
+                $seats,
+                fn ($s) => isset($berborang[$s['type'].':'.$s['id']]),
+            )),
         ]);
+    }
+
+    /**
+     * Set kerusi yang mempunyai sekurang-kurangnya satu Borang 14, berkunci
+     * "type:id". Satu pertanyaan bagi keseluruhan senarai — bukan satu setiap
+     * kerusi — kerana super_admin memegang setiap DUN di negara ini.
+     *
+     * @return array<string, true>
+     */
+    private function kerusiBerborang14(): array
+    {
+        return Borang14Form::query()
+            ->select('kawasan_type', 'kawasan_id')->distinct()->get()
+            ->mapWithKeys(fn ($f) => [$f->kawasan_type.':'.(int) $f->kawasan_id => true])
+            ->all();
     }
 
     /** Muatan langsung — ditinjau setiap 4 saat oleh halaman pemilik. */

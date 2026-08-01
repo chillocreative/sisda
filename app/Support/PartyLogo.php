@@ -3,9 +3,14 @@
 namespace App\Support;
 
 /**
- * Maps a Borang 14 party/coalition name to its logo, embedded as a base64
- * data URI for the PDF export. Logos live under public/images/parti/{file};
- * names with no match simply render without one.
+ * Maps a Borang 14 party/coalition name to its logo. Logos live under
+ * public/images/parti/{file}; names with no match simply render without one.
+ *
+ * Dua bentuk keluaran daripada SATU peta:
+ *  - dataUri() menyematkan bait logo — eksport PDF tiada capaian HTTP.
+ *  - url()     memulangkan URL awam — skrin (papan markah) memuatkannya biasa.
+ * Kedua-duanya berkongsi slug() supaya nama yang dikenali PDF dan nama yang
+ * dikenali skrin tidak boleh menyimpang.
  */
 class PartyLogo
 {
@@ -30,22 +35,45 @@ class PartyLogo
 
     private static array $cache = [];
 
-    public static function dataUri(?string $name): ?string
+    /** Nama fail logo (tanpa sambungan), atau null jika nama tidak dikenali. */
+    public static function slug(?string $name): ?string
     {
-        $key = strtoupper(trim((string) $name));
-        if ($key === '' || ! isset(self::MAP[$key])) {
+        return self::MAP[strtoupper(trim((string) $name))] ?? null;
+    }
+
+    /**
+     * URL awam logo, atau null jika nama tidak dikenali ATAU fail tiada.
+     * Semakan is_file() disengajakan: <img> yang menunjuk fail yang hilang
+     * memberi ikon rosak, sedangkan null membenarkan skrin jatuh balik kepada
+     * lencana warna parti.
+     */
+    public static function url(?string $name): ?string
+    {
+        $slug = self::slug($name);
+
+        if ($slug === null || ! is_file(public_path('images/parti/'.$slug.'.png'))) {
             return null;
         }
 
-        if (array_key_exists($key, self::$cache)) {
-            return self::$cache[$key];
+        return asset('images/parti/'.$slug.'.png');
+    }
+
+    public static function dataUri(?string $name): ?string
+    {
+        $slug = self::slug($name);
+        if ($slug === null) {
+            return null;
         }
 
-        $path = public_path('images/parti/'.self::MAP[$key].'.png');
+        if (array_key_exists($slug, self::$cache)) {
+            return self::$cache[$slug];
+        }
+
+        $path = public_path('images/parti/'.$slug.'.png');
         if (! is_file($path)) {
-            return self::$cache[$key] = null;
+            return self::$cache[$slug] = null;
         }
 
-        return self::$cache[$key] = 'data:image/png;base64,'.base64_encode(file_get_contents($path));
+        return self::$cache[$slug] = 'data:image/png;base64,'.base64_encode(file_get_contents($path));
     }
 }
