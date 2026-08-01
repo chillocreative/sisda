@@ -74,6 +74,59 @@ class SeatScope
         abort_unless(self::allows($user, $type, $id), 403, 'Tindakan tidak dibenarkan.');
     }
 
+    /**
+     * Tegaskan kerusi HANYA bagi peranan yang dikurung kepada satu Parlimen.
+     *
+     * Berbeza daripada assert(), yang mengikat SETIAP peranan. Digunakan pada
+     * hujung agregat Pilihanraya yang hari ini terbuka kepada `admin` untuk
+     * mana-mana kerusi: mengetatkannya bagi admin ialah keputusan produk yang
+     * belum dibuat, jadi peranan selain yang dikurung melaluinya tanpa
+     * sebarang perubahan.
+     */
+    public static function assertJikaTerkurung(?User $user, string $type, int $id): void
+    {
+        if (self::parlimenKurungan($user) === null) {
+            return;
+        }
+
+        self::assert($user, $type, $id);
+    }
+
+    /**
+     * Parlimen yang MENGURUNG paparan agregat Pilihanraya (War Room,
+     * Analisa, Simulasi, Kaum Mengikut DM, Minima), atau null jika peranan
+     * itu tidak dikurung.
+     *
+     * Halaman-halaman itu mengagregat mengikut NAMA kawasan dan bukan
+     * mengikut id kerusi, jadi allows()/seats() sahaja tidak dapat
+     * menjaganya — ia memerlukan penapis yang dipaksa. Ini tempat SATU-SATUNYA
+     * peraturan itu ditulis, sama seperti allows()/seats().
+     *
+     * SENGAJA `pengarah_dun` sahaja. Seorang `admin` melihat agregat
+     * KEBANGSAAN di War Room hari ini; mengubahnya ialah keputusan produk
+     * yang belum dibuat oleh pemilik sistem dan berada di luar skop peranan
+     * baharu ini.
+     *
+     * Gagal-tutup: seorang pengarah yang belum diluluskan atau tanpa
+     * bandar_id ditolak 403 di sini dan bukan dilayan sebagai "tiada had" —
+     * itu pengajaran IDOR Julai 2026 (pengawal yang berpaut pada lajur
+     * boleh-null).
+     */
+    public static function parlimenKurungan(?User $user): ?Bandar
+    {
+        if (! $user || ! $user->isPengarahDun()) {
+            return null;
+        }
+
+        abort_unless($user->isApproved(), 403, 'Akaun anda belum diluluskan.');
+
+        $bandar = $user->bandar_id ? Bandar::find($user->bandar_id) : null;
+
+        abort_unless($bandar, 403, 'Akaun anda tiada Parlimen — hubungi Admin.');
+
+        return $bandar;
+    }
+
     /** @return array<int, array{type: string, id: int, nama: string, kod: ?string}> */
     public static function seats(?User $user): array
     {

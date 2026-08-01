@@ -8,6 +8,7 @@ use App\Services\Pilihanraya\ElectionAnalyticsService;
 use App\Services\Pilihanraya\ElectionEarlyWarningService;
 use App\Services\Pilihanraya\ElectionForecastService;
 use App\Support\PartyCode;
+use App\Support\SeatScope;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -15,7 +16,11 @@ use Maatwebsite\Excel\Facades\Excel;
 
 /**
  * Pilihanraya — Digital War Room & Election Intelligence Center.
- * All routes are super_admin-only (enforced by the route group).
+ *
+ * Laluan dijaga oleh middleware `pilihanraya` (EnsurePilihanrayaAccess):
+ * super_admin, admin dan pengarah_dun. Skop kawasan bagi peranan yang
+ * dikurung kepada satu Parlimen dipaksa dalam kekangKawasan() di bawah —
+ * SETIAP hujung data melalui f().
  */
 class PilihanrayaController extends Controller
 {
@@ -56,7 +61,7 @@ class PilihanrayaController extends Controller
 
         return Inertia::render('Pilihanraya/WarRoom', array_merge(
             ['overview' => $this->analytics->overview($f)],
-            $this->analytics->filterLists(),
+            $this->analytics->filterLists($request->user()),
         ));
     }
 
@@ -69,7 +74,7 @@ class PilihanrayaController extends Controller
                     ->map(fn ($label, $value) => ['value' => $value, 'label' => $label])
                     ->values(),
             ],
-            $this->analytics->filterLists(),
+            $this->analytics->filterLists($request->user()),
         ));
     }
 
@@ -302,10 +307,47 @@ class PilihanrayaController extends Controller
 
     private function f(Request $request): array
     {
-        return $this->analytics->resolveFilters($request->only([
+        return $this->analytics->resolveFilters($this->kekangKawasan($request->only([
             'negeri_id', 'parlimen_id', 'kadun_id', 'tarikh_dari', 'tarikh_hingga',
             'umur_dari', 'umur_hingga', 'status_pengundi',
-        ]));
+        ])));
+    }
+
+    /**
+     * Kurung penapis kawasan kepada Parlimen pengguna bagi peranan yang
+     * berskop Parlimen (kini `pengarah_dun` sahaja — lihat
+     * SeatScope::parlimenKurungan()).
+     *
+     * SETIAP hujung data dalam pengawal ini melalui f(), jadi ini satu-satunya
+     * titik sekatan yang diperlukan. Penting: parlimen_id DIPAKSA, bukan
+     * sekadar dilalaikan — kalau tidak, menaip `?parlimen_id=` Parlimen orang
+     * lain akan menembusinya.
+     *
+     * Peranan lain melalui tanpa sebarang perubahan.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    private function kekangKawasan(array $input): array
+    {
+        $user = auth()->user();
+        $bandar = SeatScope::parlimenKurungan($user);
+
+        if (! $bandar) {
+            return $input;
+        }
+
+        $input['parlimen_id'] = $bandar->id;
+        $input['negeri_id'] = $bandar->negeri_id;
+
+        // DUN dibenarkan hanya jika ia berada di bawah Parlimen itu; kalau
+        // tidak, tapisan DUN digugurkan dan paparan kekal pada Parlimen penuh.
+        if (! empty($input['kadun_id'])
+            && ! SeatScope::allows($user, SeatScope::DUN, (int) $input['kadun_id'])) {
+            unset($input['kadun_id']);
+        }
+
+        return $input;
     }
 
     /**

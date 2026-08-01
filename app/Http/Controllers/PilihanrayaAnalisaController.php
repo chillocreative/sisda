@@ -11,6 +11,7 @@ use App\Models\UploadBatch;
 use App\Services\Pilihanraya\ElectionAnalyticsService;
 use App\Services\Pilihanraya\SeatBaselineService;
 use App\Support\Pilihanraya\ScoresheetParser;
+use App\Support\SeatScope;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -22,13 +23,15 @@ use Inertia\Inertia;
  * comparison scenarios for AI analysis. Minima / Kaum Mengikut DM remain the
  * curated Buloh Kasap pages.
  *
- * All routes sit inside the super_admin/admin pilihanraya group.
+ * Laluan berada dalam kumpulan `pilihanraya` (super_admin, admin,
+ * pengarah_dun). Peranan yang dikurung kepada satu Parlimen ditapis melalui
+ * SeatScope::parlimenKurungan()/assertJikaTerkurung().
  */
 class PilihanrayaAnalisaController extends Controller
 {
     public function keputusan(Request $request, ElectionAnalyticsService $analytics)
     {
-        $lists = $analytics->filterLists();
+        $lists = $analytics->filterLists($request->user());
 
         return Inertia::render('Pilihanraya/Analisa', [
             'geo' => [
@@ -43,7 +46,12 @@ class PilihanrayaAnalisaController extends Controller
     /** Compact list of saved comparisons (with scope) for the page dropdown. */
     private function savedComparisons(): array
     {
+        // Tajuk + skop setiap perbandingan mendedahkan kerusi mana yang sedang
+        // dianalisa; peranan yang dikurung melihat Parlimennya sahaja.
+        $kurungan = SeatScope::parlimenKurungan(auth()->user());
+
         return AnalisaComparison::withCount('scenarios')
+            ->when($kurungan, fn ($q) => $q->where('bandar_id', $kurungan->id))
             ->latest()
             ->get()
             ->map(fn ($c) => [
@@ -142,6 +150,16 @@ class PilihanrayaAnalisaController extends Controller
             'bandar_id' => 'nullable|integer|exists:bandar,id',
         ]);
 
+        // Kebenaran kerusi diterbitkan daripada SeatScope dan bukan ditulis
+        // kali kedua di sini. Kawasan yang tidak diberi kekal dibenarkan —
+        // ia memulangkan bentuk KOSONG, bukan data kerusi orang lain.
+        if (! empty($data['kadun_id'])) {
+            SeatScope::assertJikaTerkurung($request->user(), SeatScope::DUN, (int) $data['kadun_id']);
+        }
+        if (! empty($data['bandar_id'])) {
+            SeatScope::assertJikaTerkurung($request->user(), SeatScope::PARLIMEN, (int) $data['bandar_id']);
+        }
+
         $kawasan = ! empty($data['kadun_id'])
             ? Kadun::find($data['kadun_id'])
             : (! empty($data['bandar_id']) ? Bandar::find($data['bandar_id']) : null);
@@ -200,6 +218,35 @@ class PilihanrayaAnalisaController extends Controller
      * name in kaumDmForDun(), so a scrambled batch simply never matches.
      */
     private function kawasanListFromMaster(): array
+    {
+        $senarai = $this->kawasanMasterPenuh();
+
+        // Peranan yang dikurung kepada satu Parlimen melihat DUN di bawah
+        // Parlimennya SAHAJA. Ditapis SELEPAS cache — cache itu dikongsi
+        // seluruh aplikasi di bawah satu kunci, jadi menapis di dalamnya
+        // akan menyimpan senarai seorang pengguna untuk semua orang.
+        //
+        // Menapis di sini memadai untuk pemilihan juga: kaumDm()/minima()
+        // memilih dengan firstWhere('id', ?kawasan) pada senarai INI, jadi
+        // id asing yang ditaip tidak akan padan dan halaman jatuh ke kerusi
+        // lalai dalam skop.
+        $bandar = SeatScope::parlimenKurungan(auth()->user());
+
+        if (! $bandar) {
+            return $senarai;
+        }
+
+        $dibenarkan = Kadun::where('bandar_id', $bandar->id)->pluck('id')
+            ->map(fn ($id) => (string) $id)->all();
+
+        return array_values(array_filter(
+            $senarai,
+            fn ($k) => in_array($k['id'], $dibenarkan, true),
+        ));
+    }
+
+    /** Senarai induk KEBANGSAAN, dicache di bawah satu kunci dikongsi. */
+    private function kawasanMasterPenuh(): array
     {
         return Cache::remember('kaumdm:kawasan_master', 300, function () {
             $bandars = Bandar::get(['id', 'nama', 'negeri_id'])->keyBy('id');
@@ -350,6 +397,14 @@ class PilihanrayaAnalisaController extends Controller
         $level = $request->query('level') === 'parlimen' ? 'parlimen' : 'dun';
         $bandar = Bandar::find($request->query('bandar_id'));
         $kadun = $level === 'dun' ? Kadun::find($request->query('kadun_id')) : null;
+
+        // Kad ini membawa angka keanggotaan sebenar bagi kerusi yang dinamakan.
+        if ($bandar) {
+            SeatScope::assertJikaTerkurung($request->user(), SeatScope::PARLIMEN, (int) $bandar->id);
+        }
+        if ($kadun) {
+            SeatScope::assertJikaTerkurung($request->user(), SeatScope::DUN, (int) $kadun->id);
+        }
         $batchIds = KeanggotaanBatch::activeIds();
 
         $scope = ['level' => $level, 'parlimen' => $bandar?->nama, 'dun' => $kadun?->nama];

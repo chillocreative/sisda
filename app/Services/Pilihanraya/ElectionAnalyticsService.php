@@ -9,6 +9,8 @@ use App\Models\Kadun;
 use App\Models\Negeri;
 use App\Models\PangkalanDataPengundi;
 use App\Models\UploadBatch;
+use App\Models\User;
+use App\Support\SeatScope;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -75,12 +77,34 @@ class ElectionAnalyticsService
         });
     }
 
-    public function filterLists(): array
+    /**
+     * Senarai pemilih Negeri / Parlimen / DUN.
+     *
+     * Bagi peranan yang dikurung kepada satu Parlimen (lihat
+     * SeatScope::parlimenKurungan()) senarai ini DITAPIS kepada Parlimen itu
+     * dan DUN di bawahnya sahaja: pemilih antara muka mesti dibina daripada
+     * kerusi yang DIBENARKAN, bukan daripada jadual induk penuh — kalau tidak
+     * ia menyenaraikan kerusi yang pengguna tidak berhak sentuh.
+     *
+     * $user tidak diberi (atau peranan yang tidak dikurung) → senarai
+     * KEBANGSAAN seperti sebelum ini, tidak berubah walau sedikit.
+     */
+    public function filterLists(?User $user = null): array
     {
+        $bandar = SeatScope::parlimenKurungan($user);
+
+        if (! $bandar) {
+            return [
+                'negeriList' => Negeri::orderBy('nama')->get(['id', 'nama']),
+                'parlimenList' => Bandar::orderBy('nama')->get(['id', 'nama', 'negeri_id']),
+                'kadunList' => Kadun::orderBy('nama')->get(['id', 'nama', 'bandar_id']),
+            ];
+        }
+
         return [
-            'negeriList' => Negeri::orderBy('nama')->get(['id', 'nama']),
-            'parlimenList' => Bandar::orderBy('nama')->get(['id', 'nama', 'negeri_id']),
-            'kadunList' => Kadun::orderBy('nama')->get(['id', 'nama', 'bandar_id']),
+            'negeriList' => Negeri::whereKey($bandar->negeri_id)->get(['id', 'nama']),
+            'parlimenList' => Bandar::whereKey($bandar->id)->get(['id', 'nama', 'negeri_id']),
+            'kadunList' => Kadun::where('bandar_id', $bandar->id)->orderBy('nama')->get(['id', 'nama', 'bandar_id']),
         ];
     }
 

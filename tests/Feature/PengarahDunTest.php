@@ -211,10 +211,99 @@ class PengarahDunTest extends TestCase
     }
 
     /**
-     * Laporan hidup dalam kumpulan `auth` kosong dan diskop oleh
-     * VoterScopeService. Peranan yang tidak dikenali dahulunya JATUH MELALUI
-     * ke "tanpa had" — iaitu data pengundi seluruh negara. Mesti sifar baris.
+     * Tiga baris ujian Laporan: satu dalam Parlimen sendiri, satu dalam
+     * Parlimen orang lain. Kedua-duanya mesti tidak dapat dicapai — peranan
+     * ini langsung tiada menu Laporan.
+     *
+     * @return array{0: HasilCulaan, 1: HasilCulaan, 2: DataPengundi}
      */
+    private function benihLaporan(): array
+    {
+        $hcSendiri = HasilCulaan::factory()->create([
+            'negeri' => 'NEGERI SEMBILAN', 'bandar' => 'KUALA PILAH', 'kadun' => 'PILAH',
+        ]);
+        $hcAsing = HasilCulaan::factory()->create([
+            'negeri' => 'NEGERI SEMBILAN', 'bandar' => 'JEMPOL', 'kadun' => 'BAHAU',
+        ]);
+        $dpAsing = DataPengundi::factory()->create([
+            'negeri' => 'NEGERI SEMBILAN', 'bandar' => 'JEMPOL', 'kadun' => 'BAHAU',
+        ]);
+
+        return [$hcSendiri, $hcAsing, $dpAsing];
+    }
+
+    /**
+     * EKSPORT ialah lubang yang paling teruk: skopnya ditulis DENGAN TANGAN
+     * (`if ($user->isAdmin())`) dan tidak pernah memanggil VoterScopeService,
+     * jadi peranan yang bukan `user` dan bukan `admin` jatuh melalui dan
+     * memuat turun sehingga 10,000 baris no_ic/no_tel/alamat SELURUH NEGARA.
+     *
+     * Halaman indeks yang berskop TIDAK membuktikan eksport selamat — itulah
+     * sebabnya ujian ini wujud berasingan.
+     */
+    public function test_laporan_exports_are_refused(): void
+    {
+        $this->benihLaporan();
+        $pengarah = $this->pengarah();
+
+        foreach (['reports.hasil-culaan.export', 'reports.data-pengundi.export'] as $nama) {
+            $this->actingAs($pengarah)->get(route($nama))->assertForbidden();
+        }
+    }
+
+    /**
+     * Padam pukal berkongsi bentuk pepijat yang sama seperti eksport: cabang
+     * `else`-nya memadam SETIAP id yang diminta tanpa semakan kerusi. Itu
+     * kemusnahan seluruh negara, bukan sekadar bacaan.
+     */
+    public function test_laporan_bulk_delete_cannot_reach_foreign_records(): void
+    {
+        [$hcSendiri, $hcAsing, $dpAsing] = $this->benihLaporan();
+        $pengarah = $this->pengarah();
+
+        $this->actingAs($pengarah)->post(route('reports.hasil-culaan.bulk-delete'), [
+            'ids' => [$hcSendiri->id, $hcAsing->id],
+        ]);
+        $this->actingAs($pengarah)->post(route('reports.data-pengundi.bulk-delete'), [
+            'ids' => [$dpAsing->id],
+        ]);
+
+        $this->assertNotNull($hcSendiri->fresh(), 'Rekod Parlimen sendiri dipadam.');
+        $this->assertNotNull($hcAsing->fresh(), 'Rekod Parlimen ASING dipadam.');
+        $this->assertNotNull($dpAsing->fresh(), 'Rekod Parlimen ASING dipadam.');
+    }
+
+    /** Padam tunggal hanya berpagar pada isUser() — peranan ini terlepas. */
+    public function test_laporan_single_delete_is_refused(): void
+    {
+        [, $hcAsing, $dpAsing] = $this->benihLaporan();
+        $pengarah = $this->pengarah();
+
+        $this->actingAs($pengarah)
+            ->delete(route('reports.hasil-culaan.destroy', $hcAsing))->assertForbidden();
+        $this->actingAs($pengarah)
+            ->delete(route('reports.data-pengundi.destroy', $dpAsing))->assertForbidden();
+
+        $this->assertNotNull($hcAsing->fresh());
+        $this->assertNotNull($dpAsing->fresh());
+    }
+
+    /**
+     * Sekatan "hanya Parlimen sendiri" pada cipta rekod ditulis sebagai
+     * `if ($user->isAdmin() || $user->isUser())` — peranan ini terlepas
+     * sepenuhnya dan boleh mencipta rekod bagi mana-mana Parlimen.
+     */
+    public function test_laporan_store_is_refused(): void
+    {
+        $this->actingAs($this->pengarah())
+            ->post(route('reports.hasil-culaan.store'), [
+                'nama' => 'PENYUSUP', 'no_ic' => '900101015555',
+                'parlimen' => 'JEMPOL', 'negeri' => 'NEGERI SEMBILAN', 'kadun' => 'BAHAU',
+            ])->assertForbidden();
+
+        $this->assertSame(0, HasilCulaan::where('nama', 'PENYUSUP')->count());
+    }
+
     public function test_laporan_shows_no_rows_at_all(): void
     {
         // Baris dalam Parlimen SENDIRI — jika skop bocor "tanpa had", baris
@@ -240,6 +329,195 @@ class PengarahDunTest extends TestCase
         $pengundi = $this->actingAs($pengarah)->get(route('reports.data-pengundi.index'))
             ->assertOk()->viewData('page')['props'];
         $this->assertCount(0, $pengundi['dataPengundi']['data'] ?? $pengundi['dataPengundi'] ?? []);
+    }
+
+    // ------------------------------------------------- skop menu Pilihanraya
+
+    /**
+     * Menyemai kedua-dua Parlimen dengan baris undian + culaan supaya agregat
+     * mempunyai sesuatu untuk dikembalikan pada kedua-dua belah. Tanpa ini
+     * ujian "tiada kerusi asing" lulus secara kosong.
+     */
+    private function benihAgregat(): void
+    {
+        foreach ([
+            ['KUALA PILAH', 'PILAH'],
+            ['JEMPOL', 'BAHAU'],
+        ] as [$parlimen, $dun]) {
+            for ($i = 0; $i < 3; $i++) {
+                HasilCulaan::factory()->create([
+                    'negeri' => 'NEGERI SEMBILAN', 'bandar' => $parlimen,
+                    'parlimen' => $parlimen, 'kadun' => $dun,
+                ]);
+            }
+        }
+    }
+
+    /** Setiap nama kerusi yang muncul dalam muatan seat-scores/battlefield. */
+    private function namaKerusi(array $payload): array
+    {
+        $nama = [];
+        array_walk_recursive($payload, function ($v, $k) use (&$nama) {
+            if (in_array($k, ['name', 'parlimen', 'kadun'], true) && is_string($v) && $v !== '') {
+                $nama[] = mb_strtoupper($v);
+            }
+        });
+
+        return array_values(array_unique($nama));
+    }
+
+    /**
+     * "Parlimen sahaja" mesti benar bagi hujung API War Room juga, bukan
+     * sekadar bagi Scoreboard dan Borang 14. Hujung ini menerima
+     * `parlimen_id` daripada permintaan, jadi ia mesti DIPAKSA kepada
+     * Parlimen pengguna dan bukan sekadar dilalaikan kepadanya.
+     */
+    public function test_war_room_api_never_returns_a_foreign_seat(): void
+    {
+        $this->benihAgregat();
+        $pengarah = $this->pengarah();
+
+        foreach (['pilihanraya.api.seat-scores', 'pilihanraya.api.battlefield'] as $nama) {
+            // (a) tanpa penapis langsung
+            $nama1 = $this->namaKerusi(
+                $this->actingAs($pengarah)->getJson(route($nama))->assertOk()->json()
+            );
+            // Positif DAHULU: tanpa ini ujian lulus secara kosong apabila
+            // muatan langsung tidak mengandungi apa-apa kerusi.
+            $this->assertContains('KUALA PILAH', $nama1, "{$nama}: kerusi sendiri hilang — ujian kosong.");
+            $this->assertNotContains('JEMPOL', $nama1, "{$nama}: Parlimen asing bocor.");
+            $this->assertNotContains('BAHAU', $nama1, "{$nama}: DUN asing bocor.");
+
+            // (b) DENGAN Parlimen asing dipaksa masuk melalui permintaan
+            $nama2 = $this->namaKerusi(
+                $this->actingAs($pengarah)->getJson(route($nama, [
+                    'parlimen_id' => $this->parlimenAsing->id,
+                    'kadun_id' => $this->dunAsing->id,
+                ]))->assertOk()->json()
+            );
+            $this->assertNotContains('JEMPOL', $nama2, "{$nama}: parlimen_id yang ditaip menembusi skop.");
+            $this->assertNotContains('BAHAU', $nama2, "{$nama}: kadun_id yang ditaip menembusi skop.");
+        }
+    }
+
+    /**
+     * Pemilih antara muka MESTI dibina daripada kerusi yang dibenarkan
+     * sahaja — membinanya daripada jadual induk penuh menyenaraikan kerusi
+     * yang pengguna tidak berhak sentuh (docblock SeatScope).
+     */
+    public function test_pilihanraya_pickers_only_offer_own_parlimen(): void
+    {
+        $pengarah = $this->pengarah();
+
+        $geo = $this->actingAs($pengarah)->get(route('pilihanraya.simulasi'))
+            ->assertOk()->viewData('page')['props'];
+
+        $this->assertSame(
+            [$this->parlimenSendiri->id],
+            collect($geo['parlimenList'])->pluck('id')->all(),
+        );
+        $this->assertEqualsCanonicalizing(
+            [$this->dunSendiri->id, $this->dunSendiriKedua->id],
+            collect($geo['kadunList'])->pluck('id')->all(),
+        );
+
+        $analisa = $this->actingAs($pengarah)->get(route('pilihanraya.analisa'))
+            ->assertOk()->viewData('page')['props'];
+        $this->assertSame(
+            [$this->parlimenSendiri->id],
+            collect($analisa['geo']['parlimenList'])->pluck('id')->all(),
+        );
+    }
+
+    /**
+     * Kaum Mengikut DM dan Minima memilih kerusi melalui ?kawasan=<id kadun>
+     * daripada senarai induk KEBANGSAAN. Senarai itu mesti ditapis, dan id
+     * asing yang ditaip mesti tidak boleh dipilih.
+     */
+    public function test_kaum_dm_and_minima_cannot_open_a_foreign_seat(): void
+    {
+        $pengarah = $this->pengarah();
+
+        foreach (['pilihanraya.kaum-dm', 'pilihanraya.minima'] as $nama) {
+            $props = $this->actingAs($pengarah)
+                ->get(route($nama, ['kawasan' => $this->dunAsing->id]))
+                ->assertOk()->viewData('page')['props'];
+
+            $senarai = collect($props['context']['kawasanList']);
+
+            $this->assertEqualsCanonicalizing(
+                [(string) $this->dunSendiri->id, (string) $this->dunSendiriKedua->id],
+                $senarai->pluck('id')->all(),
+                "{$nama}: senarai kawasan mengandungi kerusi asing.",
+            );
+            $this->assertNotSame('BAHAU', $props['context']['dun'], "{$nama}: kerusi asing dibuka.");
+            $this->assertSame('KUALA PILAH', $props['context']['parlimen']);
+        }
+    }
+
+    /**
+     * Perbandingan Analisa memegang tally undi sebenar bagi satu kerusi dan
+     * diikat melalui laluan, jadi id yang ditaip membuka kerusi orang lain.
+     */
+    public function test_analisa_comparisons_of_a_foreign_seat_are_unreachable(): void
+    {
+        $asing = \App\Models\AnalisaComparison::create([
+            'user_id' => $this->user('super_admin', ['bandar_id' => null, 'kadun_id' => null])->id,
+            'title' => 'Perbandingan JEMPOL', 'level' => 'parlimen',
+            'negeri' => 'NEGERI SEMBILAN', 'bandar_id' => $this->parlimenAsing->id,
+            'parlimen' => 'JEMPOL', 'status' => 'draft',
+        ]);
+
+        $pengarah = $this->pengarah();
+
+        $this->actingAs($pengarah)
+            ->getJson(route('pilihanraya.analisa.comparisons.show', $asing))->assertForbidden();
+        $this->actingAs($pengarah)
+            ->deleteJson(route('pilihanraya.analisa.comparisons.destroy', $asing))->assertForbidden();
+        $this->assertNotNull($asing->fresh());
+
+        // Ia juga mesti tidak muncul dalam senarai.
+        $senarai = $this->actingAs($pengarah)
+            ->getJson(route('pilihanraya.analisa.comparisons.index'))->assertOk()->json('comparisons');
+        $this->assertSame([], $senarai);
+
+        // Dan tidak boleh dicipta pada Parlimen orang lain.
+        $this->actingAs($pengarah)->postJson(route('pilihanraya.analisa.comparisons.store'), [
+            'title' => 'Curi', 'level' => 'parlimen', 'bandar_id' => $this->parlimenAsing->id,
+        ])->assertForbidden();
+
+        // Parlimen sendiri kekal berfungsi.
+        $this->actingAs($pengarah)->postJson(route('pilihanraya.analisa.comparisons.store'), [
+            'title' => 'Sendiri', 'level' => 'parlimen', 'bandar_id' => $this->parlimenSendiri->id,
+        ])->assertOk();
+    }
+
+    /** Garis dasar rasmi per-kerusi mesti menolak kerusi asing. */
+    public function test_seat_baseline_refuses_a_foreign_seat(): void
+    {
+        $pengarah = $this->pengarah();
+
+        $this->actingAs($pengarah)->getJson(route('pilihanraya.analisa.seat-baseline', [
+            'kadun_id' => $this->dunAsing->id, 'level' => 'dun',
+        ]))->assertForbidden();
+
+        $this->actingAs($pengarah)->getJson(route('pilihanraya.analisa.seat-baseline', [
+            'bandar_id' => $this->parlimenAsing->id, 'level' => 'parlimen',
+        ]))->assertForbidden();
+
+        // Kerusi sendiri kekal boleh dibaca.
+        $this->actingAs($pengarah)->getJson(route('pilihanraya.analisa.seat-baseline', [
+            'kadun_id' => $this->dunSendiri->id, 'level' => 'dun',
+        ]))->assertOk();
+    }
+
+    /** Akaun tanpa Parlimen mesti ditolak, bukan dilayan sebagai "tiada had". */
+    public function test_a_seatless_pengarah_dun_is_refused_on_scoped_pilihanraya_pages(): void
+    {
+        $tanpaKerusi = $this->pengarah(['bandar_id' => null, 'kadun_id' => null]);
+
+        $this->actingAs($tanpaKerusi)->getJson(route('pilihanraya.api.seat-scores'))->assertForbidden();
+        $this->actingAs($tanpaKerusi)->get(route('pilihanraya.kaum-dm'))->assertForbidden();
     }
 
     // ----------------------------------------------------------------- kerusi
@@ -375,6 +653,83 @@ class PengarahDunTest extends TestCase
         // ialah ketiadaan lencongan, bukan render penuh.
         $super = $this->user('super_admin', ['bandar_id' => null, 'kadun_id' => null]);
         $this->assertNotSame(302, $this->actingAs($super)->get(route('dashboard'))->getStatusCode());
+    }
+
+    /**
+     * Paku tingkah laku peranan LAIN pada laluan yang disentuh oleh
+     * pembetulan ini (eksport Laporan, padam pukal, pemilih Pilihanraya,
+     * hujung API agregat). Jika mana-mana daripadanya berubah, pembetulan
+     * telah merebak melebihi lajur `pengarah_dun`.
+     */
+    public function test_the_touched_routes_are_unchanged_for_every_other_role(): void
+    {
+        $this->benihAgregat();
+        [$hcSendiri, $hcAsing] = $this->benihLaporan();
+
+        // --- admin: eksport masih berjaya dan masih terhad kepada Parlimennya
+        $admin = $this->user('admin');
+        $this->actingAs($admin)->get(route('reports.hasil-culaan.export'))->assertOk();
+        $this->actingAs($admin)->get(route('reports.data-pengundi.export'))->assertOk();
+
+        // Pemilih Pilihanraya admin kekal KEBANGSAAN (keputusan produk yang
+        // belum dibuat — tugas ini tidak boleh mengubahnya).
+        $geoAdmin = $this->actingAs($admin)->get(route('pilihanraya.simulasi'))
+            ->assertOk()->viewData('page')['props'];
+        $this->assertEqualsCanonicalizing(
+            [$this->parlimenSendiri->id, $this->parlimenAsing->id],
+            collect($geoAdmin['parlimenList'])->pluck('id')->all(),
+        );
+
+        // Agregat admin masih memaparkan kerusi luar Parlimennya (sedia ada).
+        $namaAdmin = $this->namaKerusi(
+            $this->actingAs($admin)->getJson(route('pilihanraya.api.seat-scores'))->assertOk()->json()
+        );
+        $this->assertContains('JEMPOL', $namaAdmin, 'Skop admin berubah — di luar skop tugas ini.');
+
+        // Padam pukal admin masih menapis kepada Parlimennya sendiri.
+        $this->actingAs($admin)->post(route('reports.hasil-culaan.bulk-delete'), [
+            'ids' => [$hcSendiri->id, $hcAsing->id],
+        ]);
+        $this->assertNull($hcSendiri->fresh(), 'Admin tidak lagi boleh memadam rekod Parlimennya.');
+        $this->assertNotNull($hcAsing->fresh(), 'Admin memadam rekod Parlimen asing.');
+
+        // --- super_admin: tiada had di mana-mana
+        $super = $this->user('super_admin', ['bandar_id' => null, 'kadun_id' => null]);
+        $this->actingAs($super)->get(route('reports.hasil-culaan.export'))->assertOk();
+        $geoSuper = $this->actingAs($super)->get(route('pilihanraya.simulasi'))
+            ->assertOk()->viewData('page')['props'];
+        $this->assertCount(2, $geoSuper['parlimenList']);
+
+        // --- user: masih 403 pada eksport (sedia ada)
+        $this->actingAs($this->user('user'))
+            ->get(route('reports.hasil-culaan.export'))->assertForbidden();
+
+        // --- super_user: TIDAK disentuh. Eksportnya masih berjaya (dan masih
+        // tidak berskop — lubang sedia ada yang direkodkan dalam laporan,
+        // BUKAN sesuatu yang tugas ini patut ubah).
+        $superUser = $this->user('super_user');
+        $this->actingAs($superUser)->get(route('reports.hasil-culaan.export'))->assertOk();
+        $this->actingAs($superUser)->get(route('reports.data-pengundi.export'))->assertOk();
+        $this->actingAs($superUser)
+            ->get(route('pilihanraya.api.seat-scores'))->assertRedirect(route('dashboard'));
+
+        // --- ketua_paca_dun: masih tiada capaian Pilihanraya selain PACA
+        $this->actingAs($this->user('ketua_paca_dun'))
+            ->getJson(route('pilihanraya.api.seat-scores'))->assertForbidden();
+    }
+
+    /**
+     * SENGAJA diketatkan: `ketua_paca_dun` juga tiada menu Laporan, dan ia
+     * turut jatuh melalui eksport tanpa skop. Diketatkan bersama-sama
+     * pengarah_dun (kelas pembetulan yang sama seperti VoterScopeService).
+     * Dipaku di sini supaya perubahan itu nyata dan bukan kesan sampingan.
+     */
+    public function test_ketua_paca_dun_is_also_cut_off_from_laporan_exports(): void
+    {
+        $ketua = $this->user('ketua_paca_dun');
+
+        $this->actingAs($ketua)->get(route('reports.hasil-culaan.export'))->assertForbidden();
+        $this->actingAs($ketua)->get(route('reports.data-pengundi.export'))->assertForbidden();
     }
 
     /** Borang14Form milik Parlimen asing tidak boleh dipadam atau ditulis. */

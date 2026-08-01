@@ -14,6 +14,7 @@ use App\Services\Pilihanraya\ElectionResultScenarioMapper;
 use App\Services\Pilihanraya\ScoresheetExtractor;
 use App\Services\Pilihanraya\SeatBaselineService;
 use App\Support\Pdf;
+use App\Support\SeatScope;
 use Illuminate\Http\Request;
 
 /**
@@ -24,6 +25,27 @@ use Illuminate\Http\Request;
 class AnalisaComparisonController extends Controller
 {
     public function __construct(protected ElectionComparisonService $service) {}
+
+    /**
+     * Setiap perbandingan diikat kepada satu kerusi (bandar_id/kadun_id) dan
+     * membawa tally undi sebenar bagi kerusi itu. Model diikat melalui laluan,
+     * jadi tanpa semakan ini id yang ditaip membuka perbandingan Parlimen
+     * orang lain.
+     *
+     * assertJikaTerkurung(): peranan yang dikurung kepada satu Parlimen
+     * sahaja yang diikat. `admin` melihat setiap perbandingan hari ini dan
+     * mengetatkannya ialah keputusan produk yang belum dibuat.
+     *
+     * bandar_id yang null menjadi 0 dan GAGAL-TUTUP bagi peranan terkurung.
+     */
+    private function pastikanDalamSkop(AnalisaComparison $comparison): void
+    {
+        SeatScope::assertJikaTerkurung(
+            auth()->user(),
+            SeatScope::PARLIMEN,
+            (int) $comparison->bandar_id,
+        );
+    }
 
     public function index()
     {
@@ -43,6 +65,10 @@ class AnalisaComparisonController extends Controller
         if (! $bandar) {
             return response()->json(['message' => 'Parlimen tidak sah.'], 422);
         }
+
+        // Mencipta perbandingan pada kerusi orang lain ialah jalan pintas ke
+        // data kerusi itu — semak SEBELUM baris dicipta.
+        SeatScope::assertJikaTerkurung($request->user(), SeatScope::PARLIMEN, (int) $bandar->id);
 
         $kadun = null;
         if ($data['level'] === 'dun') {
@@ -69,11 +95,15 @@ class AnalisaComparisonController extends Controller
 
     public function show(AnalisaComparison $comparison)
     {
+        $this->pastikanDalamSkop($comparison);
+
         return response()->json(['comparison' => $this->comparisonPayload($comparison)]);
     }
 
     public function destroy(AnalisaComparison $comparison)
     {
+        $this->pastikanDalamSkop($comparison);
+
         $comparison->delete();
 
         return response()->json(['comparisons' => $this->listPayload()]);
@@ -81,6 +111,8 @@ class AnalisaComparisonController extends Controller
 
     public function storeScenario(Request $request, AnalisaComparison $comparison, ScoresheetExtractor $extractor)
     {
+        $this->pastikanDalamSkop($comparison);
+
         $data = $request->validate([
             'label' => 'required|string|max:120',
             'election_date' => 'required|date',
@@ -125,6 +157,8 @@ class AnalisaComparisonController extends Controller
     /** Borang 14 yang layak untuk kerusi comparison ini. */
     public function borang14Tersedia(AnalisaComparison $comparison)
     {
+        $this->pastikanDalamSkop($comparison);
+
         $forms = $this->formsForComparison($comparison)
             ->orderByDesc('tahun')->orderBy('jenis_pr')
             ->get()
@@ -150,6 +184,8 @@ class AnalisaComparisonController extends Controller
 
     public function storeScenarioFromBorang14(Request $request, AnalisaComparison $comparison, Borang14ScenarioMapper $mapper)
     {
+        $this->pastikanDalamSkop($comparison);
+
         $data = $request->validate(['form_id' => 'required|integer|exists:borang14_forms,id']);
 
         if ($comparison->scenarios()->count() >= 3) {
@@ -197,6 +233,8 @@ class AnalisaComparisonController extends Controller
      */
     public function rasmiTersedia(AnalisaComparison $comparison, SeatBaselineService $baselines)
     {
+        $this->pastikanDalamSkop($comparison);
+
         $kawasan = $this->kawasanForComparison($comparison);
         $seat = $kawasan ? $baselines->seatFor($kawasan) : null;
 
@@ -229,6 +267,8 @@ class AnalisaComparisonController extends Controller
      */
     public function storeScenarioFromRasmi(Request $request, AnalisaComparison $comparison, ElectionResultScenarioMapper $mapper, SeatBaselineService $baselines)
     {
+        $this->pastikanDalamSkop($comparison);
+
         $data = $request->validate(['result_id' => 'required|integer|exists:election_seat_results,id']);
 
         if ($comparison->scenarios()->count() >= 3) {
@@ -283,6 +323,8 @@ class AnalisaComparisonController extends Controller
 
     public function destroyScenario(AnalisaComparison $comparison, AnalisaScenario $scenario)
     {
+        $this->pastikanDalamSkop($comparison);
+
         abort_unless($scenario->analisa_comparison_id === $comparison->id, 404);
         $scenario->delete();
         $comparison->update(['status' => 'draft']);
@@ -292,6 +334,8 @@ class AnalisaComparisonController extends Controller
 
     public function analyze(Request $request, AnalisaComparison $comparison)
     {
+        $this->pastikanDalamSkop($comparison);
+
         if ($comparison->scenarios()->count() < 1) {
             return response()->json(['message' => 'Tambah sekurang-kurangnya satu senario dahulu.'], 422);
         }
@@ -310,6 +354,8 @@ class AnalisaComparisonController extends Controller
 
     public function pdf(AnalisaComparison $comparison)
     {
+        $this->pastikanDalamSkop($comparison);
+
         abort_unless(! empty($comparison->ai_result), 404);
 
         return Pdf::download('pdf.analisa-comparison', [
@@ -333,7 +379,10 @@ class AnalisaComparisonController extends Controller
 
     private function listPayload(): array
     {
+        $kurungan = SeatScope::parlimenKurungan(auth()->user());
+
         return AnalisaComparison::withCount('scenarios')
+            ->when($kurungan, fn ($q) => $q->where('bandar_id', $kurungan->id))
             ->latest()
             ->get()
             ->map(fn ($c) => [

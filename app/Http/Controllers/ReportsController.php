@@ -22,6 +22,32 @@ use Maatwebsite\Excel\Facades\Excel;
 class ReportsController extends Controller
 {
     /**
+     * Tolak peranan yang langsung TIADA menu Laporan.
+     *
+     * Kebanyakan hujung Laporan diskop oleh VoterScopeService, tetapi
+     * beberapa (eksport, padam pukal, padam tunggal, cipta) menulis
+     * peraturan kerusi DENGAN TANGAN sebagai `if ($user->isAdmin())`.
+     * Salinan kedua peraturan itu tiada cabang untuk peranan lain, jadi
+     * apa-apa peranan yang bukan `user` dan bukan `admin` JATUH MELALUI ke
+     * skop seluruh negara — sehingga 10,000 baris no_ic/no_tel/alamat bagi
+     * eksport, dan padaman tanpa had bagi padam pukal.
+     *
+     * Gagal-tutup di hadapan ialah pembetulan yang paling sempit: ia tidak
+     * menyentuh langsung cabang `admin`, `super_user`, `user` atau
+     * `super_admin` di bawahnya.
+     */
+    private function tolakTanpaMenuLaporan(): void
+    {
+        $user = auth()->user();
+
+        abort_if(
+            $user && ($user->isPengarahDun() || $user->isKetuaPacaDun()),
+            403,
+            'Laporan bukan sebahagian daripada peranan anda.',
+        );
+    }
+
+    /**
      * Display the reports dashboard.
      */
     public function index()
@@ -108,6 +134,8 @@ class ReportsController extends Controller
      */
     public function exportHasilCulaan(Request $request)
     {
+        $this->tolakTanpaMenuLaporan();
+
         $user = auth()->user();
 
         abort_if($user->isUser(), 403);
@@ -248,6 +276,8 @@ class ReportsController extends Controller
      */
     public function hasilCulaanCreate(Request $request)
     {
+        $this->tolakTanpaMenuLaporan();
+
         $bangsaList = \App\Models\Bangsa::all();
         $negeriList = \App\Models\Negeri::orderBy('nama')->get();
         $bandarList = \App\Models\Bandar::orderBy('nama')->get();
@@ -334,6 +364,8 @@ class ReportsController extends Controller
      */
     public function hasilCulaanStore(Request $request)
     {
+        $this->tolakTanpaMenuLaporan();
+
         $user = auth()->user();
 
         $hasSumbangan = $request->boolean('has_sumbangan');
@@ -583,6 +615,8 @@ class ReportsController extends Controller
      */
     public function hasilCulaanUpdate(Request $request, HasilCulaan $hasilCulaan)
     {
+        $this->tolakTanpaMenuLaporan();
+
         $user = auth()->user();
 
         if ($user->isUser() && $hasilCulaan->parlimen !== ($user->bandar->nama ?? null)) {
@@ -700,6 +734,8 @@ class ReportsController extends Controller
      */
     public function hasilCulaanDestroy(HasilCulaan $hasilCulaan)
     {
+        $this->tolakTanpaMenuLaporan();
+
         if (auth()->user()->isUser()) {
             abort(403, 'Pengguna tidak dibenarkan memadam rekod.');
         }
@@ -714,6 +750,8 @@ class ReportsController extends Controller
      */
     public function hasilCulaanToggleDeceased(HasilCulaan $hasilCulaan)
     {
+        $this->tolakTanpaMenuLaporan();
+
         $hasilCulaan->update(['is_deceased' => !$hasilCulaan->is_deceased]);
         VoterSyncService::syncFromHasilCulaan($hasilCulaan->fresh());
         return response()->json(['is_deceased' => $hasilCulaan->is_deceased]);
@@ -726,6 +764,8 @@ class ReportsController extends Controller
      */
     public function hasilCulaanStoreDeceased(Request $request)
     {
+        $this->tolakTanpaMenuLaporan();
+
         $user = auth()->user();
 
         // Masked-create flow: unmask sensitive fields against the source
@@ -874,6 +914,8 @@ class ReportsController extends Controller
      */
     public function hasilCulaanBulkDelete(Request $request)
     {
+        $this->tolakTanpaMenuLaporan();
+
         $user = auth()->user();
 
         if ($user->isUser()) {
@@ -977,6 +1019,8 @@ class ReportsController extends Controller
      */
     public function exportDataPengundi(Request $request)
     {
+        $this->tolakTanpaMenuLaporan();
+
         $user = auth()->user();
 
         abort_if($user->isUser(), 403);
@@ -1110,6 +1154,8 @@ class ReportsController extends Controller
      */
     public function dataPengundiUpdate(Request $request, DataPengundi $dataPengundi)
     {
+        $this->tolakTanpaMenuLaporan();
+
         $user = auth()->user();
 
         if ($user->isUser() && $dataPengundi->parlimen !== ($user->bandar->nama ?? null)) {
@@ -1211,6 +1257,8 @@ class ReportsController extends Controller
      */
     public function dataPengundiDestroy(DataPengundi $dataPengundi)
     {
+        $this->tolakTanpaMenuLaporan();
+
         if (auth()->user()->isUser()) {
             abort(403, 'Pengguna tidak dibenarkan memadam rekod.');
         }
@@ -1225,6 +1273,8 @@ class ReportsController extends Controller
      */
     public function dataPengundiToggleDeceased(DataPengundi $dataPengundi)
     {
+        $this->tolakTanpaMenuLaporan();
+
         $dataPengundi->update(['is_deceased' => !$dataPengundi->is_deceased]);
         VoterSyncService::syncFromDataPengundi($dataPengundi->fresh());
         return response()->json(['is_deceased' => $dataPengundi->is_deceased]);
@@ -1235,6 +1285,8 @@ class ReportsController extends Controller
      */
     public function dataPengundiBulkDelete(Request $request)
     {
+        $this->tolakTanpaMenuLaporan();
+
         $user = auth()->user();
 
         if ($user->isUser()) {
