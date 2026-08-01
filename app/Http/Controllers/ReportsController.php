@@ -22,26 +22,33 @@ use Maatwebsite\Excel\Facades\Excel;
 class ReportsController extends Controller
 {
     /**
-     * Tolak peranan yang langsung TIADA menu Laporan.
+     * SENARAI-BENAR bagi hujung Laporan yang menulis peraturan kerusi DENGAN
+     * TANGAN (eksport, padam pukal, padam tunggal, cipta) dan bukan melalui
+     * VoterScopeService.
      *
-     * Kebanyakan hujung Laporan diskop oleh VoterScopeService, tetapi
-     * beberapa (eksport, padam pukal, padam tunggal, cipta) menulis
-     * peraturan kerusi DENGAN TANGAN sebagai `if ($user->isAdmin())`.
-     * Salinan kedua peraturan itu tiada cabang untuk peranan lain, jadi
-     * apa-apa peranan yang bukan `user` dan bukan `admin` JATUH MELALUI ke
-     * skop seluruh negara — sehingga 10,000 baris no_ic/no_tel/alamat bagi
-     * eksport, dan padaman tanpa had bagi padam pukal.
+     * Setiap peranan yang dibenarkan mesti DINAMAKAN di sini dan diberi
+     * skopnya sendiri di dalam kaedah masing-masing:
      *
-     * Gagal-tutup di hadapan ialah pembetulan yang paling sempit: ia tidak
-     * menyentuh langsung cabang `admin`, `super_user`, `user` atau
-     * `super_admin` di bawahnya.
+     *   super_admin   tiada had
+     *   admin         bandar_id sendiri (ditulis dengan tangan, dikekalkan)
+     *   super_user    kadun_id sendiri, melalui VoterScopeService
+     *   user          ditolak oleh setiap hujung padam/eksport; dibenarkan
+     *                 mencipta dalam Parlimen sendiri
+     *
+     * Apa-apa yang lain — termasuk peranan yang ditambah esok — DITOLAK.
+     *
+     * Ini SENGAJA senarai-benar dan bukan senarai-tolak. Versi senarai-tolak
+     * sebelum ini menamakan peranan yang dikurung, jadi `pengarah_dun` jatuh
+     * melalui ke eksport dan padam KEBANGSAAN pada saat ia diperkenalkan.
+     * Peranan ketujuh akan melakukan perkara yang sama. Lalai sekarang ialah
+     * "tolak", jadi kesilapan yang sama tidak boleh berulang secara senyap.
      */
-    private function tolakTanpaMenuLaporan(): void
+    private function pastikanPerananLaporanDikenali(): void
     {
         $user = auth()->user();
 
-        abort_if(
-            $user && ($user->isPengarahDun() || $user->isKetuaPacaDun()),
+        abort_unless(
+            $user && ($user->isSuperAdmin() || $user->isAdmin() || $user->isSuperUser() || $user->isUser()),
             403,
             'Laporan bukan sebahagian daripada peranan anda.',
         );
@@ -134,7 +141,7 @@ class ReportsController extends Controller
      */
     public function exportHasilCulaan(Request $request)
     {
-        $this->tolakTanpaMenuLaporan();
+        $this->pastikanPerananLaporanDikenali();
 
         $user = auth()->user();
 
@@ -145,10 +152,19 @@ class ReportsController extends Controller
         // voter, showing the latest bantuan record.
         $filterQuery = HasilCulaan::query();
 
-        // Admin Restriction: Only export data in their Parlimen (Bandar)
+        // Admin Restriction: Only export data in their Parlimen (Bandar).
+        // Ditulis dengan tangan dan DIKEKALKAN huruf demi huruf: menyalurkan
+        // admin melalui VoterScopeService akan MELEBARKAN eksportnya dengan
+        // `OR submitted_by = me`, yang tiada dalam peraturan sedia ada.
         if ($user->isAdmin()) {
             $filterQuery->where('bandar', $user->bandar->nama ?? '');
+        } elseif ($user->isSuperUser()) {
+            // super_user: DUN sendiri sahaja. Peraturannya diambil daripada
+            // VoterScopeService — satu-satunya tempat ia ditulis — dan bukan
+            // disalin semula di sini.
+            VoterScopeService::apply($filterQuery, $user);
         }
+        // super_admin: tiada had. Peranan lain sudah ditolak di atas.
 
         // Apply the same filters as the index screen.
         $this->applyHasilCulaanFilters($filterQuery, $request);
@@ -276,7 +292,7 @@ class ReportsController extends Controller
      */
     public function hasilCulaanCreate(Request $request)
     {
-        $this->tolakTanpaMenuLaporan();
+        $this->pastikanPerananLaporanDikenali();
 
         $bangsaList = \App\Models\Bangsa::all();
         $negeriList = \App\Models\Negeri::orderBy('nama')->get();
@@ -364,7 +380,7 @@ class ReportsController extends Controller
      */
     public function hasilCulaanStore(Request $request)
     {
-        $this->tolakTanpaMenuLaporan();
+        $this->pastikanPerananLaporanDikenali();
 
         $user = auth()->user();
 
@@ -615,7 +631,7 @@ class ReportsController extends Controller
      */
     public function hasilCulaanUpdate(Request $request, HasilCulaan $hasilCulaan)
     {
-        $this->tolakTanpaMenuLaporan();
+        $this->pastikanPerananLaporanDikenali();
 
         $user = auth()->user();
 
@@ -734,10 +750,24 @@ class ReportsController extends Controller
      */
     public function hasilCulaanDestroy(HasilCulaan $hasilCulaan)
     {
-        $this->tolakTanpaMenuLaporan();
+        $this->pastikanPerananLaporanDikenali();
 
-        if (auth()->user()->isUser()) {
+        $user = auth()->user();
+
+        if ($user->isUser()) {
             abort(403, 'Pengguna tidak dibenarkan memadam rekod.');
+        }
+
+        // super_user: DUN sendiri sahaja. Sebelum ini hujung ini hanya
+        // berpagar pada isUser(), jadi seorang super_user boleh memadam
+        // mana-mana rekod di seluruh negara melalui id yang ditaip.
+        //
+        // admin sengaja TIDAK diikat di sini: ia terbuka kepadanya hari ini
+        // dan mengetatkannya ialah keputusan produk yang berasingan.
+        if ($user->isSuperUser()) {
+            $skop = HasilCulaan::whereKey($hasilCulaan->id);
+            VoterScopeService::apply($skop, $user);
+            abort_unless($skop->exists(), 403, 'Rekod ini berada di luar DUN anda.');
         }
 
         $hasilCulaan->delete();
@@ -750,7 +780,7 @@ class ReportsController extends Controller
      */
     public function hasilCulaanToggleDeceased(HasilCulaan $hasilCulaan)
     {
-        $this->tolakTanpaMenuLaporan();
+        $this->pastikanPerananLaporanDikenali();
 
         $hasilCulaan->update(['is_deceased' => !$hasilCulaan->is_deceased]);
         VoterSyncService::syncFromHasilCulaan($hasilCulaan->fresh());
@@ -764,7 +794,7 @@ class ReportsController extends Controller
      */
     public function hasilCulaanStoreDeceased(Request $request)
     {
-        $this->tolakTanpaMenuLaporan();
+        $this->pastikanPerananLaporanDikenali();
 
         $user = auth()->user();
 
@@ -914,7 +944,7 @@ class ReportsController extends Controller
      */
     public function hasilCulaanBulkDelete(Request $request)
     {
-        $this->tolakTanpaMenuLaporan();
+        $this->pastikanPerananLaporanDikenali();
 
         $user = auth()->user();
 
@@ -927,20 +957,29 @@ class ReportsController extends Controller
             'ids.*' => 'exists:hasil_culaan,id',
         ]);
 
-        // Admin Restriction: Filter out records not in their Parlimen
+        $ids = $validated['ids'];
+
+        // Admin Restriction: Filter out records not in their Parlimen.
+        // Dikekalkan huruf demi huruf — lihat exportHasilCulaan().
         if ($user->isAdmin()) {
-            $ids = HasilCulaan::whereIn('id', $validated['ids'])
+            $ids = HasilCulaan::whereIn('id', $ids)
                 ->where('bandar', $user->bandar->nama ?? '')
                 ->pluck('id')
                 ->toArray();
-            
-            if (empty($ids)) {
-                 return redirect()->back()->with('error', 'Tiada rekod yang sah untuk dipadam.');
-            }
-             HasilCulaan::whereIn('id', $ids)->delete();
-        } else {
-             HasilCulaan::whereIn('id', $validated['ids'])->delete();
+        } elseif ($user->isSuperUser()) {
+            // super_user: DUN sendiri sahaja. Sebelum ini cabang `else`
+            // memadam SETIAP id yang dihantar tanpa sebarang semakan kerusi.
+            $skop = HasilCulaan::whereIn('id', $ids);
+            VoterScopeService::apply($skop, $user);
+            $ids = $skop->pluck('id')->toArray();
         }
+        // super_admin: senarai id kekal seperti dihantar (tiada had).
+
+        if (empty($ids)) {
+            return redirect()->back()->with('error', 'Tiada rekod yang sah untuk dipadam.');
+        }
+
+        HasilCulaan::whereIn('id', $ids)->delete();
 
         return redirect()->route('reports.hasil-culaan.index')->with('success', 'Rekod terpilih berjaya dipadam');
     }
@@ -1019,7 +1058,7 @@ class ReportsController extends Controller
      */
     public function exportDataPengundi(Request $request)
     {
-        $this->tolakTanpaMenuLaporan();
+        $this->pastikanPerananLaporanDikenali();
 
         $user = auth()->user();
 
@@ -1027,10 +1066,15 @@ class ReportsController extends Controller
 
         $query = DataPengundi::query();
 
-        // Admin Restriction: Only export data in their Parlimen (Bandar)
+        // Admin Restriction: Only export data in their Parlimen (Bandar).
+        // Dikekalkan huruf demi huruf — lihat exportHasilCulaan().
         if ($user->isAdmin()) {
             $query->where('bandar', $user->bandar->nama ?? '');
+        } elseif ($user->isSuperUser()) {
+            // super_user: DUN sendiri sahaja, melalui VoterScopeService.
+            VoterScopeService::apply($query, $user);
         }
+        // super_admin: tiada had. Peranan lain sudah ditolak di atas.
 
         // Apply same filters as index
         if ($request->has('date_from') && $request->date_from) {
@@ -1154,7 +1198,7 @@ class ReportsController extends Controller
      */
     public function dataPengundiUpdate(Request $request, DataPengundi $dataPengundi)
     {
-        $this->tolakTanpaMenuLaporan();
+        $this->pastikanPerananLaporanDikenali();
 
         $user = auth()->user();
 
@@ -1257,10 +1301,24 @@ class ReportsController extends Controller
      */
     public function dataPengundiDestroy(DataPengundi $dataPengundi)
     {
-        $this->tolakTanpaMenuLaporan();
+        $this->pastikanPerananLaporanDikenali();
 
-        if (auth()->user()->isUser()) {
+        $user = auth()->user();
+
+        if ($user->isUser()) {
             abort(403, 'Pengguna tidak dibenarkan memadam rekod.');
+        }
+
+        // super_user: DUN sendiri sahaja. Sebelum ini hujung ini hanya
+        // berpagar pada isUser(), jadi seorang super_user boleh memadam
+        // mana-mana rekod di seluruh negara melalui id yang ditaip.
+        //
+        // admin sengaja TIDAK diikat di sini: ia terbuka kepadanya hari ini
+        // dan mengetatkannya ialah keputusan produk yang berasingan.
+        if ($user->isSuperUser()) {
+            $skop = DataPengundi::whereKey($dataPengundi->id);
+            VoterScopeService::apply($skop, $user);
+            abort_unless($skop->exists(), 403, 'Rekod ini berada di luar DUN anda.');
         }
 
         $dataPengundi->delete();
@@ -1273,7 +1331,7 @@ class ReportsController extends Controller
      */
     public function dataPengundiToggleDeceased(DataPengundi $dataPengundi)
     {
-        $this->tolakTanpaMenuLaporan();
+        $this->pastikanPerananLaporanDikenali();
 
         $dataPengundi->update(['is_deceased' => !$dataPengundi->is_deceased]);
         VoterSyncService::syncFromDataPengundi($dataPengundi->fresh());
@@ -1285,7 +1343,7 @@ class ReportsController extends Controller
      */
     public function dataPengundiBulkDelete(Request $request)
     {
-        $this->tolakTanpaMenuLaporan();
+        $this->pastikanPerananLaporanDikenali();
 
         $user = auth()->user();
 
@@ -1298,20 +1356,29 @@ class ReportsController extends Controller
             'ids.*' => 'exists:data_pengundi,id',
         ]);
 
-        // Admin Restriction: Filter out records not in their Parlimen
+        $ids = $validated['ids'];
+
+        // Admin Restriction: Filter out records not in their Parlimen.
+        // Dikekalkan huruf demi huruf — lihat exportHasilCulaan().
         if ($user->isAdmin()) {
-            $ids = DataPengundi::whereIn('id', $validated['ids'])
+            $ids = DataPengundi::whereIn('id', $ids)
                 ->where('bandar', $user->bandar->nama ?? '')
                 ->pluck('id')
                 ->toArray();
-            
-            if (empty($ids)) {
-                 return redirect()->back()->with('error', 'Tiada rekod yang sah untuk dipadam.');
-            }
-             DataPengundi::whereIn('id', $ids)->delete();
-        } else {
-             DataPengundi::whereIn('id', $validated['ids'])->delete();
+        } elseif ($user->isSuperUser()) {
+            // super_user: DUN sendiri sahaja. Sebelum ini cabang `else`
+            // memadam SETIAP id yang dihantar tanpa sebarang semakan kerusi.
+            $skop = DataPengundi::whereIn('id', $ids);
+            VoterScopeService::apply($skop, $user);
+            $ids = $skop->pluck('id')->toArray();
         }
+        // super_admin: senarai id kekal seperti dihantar (tiada had).
+
+        if (empty($ids)) {
+            return redirect()->back()->with('error', 'Tiada rekod yang sah untuk dipadam.');
+        }
+
+        DataPengundi::whereIn('id', $ids)->delete();
 
         return redirect()->route('reports.data-pengundi.index')->with('success', 'Rekod terpilih berjaya dipadam');
     }
