@@ -11,6 +11,7 @@ use App\Models\Borang14Vote;
 use App\Models\Kadun;
 use App\Models\KeahlianParti;
 use App\Models\Negeri;
+use App\Models\Scoreboard;
 use App\Models\User;
 use App\Services\Borang14StrukturService;
 use App\Services\Pilihanraya\KawasanResolver;
@@ -1917,6 +1918,11 @@ class Borang14Controller extends Controller
                 ];
             }
         }
+
+        // Nama calon yang masih kosong diambil daripada papan markah kerusi ini
+        // — sumber kedua yang memang dinamakan oleh pengendali yang sama.
+        $parties = $this->calonDariScoreboard($parties, $form);
+
         // Borang PDF ini ialah rekod SATU pertandingan — pertandingan borang
         // itu sendiri. Kunci selnya membawa contest yang sama seperti grid
         // kemasukan supaya hanya ADA SATU bentuk kunci dalam aplikasi ini;
@@ -1955,6 +1961,78 @@ class Borang14Controller extends Controller
         $name = 'borang-14-' . str($areaName)->slug() . '-' . now()->format('Y-m-d') . '.pdf';
 
         return $pdf->download($name);
+    }
+
+    /**
+     * Isi nama calon yang KOSONG pada senarai parti daripada papan markah
+     * kerusi ini.
+     *
+     * Borang 14 tidak mewajibkan nama calon (undi disimpan mengikut SLOT), jadi
+     * lajur Calon pada muka ringkasan selalunya '—' walaupun nama itu sudah
+     * ditaip di tempat lain dalam sistem yang sama. Papan markah menyimpannya
+     * sebagai [{slot, nama, gambar}].
+     *
+     * PAGAR YANG MENENTUKAN: papan itu mesti terikat pada borang INI
+     * (borang14_form_id). Satu kerusi memegang SATU papan sahaja, tetapi
+     * banyak borang merentas tahun dan jenis PR — memadankan mengikut kerusi
+     * semata-mata akan mencetak calon PRN 2026 pada Borang 14 PRU 2023 kerusi
+     * yang sama, di bawah undi orang lain. Nama yang salah pada cetakan rasmi
+     * lebih teruk daripada '—'.
+     *
+     * Nama yang SUDAH ada pada borang tidak pernah ditimpa: borang ialah rekod
+     * utama, papan hanyalah paparan.
+     */
+    private function calonDariScoreboard(array $parties, ?Borang14Form $form): array
+    {
+        if (! $form || $parties === []) {
+            return $parties;
+        }
+
+        $slotBagi = fn ($p, $i) => (int) ($p['slot'] ?? $i + 1);
+
+        $adaKosong = false;
+        foreach ($parties as $p) {
+            if (trim((string) ($p['calon'] ?? '')) === '') {
+                $adaKosong = true;
+                break;
+            }
+        }
+        if (! $adaKosong) {
+            return $parties;
+        }
+
+        $board = Scoreboard::where('kawasan_type', $form->kawasan_type)
+            ->where('kawasan_id', $form->kawasan_id)
+            ->first();
+
+        if (! $board || (int) $board->borang14_form_id !== (int) $form->id) {
+            return $parties;
+        }
+
+        $namaMengikutSlot = [];
+        foreach ($board->candidates ?? [] as $c) {
+            $nama = trim((string) ($c['nama'] ?? ''));
+            $slot = (int) ($c['slot'] ?? 0);
+            if ($slot > 0 && $nama !== '') {
+                $namaMengikutSlot[$slot] = $nama;
+            }
+        }
+        if ($namaMengikutSlot === []) {
+            return $parties;
+        }
+
+        foreach ($parties as $i => $p) {
+            $slot = $slotBagi($p, $i);
+            if (trim((string) ($p['calon'] ?? '')) === '' && isset($namaMengikutSlot[$slot])) {
+                $parties[$i]['calon'] = $namaMengikutSlot[$slot];
+                // Asal nama DINYATAKAN pada cetakan — cetakan hidup lebih lama
+                // daripada skrin dan pembacanya tidak boleh bertanya kepada
+                // sistem dari mana nama itu datang.
+                $parties[$i]['calon_dari_scoreboard'] = true;
+            }
+        }
+
+        return $parties;
     }
 
     /** TTL untuk cache dry-run — cukup masa untuk pengguna baca prompt pengesahan. */

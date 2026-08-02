@@ -103,7 +103,9 @@
     // Kedudukan calon mengikut undi. Susunan stabil: seri dikekalkan mengikut
     // nombor slot supaya cetakan berulang bagi data yang sama tidak berbeza.
     $ranking = [];
+    $adaCalonDariScoreboard = false;
     for ($i = 0; $i < $nParties; $i++) {
+        $adaCalonDariScoreboard = $adaCalonDariScoreboard || ! empty($parties[$i]['calon_dari_scoreboard']);
         $ranking[] = [
             'slot'  => $i + 1,
             'idx'   => $i,
@@ -294,6 +296,10 @@
             Tanda &ldquo;&mdash;&rdquo; bermakna angka itu <b>tidak diketahui</b> bagi pilihan raya ini &mdash; bukan sifar.
             @if ($sumBerdaftarNilai === null)
                 Tiada saluran melaporkan bilangan pengundi berdaftar, jadi peratus keluar mengundi tidak dapat dikira.
+            @endif
+            @if ($adaCalonDariScoreboard)
+                Sebahagian nama calon diambil daripada papan markah (Scoreboard) kerusi ini kerana ia tidak dinamakan
+                pada Borang 14 &mdash; undi kekal dikira mengikut slot, bukan mengikut nama.
             @endif
             @if (($reference['source'] ?? null) === 'dpt_estimate')
                 Bilangan Berdaftar dianggarkan daripada data DPT (ikut Lokaliti), bukan pecahan Saluran rasmi gazet SPR.
