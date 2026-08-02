@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { usePage } from '@inertiajs/react';
 import axios from 'axios';
-import { Download, Eye, Info, Landmark, Loader2, MapPin, RotateCcw, Trash2, Vote } from 'lucide-react';
+import { Download, Eye, EyeOff, Info, Landmark, Loader2, MapPin, RotateCcw, Trash2, Vote } from 'lucide-react';
 import { usePilihanrayaTheme } from '../components/PilihanrayaShell';
 import ConfirmDialog from './ConfirmDialog';
 
@@ -44,12 +44,17 @@ export default function PaparTab({ negeriList, parlimenList, kadunList, onOpenKe
     const [reverting, setReverting] = useState(false);
     const [hapusTarget, setHapusTarget] = useState(null);
     const [hapusing, setHapusing] = useState(false);
+    const [nyahterbitTarget, setNyahterbitTarget] = useState(null);
+    const [nyahterbiting, setNyahterbiting] = useState(false);
 
     // Rekod DITERBITKAN ialah keputusan rasmi yang sudah disiarkan ke Scoreboard
     // — hanya super_admin boleh membuangnya. Butang disembunyikan bagi peranan
     // lain, tetapi pengawal tetap menyemak semula (UI bukan kawalan keselamatan).
     const role = auth?.user?.role;
     const bolehPadam = (r) => role === 'super_admin' || (role === 'admin' && r.status !== 'published');
+    // Nyahterbit: super_admin sahaja, dan hanya bermakna pada rekod yang memang
+    // sedang diterbitkan.
+    const bolehNyahterbit = (r) => role === 'super_admin' && r.status === 'published';
 
     const parlimenOptions = negeriId
         ? parlimenList.filter((p) => String(p.negeri_id) === String(negeriId)) : [];
@@ -114,6 +119,22 @@ export default function PaparTab({ negeriList, parlimenList, kadunList, onOpenKe
             setRevertTarget(null);
         } finally {
             setReverting(false);
+        }
+    };
+
+    const nyahterbit = async () => {
+        setNyahterbiting(true);
+        try {
+            await axios.post(route('pilihanraya.borang-14.unpublish'), { form_id: nyahterbitTarget.id });
+            setNyahterbitTarget(null);
+            load();
+        } catch (e) {
+            setError(e.response?.status === 403
+                ? 'Anda tiada kebenaran menyahterbitkan rekod ini.'
+                : (e.response?.data?.message || 'Gagal menyahterbitkan rekod.'));
+            setNyahterbitTarget(null);
+        } finally {
+            setNyahterbiting(false);
         }
     };
 
@@ -228,6 +249,13 @@ export default function PaparTab({ negeriList, parlimenList, kadunList, onOpenKe
                                             className="inline-flex items-center gap-1 text-sm text-rose-600 hover:text-rose-700 mr-3">
                                             <RotateCcw className="h-4 w-4" /> Revert
                                         </button>
+                                        {bolehNyahterbit(r) && (
+                                            <button type="button" title="Kembalikan rekod ini kepada draf"
+                                                onClick={() => setNyahterbitTarget(r)}
+                                                className="inline-flex items-center gap-1 text-sm text-amber-600 hover:text-amber-700 mr-3">
+                                                <EyeOff className="h-4 w-4" /> Nyahterbit
+                                            </button>
+                                        )}
                                         {bolehPadam(r) && (
                                             <button type="button" title="Padam rekod Borang 14 ini"
                                                 onClick={() => setHapusTarget(r)}
@@ -256,6 +284,25 @@ export default function PaparTab({ negeriList, parlimenList, kadunList, onOpenKe
                         Undi, struktur dan pemetaan parti untuk <strong>{revertTarget.kawasan_nama} · {JENIS_LABEL[revertTarget.jenis_pr]} {revertTarget.tahun}</strong> akan
                         dikembalikan kepada keadaan sebelum scoresheet menimpanya. Tindakan ini tidak boleh dibuat asal.
                         Jika tiada snapshot tersimpan, permintaan ini akan gagal dengan mesej ralat.
+                    </p>
+                )}
+            </ConfirmDialog>
+
+            <ConfirmDialog
+                open={!!nyahterbitTarget}
+                title="Nyahterbit rekod Borang 14?"
+                confirmLabel="Nyahterbit"
+                busy={nyahterbiting}
+                onClose={() => setNyahterbitTarget(null)}
+                onConfirm={nyahterbit}
+            >
+                {nyahterbitTarget && (
+                    <p>
+                        Rekod <strong>{nyahterbitTarget.kawasan_nama} · {JENIS_LABEL[nyahterbitTarget.jenis_pr]} {nyahterbitTarget.tahun}</strong> akan
+                        dikembalikan kepada status <strong>DRAF</strong> dan tarikh terbitannya dibuang.
+                        Undi, struktur dan pemetaan parti <strong>tidak</strong> disentuh — hanya statusnya berubah,
+                        jadi rekod boleh disunting semula pada tab Keyin dan diterbitkan sekali lagi melalui
+                        &ldquo;Save &amp; Terbit&rdquo;. Papan Scoreboard yang sudah terikat pada rekod ini kekal terikat.
                     </p>
                 )}
             </ConfirmDialog>

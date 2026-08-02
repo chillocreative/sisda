@@ -515,6 +515,8 @@ Route::middleware(['auth', 'pilihanraya'])->prefix('pilihanraya')->name('pilihan
     Route::get('/borang-14/pdf', [\App\Http\Controllers\Borang14Controller::class, 'pdf'])->name('borang-14.pdf');
     Route::post('/borang-14/upload', [\App\Http\Controllers\Borang14Controller::class, 'upload'])->name('borang-14.upload')->middleware('throttle:10,1');
     Route::post('/borang-14/publish', [\App\Http\Controllers\Borang14Controller::class, 'publish'])->name('borang-14.publish')->middleware('throttle:30,1');
+    // Nyahterbit: super_admin sahaja — semakan peranan dalam pengawal.
+    Route::post('/borang-14/unpublish', [\App\Http\Controllers\Borang14Controller::class, 'unpublish'])->name('borang-14.unpublish')->middleware('throttle:30,1');
     Route::post('/borang-14/revert', [\App\Http\Controllers\Borang14Controller::class, 'revert'])->name('borang-14.revert')->middleware('throttle:10,1');
     Route::get('/borang-14/senarai', [\App\Http\Controllers\Borang14Controller::class, 'senarai'])->name('borang-14.senarai');
     // Padam: rekod diarkibkan dahulu (borang14_deleted_forms) — semakan peranan

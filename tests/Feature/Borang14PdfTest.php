@@ -261,6 +261,14 @@ class Borang14PdfTest extends TestCase
     }
 
     /** Renders the blade DIRECTLY (bypassing dompdf) and returns a table's rows as plain cell-text arrays. */
+    /**
+     * Baris bagi jadual pecahan SALURAN ke-$tableIndex.
+     *
+     * Dipilih mengikut class="saluran" dan bukan kedudukan mutlak dalam
+     * dokumen: muka ringkasan mempunyai jadualnya sendiri di HADAPAN jadual
+     * saluran, jadi indeks mutlak akan bergeser setiap kali sesuatu ditambah
+     * pada bahagian atas cetakan.
+     */
     private function tableRows(string $html, int $tableIndex = 0): array
     {
         libxml_use_internal_errors(true);
@@ -268,7 +276,7 @@ class Borang14PdfTest extends TestCase
         $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html);
         libxml_clear_errors();
         $xpath = new \DOMXPath($dom);
-        $table = $xpath->query('//table')->item($tableIndex);
+        $table = $xpath->query('//table[contains(@class, "saluran")]')->item($tableIndex);
 
         $rows = [];
         foreach ($xpath->query('.//tr', $table) as $tr) {

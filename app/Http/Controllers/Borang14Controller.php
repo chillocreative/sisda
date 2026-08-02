@@ -1901,9 +1901,20 @@ class Borang14Controller extends Controller
         // form when the request doesn't carry them.
         $parties = $form?->parties ?? [];
         if ($request->filled('parti')) {
+            // Nama calon TIDAK dihantar oleh skrin — ia hanya wujud pada borang
+            // yang disimpan. Kekalkan ia mengikut slot supaya muka ringkasan
+            // boleh menamakan calon walaupun tajuk lajur datang dari dropdown.
+            $calonMengikutSlot = collect($form?->parties ?? [])
+                ->mapWithKeys(fn ($p) => [(int) ($p['slot'] ?? 0) => $p['calon'] ?? null])
+                ->all();
+
             $parties = [];
             foreach (array_values($request->input('parti')) as $i => $nama) {
-                $parties[] = ['slot' => $i + 1, 'nama' => $nama];
+                $parties[] = [
+                    'slot' => $i + 1,
+                    'nama' => $nama,
+                    'calon' => $calonMengikutSlot[$i + 1] ?? null,
+                ];
             }
         }
         // Borang PDF ini ialah rekod SATU pertandingan — pertandingan borang
@@ -1929,6 +1940,10 @@ class Borang14Controller extends Controller
             'contest'   => $contestPdf,
             'logo'      => $logo,
             'inheritedFrom' => $inheritedFrom,
+            // Untuk muka ringkasan — identiti pilihan raya pada muka pertama.
+            'jenisPr'   => strtoupper($validated['jenis_pr']),
+            'tahun'     => (int) $validated['tahun'],
+            'statusBorang' => $form?->status,
             // Buloh Kasap's Undi Awal/Pos merge is a DUN-only exception — a
             // Parlimen that happens to share id 41 must never trigger it.
             'isBulohKasap' => ! $isParlimen && $kawasanId === self::BULOH_KASAP_KADUN_ID,
@@ -2331,6 +2346,40 @@ class Borang14Controller extends Controller
         $form->update(['status' => 'published', 'published_at' => now()]);
 
         return response()->json(['ok' => true, 'published_at' => $form->published_at]);
+    }
+
+    /**
+     * Nyahterbit — kembalikan borang DITERBITKAN kepada DRAF.
+     *
+     * super_admin SAHAJA, sengaja lebih ketat daripada publish(): borang yang
+     * sudah diterbitkan ialah keputusan rasmi yang mungkin sedang dirujuk
+     * papan Scoreboard dan laporan, dan menyahterbitkannya membuka semula
+     * setiap laluan sunting (nama calon, struktur saluran) yang disekat oleh
+     * bolehSuntingStruktur() atas alasan status 'published' itu sendiri.
+     *
+     * published_at dikosongkan kerana lajur itu bermaksud "bila borang ini
+     * DITERBITKAN sekarang" — bukan sejarah — jadi terbit semula mengecapnya
+     * dengan tarikh baharu, dan senarai tidak memaparkan tarikh terbitan bagi
+     * rekod yang sudah bukan terbitan.
+     */
+    public function unpublish(Request $request)
+    {
+        $data = $request->validate(['form_id' => 'required|integer|exists:borang14_forms,id']);
+
+        $user = $request->user();
+        if (! $user || ! $user->isSuperAdmin()) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $form = Borang14Form::findOrFail($data['form_id']);
+
+        if ($form->status !== 'published') {
+            return response()->json(['message' => 'Borang ini bukan rekod diterbitkan.'], 422);
+        }
+
+        $form->update(['status' => 'draft', 'published_at' => null]);
+
+        return response()->json(['ok' => true, 'status' => $form->status]);
     }
 
     public function revert(Request $request)
