@@ -127,7 +127,18 @@ class Borang14Controller extends Controller
                 'needs_review' => $form->needs_review,
                 'crosscheck_issues' => $this->crosscheckIssues($form),
                 'penjuru' => $form->penjuru,
+                // Paksi kunci — BERASINGAN daripada `status`. Skrin melabuhkan
+                // grey-out padanya, jadi kedua-dua bentuk dihantar: boolean
+                // untuk logik, cap masa untuk dipaparkan.
+                'locked' => $form->isLocked(),
+                'locked_at' => $form->locked_at,
+                'locked_by_nama' => $form->isLocked() ? $form->penguncinya?->name : null,
             ] : null,
+            // Bolehkah pengguna INI mengunci/membuka kunci borang INI. Dikira
+            // di server bersama setiap semakan kebenaran yang lain — peraturan
+            // peranan+kerusi yang ditulis semula di client pasti menyimpang.
+            // Borang yang belum wujud tiada apa untuk dikunci.
+            'boleh_kunci' => $form ? $this->bolehKunciBorang($request->user(), $form) : false,
             'resolved' => array_merge(
                 ['kawasan_type' => $kawasanType, 'kawasan_id' => $kawasanId, 'jenis_pr' => $jenisPr, 'tahun' => $tahun],
                 $this->resolveIds($kawasanType, $kawasanId),
@@ -279,6 +290,14 @@ class Borang14Controller extends Controller
         // menyimpang. Ia menambah sekatan borang DITERBITKAN di atas semakan
         // kerusi di atas: nama calon pada borang yang sudah diterbitkan
         // menukar makna keputusan yang sudah dilihat orang ramai.
+        // SEBELUM bolehSuntingStruktur() di bawah, yang turut menolak borang
+        // berkunci — tetapi dengan 403 yang berbunyi seperti masalah KERUSI,
+        // lalu menghantar pengendali memburu kebenaran yang tidak hilang.
+        // Selamat diletak di sini kerana SeatScope::assert() di atas sudah
+        // menolak pemanggil yang tiada hak pada kerusi ini, jadi 422 ini tidak
+        // membocorkan kewujudan borang kepada sesiapa yang belum tahu.
+        $this->assertTidakDikunci($form, 'skop');
+
         abort_unless($this->bolehSuntingStruktur($request->user(), $form, $validated), 403, 'Unauthorized action.');
 
         $skopSemasa = $this->skopSemasa($form, $sendiri);
@@ -391,6 +410,12 @@ class Borang14Controller extends Controller
         // assertTiadaUndi() di atas hanya melihat borang yang dihantar.
         $takrifanSedia = Borang14Form::forKawasan(Borang14Form::KAWASAN_PARLIMEN, $indukId)
             ->where('jenis_pr', 'pru')->where('tahun', $validated['tahun'])->first();
+
+        // Kunci mengikut borang yang DITULIS, bukan borang yang dihantar:
+        // borang DUN ini boleh terbuka sedangkan takrifan Parlimen yang
+        // DIKONGSI setiap DUN di bawahnya sudah dibekukan. Menulisnya di sini
+        // akan menukar nama calon PRU bagi setiap kerusi itu sekaligus.
+        $this->assertTidakDikunci($takrifanSedia, 'skop');
 
         if ($takrifanSedia && $this->takrifanBerubah($takrifanSedia, $calonParlimen)) {
             // Sekatan "diterbitkan" mesti mengikut borang yang DITULIS, bukan
@@ -664,6 +689,11 @@ class Borang14Controller extends Controller
             ['penjuru' => $validated['penjuru'], 'parties' => []],
         );
 
+        // Sebaik borang dijumpai/dicipta, sebelum satu sel pun ditulis. Borang
+        // yang baru DICIPTA di atas tidak mungkin berkunci, jadi semakan di
+        // sini meliputi tepat kes yang bermakna: borang sedia ada yang beku.
+        $this->assertTidakDikunci($form, 'undi');
+
         // Undi TIDAK boleh dikunci pada borang TAKRIFAN Parlimen: undi PRU
         // hidup pada borang DUN, dan roll-up mengumpulnya dari sana. Apa yang
         // ditaip di sini akan disimpan (hijau, kelihatan berjaya) tetapi TIDAK
@@ -718,6 +748,9 @@ class Borang14Controller extends Controller
             ->where('jenis_pr', $validated['jenis_pr'])
             ->where('tahun', $validated['tahun'])
             ->first();
+
+        // Padaman pukal tanpa arkib — jelas sekali tertakluk pada kunci.
+        $this->assertTidakDikunci($form, 'contest');
 
         $form?->votesFor($validated['contest'])->delete();
 
@@ -859,6 +892,9 @@ class Borang14Controller extends Controller
         // Selepas kebenaran (jangan bocorkan kewujudan borang), sebelum
         // firstOrCreate — kerusi kurasi/DPT/warisan tidak boleh disunting
         // langsung, dan tiada borang patut tercipta akibat cubaan itu.
+        // Kunci disemak dalam kumpulan yang sama, dan atas sebab yang lebih
+        // kuat: menyimpan struktur MEMINDAH atau MEMADAM undi sedia ada.
+        $this->assertTidakDikunci($form, 'pusat');
         $this->assertStrukturBolehDisunting($validated, $form);
         $this->assertBukanTakrifanParlimen($form);
         $this->assertTakrifanParlimenMasihKosong($validated);
@@ -1359,6 +1395,12 @@ class Borang14Controller extends Controller
             return false;
         }
         if ($form && $form->status === 'published') {
+            return false;
+        }
+        // Kunci menyekat SEMUA orang, termasuk super_admin di bawah. Diletak
+        // SEBELUM cabang super_admin dengan sengaja — kunci yang boleh
+        // dipintas oleh peranan tertinggi bukan kunci, cuma cadangan.
+        if ($form && $form->isLocked()) {
             return false;
         }
         if ($user->isSuperAdmin()) {
@@ -2171,6 +2213,20 @@ class Borang14Controller extends Controller
             ], 422);
         }
 
+        // Muat naik scoresheet ialah laluan tulis yang PALING luas: writeForm()
+        // memadam undi pertandingan itu lalu menulis semula ratusan baris.
+        // 422 dengan mesej sendiri (dan bukan assertTidakDikunci()) supaya
+        // tokennya turut dibuang — token yang tertinggal dalam cache selepas
+        // penolakan boleh dimain semula.
+        if ($form->exists && $form->isLocked()) {
+            Cache::forget($cacheKey);
+
+            return response()->json([
+                'message' => 'Borang 14 bagi kawasan/tahun ini telah DIKUNCI, jadi scoresheet ini tidak boleh '.
+                    'ditulis ke atasnya. Minta Super Admin atau Admin membuka kuncinya terlebih dahulu.',
+            ], 422);
+        }
+
         $review = $this->computeNeedsReview($extractedData);
 
         // Satu commit menulis borang + snapshot + ratusan baris undi. Tanpa
@@ -2415,11 +2471,106 @@ class Borang14Controller extends Controller
         SeatScope::assert($user, (string) $form->kawasan_type, (int) $form->kawasan_id);
     }
 
+    /**
+     * KUNCI — paksi kedua di samping `status`, dan pagar tulis yang paling luas
+     * dalam skrin ini.
+     *
+     * Sebaik borang dikunci, TIADA sesiapa (termasuk Super Admin, dan termasuk
+     * pemilik kerusi) boleh menulis padanya: bukan undi, bukan nama calon,
+     * bukan struktur saluran, bukan revert, bukan muat naik scoresheet di
+     * atasnya, bukan padam. Satu-satunya laluan ke hadapan ialah membuka kunci
+     * secara SENGAJA — itulah keseluruhan maksud ciri ini. Borang 14 yang siap
+     * ialah rekod pengiraan rasmi; suntingan "tersilap taip" selepas ia siap
+     * ialah kelas kegagalan yang kunci ini wujud untuk menghapuskannya.
+     *
+     * 422 dan bukan 403: pengguna MEMANG berhak menyentuh kerusi ini — rekod
+     * itu yang dibekukan. 403 akan menghantar pengendali memburu masalah
+     * kebenaran yang tidak wujud. Mesejnya menamakan siapa boleh membukanya.
+     */
+    private function assertTidakDikunci(?Borang14Form $form, string $medan = 'form_id'): void
+    {
+        if (! $form || ! $form->isLocked()) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            $medan => 'Borang 14 ini telah DIKUNCI, jadi undi, nama calon dan struktur saluran tidak boleh '.
+                'diubah lagi. Minta Super Admin atau Admin membuka kuncinya terlebih dahulu jika '.
+                'pindaan ini benar-benar perlu.',
+        ]);
+    }
+
+    /**
+     * Siapa boleh mengunci/membuka kunci: Super Admin dan Admin sahaja, dan
+     * hanya pada kerusi yang memang milik mereka.
+     *
+     * Peraturan KERUSI diterbitkan daripada SeatScope dan bukan ditulis kali
+     * kedua di sini — sama seperti bolehPadamBorang(). Peranan di bawah Admin
+     * (super_user/user/pengarah_dun) sengaja TIDAK termasuk: kunci ialah
+     * kawalan penyeliaan ke atas kerja mereka sendiri, jadi orang yang mengisi
+     * borang tidak boleh membuka kunci kerjanya sendiri.
+     *
+     * Berbeza daripada bolehPadamBorang(), status DITERBITKAN tidak menyekat
+     * Admin di sini: mengunci rekod yang sudah diterbitkan ialah tepat kes
+     * penggunaan utama ciri ini, dan ia menambah sekatan, bukan memusnahkan
+     * apa-apa.
+     */
+    private function bolehKunciBorang(?User $user, Borang14Form $form): bool
+    {
+        if (! $user || (! $user->isSuperAdmin() && ! $user->isAdmin())) {
+            return false;
+        }
+
+        return SeatScope::allows($user, (string) $form->kawasan_type, (int) $form->kawasan_id);
+    }
+
+    /** Bekukan borang ini — semua laluan tulis ditutup sehingga dibuka semula. */
+    public function kunci(Request $request)
+    {
+        $data = $request->validate(['form_id' => 'required|integer|exists:borang14_forms,id']);
+        $form = Borang14Form::findOrFail($data['form_id']);
+
+        abort_unless($this->bolehKunciBorang($request->user(), $form), 403, 'Unauthorized action.');
+
+        // Idempoten dengan SENGAJA: dua klik (atau dua peti tab) tidak boleh
+        // menukar ganti pengunci asal. Cap masa/pemilik kunci PERTAMA ialah
+        // jejak audit yang bermakna; menulis ganti ia memadam siapa sebenarnya
+        // membekukan rekod itu.
+        if (! $form->isLocked()) {
+            $form->update(['locked_at' => now(), 'locked_by' => $request->user()?->id]);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'locked_at' => $form->locked_at,
+        ]);
+    }
+
+    /** Buka semula — borang kembali boleh disunting mengikut peraturan biasa. */
+    public function bukaKunci(Request $request)
+    {
+        $data = $request->validate(['form_id' => 'required|integer|exists:borang14_forms,id']);
+        $form = Borang14Form::findOrFail($data['form_id']);
+
+        abort_unless($this->bolehKunciBorang($request->user(), $form), 403, 'Unauthorized action.');
+
+        // locked_by DIKOSONGKAN bersama locked_at: lajur itu bermaksud "siapa
+        // memegang kunci SEKARANG", bukan sejarah, jadi kunci berikutnya
+        // dicap dengan pemiliknya sendiri.
+        $form->update(['locked_at' => null, 'locked_by' => null]);
+
+        return response()->json(['ok' => true, 'locked_at' => null]);
+    }
+
     public function publish(Request $request)
     {
         $data = $request->validate(['form_id' => 'required|integer|exists:borang14_forms,id']);
         $form = Borang14Form::findOrFail($data['form_id']);
         $this->assertKerusiBorang($request->user(), $form);
+        // Menerbitkan menukar apa yang dilihat orang ramai pada Scoreboard —
+        // satu perubahan keadaan, jadi ia tertakluk pada kunci seperti setiap
+        // laluan tulis yang lain.
+        $this->assertTidakDikunci($form);
 
         $form->update(['status' => 'published', 'published_at' => now()]);
 
@@ -2451,6 +2602,13 @@ class Borang14Controller extends Controller
 
         $form = Borang14Form::findOrFail($data['form_id']);
 
+        // Nyahterbit MEMBUKA SEMULA setiap laluan sunting yang disekat oleh
+        // status 'published' (lihat bolehSuntingStruktur()), jadi ia bukan
+        // sekadar tukar status — ia menyahbeku rekod. Pada borang berkunci itu
+        // bercanggah terus dengan maksud kunci: buka kunci dahulu, dengan
+        // sengaja, kemudian nyahterbit.
+        $this->assertTidakDikunci($form);
+
         if ($form->status !== 'published') {
             return response()->json(['message' => 'Borang ini bukan rekod diterbitkan.'], 422);
         }
@@ -2469,6 +2627,10 @@ class Borang14Controller extends Controller
         // TIDAK dirakam di mana-mana — sekali dijalankan pada kerusi orang lain,
         // ia tidak boleh dibatalkan.
         $this->assertKerusiBorang($request->user(), $form);
+        // Atas sebab yang SAMA menjadikannya laluan paling memusnahkan pada
+        // skrin ini, revert tertakluk pada kunci — ia memadam setiap undi
+        // semasa lalu menulis semula daripada snapshot.
+        $this->assertTidakDikunci($form);
 
         $snap = $form->snapshots()->latest('created_at')->first();
         if (! $snap) {
@@ -2520,7 +2682,7 @@ class Borang14Controller extends Controller
             })
             ->orderByDesc('tahun')->orderBy('jenis_pr')->orderBy('kawasan_type')
             ->get()
-            ->map(function (Borang14Form $f) {
+            ->map(function (Borang14Form $f) use ($request) {
                 // Resolve the real ids ourselves so the frontend never has to
                 // recover them by matching kawasan_nama strings — duplicate
                 // names within a state (plausible since this feature CREATES
@@ -2539,6 +2701,12 @@ class Borang14Controller extends Controller
                     'penjuru' => $f->penjuru, 'status' => $f->status, 'source' => $f->source,
                     'source_filename' => $f->source_filename, 'needs_review' => $f->needs_review,
                     'published_at' => $f->published_at,
+                    // Kunci ialah paksi kedua di sebelah `status` — senarai
+                    // memaparkan kedua-duanya, dan butang Kunci/Buka Kunci
+                    // hanya muncul bagi baris yang pengguna ini memang boleh
+                    // uruskan (peraturan dikira di server, bukan diteka di UI).
+                    'locked_at' => $f->locked_at,
+                    'boleh_kunci' => $this->bolehKunciBorang($request->user(), $f),
                 ];
             });
 
@@ -2693,6 +2861,11 @@ class Borang14Controller extends Controller
         if (! $this->bolehPadamBorang($request->user(), $form)) {
             abort(403, 'Unauthorized action.');
         }
+
+        // Kunci mengatasi hak padam. Rekod yang dibekukan sengaja ialah rekod
+        // yang PALING tidak patut lenyap dengan satu klik — buka kunci dahulu,
+        // dengan sengaja, jika ia benar-benar perlu dipadam.
+        $this->assertTidakDikunci($form);
 
         // Integriti, BUKAN kebenaran: seorang admin memiliki Parlimennya DAN
         // setiap DUN di bawahnya, jadi padaman ini sah dari segi kerusi. Yang

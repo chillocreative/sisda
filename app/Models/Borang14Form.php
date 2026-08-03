@@ -16,6 +16,7 @@ class Borang14Form extends Model
         'kawasan_type', 'kawasan_id', 'jenis_pr', 'tahun', 'penjuru',
         'parties', 'structure', 'status', 'source', 'source_filename',
         'needs_review', 'published_at', 'borang14_form_parlimen_id',
+        'locked_at', 'locked_by',
     ];
 
     protected $casts = [
@@ -23,6 +24,7 @@ class Borang14Form extends Model
         'structure' => 'array',
         'needs_review' => 'boolean',
         'published_at' => 'datetime',
+        'locked_at' => 'datetime',
     ];
 
     public function votes(): HasMany
@@ -81,6 +83,23 @@ class Borang14Form extends Model
     public function kawasanNama(): string
     {
         return $this->kawasan()?->nama ?? '—';
+    }
+
+    /**
+     * Borang BERKUNCI — dibekukan daripada setiap laluan tulis.
+     *
+     * Paksi yang BERASINGAN daripada `status`: borang draf boleh dikunci
+     * (kerja siap tetapi belum diterbitkan) dan borang diterbitkan boleh
+     * terbuka. Jangan sekali-kali menyimpulkan satu daripada satu lagi.
+     */
+    public function isLocked(): bool
+    {
+        return $this->locked_at !== null;
+    }
+
+    public function penguncinya(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'locked_by');
     }
 
     public function scopePublished(Builder $q): Builder

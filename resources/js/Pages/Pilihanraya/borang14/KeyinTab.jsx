@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePage } from '@inertiajs/react';
 import axios from 'axios';
-import { Download, Info, MapPin, Loader2, Save } from 'lucide-react';
+import { Download, Info, Lock, LockOpen, MapPin, Loader2, Save } from 'lucide-react';
 import { usePilihanrayaTheme } from '../components/PilihanrayaShell';
 import KawasanPicker from './KawasanPicker';
 import StrukturPanel from './StrukturPanel';
@@ -150,6 +150,12 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
     const [cellStatus, setCellStatus] = useState({});
     const [publishing, setPublishing] = useState(false);
     const [publishedOk, setPublishedOk] = useState(false);
+    // Bolehkah pengguna INI mengunci/membuka kunci borang yang sedang dipapar.
+    // Datang dari server pada setiap muatan — peraturan peranan+kerusi yang
+    // ditulis semula di sini pasti menyimpang daripada pengawal.
+    const [bolehKunci, setBolehKunci] = useState(false);
+    const [kunciBusy, setKunciBusy] = useState(false);
+    const [ralatKunci, setRalatKunci] = useState('');
     const statusTimers = useRef({});
     // Per-cellKey request sequence — guards against out-of-order POST
     // resolutions (see Task 8 review finding: resolution order is not send
@@ -188,6 +194,8 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                     setVotes(mergeVotes(data));
                     setKontesParlimen(data.kontes_parlimen || null);
                     setForm(data.form || null);
+                    setBolehKunci(Boolean(data.boleh_kunci));
+                    setRalatKunci('');
                     setPublishedOk(false);
                     // Skop disemai daripada borang yang DIMUAT, bukan daripada
                     // `contestSendiri` semasa: picker baru sahaja ditulis di
@@ -222,6 +230,10 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
     useEffect(() => {
         if (!geographyComplete) {
             setReference(null); setHasData(true); setInheritedFrom(null); setVotes({}); setForm(null);
+            // Kunci milik borang kerusi yang tadi dipilih — biarkan hidup dan
+            // butang "Buka Kunci" akan menyasarkan borang yang salah.
+            setBolehKunci(false);
+            setRalatKunci('');
             // Pautan kontes milik kerusi yang tadi dipilih — biarkan ia hidup
             // dan skrin akan memapar jalur PRU kerusi LAMA di atas grid kerusi
             // baharu, iaitu tepat salah tafsir yang jalur berwarna ini wujud
@@ -256,8 +268,10 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
         setSkop(contestSendiri);
         setSkopSemasa(contestSendiri);
         setRalatParti('');
+        setRalatKunci('');
         setStruktur({ pusat: [], undi_awal: false, undi_pos: false });
         setBolehSuntingStruktur(false);
+        setBolehKunci(false);
         // Atas sebab yang sama: kosongkan pautan kontes SEBELUM permintaan
         // dihantar, supaya jalur PRU kerusi lama tidak kekal terpapar sepanjang
         // muatan kerusi baharu.
@@ -279,6 +293,7 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                 setVotes(mergeVotes(data));
                 setKontesParlimen(data.kontes_parlimen || null);
                 setForm(data.form || null);
+                setBolehKunci(Boolean(data.boleh_kunci));
                 // Skop dibaca semula daripada server pada setiap muatan —
                 // termasuk muatan semula selepas satu pemisahan. `penjuru`
                 // kedua-dua borang ditulis semula oleh pemisahan itu (borang
@@ -574,6 +589,32 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
     const allPartiesMapped = parties.length > 0 && parties.every((p) => p.keahlian_parti_id);
     const anySaving = Object.values(cellStatus).some((s) => s === 'saving' || s === 'error');
 
+    // Borang DIKUNCI — dibekukan sepenuhnya. Ini keadaan SERVER (form.locked),
+    // bukan kebenaran: setiap laluan tulis menolaknya dengan 422, jadi
+    // mengelabukan skrin di sini semata-mata menjimatkan pengendali daripada
+    // menaip angka yang pasti ditolak.
+    const dikunci = Boolean(form?.locked);
+
+    const tukarKunci = async (mahuKunci) => {
+        if (!form?.id) return;
+        setKunciBusy(true);
+        setRalatKunci('');
+        try {
+            await axios.post(
+                route(mahuKunci ? 'pilihanraya.borang-14.kunci' : 'pilihanraya.borang-14.buka-kunci'),
+                { form_id: form.id },
+            );
+            // Muat semula PENUH dan bukan sekadar setForm(): kunci turut
+            // menentukan boleh_sunting_struktur dan boleh_kunci, yang dikira
+            // di server. Menekanya di client bermakna dua pelaksanaan.
+            setReloadNonce((n) => n + 1);
+        } catch (e) {
+            setRalatKunci(ralatServer(e, mahuKunci ? 'Gagal mengunci Borang 14.' : 'Gagal membuka kunci Borang 14.'));
+        } finally {
+            setKunciBusy(false);
+        }
+    };
+
     const publish = async () => {
         if (!form?.id) return;
         setPublishing(true);
@@ -614,7 +655,7 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                         {kawasanType === 'dun' && (
                             <div>
                                 <label className={t.label}>Skop Borang 14</label>
-                                <select value={skop} onChange={(e) => setSkop(e.target.value)} className={t.input}>
+                                <select value={skop} onChange={(e) => setSkop(e.target.value)} disabled={dikunci} className={t.input}>
                                     <option value="dun">DUN sahaja (PRN)</option>
                                     <option value="parlimen">Parlimen sahaja (PRU)</option>
                                     <option value={SKOP_KEDUA}>Kedua-duanya (serentak)</option>
@@ -628,7 +669,7 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                         )}
                         <div>
                             <label className={t.label}>Bilangan Penjuru</label>
-                            <select value={penjuru} onChange={(e) => setPenjuru(e.target.value)} className={t.input}>
+                            <select value={penjuru} onChange={(e) => setPenjuru(e.target.value)} disabled={dikunci} className={t.input}>
                                 <option value="">Pilih Penjuru</option>
                                 {penjuruOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                             </select>
@@ -647,6 +688,7 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                                 <select
                                     value={p.keahlian_parti_id || ''}
                                     onChange={(e) => onPickParty(i, e.target.value)}
+                                    disabled={dikunci}
                                     className={t.input}
                                 >
                                     <option value="">Pilih Parti</option>
@@ -656,6 +698,7 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                                     <select
                                         value={p.kontes || ''}
                                         onChange={(e) => onPickKontes(i, e.target.value)}
+                                        disabled={dikunci}
                                         className={`${t.input} mt-1`}
                                     >
                                         <option value="">Pertandingan mana?</option>
@@ -695,7 +738,7 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                         <button
                             type="button"
                             onClick={simpanSkop}
-                            disabled={menyimpanSkop || parties.length === 0 || (pilihKontes && kiraKontes.belum > 0)}
+                            disabled={dikunci || menyimpanSkop || parties.length === 0 || (pilihKontes && kiraKontes.belum > 0)}
                             title={pilihKontes && kiraKontes.belum > 0 ? 'Tandakan pertandingan bagi setiap calon dahulu' : undefined}
                             className={t.buttonPrimary}
                         >
@@ -803,20 +846,65 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                         <div className="flex items-center gap-2">
                             {form?.status === 'published' && <span className={`${t.badge} bg-emerald-100 text-emerald-800`}>DITERBITKAN</span>}
                             {form?.status === 'draft' && <span className={`${t.badge} bg-amber-100 text-amber-800`}>DRAF</span>}
+                            {dikunci && <span className={`${t.badge} bg-slate-200 text-slate-700`}>DIKUNCI</span>}
                             <button type="button" onClick={downloadPdf} className={t.buttonSecondary}>
                                 <Download className="h-4 w-4" /> Muat Turun PDF
                             </button>
+                            {/* Kunci ialah kawalan penyeliaan — butangnya hanya
+                                wujud bagi Super Admin/Admin pemilik kerusi, dan
+                                kelayakan itu dikira di server (boleh_kunci). */}
+                            {bolehKunci && form?.id && (
+                                <button
+                                    type="button"
+                                    onClick={() => tukarKunci(!dikunci)}
+                                    disabled={kunciBusy}
+                                    title={dikunci
+                                        ? 'Buka kunci supaya borang ini boleh disunting semula'
+                                        : 'Kunci borang ini supaya undi dan calon tidak boleh diubah lagi'}
+                                    className={t.buttonSecondary}
+                                >
+                                    {kunciBusy
+                                        ? <Loader2 className="h-4 w-4 animate-spin" />
+                                        : (dikunci ? <LockOpen className="h-4 w-4" /> : <Lock className="h-4 w-4" />)}
+                                    {dikunci ? 'Buka Kunci' : 'Kunci'}
+                                </button>
+                            )}
                             <button
                                 type="button"
                                 onClick={publish}
-                                disabled={!form?.id || !allPartiesMapped || anySaving || publishing || form?.status === 'published'}
-                                title={!allPartiesMapped ? 'Petakan setiap calon kepada parti dahulu' : anySaving ? 'Tunggu autosave selesai / betulkan sel merah' : undefined}
+                                disabled={dikunci || !form?.id || !allPartiesMapped || anySaving || publishing || form?.status === 'published'}
+                                title={dikunci ? 'Borang ini dikunci — buka kunci dahulu' : !allPartiesMapped ? 'Petakan setiap calon kepada parti dahulu' : anySaving ? 'Tunggu autosave selesai / betulkan sel merah' : undefined}
                                 className={t.buttonPrimary}
                             >
                                 {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save &amp; Terbit
                             </button>
                         </div>
                     </div>
+
+                    {/* Sebab skrin kelabu mesti DIEJA. Grid yang senyap-senyap
+                        menolak taipan akan disangka pepijat, dan pengendali
+                        akan menaip semula angka yang sama berulang kali pada
+                        malam mengira undi. */}
+                    {dikunci && (
+                        <div className="bg-slate-100 border border-slate-300 text-slate-700 rounded-lg px-4 py-3 text-sm mb-4 flex items-start gap-2">
+                            <Lock className="h-4 w-4 shrink-0 mt-0.5" />
+                            <span>
+                                Borang 14 ini <strong>DIKUNCI</strong>
+                                {form?.locked_at && <> pada {new Date(form.locked_at).toLocaleString('ms-MY')}</>}
+                                {form?.locked_by_nama && <> oleh <strong>{form.locked_by_nama}</strong></>}
+                                {' '}— undi, nama calon dan struktur saluran tidak boleh diubah lagi.
+                                {bolehKunci
+                                    ? ' Tekan “Buka Kunci” di atas jika pindaan benar-benar perlu.'
+                                    : ' Hubungi Super Admin atau Admin jika pindaan benar-benar perlu.'}
+                            </span>
+                        </div>
+                    )}
+
+                    {ralatKunci && (
+                        <div className="bg-rose-50 border border-rose-300 text-rose-800 rounded-lg px-4 py-3 text-sm mb-4">
+                            {ralatKunci}
+                        </div>
+                    )}
 
                     {/*
                         ASAL STRUKTUR mesti SENTIASA dinyatakan. Rujukan terbitan
@@ -962,6 +1050,7 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                                 onSave={saveVote}
                                 anchorId={pusatAnchors[i]?.anchorId}
                                 cellStatus={cellStatus}
+                                readOnly={dikunci}
                             />
                         ) : (
                             <VoteTable
@@ -973,6 +1062,7 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                                 anchorId={pusatAnchors[i]?.anchorId}
                                 contest={contestSendiri}
                                 cellStatus={cellStatus}
+                                readOnly={dikunci}
                             />
                         )))}
                     </div>
@@ -986,6 +1076,7 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                                     onSave={saveVote}
                                     rows={undiAwalPosRows}
                                     cellStatus={cellStatus}
+                                    readOnly={dikunci}
                                 />
                             ) : (
                                 <UndiAwalPosTable
@@ -995,6 +1086,7 @@ export default function KeyinTab({ negeriList, parlimenList, kadunList, partiLis
                                     rows={undiAwalPosRows}
                                     contest={contestSendiri}
                                     cellStatus={cellStatus}
+                                    readOnly={dikunci}
                                 />
                             )}
                         </div>

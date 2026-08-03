@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { usePage } from '@inertiajs/react';
 import axios from 'axios';
-import { Download, Eye, EyeOff, Info, Landmark, Loader2, MapPin, RotateCcw, Trash2, Vote } from 'lucide-react';
+import { Download, Eye, EyeOff, Info, Landmark, Loader2, Lock, LockOpen, MapPin, RotateCcw, Trash2, Vote } from 'lucide-react';
 import { usePilihanrayaTheme } from '../components/PilihanrayaShell';
 import ConfirmDialog from './ConfirmDialog';
 
@@ -46,6 +46,10 @@ export default function PaparTab({ negeriList, parlimenList, kadunList, onOpenKe
     const [hapusing, setHapusing] = useState(false);
     const [nyahterbitTarget, setNyahterbitTarget] = useState(null);
     const [nyahterbiting, setNyahterbiting] = useState(false);
+    // { row, mahuKunci } — satu sasaran bagi kedua-dua arah, supaya dialog
+    // pengesahan tidak pernah boleh terbuka bagi arah yang salah.
+    const [kunciTarget, setKunciTarget] = useState(null);
+    const [kuncing, setKuncing] = useState(false);
 
     // Rekod DITERBITKAN ialah keputusan rasmi yang sudah disiarkan ke Scoreboard
     // — hanya super_admin boleh membuangnya. Butang disembunyikan bagi peranan
@@ -55,6 +59,10 @@ export default function PaparTab({ negeriList, parlimenList, kadunList, onOpenKe
     // Nyahterbit: super_admin sahaja, dan hanya bermakna pada rekod yang memang
     // sedang diterbitkan.
     const bolehNyahterbit = (r) => role === 'super_admin' && r.status === 'published';
+    // Kunci: Super Admin + Admin pemilik kerusi. Kelayakan DIKIRA DI SERVER
+    // dan dihantar setiap baris (senarai() -> boleh_kunci) — menulis semula
+    // peraturan peranan+kerusi di sini bermakna dua salinan yang akan hanyut.
+    const dikunci = (r) => Boolean(r.locked_at);
 
     const parlimenOptions = negeriId
         ? parlimenList.filter((p) => String(p.negeri_id) === String(negeriId)) : [];
@@ -135,6 +143,25 @@ export default function PaparTab({ negeriList, parlimenList, kadunList, onOpenKe
             setNyahterbitTarget(null);
         } finally {
             setNyahterbiting(false);
+        }
+    };
+
+    const tukarKunci = async () => {
+        setKuncing(true);
+        try {
+            await axios.post(
+                route(kunciTarget.mahuKunci ? 'pilihanraya.borang-14.kunci' : 'pilihanraya.borang-14.buka-kunci'),
+                { form_id: kunciTarget.row.id },
+            );
+            setKunciTarget(null);
+            load();
+        } catch (e) {
+            setError(e.response?.status === 403
+                ? 'Anda tiada kebenaran mengunci/membuka kunci rekod ini.'
+                : (e.response?.data?.message || 'Gagal mengemas kini kunci rekod.'));
+            setKunciTarget(null);
+        } finally {
+            setKuncing(false);
         }
     };
 
@@ -228,6 +255,11 @@ export default function PaparTab({ negeriList, parlimenList, kadunList, onOpenKe
                                     <td className={`${t.tableCell} text-right`}>{r.penjuru}</td>
                                     <td className={t.tableCell}>
                                         <span className={`${t.badge} ${STATUS_BADGE[r.status]}`}>{r.status === 'draft' ? 'DRAF' : 'DITERBITKAN'}</span>
+                                        {/* Kunci ialah paksi KEDUA di sebelah status, bukan
+                                            gantinya — kedua-dua lencana dipapar bersama supaya
+                                            "DRAF tetapi dikunci" tidak pernah kelihatan seperti
+                                            draf biasa yang masih boleh disunting. */}
+                                        {dikunci(r) && <span className={`${t.badge} bg-slate-200 text-slate-700 ml-1`}>DIKUNCI</span>}
                                         {r.status === 'published' && r.published_at && (
                                             <div className="text-xs text-slate-400 mt-0.5">{new Date(r.published_at).toLocaleDateString('ms-MY')}</div>
                                         )}
@@ -244,19 +276,36 @@ export default function PaparTab({ negeriList, parlimenList, kadunList, onOpenKe
                                             className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mr-3">
                                             <Download className="h-4 w-4" /> PDF
                                         </button>
-                                        <button type="button" title="Pulih keadaan sebelum scoresheet menimpa"
-                                            onClick={() => setRevertTarget(r)}
-                                            className="inline-flex items-center gap-1 text-sm text-rose-600 hover:text-rose-700 mr-3">
-                                            <RotateCcw className="h-4 w-4" /> Revert
-                                        </button>
-                                        {bolehNyahterbit(r) && (
+                                        {/* Setiap tindakan MENULIS disembunyikan pada rekod
+                                            berkunci — server menolaknya dengan 422, jadi
+                                            membiarkannya kelihatan hanya menjanjikan sesuatu
+                                            yang pasti gagal. Papar & PDF (bacaan) kekal. */}
+                                        {!dikunci(r) && (
+                                            <button type="button" title="Pulih keadaan sebelum scoresheet menimpa"
+                                                onClick={() => setRevertTarget(r)}
+                                                className="inline-flex items-center gap-1 text-sm text-rose-600 hover:text-rose-700 mr-3">
+                                                <RotateCcw className="h-4 w-4" /> Revert
+                                            </button>
+                                        )}
+                                        {r.boleh_kunci && (
+                                            <button type="button"
+                                                title={dikunci(r)
+                                                    ? 'Buka kunci supaya rekod ini boleh disunting semula'
+                                                    : 'Kunci rekod ini supaya undi dan calon tidak boleh diubah lagi'}
+                                                onClick={() => setKunciTarget({ row: r, mahuKunci: !dikunci(r) })}
+                                                className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mr-3">
+                                                {dikunci(r) ? <LockOpen className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                                                {dikunci(r) ? 'Buka Kunci' : 'Kunci'}
+                                            </button>
+                                        )}
+                                        {!dikunci(r) && bolehNyahterbit(r) && (
                                             <button type="button" title="Kembalikan rekod ini kepada draf"
                                                 onClick={() => setNyahterbitTarget(r)}
                                                 className="inline-flex items-center gap-1 text-sm text-amber-600 hover:text-amber-700 mr-3">
                                                 <EyeOff className="h-4 w-4" /> Nyahterbit
                                             </button>
                                         )}
-                                        {bolehPadam(r) && (
+                                        {!dikunci(r) && bolehPadam(r) && (
                                             <button type="button" title="Padam rekod Borang 14 ini"
                                                 onClick={() => setHapusTarget(r)}
                                                 className="inline-flex items-center gap-1 text-sm text-rose-600 hover:text-rose-700">
@@ -303,6 +352,35 @@ export default function PaparTab({ negeriList, parlimenList, kadunList, onOpenKe
                         Undi, struktur dan pemetaan parti <strong>tidak</strong> disentuh — hanya statusnya berubah,
                         jadi rekod boleh disunting semula pada tab Keyin dan diterbitkan sekali lagi melalui
                         &ldquo;Save &amp; Terbit&rdquo;. Papan Scoreboard yang sudah terikat pada rekod ini kekal terikat.
+                    </p>
+                )}
+            </ConfirmDialog>
+
+            <ConfirmDialog
+                open={!!kunciTarget}
+                title={kunciTarget?.mahuKunci ? 'Kunci rekod Borang 14?' : 'Buka kunci rekod Borang 14?'}
+                confirmLabel={kunciTarget?.mahuKunci ? 'Kunci' : 'Buka Kunci'}
+                busy={kuncing}
+                onClose={() => setKunciTarget(null)}
+                onConfirm={tukarKunci}
+            >
+                {kunciTarget && (
+                    <p>
+                        Rekod <strong>{kunciTarget.row.kawasan_nama} · {JENIS_LABEL[kunciTarget.row.jenis_pr]} {kunciTarget.row.tahun}</strong>
+                        {kunciTarget.mahuKunci ? (
+                            <>
+                                {' '}akan <strong>DIKUNCI</strong>. Undi, nama calon, struktur saluran, muat naik
+                                scoresheet, revert dan padam semuanya disekat — bagi <strong>semua pengguna</strong>,
+                                termasuk Super Admin. Rekod kekal boleh dipapar dan dimuat turun sebagai PDF, dan
+                                statusnya (DRAF/DITERBITKAN) tidak berubah.
+                            </>
+                        ) : (
+                            <>
+                                {' '}akan <strong>DIBUKA KUNCI</strong> dan boleh disunting semula mengikut peraturan
+                                biasa. Pastikan pindaan yang hendak dibuat memang wajar — rekod ini dikunci kerana
+                                ia dianggap sudah muktamad.
+                            </>
+                        )}
                     </p>
                 )}
             </ConfirmDialog>

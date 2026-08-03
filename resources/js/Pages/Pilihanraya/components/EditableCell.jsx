@@ -5,7 +5,11 @@ import { useEffect, useState } from 'react';
 //   mode="int"     → whole numbers (voter counts). Stores/returns the integer.
 //   mode="percent" → the user types a percentage (e.g. 67.4); stores/returns
 //                    the fraction (0.674). One decimal place, capped 0–100%.
-export default function EditableCell({ value, onCommit, mode = 'int', max = null, invalid = false, className = '' }) {
+// `disabled` mengelabukan sel dan mematikan input SEPENUHNYA — dipakai oleh
+// Borang 14 yang DIKUNCI. Ia sengaja mengubah warna (kelabu, bukan biru):
+// "sel biru = boleh taip" ialah isyarat yang sama di seluruh Pilihanraya, jadi
+// sel biru yang senyap menolak taipan akan disangka pepijat.
+export default function EditableCell({ value, onCommit, mode = 'int', max = null, invalid = false, disabled = false, className = '' }) {
     const toDisplay = (v) => {
         if (v == null || v === '') return '';
         return mode === 'percent' ? String(+(Number(v) * 100).toFixed(1)) : String(Math.round(Number(v)));
@@ -30,9 +34,13 @@ export default function EditableCell({ value, onCommit, mode = 'int', max = null
         if (num !== (Number(value) || 0)) onCommit(num);
     };
 
-    const border = invalid
-        ? 'bg-rose-100 border-rose-400 focus:ring-rose-400'
-        : 'bg-sky-100 border-sky-300 focus:ring-sky-400';
+    // Kelabu MENGATASI merah: sel yang dikunci tidak boleh dibetulkan lagi,
+    // jadi memaparkannya sebagai "ralat, cuba lagi" hanya mengelirukan.
+    const border = disabled
+        ? 'bg-slate-100 border-slate-300 text-slate-500 cursor-not-allowed'
+        : invalid
+            ? 'bg-rose-100 border-rose-400 focus:ring-rose-400'
+            : 'bg-sky-100 border-sky-300 focus:ring-sky-400';
 
     return (
         <div className="relative inline-flex items-center">
@@ -43,10 +51,11 @@ export default function EditableCell({ value, onCommit, mode = 'int', max = null
                 max={mode === 'percent' ? 100 : max ?? undefined}
                 step={mode === 'percent' ? '0.1' : '1'}
                 value={local}
+                disabled={disabled}
                 onChange={(e) => setLocal(e.target.value)}
                 onBlur={commit}
                 onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-                className={`w-24 px-2 py-1 text-right text-sm rounded-md text-slate-900 border focus:ring-2 focus:outline-none tabular-nums ${border} ${mode === 'percent' ? 'pr-6' : ''} ${className}`}
+                className={`w-24 px-2 py-1 text-right text-sm rounded-md border focus:ring-2 focus:outline-none tabular-nums ${disabled ? '' : 'text-slate-900'} ${border} ${mode === 'percent' ? 'pr-6' : ''} ${className}`}
                 placeholder="0"
             />
             {mode === 'percent' && (

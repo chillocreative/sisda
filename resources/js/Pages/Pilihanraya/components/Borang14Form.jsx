@@ -126,7 +126,11 @@ export function bandTotals(rows, nParties) {
 // T.Msk (91). Dikongsi oleh jadual satu jalur DAN dua jalur supaya hanya ada
 // SATU tempat di seluruh skrin yang menentukan pertandingan mana yang ditulis
 // oleh sesuatu sel — `contest` yang sama menjadi kunci paparan dan muatan POST.
-function BandCells({ contest, pusat, saluran, row, cellStatus, onSave, maxFor, tint = '' }) {
+//
+// `readOnly` (borang DIKUNCI) dikendalikan DI SINI dan bukan di setiap jadual:
+// ini satu-satunya tempat sel boleh-taip dilahirkan, jadi tiada jadual yang
+// boleh terlepas pandang dan tinggal boleh disunting.
+function BandCells({ contest, pusat, saluran, row, cellStatus, onSave, maxFor, tint = '', readOnly = false }) {
     const tdClass = tint ? `px-2 py-1 ${tint}` : 'px-2 py-1';
 
     return [
@@ -143,6 +147,7 @@ function BandCells({ contest, pusat, saluran, row, cellStatus, onSave, maxFor, t
                     <EditableCell
                         value={v}
                         invalid={cellStatus[key] === 'error'}
+                        disabled={readOnly}
                         max={maxFor(v)}
                         onCommit={(undi) => onSave(pusat, saluran, slot, undi, contest)}
                     />
@@ -157,7 +162,7 @@ function BandCells({ contest, pusat, saluran, row, cellStatus, onSave, maxFor, t
 // `contest` menentukan ruang nama kunci sel jadual ini DAN pertandingan yang
 // ditulis oleh autosimpan. Ia WAJIB — tiada nilai lalai, kerana lalai yang
 // senyap pada skrin dua jalur bermakna undi PRU ditulis ke pertandingan PRN.
-export function VoteTable({ block, partyNames, votes, onSave, anchorId, contest, cellStatus = {} }) {
+export function VoteTable({ block, partyNames, votes, onSave, anchorId, contest, cellStatus = {}, readOnly = false }) {
     const { t } = usePilihanrayaTheme();
     const nParties = partyNames.length;
 
@@ -209,6 +214,7 @@ export function VoteTable({ block, partyNames, votes, onSave, anchorId, contest,
                                     row={r}
                                     cellStatus={cellStatus}
                                     onSave={onSave}
+                                    readOnly={readOnly}
                                     maxFor={(v) => (r.berdaftar != null ? Math.max(0, r.berdaftar - (r.keluar - v)) : null)}
                                 />
                                 <td className={`${t.tableCell} text-right`}>{fmt(r.undian)}</td>
@@ -242,7 +248,7 @@ export function VoteTable({ block, partyNames, votes, onSave, anchorId, contest,
 
 /* ----------------------- undi awal / undi pos -------------------------- */
 
-export function UndiAwalPosTable({ partyNames, votes, onSave, rows, contest, cellStatus = {} }) {
+export function UndiAwalPosTable({ partyNames, votes, onSave, rows, contest, cellStatus = {}, readOnly = false }) {
     const { t } = usePilihanrayaTheme();
     const nParties = partyNames.length;
 
@@ -282,6 +288,7 @@ export function UndiAwalPosTable({ partyNames, votes, onSave, rows, contest, cel
                                         row={r}
                                         cellStatus={cellStatus}
                                         onSave={onSave}
+                                        readOnly={readOnly}
                                         maxFor={() => null}
                                     />
                                     <td className={`${t.tableCell} text-right`}>{fmt(undian)}</td>
@@ -357,7 +364,7 @@ function BandHead({ bands, t }) {
 // Satu baris saluran merentas semua jalur. `berdaftar` dihantar masuk kerana ia
 // dikongsi: ia mengehadkan sel kedua-dua jalur dan menjadi penyebut kedua-dua
 // peratusan, tetapi ia bukan milik mana-mana jalur.
-function BandRow({ bands, votes, pusat, saluran, berdaftar, cellStatus, onSave }) {
+function BandRow({ bands, votes, pusat, saluran, berdaftar, cellStatus, onSave, readOnly = false }) {
     const { t } = usePilihanrayaTheme();
 
     return (
@@ -374,6 +381,7 @@ function BandRow({ bands, votes, pusat, saluran, berdaftar, cellStatus, onSave }
                         row={r}
                         cellStatus={cellStatus}
                         onSave={onSave}
+                        readOnly={readOnly}
                         tint={cell}
                         maxFor={(v) => (berdaftar != null ? Math.max(0, berdaftar - (r.keluar - v)) : null)}
                     />,
@@ -428,7 +436,7 @@ function BandTotalRow({ bands, rows, votes, t }) {
 // Bilangan sel parti setiap jalur datang daripada `band.partyNames`, yang
 // dibina oleh pemanggil daripada `penjuru` PERTANDINGAN ITU SENDIRI — penjuru
 // borang DUN bagi jalur PRN, penjuru borang Parlimen yang dipaut bagi jalur PRU.
-export function VoteTableSerentak({ block, bands, votes, onSave, anchorId, cellStatus = {} }) {
+export function VoteTableSerentak({ block, bands, votes, onSave, anchorId, cellStatus = {}, readOnly = false }) {
     const { t } = usePilihanrayaTheme();
     const rows = block.saluran.map((s) => ({
         pusat: block.pusat,
@@ -457,6 +465,7 @@ export function VoteTableSerentak({ block, bands, votes, onSave, anchorId, cellS
                                     berdaftar={r.berdaftar}
                                     cellStatus={cellStatus}
                                     onSave={onSave}
+                                    readOnly={readOnly}
                                 />
                                 <td className={`${t.tableCell} text-right`}>{fmtOrDash(r.berdaftar)}</td>
                             </tr>
@@ -471,7 +480,7 @@ export function VoteTableSerentak({ block, bands, votes, onSave, anchorId, cellS
 
 // Undi Awal & Undi Pos versi dua jalur — struktur sama, cuma barisnya berlabel
 // dan tiada had `max` kerana baris ini tiada Berdaftar sendiri.
-export function UndiAwalPosTableSerentak({ bands, votes, onSave, rows, cellStatus = {} }) {
+export function UndiAwalPosTableSerentak({ bands, votes, onSave, rows, cellStatus = {}, readOnly = false }) {
     const { t } = usePilihanrayaTheme();
     const baris = rows.map(({ label, berdaftar }) => ({ pusat: '', saluran: label, berdaftar: berdaftar ?? null }));
 
@@ -493,6 +502,7 @@ export function UndiAwalPosTableSerentak({ bands, votes, onSave, rows, cellStatu
                                     berdaftar={r.berdaftar}
                                     cellStatus={cellStatus}
                                     onSave={onSave}
+                                    readOnly={readOnly}
                                 />
                                 <td className={`${t.tableCell} text-right`}>{fmtOrDash(r.berdaftar)}</td>
                             </tr>

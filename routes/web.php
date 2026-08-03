@@ -518,6 +518,11 @@ Route::middleware(['auth', 'pilihanraya'])->prefix('pilihanraya')->name('pilihan
     // Nyahterbit: super_admin sahaja — semakan peranan dalam pengawal.
     Route::post('/borang-14/unpublish', [\App\Http\Controllers\Borang14Controller::class, 'unpublish'])->name('borang-14.unpublish')->middleware('throttle:30,1');
     Route::post('/borang-14/revert', [\App\Http\Controllers\Borang14Controller::class, 'revert'])->name('borang-14.revert')->middleware('throttle:10,1');
+    // Kunci/Buka Kunci: super_admin + admin (kerusi sendiri) — semakan peranan
+    // DAN kerusi dalam pengawal. Borang berkunci menolak SETIAP laluan tulis
+    // di atas, termasuk bagi super_admin.
+    Route::post('/borang-14/kunci', [\App\Http\Controllers\Borang14Controller::class, 'kunci'])->name('borang-14.kunci')->middleware('throttle:30,1');
+    Route::post('/borang-14/buka-kunci', [\App\Http\Controllers\Borang14Controller::class, 'bukaKunci'])->name('borang-14.buka-kunci')->middleware('throttle:30,1');
     Route::get('/borang-14/senarai', [\App\Http\Controllers\Borang14Controller::class, 'senarai'])->name('borang-14.senarai');
     // Padam: rekod diarkibkan dahulu (borang14_deleted_forms) — semakan peranan
     // dalam pengawal, super_admin sahaja untuk rekod DITERBITKAN.
