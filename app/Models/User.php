@@ -26,6 +26,7 @@ class User extends Authenticatable
         'negeri_id',
         'bandar_id',
         'kadun_id',
+        'mpkk_id',
         'status',
         'approved_by',
         'approved_at',
@@ -84,6 +85,14 @@ class User extends Authenticatable
     public function kadun()
     {
         return $this->belongsTo(Kadun::class, 'kadun_id');
+    }
+
+    /**
+     * Get the MPKK that this user is tagged to (for activity monitoring).
+     */
+    public function mpkk()
+    {
+        return $this->belongsTo(Mpkk::class, 'mpkk_id');
     }
 
     /**

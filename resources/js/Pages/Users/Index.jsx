@@ -9,7 +9,7 @@ import Modal from '@/Components/Modal';
 import DangerButton from '@/Components/DangerButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 
-export default function Index({ users, stats, negeriList, bandarList, kadunList, filters: initialFilters }) {
+export default function Index({ users, stats, negeriList, bandarList, kadunList, mpkkList, filters: initialFilters }) {
     const { auth } = usePage().props;
     const currentUser = auth.user;
     const [selectedUsers, setSelectedUsers] = useState([]);
@@ -40,11 +40,13 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
         negeri_id: '',
         bandar_id: '',
         kadun_id: '',
+        mpkk_id: '',
     });
 
     // Cascading Dropdown State
     const [filteredBandar, setFilteredBandar] = useState([]);
     const [filteredKadun, setFilteredKadun] = useState([]);
+    const [filteredMpkk, setFilteredMpkk] = useState([]);
 
     // Reset form when modal closes
     useEffect(() => {
@@ -60,6 +62,7 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
                 negeri_id: '',
                 bandar_id: '',
                 kadun_id: '',
+                mpkk_id: '',
             });
         }
     }, [showCreateModal, editingUser]);
@@ -78,6 +81,7 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
                 negeri_id: editingUser.negeri_id,
                 bandar_id: editingUser.bandar_id,
                 kadun_id: editingUser.kadun_id,
+                mpkk_id: editingUser.mpkk_id || '',
             });
         }
     }, [editingUser]);
@@ -98,6 +102,14 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
             setFilteredKadun([]);
         }
     }, [formData.bandar_id, kadunList]);
+
+    useEffect(() => {
+        if (formData.kadun_id) {
+            setFilteredMpkk(mpkkList.filter(m => m.kadun_id == formData.kadun_id));
+        } else {
+            setFilteredMpkk([]);
+        }
+    }, [formData.kadun_id, mpkkList]);
 
     // Handle Filter Changes
     const handleFilterChange = (key, value) => {
@@ -414,6 +426,11 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
                                             <div className="text-xs text-slate-700 font-medium">{user.negeri?.nama || '-'}</div>
                                             <div className="text-xs text-slate-500">{user.bandar?.nama || '-'}</div>
                                             <div className="text-xs text-slate-500">{user.kadun?.nama || '-'}</div>
+                                            {user.mpkk?.nama && (
+                                                <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-teal-100 text-teal-800">
+                                                    MPKK: {user.mpkk.nama}
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="py-4 px-6">
                                             <div className="flex flex-col space-y-1">
@@ -610,7 +627,7 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
                                         <InputLabel value="DUN" required />
                                         <select
                                             value={formData.kadun_id}
-                                            onChange={(e) => setFormData({ ...formData, kadun_id: e.target.value })}
+                                            onChange={(e) => setFormData({ ...formData, kadun_id: e.target.value, mpkk_id: '' })}
                                             className="w-full mt-1 border-slate-300 rounded-lg focus:ring-slate-400 focus:border-slate-400"
                                             required
                                             disabled={!formData.bandar_id}
@@ -620,6 +637,23 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
                                                 <option key={k.id} value={k.id}>{k.nama}</option>
                                             ))}
                                         </select>
+                                    </div>
+                                    <div>
+                                        <InputLabel value="Tag MPKK" />
+                                        <select
+                                            value={formData.mpkk_id}
+                                            onChange={(e) => setFormData({ ...formData, mpkk_id: e.target.value })}
+                                            className="w-full mt-1 border-slate-300 rounded-lg focus:ring-slate-400 focus:border-slate-400"
+                                            disabled={!formData.kadun_id}
+                                        >
+                                            <option value="">Tiada</option>
+                                            {filteredMpkk.map(m => (
+                                                <option key={m.id} value={m.id}>{m.nama}</option>
+                                            ))}
+                                        </select>
+                                        <p className="mt-1.5 text-xs text-slate-500">
+                                            Untuk memantau aktiviti pengguna ini mengikut MPKK.
+                                        </p>
                                     </div>
                                 </div>
                             </div>

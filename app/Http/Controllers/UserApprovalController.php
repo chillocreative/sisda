@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Mpkk;
 use App\Models\User;
 use App\Services\WhatsappService;
 use Illuminate\Http\Request;
@@ -34,6 +35,7 @@ class UserApprovalController extends Controller
 
         return Inertia::render('UserApproval/Index', [
             'pendingUsers' => $pendingUsers,
+            'mpkkList' => Mpkk::orderBy('nama')->get(['id', 'nama', 'kadun_id']),
         ]);
     }
 
@@ -56,11 +58,16 @@ class UserApprovalController extends Controller
             }
         }
 
+        $request->validate([
+            'mpkk_id' => 'nullable|exists:mpkk,id',
+        ]);
+
         // Update user status
         $user->update([
             'status' => 'approved',
             'approved_by' => $currentUser->id,
             'approved_at' => now(),
+            'mpkk_id' => $request->mpkk_id,
         ]);
 
         WhatsappService::sendTemplate('sys_user_approved', $user->telephone, [

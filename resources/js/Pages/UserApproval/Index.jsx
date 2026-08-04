@@ -7,19 +7,22 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import DangerButton from '@/Components/DangerButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 
-export default function Index({ pendingUsers }) {
+export default function Index({ pendingUsers, mpkkList }) {
     const [processing, setProcessing] = useState(null);
     const [confirmingUser, setConfirmingUser] = useState(null);
     const [actionType, setActionType] = useState(null); // 'approve' or 'reject'
+    const [selectedMpkkId, setSelectedMpkkId] = useState('');
 
     const confirmAction = (user, type) => {
         setConfirmingUser(user);
         setActionType(type);
+        setSelectedMpkkId('');
     };
 
     const closeModal = () => {
         setConfirmingUser(null);
         setActionType(null);
+        setSelectedMpkkId('');
     };
 
     const executeAction = () => {
@@ -29,14 +32,21 @@ export default function Index({ pendingUsers }) {
         setProcessing(userId);
 
         const routeName = actionType === 'approve' ? 'user-approval.approve' : 'user-approval.reject';
+        const payload = actionType === 'approve' ? { mpkk_id: selectedMpkkId || null } : {};
 
-        router.post(route(routeName, userId), {}, {
+        router.post(route(routeName, userId), payload, {
             onFinish: () => {
                 setProcessing(null);
                 closeModal();
             },
         });
     };
+
+    // Tag MPKK dibataskan kepada DUN pengguna yang menunggu kelulusan supaya
+    // admin tidak tersalah label pengguna daripada kawasan lain.
+    const mpkkOptionsForUser = confirmingUser
+        ? mpkkList.filter((m) => m.kadun_id == confirmingUser.kadun_id)
+        : [];
 
     const formatDate = (dateString) => {
         return new Date(dateString).toLocaleDateString('ms-MY', {
@@ -203,6 +213,27 @@ export default function Index({ pendingUsers }) {
                             ? `Adakah anda pasti mahu meluluskan pengguna ${confirmingUser?.name}? Pengguna akan mendapat akses ke sistem.`
                             : `Adakah anda pasti mahu menolak pengguna ${confirmingUser?.name}? Pengguna tidak akan mendapat akses ke sistem.`}
                     </p>
+
+                    {actionType === 'approve' && (
+                        <div className="mt-4">
+                            <label className="block text-sm font-medium text-slate-700">
+                                Tag sebagai MPKK <span className="text-slate-400 font-normal">(pilihan)</span>
+                            </label>
+                            <select
+                                value={selectedMpkkId}
+                                onChange={(e) => setSelectedMpkkId(e.target.value)}
+                                className="w-full mt-1 border-slate-300 rounded-lg focus:ring-slate-400 focus:border-slate-400"
+                            >
+                                <option value="">Tiada</option>
+                                {mpkkOptionsForUser.map((m) => (
+                                    <option key={m.id} value={m.id}>{m.nama}</option>
+                                ))}
+                            </select>
+                            <p className="mt-1.5 text-xs text-slate-500">
+                                Digunakan untuk memantau aktiviti pengguna ini mengikut MPKK.
+                            </p>
+                        </div>
+                    )}
 
                     <div className="mt-6 flex justify-end space-x-3">
                         <SecondaryButton onClick={closeModal}>

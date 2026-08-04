@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Hash;
 use App\Models\Negeri;
 use App\Models\Bandar;
 use App\Models\Kadun;
+use App\Models\Mpkk;
 use Illuminate\Validation\Rules;
 
 class UsersController extends Controller
@@ -22,7 +23,7 @@ class UsersController extends Controller
     public function index(Request $request)
     {
         $user = auth()->user();
-        $query = User::with(['negeri', 'bandar', 'kadun'])->orderBy('created_at', 'desc');
+        $query = User::with(['negeri', 'bandar', 'kadun', 'mpkk'])->orderBy('created_at', 'desc');
 
         // Admin Restriction: Only view users in their Parlimen (Bandar) and hide Super Admins
         if ($user->isAdmin()) {
@@ -60,6 +61,10 @@ class UsersController extends Controller
             $query->where('kadun_id', $request->kadun_id);
         }
 
+        if ($request->filled('mpkk_id')) {
+            $query->where('mpkk_id', $request->mpkk_id);
+        }
+
         $users = $query->get();
         
         $statsQuery = User::query();
@@ -80,7 +85,8 @@ class UsersController extends Controller
             'negeriList' => Negeri::orderBy('nama')->get(),
             'bandarList' => Bandar::orderBy('nama')->get(),
             'kadunList' => Kadun::orderBy('nama')->get(),
-            'filters' => $request->only(['search', 'role', 'status', 'negeri_id', 'bandar_id', 'kadun_id']),
+            'mpkkList' => Mpkk::orderBy('nama')->get(['id', 'nama', 'kadun_id']),
+            'filters' => $request->only(['search', 'role', 'status', 'negeri_id', 'bandar_id', 'kadun_id', 'mpkk_id']),
         ]);
     }
 
@@ -110,6 +116,7 @@ class UsersController extends Controller
             'negeri_id' => 'required|exists:negeri,id',
             'bandar_id' => 'required|exists:bandar,id',
             'kadun_id' => 'required|exists:kadun,id',
+            'mpkk_id' => 'nullable|exists:mpkk,id',
             'status' => 'required|in:pending,approved,rejected',
         ]);
 
@@ -132,6 +139,7 @@ class UsersController extends Controller
             'negeri_id' => $request->negeri_id,
             'bandar_id' => $request->bandar_id,
             'kadun_id' => $request->kadun_id,
+            'mpkk_id' => $request->mpkk_id,
             'status' => $request->status,
             'approved_by' => $request->status === 'approved' ? auth()->id() : null,
             'approved_at' => $request->status === 'approved' ? now() : null,
@@ -184,6 +192,7 @@ class UsersController extends Controller
             'negeri_id' => 'required|exists:negeri,id',
             'bandar_id' => 'required|exists:bandar,id',
             'kadun_id' => 'required|exists:kadun,id',
+            'mpkk_id' => 'nullable|exists:mpkk,id',
             'status' => 'required|in:pending,approved,rejected',
         ]);
 
