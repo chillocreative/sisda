@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Kadun;
 use App\Models\Mpkk;
+use App\Models\Negeri;
 use App\Models\User;
 use App\Services\WhatsappService;
 use Illuminate\Http\Request;
@@ -33,9 +35,30 @@ class UserApprovalController extends Controller
 
         $pendingUsers = $query->paginate(15);
 
+        // Tag sebagai MPKK cuma tersedia untuk Pulau Pinang — itu satu-satunya
+        // negeri dengan data induk MPKK setakat ini. Admin memilih DUN > MPKK
+        // secara aktif semasa kelulusan, bukan bersandar semata-mata pada
+        // kadun_id yang didaftarkan pengguna.
+        $pulauPinang = Negeri::pulauPinang()->first();
+
+        $kadunList = collect();
+        $mpkkList = collect();
+
+        if ($pulauPinang) {
+            $kadunList = Kadun::whereHas('bandar', fn ($q) => $q->where('negeri_id', $pulauPinang->id))
+                ->orderBy('nama')
+                ->get(['id', 'nama', 'bandar_id']);
+
+            $mpkkList = Mpkk::whereHas('kadun.bandar', fn ($q) => $q->where('negeri_id', $pulauPinang->id))
+                ->orderBy('nama')
+                ->get(['id', 'nama', 'kadun_id']);
+        }
+
         return Inertia::render('UserApproval/Index', [
             'pendingUsers' => $pendingUsers,
-            'mpkkList' => Mpkk::orderBy('nama')->get(['id', 'nama', 'kadun_id']),
+            'kadunList' => $kadunList,
+            'mpkkList' => $mpkkList,
+            'pulauPinangNegeriId' => $pulauPinang?->id,
         ]);
     }
 
@@ -61,6 +84,14 @@ class UserApprovalController extends Controller
         $request->validate([
             'mpkk_id' => 'nullable|exists:mpkk,id',
         ]);
+
+        if ($request->filled('mpkk_id')) {
+            $validMpkk = Mpkk::whereKey($request->mpkk_id)
+                ->whereHas('kadun.bandar.negeri', fn ($n) => $n->pulauPinang())
+                ->exists();
+
+            abort_unless($validMpkk, 422, 'MPKK yang dipilih tidak sah.');
+        }
 
         // Update user status
         $user->update([

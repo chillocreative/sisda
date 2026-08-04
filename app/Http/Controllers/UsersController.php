@@ -85,7 +85,12 @@ class UsersController extends Controller
             'negeriList' => Negeri::orderBy('nama')->get(),
             'bandarList' => Bandar::orderBy('nama')->get(),
             'kadunList' => Kadun::orderBy('nama')->get(),
-            'mpkkList' => Mpkk::orderBy('nama')->get(['id', 'nama', 'kadun_id']),
+            // Tag sebagai MPKK cuma berkaitan untuk Pulau Pinang — satu-satunya
+            // negeri dengan data induk MPKK setakat ini.
+            'mpkkList' => Mpkk::whereHas('kadun.bandar.negeri', fn ($n) => $n->pulauPinang())
+                ->orderBy('nama')
+                ->get(['id', 'nama', 'kadun_id']),
+            'pulauPinangNegeriId' => Negeri::pulauPinang()->value('id'),
             'filters' => $request->only(['search', 'role', 'status', 'negeri_id', 'bandar_id', 'kadun_id', 'mpkk_id']),
         ]);
     }
@@ -119,6 +124,8 @@ class UsersController extends Controller
             'mpkk_id' => 'nullable|exists:mpkk,id',
             'status' => 'required|in:pending,approved,rejected',
         ]);
+
+        $this->assertMpkkScope($request->mpkk_id);
 
         // Admin Restriction: Cannot create Super Admin or user outside their Parlimen
         if ($currentUser->isAdmin()) {
@@ -196,6 +203,8 @@ class UsersController extends Controller
             'status' => 'required|in:pending,approved,rejected',
         ]);
 
+        $this->assertMpkkScope($request->mpkk_id);
+
         if (! empty($validated['password'])) {
             $validated['password'] = Hash::make($validated['password']);
         } else {
@@ -221,6 +230,24 @@ class UsersController extends Controller
         $user->update($validated);
 
         return redirect()->route('users.index')->with('success', 'Pengguna berjaya dikemaskini');
+    }
+
+    /**
+     * Tag sebagai MPKK cuma berkaitan untuk Pulau Pinang — satu-satunya
+     * negeri dengan data induk MPKK setakat ini. Frontend sudah menghadkan
+     * pilihan, ini hanya pertahanan lapisan kedua di sisi pelayan.
+     */
+    private function assertMpkkScope(?int $mpkkId): void
+    {
+        if (! $mpkkId) {
+            return;
+        }
+
+        $validMpkk = Mpkk::whereKey($mpkkId)
+            ->whereHas('kadun.bandar.negeri', fn ($n) => $n->pulauPinang())
+            ->exists();
+
+        abort_unless($validMpkk, 422, 'MPKK yang dipilih tidak sah.');
     }
 
     /**

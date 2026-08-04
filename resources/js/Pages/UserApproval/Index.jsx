@@ -7,21 +7,28 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import DangerButton from '@/Components/DangerButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 
-export default function Index({ pendingUsers, mpkkList }) {
+export default function Index({ pendingUsers, kadunList, mpkkList, pulauPinangNegeriId }) {
     const [processing, setProcessing] = useState(null);
     const [confirmingUser, setConfirmingUser] = useState(null);
     const [actionType, setActionType] = useState(null); // 'approve' or 'reject'
+    const [selectedKadunId, setSelectedKadunId] = useState('');
     const [selectedMpkkId, setSelectedMpkkId] = useState('');
 
     const confirmAction = (user, type) => {
         setConfirmingUser(user);
         setActionType(type);
+        // Pra-isi DUN daripada pendaftaran pengguna jika ia terletak di Pulau
+        // Pinang; jika tidak, admin memilih sendiri — bukan bergantung diam-
+        // diam pada kadun_id yang mungkin tidak berkaitan dengan MPKK.
+        const prefillKadun = kadunList.some((k) => k.id == user.kadun_id) ? String(user.kadun_id) : '';
+        setSelectedKadunId(prefillKadun);
         setSelectedMpkkId('');
     };
 
     const closeModal = () => {
         setConfirmingUser(null);
         setActionType(null);
+        setSelectedKadunId('');
         setSelectedMpkkId('');
     };
 
@@ -42,10 +49,12 @@ export default function Index({ pendingUsers, mpkkList }) {
         });
     };
 
-    // Tag MPKK dibataskan kepada DUN pengguna yang menunggu kelulusan supaya
-    // admin tidak tersalah label pengguna daripada kawasan lain.
-    const mpkkOptionsForUser = confirmingUser
-        ? mpkkList.filter((m) => m.kadun_id == confirmingUser.kadun_id)
+    // Tag sebagai MPKK cuma berkaitan untuk pengguna di Pulau Pinang — satu-
+    // satunya negeri dengan data induk MPKK setakat ini.
+    const isPulauPinangUser = !!(confirmingUser && pulauPinangNegeriId && confirmingUser.negeri_id == pulauPinangNegeriId);
+
+    const mpkkOptionsForKadun = selectedKadunId
+        ? mpkkList.filter((m) => m.kadun_id == selectedKadunId)
         : [];
 
     const formatDate = (dateString) => {
@@ -214,22 +223,38 @@ export default function Index({ pendingUsers, mpkkList }) {
                             : `Adakah anda pasti mahu menolak pengguna ${confirmingUser?.name}? Pengguna tidak akan mendapat akses ke sistem.`}
                     </p>
 
-                    {actionType === 'approve' && (
-                        <div className="mt-4">
-                            <label className="block text-sm font-medium text-slate-700">
-                                Tag sebagai MPKK <span className="text-slate-400 font-normal">(pilihan)</span>
-                            </label>
-                            <select
-                                value={selectedMpkkId}
-                                onChange={(e) => setSelectedMpkkId(e.target.value)}
-                                className="w-full mt-1 border-slate-300 rounded-lg focus:ring-slate-400 focus:border-slate-400"
-                            >
-                                <option value="">Tiada</option>
-                                {mpkkOptionsForUser.map((m) => (
-                                    <option key={m.id} value={m.id}>{m.nama}</option>
-                                ))}
-                            </select>
-                            <p className="mt-1.5 text-xs text-slate-500">
+                    {actionType === 'approve' && isPulauPinangUser && (
+                        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700">DUN</label>
+                                <select
+                                    value={selectedKadunId}
+                                    onChange={(e) => { setSelectedKadunId(e.target.value); setSelectedMpkkId(''); }}
+                                    className="w-full mt-1 border-slate-300 rounded-lg focus:ring-slate-400 focus:border-slate-400"
+                                >
+                                    <option value="">Pilih DUN</option>
+                                    {kadunList.map((k) => (
+                                        <option key={k.id} value={k.id}>{k.nama}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700">
+                                    Tag sebagai MPKK <span className="text-slate-400 font-normal">(pilihan)</span>
+                                </label>
+                                <select
+                                    value={selectedMpkkId}
+                                    onChange={(e) => setSelectedMpkkId(e.target.value)}
+                                    className="w-full mt-1 border-slate-300 rounded-lg focus:ring-slate-400 focus:border-slate-400"
+                                    disabled={!selectedKadunId}
+                                >
+                                    <option value="">Tiada</option>
+                                    {mpkkOptionsForKadun.map((m) => (
+                                        <option key={m.id} value={m.id}>{m.nama}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <p className="sm:col-span-2 -mt-2 text-xs text-slate-500">
                                 Digunakan untuk memantau aktiviti pengguna ini mengikut MPKK.
                             </p>
                         </div>

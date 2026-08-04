@@ -9,7 +9,7 @@ import Modal from '@/Components/Modal';
 import DangerButton from '@/Components/DangerButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 
-export default function Index({ users, stats, negeriList, bandarList, kadunList, mpkkList, filters: initialFilters }) {
+export default function Index({ users, stats, negeriList, bandarList, kadunList, mpkkList, pulauPinangNegeriId, filters: initialFilters }) {
     const { auth } = usePage().props;
     const currentUser = auth.user;
     const [selectedUsers, setSelectedUsers] = useState([]);
@@ -598,7 +598,7 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
                                         <InputLabel value="Negeri" required />
                                         <select
                                             value={formData.negeri_id}
-                                            onChange={(e) => setFormData({ ...formData, negeri_id: e.target.value, bandar_id: '', kadun_id: '' })}
+                                            onChange={(e) => setFormData({ ...formData, negeri_id: e.target.value, bandar_id: '', kadun_id: '', mpkk_id: '' })}
                                             className="w-full mt-1 border-slate-300 rounded-lg focus:ring-slate-400 focus:border-slate-400"
                                             required
                                         >
@@ -638,23 +638,25 @@ export default function Index({ users, stats, negeriList, bandarList, kadunList,
                                             ))}
                                         </select>
                                     </div>
-                                    <div>
-                                        <InputLabel value="Tag MPKK" />
-                                        <select
-                                            value={formData.mpkk_id}
-                                            onChange={(e) => setFormData({ ...formData, mpkk_id: e.target.value })}
-                                            className="w-full mt-1 border-slate-300 rounded-lg focus:ring-slate-400 focus:border-slate-400"
-                                            disabled={!formData.kadun_id}
-                                        >
-                                            <option value="">Tiada</option>
-                                            {filteredMpkk.map(m => (
-                                                <option key={m.id} value={m.id}>{m.nama}</option>
-                                            ))}
-                                        </select>
-                                        <p className="mt-1.5 text-xs text-slate-500">
-                                            Untuk memantau aktiviti pengguna ini mengikut MPKK.
-                                        </p>
-                                    </div>
+                                    {formData.negeri_id == pulauPinangNegeriId && (
+                                        <div>
+                                            <InputLabel value="Tag MPKK" />
+                                            <select
+                                                value={formData.mpkk_id}
+                                                onChange={(e) => setFormData({ ...formData, mpkk_id: e.target.value })}
+                                                className="w-full mt-1 border-slate-300 rounded-lg focus:ring-slate-400 focus:border-slate-400"
+                                                disabled={!formData.kadun_id}
+                                            >
+                                                <option value="">Tiada</option>
+                                                {filteredMpkk.map(m => (
+                                                    <option key={m.id} value={m.id}>{m.nama}</option>
+                                                ))}
+                                            </select>
+                                            <p className="mt-1.5 text-xs text-slate-500">
+                                                Untuk memantau aktiviti pengguna ini mengikut MPKK.
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
