@@ -617,9 +617,11 @@ class MasterDataController extends Controller
 
         $mpkk = $query->orderBy('nama', 'asc')->paginate(15);
         
-        // Admin can only see DUN in their Parlimen, Super Admin can see all
-        $kadunList = $user->isSuperAdmin() 
-            ? Kadun::with('bandar')->orderBy('nama')->get()
+        // MPKK cuma wujud sebagai data induk untuk Pulau Pinang, jadi senarai
+        // DUN untuk borang MPKK dihadkan kepada Pulau Pinang sahaja — Admin
+        // dihadkan lagi kepada Parlimen mereka sendiri.
+        $kadunList = $user->isSuperAdmin()
+            ? Kadun::with('bandar')->whereHas('bandar', fn ($q) => $q->whereHas('negeri', fn ($n) => $n->pulauPinang()))->orderBy('nama')->get()
             : Kadun::with('bandar')->where('bandar_id', $user->bandar_id)->orderBy('nama')->get();
             
         $selectedKadun = $kadunId ? Kadun::with('bandar')->find($kadunId) : null;
@@ -649,6 +651,8 @@ class MasterDataController extends Controller
             'kadun_id' => 'required|exists:kadun,id',
             'kuota_parti' => 'nullable|string|max:50',
         ]);
+
+        $this->assertKadunInPulauPinang($validated['kadun_id']);
 
         // Admin Restriction: Can only add MPKK to DUN in their assigned Parlimen
         if ($user->isAdmin()) {
@@ -690,6 +694,8 @@ class MasterDataController extends Controller
             'kuota_parti' => 'nullable|string|max:50',
         ]);
 
+        $this->assertKadunInPulauPinang($validated['kadun_id']);
+
         // Admin Restriction: Cannot move MPKK to DUN in another Parlimen
         if ($user->isAdmin()) {
             $kadun = Kadun::find($validated['kadun_id']);
@@ -705,6 +711,20 @@ class MasterDataController extends Controller
             : route('master-data.mpkk.index');
 
         return redirect($redirectRoute)->with('success', 'MPKK berjaya dikemaskini');
+    }
+
+    /**
+     * MPKK cuma wujud sebagai data induk untuk Pulau Pinang. Frontend sudah
+     * menghadkan senarai DUN yang dipaparkan; ini pertahanan lapisan kedua
+     * di sisi pelayan supaya MPKK tidak dapat dicipta di bawah DUN negeri lain.
+     */
+    private function assertKadunInPulauPinang(int $kadunId): void
+    {
+        $valid = Kadun::whereKey($kadunId)
+            ->whereHas('bandar.negeri', fn ($n) => $n->pulauPinang())
+            ->exists();
+
+        abort_unless($valid, 422, 'DUN yang dipilih bukan di Pulau Pinang.');
     }
 
     /**
